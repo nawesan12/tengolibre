@@ -15,6 +15,13 @@
 	<header class="barra">
 		<button class="boton menu" aria-expanded={menu} aria-controls="nav-panel" onclick={() => (menu = !menu)}>Menú</button>
 		<strong>{data.negocio.nombre}</strong>
+		<form method="GET" action="/panel/buscar" role="search" class="buscar">
+			<label for="buscar-panel" class="visualmente-oculto">Buscar en el panel</label>
+			<input id="buscar-panel" type="search" name="q" placeholder="Buscar" minlength="2" />
+		</form>
+		<a class="boton campanita" href="/panel/notificaciones" aria-label={data.sinLeer ? `Notificaciones, ${data.sinLeer} sin ver` : 'Notificaciones'}>
+			Avisos{#if data.sinLeer}<span class="contador" aria-hidden="true">{data.sinLeer > 99 ? '99+' : data.sinLeer}</span>{/if}
+		</a>
 		<a class="boton" href={`/${data.negocio.slug}`} target="_blank" rel="noopener">Ver mi página</a>
 	</header>
 
@@ -71,6 +78,27 @@
 	.menu {
 		display: none;
 	}
+	.barra > strong {
+		margin-right: auto;
+	}
+	.buscar input {
+		font: inherit;
+		min-height: 40px;
+		width: 180px;
+		padding: 8px 10px;
+		border: 1px solid var(--borde);
+		border-radius: 8px;
+	}
+	.contador {
+		min-width: 20px;
+		padding: 0 6px;
+		border-radius: 999px;
+		background: var(--peligro);
+		color: #fff;
+		font-size: 12px;
+		line-height: 20px;
+		text-align: center;
+	}
 	nav {
 		padding: 12px;
 		border-right: 1px solid var(--borde);
@@ -111,6 +139,16 @@
 		}
 		.menu {
 			display: inline-flex;
+		}
+		.barra {
+			flex-wrap: wrap;
+		}
+		.buscar {
+			order: 10;
+			flex-basis: 100%;
+		}
+		.buscar input {
+			width: 100%;
 		}
 		nav {
 			display: none;
