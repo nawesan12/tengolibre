@@ -1,0 +1,9 @@
+# /opt/tengolibre/api.conf (chmod 600). Las claves reales están en CREDENCIALES.md (PROD_*).
+TENGOLIBRE_ENTORNO=produccion
+TENGOLIBRE_DIRECCION=:4200
+TENGOLIBRE_SITIO=https://tengolibre.com.ar
+TENGOLIBRE_BASE_DE_DATOS=postgres://tengolibre_app:CLAVE_APP@postgres:5432/tengolibre?sslmode=disable
+TENGOLIBRE_BASE_DE_DATOS_MIGRADOR=postgres://tengolibre_migrador:CLAVE_MIGRADOR@postgres:5432/tengolibre?sslmode=disable
+TENGOLIBRE_BASE_DE_DATOS_ADMIN=postgres://postgres:CLAVE_POSTGRES@postgres:5432/postgres?sslmode=disable
+TENGOLIBRE_CLAVE_APP=CLAVE_APP
+TENGOLIBRE_CLAVE_MIGRADOR=CLAVE_MIGRADOR

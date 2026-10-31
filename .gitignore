@@ -1,0 +1,5 @@
+CREDENCIALES.md
+.env
+*.local
+/apps/api/bin/
+.DS_Store

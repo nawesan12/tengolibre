@@ -1,0 +1,26 @@
+# TengoLibre (compose en /opt/tengolibre). Cloudflare hace de DNS/proxy; el certificado es el de
+# origen de Cloudflare para tengolibre.com.ar y *.tengolibre.com.ar.
+#
+# 80/443 están abiertos a todo el mundo (dominios propios de Corredor): `solo_cloudflare` corta lo
+# que no venga de Cloudflare. El snippet vive en /etc/caddy/sitios/00-cloudflare.caddy (compartido).
+
+api.tengolibre.com.ar {
+	tls /etc/caddy/certs/tengolibre.pem /etc/caddy/certs/tengolibre.key
+	import solo_cloudflare
+	encode zstd gzip
+	request_body {
+		max_size 10MB
+	}
+	reverse_proxy 127.0.0.1:4200
+}
+
+# Hasta que esté el front (SvelteKit en 127.0.0.1:3400), una página de "próximamente".
+tengolibre.com.ar, www.tengolibre.com.ar {
+	tls /etc/caddy/certs/tengolibre.pem /etc/caddy/certs/tengolibre.key
+	import solo_cloudflare
+	@www host www.tengolibre.com.ar
+	redir @www https://tengolibre.com.ar{uri} permanent
+	encode zstd gzip
+	root * /opt/tengolibre/proximamente
+	file_server
+}

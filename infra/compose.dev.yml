@@ -1,0 +1,19 @@
+# Desarrollo local de la API Go: Postgres 17.
+# docker compose -f infra/compose.dev.yml up -d
+name: tengolibre
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: tengolibre
+      # Sólo escucha en localhost: sin contraseña.
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: tengolibre
+    ports: ['127.0.0.1:5446:5432']
+    volumes: [pg:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tengolibre']
+      interval: 2s
+      retries: 30
+volumes:
+  pg:

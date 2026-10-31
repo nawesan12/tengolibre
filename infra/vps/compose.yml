@@ -1,0 +1,31 @@
+# TengoLibre en el VPS (/opt/tengolibre). Postgres propio; la api es un binario estático montado en
+# una alpine (se despliega subiendo bin/*.nuevo y haciendo mv: el binario en uso no se pisa).
+# Publicado sólo en 127.0.0.1: Docker se saltea UFW. Puertos reservados: 4200 api, 3400 web.
+name: tengolibre
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg
+    volumes:
+      - ./pg:/var/lib/postgresql/data
+      - ./pg.secret:/run/secrets/pg:ro
+    mem_limit: 256m
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      retries: 30
+  api:
+    image: alpine:3.20
+    restart: unless-stopped
+    command: ['/app/api']
+    env_file: ./api.conf
+    volumes:
+      - ./bin:/app:ro
+    ports: ['127.0.0.1:4200:4200']
+    mem_limit: 128m
+    depends_on:
+      postgres:
+        condition: service_healthy
