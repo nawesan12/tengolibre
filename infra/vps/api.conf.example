@@ -7,3 +7,8 @@ TENGOLIBRE_BASE_DE_DATOS_MIGRADOR=postgres://tengolibre_migrador:CLAVE_MIGRADOR@
 TENGOLIBRE_BASE_DE_DATOS_ADMIN=postgres://postgres:CLAVE_POSTGRES@postgres:5432/postgres?sslmode=disable
 TENGOLIBRE_CLAVE_APP=CLAVE_APP
 TENGOLIBRE_CLAVE_MIGRADOR=CLAVE_MIGRADOR
+# Correo del worker: el servidor de correo propio del VPS (hola@tengolibre.com.ar), con TLS.
+TENGOLIBRE_SMTP=HOST_DEL_CORREO:465
+TENGOLIBRE_SMTP_USUARIO=hola@tengolibre.com.ar
+TENGOLIBRE_SMTP_CLAVE=CLAVE_SMTP
+TENGOLIBRE_CORREO_DE=TengoLibre <hola@tengolibre.com.ar>
