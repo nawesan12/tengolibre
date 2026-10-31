@@ -24,7 +24,13 @@ export default defineConfig({
 		{
 			command: 'cd ../api && go run ./cmd/tengolibrectl migrar && go run ./cmd/api',
 			url: `${API}/salud/listo`,
-			env: { TENGOLIBRE_DIRECCION: `:${PA}`, TENGOLIBRE_ENTORNO: 'desarrollo', TENGOLIBRE_SITIO: WEB },
+			// TENGOLIBRE_ADMINS: una persona de prueba fija del equipo, para probar /admin (e2e/cuenta.spec.ts).
+			env: {
+				TENGOLIBRE_DIRECCION: `:${PA}`,
+				TENGOLIBRE_ENTORNO: 'desarrollo',
+				TENGOLIBRE_SITIO: WEB,
+				TENGOLIBRE_ADMINS: 'user_e2eadmin00000001'
+			},
 			reuseExistingServer: !process.env.CI,
 			timeout: 180_000
 		},
