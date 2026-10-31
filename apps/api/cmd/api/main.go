@@ -11,15 +11,22 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/admin"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/arranque"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/avisos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/catalogo"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/clientes"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/directorio"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/dominios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/espera"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/grupos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/invitaciones"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/miweb"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/reportes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/resenas"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/turnos"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/config"
@@ -73,6 +80,13 @@ func correr() error {
 				&espera.Servicio{Pool: app, Sesion: ses},
 				&invitaciones.Servicio{Pool: app, Sesion: ses},
 				&auditoria.Servicio{Pool: app, Sesion: ses},
+				&archivos.Servicio{Pool: app, Sesion: ses, Carpeta: cfg.Archivos, URLBase: cfg.ArchivosURL},
+				&miweb.Servicio{Pool: app, Sesion: ses},
+				&dominios.Servicio{Pool: app, Sesion: ses, Destino: cfg.DominiosDestino, IP: cfg.VPSIP},
+				&directorio.Servicio{Pool: app, Sesion: ses},
+				&grupos.Servicio{Pool: app, Sesion: ses},
+				&arranque.Servicio{Pool: app, Sesion: ses},
+				&admin.Servicio{Pool: app, Sesion: ses, Admins: cfg.Admins},
 			}}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

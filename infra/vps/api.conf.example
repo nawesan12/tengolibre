@@ -12,3 +12,11 @@ TENGOLIBRE_SMTP=HOST_DEL_CORREO:465
 TENGOLIBRE_SMTP_USUARIO=hola@tengolibre.com.ar
 TENGOLIBRE_SMTP_CLAVE=CLAVE_SMTP
 TENGOLIBRE_CORREO_DE=TengoLibre <hola@tengolibre.com.ar>
+# Imágenes subidas (carpeta dentro del contenedor, montada desde /opt/tengolibre/archivos).
+TENGOLIBRE_ARCHIVOS=/datos/archivos
+TENGOLIBRE_ARCHIVOS_URL=https://api.tengolibre.com.ar/archivos
+# Equipo de TengoLibre (admin de la plataforma): Clerk IDs separados por coma.
+TENGOLIBRE_ADMINS=
+# Dominios propios: destino del CNAME (registro DNS-only, sin proxy de Cloudflare) e IP del VPS.
+TENGOLIBRE_DOMINIOS_DESTINO=dominios.tengolibre.com.ar
+TENGOLIBRE_VPS_IP=187.41.102.190
