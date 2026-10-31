@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/catalogo"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/clientes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/disponibilidad"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
@@ -333,6 +334,18 @@ func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora ti
 	clienteID, err := clienteDe(ctx, tx, in.Cliente)
 	if err != nil {
 		return Turno{}, err
+	}
+	// Con una penalidad vigente (por ausencias, o puesta a mano) no se reserva desde la web; desde el
+	// panel sí, porque ahí decide el negocio.
+	if origen == "web" {
+		penalizado, err := clientes.Penalizado(ctx, tx, clienteID)
+		if err != nil {
+			return Turno{}, err
+		}
+		if penalizado {
+			return Turno{}, problema.Conflicto("cliente_penalizado",
+				"Por ausencias anteriores no podés reservar online por ahora. Escribile al negocio.")
+		}
 	}
 	estado := "pendiente"
 	if origen == "panel" {
