@@ -11,7 +11,9 @@
 		nombre,
 		valor,
 		opciones,
-		sino = false
+		sino = false,
+		deshabilitado = false,
+		clave
 	}: {
 		etiqueta: string;
 		ayuda: string;
@@ -19,8 +21,12 @@
 		valor: number | boolean;
 		opciones?: Opcion[];
 		sino?: boolean;
+		/** Se ve pero no se puede cambiar (p. ej. WhatsApp sin configurar en la plataforma). */
+		deshabilitado?: boolean;
+		/** Para el id del campo cuando el mismo nombre se repite en la página. */
+		clave?: string;
 	} = $props();
-	const id = $derived(`aj-${nombre}`);
+	const id = $derived(`aj-${clave ?? nombre}`);
 	// Sin palabra sola en el último renglón: la última va pegada a la anterior.
 	const pegar = (s: string) => s.replace(/ (\S+)$/, ' $1');
 	// svelte-ignore state_referenced_locally
@@ -40,12 +46,12 @@
 	</label>
 	{#if sino}
 		<span class="g-valor sino" class:si={marcado}>
-			<input class="visualmente-oculto" type="checkbox" role="switch" {id} name={nombre} bind:checked={marcado} />
+			<input class="visualmente-oculto" type="checkbox" role="switch" {id} name={nombre} bind:checked={marcado} disabled={deshabilitado} />
 			<span aria-hidden="true">{marcado ? 'Sí' : 'No'}</span>
 			<span class="icono lleno" aria-hidden="true">{marcado ? 'toggle_on' : 'toggle_off'}</span>
 		</span>
 	{:else}
-		<select class="g-valor" {id} name={nombre}>
+		<select class="g-valor" {id} name={nombre} disabled={deshabilitado}>
 			{#each lista as o (o.valor)}<option value={o.valor} selected={o.valor === valor}>{o.texto}</option>{/each}
 		</select>
 	{/if}
@@ -102,6 +108,11 @@
 		opacity: 0;
 		margin: 0;
 		cursor: pointer;
+	}
+	.sino:has(input:disabled),
+	select:disabled {
+		opacity: 0.55;
+		cursor: not-allowed;
 	}
 	.sino:has(input:focus-visible) {
 		outline: 3px solid var(--tl-menta);

@@ -47,7 +47,8 @@ test('profesional con horario y un día bloqueado: se refleja en los horarios li
 	await expect(page.getByLabel('Nombre de Corte')).toBeVisible();
 
 	await abrir(page, '/panel/equipo');
-	await page.getByText('Sumar un profesional').click();
+	// Sin profesionales, «Sumar un profesional» ya viene abierto.
+	await expect(page.locator('details#sumar')).toHaveAttribute('open', '');
 	await page.getByLabel('Nombre').fill('Ana Gómez');
 	await page.getByLabel('Especialidad').fill('Barbera');
 	await expect(page.getByLabel('Corte')).toBeChecked();
@@ -281,5 +282,57 @@ test('plantillas: el borrador se prueba en la vista previa y se publica', async 
 	await expect(page.getByRole('heading', { name: /Integraciones e/ })).toBeVisible();
 	await expect(page.getByRole('link', { name: /Mercado Pago/ })).toHaveAttribute('href', '/panel/pagos');
 	await expect(page.getByRole('link', { name: /Google Calendar/ })).toHaveAttribute('href', '/panel/calendario/suscribirse');
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+	// El asistente de IA: sumar Claude da una clave (una sola vez) y los permisos se guardan solos.
+	await page.getByRole('button', { name: 'Sumar Claude' }).click();
+	await expect(page.getByRole('status').filter({ hasText: 'no se vuelve a' })).toContainText('tlmcp_');
+	const cancelar = page.getByRole('switch', { name: /Cancelar turnos/ });
+	await expect(cancelar).not.toBeChecked();
+	await cancelar.check();
+	await expect(page.getByRole('status').filter({ hasText: 'Guardamos qué puede hacer.' })).toBeVisible();
+	await page.reload();
+	await expect(page.getByRole('switch', { name: /Cancelar turnos/ })).toBeChecked();
+	await expect(page.getByText('Esperando conexión')).toBeVisible();
+});
+
+test('productos: se cargan en Servicios y quedan tras recargar', async ({ page }) => {
+	await negocioNuevo(page);
+
+	await abrir(page, '/panel/servicios');
+	const productos = seccion(page, 'Productos');
+	const alta = productos.getByRole('form', { name: 'Agregar producto' });
+	await alta.getByLabel('Nombre del producto').fill('Sérum de pestañas');
+	await alta.getByLabel('Stock (opcional)').fill('4');
+	await alta.getByLabel('Precio del producto').fill('9.000');
+	await alta.getByRole('button', { name: 'Agregar producto' }).click();
+	await expect(productos.getByLabel('Nombre del producto Sérum de pestañas')).toBeVisible();
+
+	await page.reload();
+	await expect(productos.getByLabel('Nombre del producto Sérum de pestañas')).toHaveValue('Sérum de pestañas');
+	await expect(productos.getByLabel('Precio de Sérum de pestañas en pesos')).toHaveValue('9.000');
+	await expect(productos.getByLabel(/Stock de Sérum de pestañas/)).toHaveValue('4');
+});
+
+test('configuración: lista de espera, recordatorio y WhatsApp se guardan solos', async ({ page }) => {
+	await negocioNuevo(page);
+	await abrir(page, '/panel/configuracion');
+
+	const espera = seccion(page, 'Lista de espera');
+	await espera.getByLabel('Tiempo para tomarlo').selectOption('45');
+	await expect(espera.getByRole('status')).toHaveText('Guardamos cómo se ofrece la lista de espera.');
+
+	const recordatorios = seccion(page, 'Recordatorios');
+	const cumple = recordatorios.getByRole('form', { name: 'Cumpleaños' });
+	await cumple.getByRole('switch').check();
+	await expect(cumple.getByRole('status')).toHaveText('Guardamos el recordatorio.');
+
+	// Sin WhatsApp en la plataforma (local), la opción se ve pero no se puede prender.
+	const whatsapp = page.getByRole('form', { name: 'WhatsApp' });
+	await expect(whatsapp.getByRole('switch', { name: /Pedir confirmación por WhatsApp/ })).toBeDisabled();
+
+	await page.reload();
+	await expect(page.getByLabel('Tiempo para tomarlo')).toHaveValue('45');
+	await expect(page.getByRole('form', { name: 'Cumpleaños' }).getByRole('switch')).toBeChecked();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
