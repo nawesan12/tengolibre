@@ -18,7 +18,7 @@ export const load: PageServerLoad = async ({ locals, url, cookies, fetch }) => {
 	if (volverValido(volver)) cookies.set(COOKIE_VOLVER, volver, { path: '/', httpOnly: true, sameSite: 'lax', maxAge: 900 });
 	if (locals.token) redirect(303, volverValido(volver) ? volver : '/panel');
 	// Viene de la reserva de un negocio: es un socio, no alguien que entra a su panel.
-	const socio = volverValido(volver) && !/^\/(panel|admin|empezar|invitacion|mi-cuenta)/.test(volver);
+	const socio = volverValido(volver) && !/^\/(panel|admin|empezar|invitacion|mi-cuenta|conectar)/.test(volver);
 	return {
 		fapi: fapiDe(PUBLIC_CLERK_PUBLICABLE),
 		prueba: conPrueba(),
