@@ -58,7 +58,11 @@ func En(s string) time.Time {
 }
 
 // Armar levanta todo. Ahora: domingo 1/11/2026 a las 10.
-func Armar(t *testing.T) *Entorno {
+func Armar(t *testing.T) *Entorno { return ArmarCon(t, nil) }
+
+// ArmarCon es Armar más los dominios de otro test (p. ej. la lista de espera), que reciben el
+// servicio de turnos con sus extras.
+func ArmarCon(t *testing.T, mas func(a *prueba.API, tur *turnos.Servicio) []servidor.Dominio) *Entorno {
 	e := &Entorno{Avisos: map[string][]string{}}
 	e.MP = mpfalso.Nuevo(t)
 	clave := make([]byte, 32)
@@ -81,13 +85,17 @@ func Armar(t *testing.T) *Entorno {
 		e.Cobros = cob
 		pro := &promos.Servicio{Pool: app, Sesion: a.Sesion, Escritura: sus.Escritura, Ahora: reloj}
 		mem := &membresias.Servicio{Pool: app, Sesion: a.Sesion, Escritura: sus.Escritura, Ahora: reloj}
-		return []servidor.Dominio{
+		// El orden de los extras importa: la membresía cubre, el cupón descuenta, el cobro cobra lo que queda.
+		tur := &turnos.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj, Avisar: avisar, Extras: []turnos.Extra{mem, pro, cob}}
+		ds := []servidor.Dominio{
 			&negocios.Servicio{Pool: app, Sesion: a.Sesion},
 			&catalogo.Servicio{Pool: app, Sesion: a.Sesion},
-			// El orden de los extras importa: la membresía cubre, el cupón descuenta, el cobro cobra lo que queda.
-			&turnos.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj, Avisar: avisar, Extras: []turnos.Extra{mem, pro, cob}},
-			cob, pro, mem, sus,
+			tur, cob, pro, mem, sus,
 		}
+		if mas != nil {
+			ds = append(ds, mas(a, tur)...)
+		}
+		return ds
 	})
 	var n negocios.Negocio
 	e.Esperar(http.StatusCreated, P{Metodo: "POST", Ruta: "/v1/negocios", Quien: Duenia,

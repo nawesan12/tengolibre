@@ -70,7 +70,9 @@ func correr() error {
 		slog.Error("push: la cuenta de FCM no sirve, no se mandan avisos a Android", "error", err)
 	}
 	ps := push.Nuevo(app, cliAPNs, cliFCM, slog.Default())
-	p := &trabajos.Planificador{Pool: app, Trabajos: append(tj.Lista(env), rs.Trabajo(), ps.Trabajo())}
+	// Ofrecer el hueco solo: cuando vence el link de una persona sin respuesta, pasa a la siguiente.
+	es := &espera.Servicio{Pool: app}
+	p := &trabajos.Planificador{Pool: app, Trabajos: append(tj.Lista(env), rs.Trabajo(), ps.Trabajo(), es.Trabajo())}
 	slog.Info("worker andando", "entorno", cfg.Entorno, "smtp", cfg.SMTP != "")
 	p.Correr(ctx, 5*time.Second)
 	return nil

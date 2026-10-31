@@ -1,6 +1,7 @@
 // Package espera: la lista de espera. El cliente se anota desde la página pública (un servicio, un
-// profesional si le importa, y entre qué días); el panel la ve y avisa a mano, y cuando se libera
-// un horario que le sirve (un turno cancelado o reprogramado), el aviso sale solo.
+// profesional si le importa, entre qué días y en qué momento del día); el panel la ve y avisa a mano,
+// y cuando se libera un horario que le sirve (un turno cancelado o reprogramado) se le ofrece a una
+// persona por vez (ofertas.go).
 package espera
 
 import (
@@ -13,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/avisos"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/turnos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
@@ -25,6 +27,9 @@ type Servicio struct {
 	Pool   *db.Pool
 	Sesion *sesion.Servicio
 	Ahora  func() time.Time
+	// Turnos reserva cuando alguien toma el lugar (o recepción se lo da). nil: tomar no anda (el
+	// worker no lo necesita).
+	Turnos *turnos.Servicio
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -41,26 +46,45 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/panel/espera", m(s.listar))
 	mux.HandleFunc("POST /v1/panel/espera/{id}/avisar", m(s.avisarManual))
 	mux.HandleFunc("DELETE /v1/panel/espera/{id}", m(s.borrar))
+	// Ofrecer el hueco a una persona por vez.
+	mux.HandleFunc("GET /v1/panel/espera/candidatos", m(s.candidatosPanel))
+	mux.HandleFunc("GET /v1/panel/espera/ofertas", m(s.listarOfertas))
+	mux.HandleFunc("POST /v1/panel/espera/ofertas", m(s.ofrecer))
+	mux.HandleFunc("GET /v1/panel/espera/ofertas/{id}", m(s.verOferta))
+	mux.HandleFunc("POST /v1/panel/espera/ofertas/{id}/frenar", m(s.frenar))
+	mux.HandleFunc("POST /v1/panel/espera/ofertas/{id}/cargar", m(s.cargar))
+	mux.HandleFunc("GET /v1/panel/ajustes/espera", m(s.verAjustes))
+	mux.HandleFunc("PUT /v1/panel/ajustes/espera", s.Sesion.Panel(sesion.Gestion, web.Envolver(s.guardarAjustes)))
+	// El link del mail (el token es el secreto).
+	mux.HandleFunc("GET /v1/espera/{token}", web.Envolver(s.verLink))
+	mux.HandleFunc("POST /v1/espera/{token}/tomar", web.Envolver(s.tomar))
+	mux.HandleFunc("POST /v1/espera/{token}/pasar", web.Envolver(s.pasar))
 }
 
 // Anotado en la lista.
 type Anotado struct {
-	ID            string     `json:"id"`
-	ServicioID    string     `json:"servicioId"`
-	Servicio      string     `json:"servicio"`
-	ProfesionalID *string    `json:"profesionalId"`
-	Profesional   *string    `json:"profesional"`
-	Nombre        string     `json:"nombre"`
-	Email         string     `json:"email"`
-	Telefono      string     `json:"telefono"`
-	Desde         string     `json:"desde"`
-	Hasta         string     `json:"hasta"`
-	AvisadoEn     *time.Time `json:"avisadoEn"`
-	CreadoEn      time.Time  `json:"creadoEn"`
+	ID            string  `json:"id"`
+	ServicioID    string  `json:"servicioId"`
+	Servicio      string  `json:"servicio"`
+	ProfesionalID *string `json:"profesionalId"`
+	Profesional   *string `json:"profesional"`
+	Nombre        string  `json:"nombre"`
+	Email         string  `json:"email"`
+	Telefono      string  `json:"telefono"`
+	Desde         string  `json:"desde"`
+	Hasta         string  `json:"hasta"`
+	// Momento: cualquiera, manana (antes de las 13) o tarde.
+	Momento   string     `json:"momento"`
+	AvisadoEn *time.Time `json:"avisadoEn"`
+	CreadoEn  time.Time  `json:"creadoEn"`
+	// Resultado de la última vez que se le ofreció un hueco: ofrecida (tiene el link ahora), tomada,
+	// paso, vencida (no respondió) o cancelada. nil: nunca se le ofreció.
+	Resultado *string `json:"resultado"`
 }
 
 const columnas = `e.id::text, e.servicio_id::text, s.nombre, e.profesional_id::text, p.nombre, e.nombre, e.email, e.telefono,
-	to_char(e.desde, 'YYYY-MM-DD'), to_char(e.hasta, 'YYYY-MM-DD'), e.avisado_en, e.creado_en`
+	to_char(e.desde, 'YYYY-MM-DD'), to_char(e.hasta, 'YYYY-MM-DD'), e.momento, e.avisado_en, e.creado_en,
+	(SELECT i.estado FROM oferta_intentos i WHERE i.espera_id = e.id AND i.ofrecida_en IS NOT NULL ORDER BY i.ofrecida_en DESC LIMIT 1)`
 
 const desde = ` FROM espera e JOIN servicios s ON s.id = e.servicio_id LEFT JOIN profesionales p ON p.id = e.profesional_id`
 
@@ -83,9 +107,16 @@ func (s *Servicio) anotarse(w http.ResponseWriter, r *http.Request) error {
 		Telefono      string `json:"telefono"`
 		Desde         string `json:"desde"`
 		Hasta         string `json:"hasta"`
+		Momento       string `json:"momento"`
 	}
 	if err := web.Leer(w, r, &in); err != nil {
 		return err
+	}
+	if in.Momento == "" {
+		in.Momento = "cualquiera"
+	}
+	if in.Momento != "cualquiera" && in.Momento != "manana" && in.Momento != "tarde" {
+		return problema.Invalido("El momento va como cualquiera, manana o tarde.", problema.Campo{Ruta: "momento", Mensaje: "inválido"})
 	}
 	in.Nombre, in.Email, in.Telefono = strings.TrimSpace(in.Nombre), strings.ToLower(strings.TrimSpace(in.Email)), strings.TrimSpace(in.Telefono)
 	if n := utf8.RuneCountInString(in.Nombre); n < 1 || n > 80 {
@@ -141,9 +172,9 @@ func (s *Servicio) anotarse(w http.ResponseWriter, r *http.Request) error {
 			}
 		}
 		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO espera (negocio_id, servicio_id, profesional_id, nombre, email, telefono, desde, hasta)
-			VALUES (app.negocio_actual(), $1, nullif($2, '')::uuid, $3, $4, $5, $6, $7) RETURNING id::text`,
-			in.ServicioID, in.ProfesionalID, in.Nombre, in.Email, in.Telefono, in.Desde, in.Hasta).Scan(&id); err != nil {
+		if err := tx.QueryRow(ctx, `INSERT INTO espera (negocio_id, servicio_id, profesional_id, nombre, email, telefono, desde, hasta, momento)
+			VALUES (app.negocio_actual(), $1, nullif($2, '')::uuid, $3, $4, $5, $6, $7, $8) RETURNING id::text`,
+			in.ServicioID, in.ProfesionalID, in.Nombre, in.Email, in.Telefono, in.Desde, in.Hasta, in.Momento).Scan(&id); err != nil {
 			return err
 		}
 		if err := leer(ctx, tx, id, &a); err != nil {
@@ -160,8 +191,16 @@ func (s *Servicio) anotarse(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	// Al cliente no le mostramos su id: no tiene nada que hacer con él.
-	web.JSON(w, http.StatusCreated, map[string]any{"servicio": a.Servicio, "desde": a.Desde, "hasta": a.Hasta})
+	web.JSON(w, http.StatusCreated, map[string]any{"servicio": a.Servicio, "desde": a.Desde, "hasta": a.Hasta, "momento": a.Momento})
 	return nil
+}
+
+// primerNombre: "Martina Gómez" → "Martina".
+func primerNombre(nombre string) string {
+	if f := strings.Fields(nombre); len(f) > 0 {
+		return f[0]
+	}
+	return nombre
 }
 
 func leer(ctx context.Context, tx pgx.Tx, id string, a *Anotado) error {
@@ -170,7 +209,7 @@ func leer(ctx context.Context, tx pgx.Tx, id string, a *Anotado) error {
 
 func escanear(f pgx.Row, a *Anotado) error {
 	return f.Scan(&a.ID, &a.ServicioID, &a.Servicio, &a.ProfesionalID, &a.Profesional, &a.Nombre, &a.Email, &a.Telefono,
-		&a.Desde, &a.Hasta, &a.AvisadoEn, &a.CreadoEn)
+		&a.Desde, &a.Hasta, &a.Momento, &a.AvisadoEn, &a.CreadoEn, &a.Resultado)
 }
 
 // listar: los que siguen esperando (sin aviso y con el rango vigente); con ?todos=1, también los
@@ -267,40 +306,5 @@ func (s *Servicio) borrar(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	w.WriteHeader(http.StatusNoContent)
-	return nil
-}
-
-// Hasta cuántos de la lista se avisan por cada horario liberado: el primero que reserve se lo lleva,
-// y avisarle a toda la lista sería prometerle a muchos un lugar que es de uno.
-const porHorario = 5
-
-// Liberado es el gancho para avisos.Servicio.AlLiberarse: en la misma transacción que el aviso del
-// turno, encola el mail a los primeros de la lista que esperan ese servicio (y ese profesional, o
-// cualquiera) para ese día, y los marca avisados.
-func Liberado(ctx context.Context, tx pgx.Tx, l avisos.Liberado) error {
-	fecha := l.Inicio.In(l.Zona).Format(time.DateOnly)
-	filas, err := tx.Query(ctx, `SELECT id::text, email FROM espera
-		WHERE servicio_id::text = $1 AND (profesional_id IS NULL OR profesional_id::text = $2) AND avisado_en IS NULL
-			AND $3::date BETWEEN desde AND hasta
-		ORDER BY creado_en LIMIT $4 FOR UPDATE SKIP LOCKED`, l.ServicioID, l.ProfesionalID, fecha, porHorario)
-	if err != nil {
-		return err
-	}
-	type anotado struct{ ID, Email string }
-	as, err := pgx.CollectRows(filas, pgx.RowToStructByPos[anotado])
-	if err != nil {
-		return err
-	}
-	ahora := l.Ahora
-	for _, a := range as {
-		inicio := l.Inicio.UTC().Format(time.RFC3339Nano)
-		if _, err := avisos.Encolar(ctx, tx, avisos.Aviso{Tipo: avisos.Espera, Para: a.Email, Clave: "espera:" + a.ID + ":" + inicio,
-			Datos: map[string]any{"espera": a.ID, "inicio": inicio, "profesional": l.Profesional}}, ahora); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, "UPDATE espera SET avisado_en = $2 WHERE id::text = $1", a.ID, ahora); err != nil {
-			return err
-		}
-	}
 	return nil
 }
