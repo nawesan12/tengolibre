@@ -22,3 +22,9 @@ TENGOLIBRE_ADMINS_EMAILS=
 # Dominios propios: destino del CNAME (registro DNS-only, sin proxy de Cloudflare) e IP del VPS.
 TENGOLIBRE_DOMINIOS_DESTINO=dominios.tengolibre.com.ar
 TENGOLIBRE_VPS_IP=187.41.102.190
+
+# Push al teléfono (lo usa el worker). Sin esto, apagado.
+TENGOLIBRE_APNS_KEY_ID=ZXZDZ763W6
+TENGOLIBRE_APNS_TEAM_ID=M6935MSNQB
+TENGOLIBRE_APNS_CLAVE=/claves/apns.p8
+TENGOLIBRE_FCM_CUENTA=/claves/fcm.json

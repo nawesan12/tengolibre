@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="icon" href="marca/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL@24,500,1&display=block" rel="stylesheet">
+<style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#fffdf9;font-family:Lato,sans-serif;color:#0f2328;-webkit-font-smoothing:antialiased}a{color:#17805a}a:hover{color:#183c44}h1,h2,h3{text-wrap:balance}p{text-wrap:pretty}.material-symbols-rounded{font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;display:inline-block;white-space:nowrap;font-feature-settings:'liga'}input:focus-visible,button:focus-visible,a:focus-visible{outline:3px solid #3ccc90;outline-offset:2px}details>summary{list-style:none}details>summary::-webkit-details-marker{display:none}@keyframes tl-raya{to{background-position:28px 0}}@keyframes tl-pulse{50%{opacity:.35}}@keyframes tl-marquee{to{transform:translateX(-50%)}}@keyframes tl-flota{50%{transform:rotate(10deg) translateY(-10px)}}@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}</style>
+</helmet>
+<sc-if value="{{ esLanding }}" hint-placeholder-val="{{ true }}">
+<div style="overflow-x:hidden">
+  <header style="position:relative;background-color:#183c44;background-image:{{ grano }},radial-gradient(50% 60% at 50% 0%,rgba(60,204,144,.22),transparent 70%);color:#fff;padding-bottom:clamp(40px,6vw,72px)">
+    <nav style="position:relative;z-index:3;max-width:1320px;margin:0 auto;padding:0 clamp(20px,4vw,48px);height:84px;display:flex;align-items:center;gap:28px">
+      <a href="#" aria-label="Tengo Libre, inicio" style="flex:1;display:flex"><img src="marca/logotipo_horizontal_negativo.svg" alt="Tengo Libre" style="height:28px;width:auto"></a>
+      <sc-if value="{{ L.anchoNav }}"><span style="display:flex;gap:28px;font-size:15px;font-weight:700"><a href="#como" style="color:rgba(255,255,255,.85);text-decoration:none">Cómo funciona</a><a href="#precios" style="color:rgba(255,255,255,.85);text-decoration:none">Precios</a><a href="#app" style="display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,.85);text-decoration:none"><span class="material-symbols-rounded" style="font-size:18px;color:#3ccc90">smartphone</span>Bajá la app</a><a href="Cuenta y accesos v2.dc.html#1a" style="color:rgba(255,255,255,.85);text-decoration:none">Ingresar</a></span></sc-if>
+      <button onClick="{{ irAlta }}" style="height:48px;padding:0 22px;border:0;border-radius:999px;background:#3ccc90;color:#102b31;font:900 15px Lato,sans-serif;cursor:pointer;white-space:nowrap;flex:none">Empezar gratis</button>
+    </nav>
+    <div style="position:relative;max-width:1320px;margin:0 auto;padding:clamp(16px,3vw,32px) clamp(12px,3vw,40px) 0">
+      <div style="position:relative;padding-top:clamp(44px,5vw,58px)">
+        <button onClick="{{ irAlta }}" style="position:absolute;left:50%;top:0;z-index:3;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:clamp(220px,26vw,320px);height:clamp(88px,9vw,116px);border:0;border-radius:clamp(22px,2.4vw,32px);background:#3ccc90;color:#102b31;box-shadow:0 0 0 clamp(10px,1.2vw,16px) #183c44,0 30px 50px -10px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.5);font-family:Lato,sans-serif;cursor:pointer;transition:transform .15s cubic-bezier(.2,.7,.2,1)" style-hover="transform:translateX(-50%) translateY(-3px)"><span style="font-size:12px;font-weight:900;letter-spacing:.08em">7 DÍAS GRATIS · SIN TARJETA</span><span style="display:inline-flex;align-items:center;gap:8px;font-size:clamp(20px,2.2vw,26px);font-weight:900;letter-spacing:-0.02em">Empezar ahora<span class="material-symbols-rounded" style="font-size:26px">arrow_forward</span></span></button>
+        <div style="position:relative;overflow:hidden;border-radius:clamp(32px,4.4vw,64px);background-color:#f4eee2;background-image:{{ granoOsc }},radial-gradient(rgba(24,60,68,.12) 1.2px,transparent 1.5px);background-size:auto,20px 20px;color:#0f2328;padding:clamp(88px,10vw,140px) clamp(20px,4vw,56px) 0;text-align:center;box-shadow:inset 0 2px 0 rgba(255,255,255,.7),0 60px 120px -60px rgba(0,0,0,.8)">
+          <h1 style="margin:0 auto;max-width:9.5em;font-size:clamp(58px,11vw,176px);line-height:.86;font-weight:900;letter-spacing:-0.06em">Llená cada <span style="position:relative;white-space:nowrap"><span aria-hidden="true" style="position:absolute;left:-.06em;right:-.06em;top:.52em;height:.36em;border-radius:.12em;background:repeating-linear-gradient(-45deg,#3ccc90 0 4px,rgba(60,204,144,.35) 4px 12px);background-size:34px 34px;animation:tl-raya 2.4s linear infinite;z-index:0"></span><span style="position:relative">hueco.</span></span></h1>
+          <p style="margin:clamp(20px,2.4vw,32px) auto 0;max-width:26em;font-size:clamp(18px,1.7vw,22px);line-height:1.45;color:#33474b">Tus clientes reservan y pagan la seña solos. Vos&nbsp;atendés.</p>
+          <div style="margin-top:28px;display:flex;flex-wrap:wrap;justify-content:center;gap:12px"><a href="#app" style="display:inline-flex;align-items:center;gap:10px;height:56px;padding:0 18px 0 14px;border-radius:14px;background:#0b1214;color:#fff;text-decoration:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2),0 10px 24px -14px rgba(0,0,0,.7)"><img src="apps/web/static/logos/apple.svg" alt="" width="24" height="24" style="filter:invert(1)"><span style="display:flex;flex-direction:column;line-height:1.05;text-align:left"><span style="font-size:11px;opacity:.85">Descargala en</span><b style="font-size:18px;font-weight:900">App Store</b></span></a><a href="#app" style="display:inline-flex;align-items:center;gap:10px;height:56px;padding:0 18px 0 14px;border-radius:14px;background:#0b1214;color:#fff;text-decoration:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2),0 10px 24px -14px rgba(0,0,0,.7)"><span style="width:22px;height:24px;background:linear-gradient(160deg,#3ccc90 0 35%,#2f9be0 35% 60%,#f5c518 60%);clip-path:polygon(0 0,100% 50%,0 100%)"></span><span style="display:flex;flex-direction:column;line-height:1.05;text-align:left"><span style="font-size:11px;opacity:.85">Disponible en</span><b style="font-size:18px;font-weight:900">Google Play</b></span></a></div>
+          <div style="position:relative;margin:clamp(48px,6vw,80px) calc(-1 * clamp(20px,4vw,56px)) 0;padding:0 0 clamp(28px,3vw,40px);-webkit-mask:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)">
+            <div style="display:flex;gap:14px;width:max-content;animation:tl-marquee 48s linear infinite"><sc-for list="{{ tira }}" as="t" hint-placeholder-count="8"><span style="flex:none;display:grid;grid-template-columns:88px auto;min-height:78px;border-radius:20px;background:radial-gradient(circle at 88px 0,#f4eee2 9px,transparent 9.5px),radial-gradient(circle at 88px 100%,#f4eee2 9px,transparent 9.5px),{{ t.bg }};box-shadow:{{ t.sh }};color:{{ t.c }};text-align:left"><b style="display:flex;align-items:center;justify-content:center;border-right:2px dashed {{ t.tro }};font-size:22px;font-weight:900;font-variant-numeric:tabular-nums">{{ t.h }}</b><span style="display:flex;flex-direction:column;justify-content:center;gap:2px;padding:0 22px 0 16px"><b style="font-size:15px;white-space:nowrap">{{ t.n }}</b><span style="display:inline-flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap;color:{{ t.sc }}"><span class="material-symbols-rounded" style="font-size:15px">{{ t.ic }}</span>{{ t.s }}</span></span></span></sc-for></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px 32px;padding-top:clamp(32px,4vw,48px)"><span style="font-size:12px;font-weight:900;letter-spacing:.08em;color:rgba(255,255,255,.6)">FUNCIONA CON</span><sc-for list="{{ integraciones }}" as="i"><span style="display:inline-flex;align-items:center;gap:10px;font-size:16px;font-weight:700;color:rgba(255,255,255,.9)"><span style="width:38px;height:38px;border-radius:11px;background:#fff;display:grid;place-items:center;box-shadow:0 8px 18px -10px rgba(0,0,0,.6)"><img src="{{ i.src }}" alt="" width="22" height="22"></span>{{ i.n }}</span></sc-for></div>
+    </div>
+  </header>
+  <div aria-hidden="true" style="position:relative;height:28px;background:linear-gradient(#183c44 0 50%,#fffdf9 50%)"><span style="position:absolute;left:-14px;top:0;width:28px;height:28px;border-radius:50%;background:#fffdf9"></span><span style="position:absolute;right:-14px;top:0;width:28px;height:28px;border-radius:50%;background:#fffdf9"></span><span style="position:absolute;left:40px;right:40px;top:13px;border-top:2px dashed rgba(127,150,150,.35)"></span></div>
+
+  <section id="como" style="max-width:1320px;margin:0 auto;padding:clamp(64px,9vw,120px) clamp(20px,4vw,48px) 0;display:flex;flex-direction:column;gap:44px">
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:24px"><div style="display:flex;flex-direction:column;gap:14px;max-width:720px"><span style="font-size:13px;font-weight:900;letter-spacing:.08em;color:#17805a">CÓMO FUNCIONA</span><h2 style="margin:0;font-size:clamp(38px,5.4vw,72px);line-height:.95;font-weight:900;letter-spacing:-0.045em">Tres pasos. La agenda se ocupa&nbsp;sola.</h2></div><button onClick="{{ irAlta }}" style="display:inline-flex;align-items:center;gap:10px;height:60px;padding:0 30px;border:0;border-radius:999px;background:#102b31;color:#fff;font:900 18px Lato,sans-serif;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 16px 32px -14px rgba(15,35,40,.8);transition:transform .15s cubic-bezier(.2,.7,.2,1)" style-hover="transform:translateY(-2px)">Crear mi página<span class="material-symbols-rounded" style="font-size:22px">arrow_forward</span></button></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:16px">
+      <article style="position:relative;overflow:hidden;display:flex;flex-direction:column;gap:20px;padding:32px;border-radius:36px;background-color:#f4eee2;background-image:{{ granoOsc }},radial-gradient(rgba(24,60,68,.1) 1.2px,transparent 1.4px);background-size:auto,18px 18px;box-shadow:inset 0 2px 0 rgba(255,255,255,.7)">
+        <span style="font-size:88px;line-height:.8;font-weight:900;letter-spacing:-0.06em;color:transparent;-webkit-text-stroke:2px #183c44;font-variant-numeric:tabular-nums">01</span>
+        <div style="display:flex;flex-direction:column;gap:8px"><h3 style="margin:0;font-size:28px;line-height:1.05;font-weight:900;letter-spacing:-0.025em">Compartís tu&nbsp;link</h3><p style="margin:0;font-size:16px;line-height:1.5;color:#33474b">En Instagram, en WhatsApp y con un QR en el&nbsp;mostrador.</p></div>
+        <div style="margin-top:auto;display:flex;align-items:center;gap:14px;padding:14px;border-radius:22px;background:#fffdf9;box-shadow:0 18px 36px -24px rgba(15,35,40,.6)"><span role="img" aria-label="Código QR" style="width:68px;height:68px;flex:none;border-radius:12px;background:repeating-linear-gradient(90deg,#183c44 0 5px,transparent 5px 8px),repeating-linear-gradient(0deg,#183c44 0 5px,transparent 5px 8px),#fffdf9;opacity:.9"></span><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:11px;font-weight:900;letter-spacing:.08em;color:#17805a">TU PÁGINA</span><b style="font-size:17px;font-variant-numeric:tabular-nums">tengolibre.com.ar/lumi</b></span></div>
+      </article>
+      <article style="position:relative;overflow:hidden;display:flex;flex-direction:column;gap:20px;padding:32px;border-radius:36px;background-color:#183c44;background-image:{{ grano }},radial-gradient(80% 60% at 100% 0%,rgba(60,204,144,.25),transparent 70%);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)">
+        <span style="font-size:88px;line-height:.8;font-weight:900;letter-spacing:-0.06em;color:transparent;-webkit-text-stroke:2px #3ccc90;font-variant-numeric:tabular-nums">02</span>
+        <div style="display:flex;flex-direction:column;gap:8px"><h3 style="margin:0;font-size:28px;line-height:1.05;font-weight:900;letter-spacing:-0.025em">Reservan y pagan la&nbsp;seña</h3><p style="margin:0;font-size:16px;line-height:1.5;color:rgba(255,255,255,.8)">Sin crear cuenta, en menos de un&nbsp;minuto.</p></div>
+        <div style="margin-top:auto;display:grid;grid-template-columns:92px minmax(0,1fr);min-height:80px;border-radius:20px;background:radial-gradient(circle at 92px 0,#183c44 9px,transparent 9.5px),radial-gradient(circle at 92px 100%,#183c44 9px,transparent 9.5px),#fffdf9;color:#0f2328;box-shadow:0 20px 40px -20px rgba(0,0,0,.6)"><span style="display:flex;flex-direction:column;justify-content:center;padding:0 16px;border-right:2px dashed #e2d6bf"><span style="font-size:11px;font-weight:900;letter-spacing:.08em;color:#17805a">SÁB 7</span><b style="font-size:26px;font-weight:900;font-variant-numeric:tabular-nums">11:00</b></span><span style="display:flex;flex-direction:column;justify-content:center;padding:0 16px"><b style="font-size:15px">Lifting con Abril</b><span style="display:inline-flex;align-items:center;gap:4px;font-size:13px;color:#17805a;font-weight:700"><span class="material-symbols-rounded" style="font-size:16px">check_circle</span>Seña de $ 6.600 pagada</span></span></div>
+      </article>
+      <article style="position:relative;overflow:hidden;display:flex;flex-direction:column;gap:20px;padding:32px;border-radius:36px;background-color:#3ccc90;background-image:{{ granoOsc }};color:#102b31;box-shadow:inset 0 2px 0 rgba(255,255,255,.45)">
+        <span style="font-size:88px;line-height:.8;font-weight:900;letter-spacing:-0.06em;color:transparent;-webkit-text-stroke:2px #102b31;font-variant-numeric:tabular-nums">03</span>
+        <div style="display:flex;flex-direction:column;gap:8px"><h3 style="margin:0;font-size:28px;line-height:1.05;font-weight:900;letter-spacing:-0.025em">Si cancelan, se llena&nbsp;solo</h3><p style="margin:0;font-size:16px;line-height:1.5">Le ofrecemos el lugar a quien espera. Vos no escribís a&nbsp;nadie.</p></div>
+        <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">
+          <span style="display:flex;align-items:center;gap:10px;min-height:52px;padding:0 16px;border-radius:16px;background:repeating-linear-gradient(-45deg,rgba(16,43,49,.2) 0 2px,transparent 2px 10px);background-size:28px 28px;animation:tl-raya 3.5s linear infinite;box-shadow:inset 0 0 0 1.5px rgba(16,43,49,.35)"><b style="font-size:16px;font-weight:900;font-variant-numeric:tabular-nums">15:30</b><span style="font-size:14px;font-weight:700">Se liberó con Mica</span></span>
+          <span style="display:flex;align-items:center;gap:10px;min-height:52px;padding:0 16px;border-radius:16px;background:#102b31;color:#fff;box-shadow:0 18px 30px -18px rgba(0,0,0,.6)"><img src="apps/web/static/logos/whatsapp.svg" alt="" width="22" height="22"><span style="font-size:14px"><b>Ana lo tomó</b> en 6 minutos</span></span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section id="app" style="max-width:1320px;margin:0 auto;padding:clamp(64px,9vw,120px) clamp(20px,4vw,48px) 0">
+    <div style="position:relative;overflow:hidden;display:grid;grid-template-columns:{{ L.split }};gap:clamp(32px,5vw,64px);align-items:center;border-radius:clamp(32px,4vw,56px);background-color:#102b31;background-image:{{ grano }},radial-gradient(60% 80% at 85% 60%,rgba(60,204,144,.3),transparent 70%);color:#fff;padding:clamp(36px,6vw,80px);box-shadow:inset 0 1px 0 rgba(255,255,255,.1)">
+      <img src="marca/simbolo_una_tinta_blanco.svg" alt="" aria-hidden="true" style="position:absolute;left:-80px;bottom:-120px;width:420px;opacity:.03;pointer-events:none">
+      <div style="position:relative;display:flex;flex-direction:column;gap:24px">
+        <span style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:900;letter-spacing:.08em;color:#3ccc90"><span class="material-symbols-rounded" style="font-size:18px">smartphone</span>LA APP</span>
+        <h2 style="margin:0;font-size:clamp(38px,5vw,68px);line-height:.95;font-weight:900;letter-spacing:-0.045em">Tu agenda, en el&nbsp;bolsillo.</h2>
+        <div style="display:flex;flex-direction:column;gap:12px"><sc-for list="{{ appPuntos }}" as="x"><span style="display:flex;align-items:center;gap:12px;font-size:18px;font-weight:700"><span style="width:36px;height:36px;flex:none;border-radius:11px;background:rgba(60,204,144,.16);display:grid;place-items:center"><span class="material-symbols-rounded" style="font-size:20px;color:#3ccc90">{{ x.ic }}</span></span>{{ x.t }}</span></sc-for></div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px"><a href="#app" style="display:inline-flex;align-items:center;gap:10px;height:56px;padding:0 18px 0 14px;border-radius:14px;background:#0b1214;color:#fff;text-decoration:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2),0 10px 24px -14px rgba(0,0,0,.7)"><img src="apps/web/static/logos/apple.svg" alt="" width="24" height="24" style="filter:invert(1)"><span style="display:flex;flex-direction:column;line-height:1.05;text-align:left"><span style="font-size:11px;opacity:.85">Descargala en</span><b style="font-size:18px;font-weight:900">App Store</b></span></a><a href="#app" style="display:inline-flex;align-items:center;gap:10px;height:56px;padding:0 18px 0 14px;border-radius:14px;background:#0b1214;color:#fff;text-decoration:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2),0 10px 24px -14px rgba(0,0,0,.7)"><span style="width:22px;height:24px;background:linear-gradient(160deg,#3ccc90 0 35%,#2f9be0 35% 60%,#f5c518 60%);clip-path:polygon(0 0,100% 50%,0 100%)"></span><span style="display:flex;flex-direction:column;line-height:1.05;text-align:left"><span style="font-size:11px;opacity:.85">Disponible en</span><b style="font-size:18px;font-weight:900">Google Play</b></span></a><sc-if value="{{ L.anchoNav }}"><span style="display:flex;align-items:center;gap:12px;padding:8px 14px 8px 8px;border-radius:16px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)"><span role="img" aria-label="Código QR para bajar la app" style="width:56px;height:56px;border-radius:10px;background:repeating-linear-gradient(90deg,#102b31 0 4px,transparent 4px 7px),repeating-linear-gradient(0deg,#102b31 0 4px,transparent 4px 7px),#fff"></span><span style="font-size:13px;line-height:1.35;color:rgba(255,255,255,.8);white-space:nowrap">Escaneala con<br>la cámara</span></span></sc-if></div>
+      </div>
+      <div style="position:relative;justify-self:center;width:min(100%,340px);padding:20px 0">
+        <img src="apps/web/static/marca-icono.png" alt="" aria-hidden="true" style="position:absolute;z-index:3;right:-34px;top:-6px;width:112px;height:112px;border-radius:28px;transform:rotate(10deg);box-shadow:0 30px 50px -16px rgba(0,0,0,.6);animation:tl-flota 6s ease-in-out infinite">
+        <div style="position:relative;width:300px;max-width:100%;margin:0 auto;aspect-ratio:300/620;border-radius:50px;padding:10px;background:linear-gradient(145deg,#2a3a3e,#0b1214);box-shadow:0 60px 90px -40px rgba(0,0,0,.9),inset 0 0 0 1.5px rgba(255,255,255,.12);transform:rotate(-5deg)">
+          <div style="position:relative;height:100%;overflow:hidden;border-radius:40px;background-color:#183c44;background-image:{{ grano }},radial-gradient(90% 50% at 50% 0%,rgba(60,204,144,.35),transparent 70%);display:flex;flex-direction:column;align-items:center;padding:20px 12px">
+            <span style="width:96px;height:28px;border-radius:999px;background:#0b1214"></span>
+            <span style="margin-top:28px;font-size:15px;font-weight:700;opacity:.85">lunes 2 de noviembre</span>
+            <b style="font-size:76px;line-height:1;font-weight:900;letter-spacing:-0.04em;font-variant-numeric:tabular-nums">10:12</b>
+            <div style="margin-top:auto;width:100%;display:flex;flex-direction:column;gap:8px"><sc-for list="{{ pushes }}" as="p"><div style="display:flex;gap:10px;padding:12px;border-radius:20px;background:rgba(255,253,249,{{ p.a }});color:#0f2328;box-shadow:0 14px 28px -16px rgba(0,0,0,.6);transform:scale({{ p.k }})"><img src="apps/web/static/marca-icono.png" alt="" width="34" height="34" style="border-radius:9px;flex:none"><span style="display:flex;flex-direction:column;gap:2px;min-width:0;text-align:left"><span style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#4a5d61"><span>TENGO LIBRE</span><span>{{ p.t }}</span></span><b style="font-size:14px">{{ p.h }}</b><span style="font-size:13px;line-height:1.3;color:#33474b">{{ p.s }}</span></span></div></sc-for></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="max-width:1320px;margin:0 auto;padding:clamp(64px,9vw,120px) clamp(20px,4vw,48px) 0">
+    <div style="position:relative;overflow:hidden;display:grid;grid-template-columns:{{ L.split }};border-radius:clamp(32px,4vw,56px);background-color:#f4eee2;background-image:{{ granoOsc }};box-shadow:inset 0 2px 0 rgba(255,255,255,.7)">
+      <div style="position:relative;min-height:360px"><img src="apps/web/static/fotos/peluquera-con-clienta.jpg" alt="Una peluquera atiende a una clienta" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:60% 50%"><span style="position:absolute;left:20px;bottom:20px;display:grid;grid-template-columns:84px auto;min-height:64px;border-radius:18px;background:repeating-linear-gradient(-45deg,rgba(60,204,144,.45) 0 2px,rgba(255,253,249,.92) 2px 10px);color:#0f3d2b;box-shadow:0 20px 40px -16px rgba(0,0,0,.6)"><b style="display:flex;align-items:center;justify-content:center;border-right:2px dashed rgba(23,128,90,.4);font-size:22px;font-weight:900;font-variant-numeric:tabular-nums">15:30</b><span style="display:flex;align-items:center;padding:0 18px;font-size:15px;font-weight:900">Silla vacía</span></span></div>
+      <div style="padding:clamp(32px,5vw,64px);display:flex;flex-direction:column;gap:24px;justify-content:center">
+        <span style="font-size:13px;font-weight:900;letter-spacing:.08em;color:#17805a">HACÉ LA CUENTA</span>
+        <h2 style="margin:0;font-size:clamp(34px,4.4vw,58px);line-height:.98;font-weight:900;letter-spacing:-0.045em">¿Cuánto te cuestan los&nbsp;huecos?</h2>
+        <label style="display:flex;flex-direction:column;gap:8px"><span style="display:flex;justify-content:space-between;font-size:16px;font-weight:700"><span>Turnos perdidos por semana</span><b style="color:#17805a;font-variant-numeric:tabular-nums">{{ calc.n }}</b></span><input type="range" min="1" max="15" value="{{ calc.n }}" onChange="{{ calc.setN }}" aria-label="Turnos perdidos por semana" style="width:100%;accent-color:#17805a;height:32px"></label>
+        <label style="display:flex;flex-direction:column;gap:8px"><span style="display:flex;justify-content:space-between;font-size:16px;font-weight:700"><span>Precio promedio</span><b style="color:#17805a;font-variant-numeric:tabular-nums">{{ calc.precioTxt }}</b></span><input type="range" min="4000" max="40000" step="1000" value="{{ calc.p }}" onChange="{{ calc.setP }}" aria-label="Precio promedio del turno" style="width:100%;accent-color:#17805a;height:32px"></label>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;padding:20px 20px 20px 24px;border-radius:24px;background-color:#183c44;background-image:{{ grano }};color:#fff"><span style="display:flex;flex-direction:column;gap:4px"><span style="font-size:14px;color:rgba(255,255,255,.8)">Por mes se te escapan</span><b style="font-size:clamp(34px,4vw,52px);line-height:1;font-weight:900;letter-spacing:-0.035em;font-variant-numeric:tabular-nums;color:#3ccc90">{{ calc.total }}</b></span><button onClick="{{ irAlta }}" style="display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 22px;border:0;border-radius:999px;background:#3ccc90;color:#102b31;font:900 16px Lato,sans-serif;cursor:pointer">Recuperalos<span class="material-symbols-rounded" style="font-size:20px">arrow_forward</span></button></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="max-width:1320px;margin:0 auto;padding:clamp(64px,9vw,120px) clamp(20px,4vw,48px) 0;display:flex;flex-direction:column;gap:40px">
+    <div style="display:flex;flex-direction:column;gap:14px;max-width:760px"><span style="font-size:13px;font-weight:900;letter-spacing:.08em;color:#17805a">TODO EN UN LUGAR</span><h2 style="margin:0;font-size:clamp(38px,5.4vw,72px);line-height:.95;font-weight:900;letter-spacing:-0.045em">Chau libreta, Excel y mil&nbsp;audios.</h2></div>
+    <div style="display:grid;grid-template-columns:{{ L.bento }};gap:16px">
+      <article style="grid-column:{{ L.span2 }};display:flex;flex-direction:column;gap:20px;padding:32px;border-radius:36px;background-color:#f4eee2;background-image:{{ granoOsc }};box-shadow:inset 0 2px 0 rgba(255,255,255,.7)">
+        <span style="display:flex;flex-direction:column;gap:6px"><h3 style="margin:0;font-size:26px;font-weight:900;letter-spacing:-0.025em">Tu página, con tu&nbsp;marca</h3><span style="font-size:16px;line-height:1.5;color:#33474b">Seis armados y tus colores. Se ve como vos, no como&nbsp;nosotros.</span></span>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px"><sc-for list="{{ plantillas }}" as="p"><div style="display:flex;flex-direction:column;gap:8px;transition:transform .15s cubic-bezier(.2,.7,.2,1)" style-hover="transform:translateY(-4px) rotate(-1deg)"><span style="position:relative;display:block;aspect-ratio:3/4;border-radius:18px;overflow:hidden;background:{{ p.bg }};box-shadow:0 18px 30px -18px rgba(15,35,40,.7)"><span style="position:absolute;inset:0 0 auto;height:{{ p.fh }};background-image:url(apps/web/static/fotos/{{ p.foto }});background-size:cover;background-position:center"></span><span style="position:absolute;left:10px;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px"><b style="font-size:15px;line-height:1;font-weight:900;color:{{ p.tc }};letter-spacing:-0.02em">{{ p.nom }}</b><span style="height:22px;border-radius:999px;background:{{ p.ac }}"></span></span></span><span style="font-size:13px;font-weight:700;color:#33474b">{{ p.n }}</span></div></sc-for></div>
+      </article>
+      <article style="display:flex;flex-direction:column;gap:16px;padding:32px;border-radius:36px;background-color:#183c44;background-image:{{ grano }},radial-gradient(80% 60% at 100% 0%,rgba(60,204,144,.22),transparent 70%);color:#fff">
+        <span class="material-symbols-rounded" style="font-size:34px;color:#3ccc90">auto_awesome</span>
+        <h3 style="margin:0;font-size:26px;font-weight:900;letter-spacing:-0.025em">Preguntale a tu&nbsp;asistente</h3>
+        <span style="font-size:16px;line-height:1.5;color:rgba(255,255,255,.8)">Conectás Claude, ChatGPT o Gemini a tu&nbsp;agenda.</span>
+        <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px"><span style="align-self:flex-end;max-width:88%;padding:10px 14px;border-radius:18px 18px 4px 18px;background:#3ccc90;color:#102b31;font-size:14px;font-weight:700">¿Qué tengo libre mañana?</span><span style="max-width:92%;padding:10px 14px;border-radius:18px 18px 18px 4px;background:rgba(255,255,255,.1);font-size:14px;line-height:1.4">Mica, de 15:30 a 17:00. Hay 2 personas&nbsp;esperando.</span></div>
+      </article>
+      <article style="display:flex;flex-direction:column;gap:16px;padding:32px;border-radius:36px;background:#fffdf9;box-shadow:inset 0 0 0 1.5px #ece3d1,0 24px 48px -36px rgba(15,35,40,.5)">
+        <span class="material-symbols-rounded" style="font-size:34px;color:#17805a">notifications_active</span>
+        <h3 style="margin:0;font-size:26px;font-weight:900;letter-spacing:-0.025em">Recordatorios&nbsp;solos</h3>
+        <span style="font-size:16px;line-height:1.5;color:#33474b">Le llega el aviso con un botón para confirmar o&nbsp;mover.</span>
+        <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding:14px;border-radius:18px;background:#f4eee2"><img src="apps/web/static/logos/whatsapp.svg" alt="" width="26" height="26"><span style="font-size:14px;line-height:1.35"><b>Mañana 11:00 con Abril.</b> ¿Venís?</span></div>
+      </article>
+      <article style="display:flex;flex-direction:column;gap:16px;padding:32px;border-radius:36px;background:#fffdf9;box-shadow:inset 0 0 0 1.5px #ece3d1,0 24px 48px -36px rgba(15,35,40,.5)">
+        <span class="material-symbols-rounded" style="font-size:34px;color:#17805a">workspace_premium</span>
+        <h3 style="margin:0;font-size:26px;font-weight:900;letter-spacing:-0.025em">Socias y&nbsp;cupones</h3>
+        <span style="font-size:16px;line-height:1.5;color:#33474b">Packs de visitas, descuentos y referidas que traen&nbsp;clientas.</span>
+        <div style="margin-top:auto;display:grid;grid-template-columns:auto 1fr;min-height:62px;border-radius:18px;background:radial-gradient(circle at 0 50%,#fffdf9 9px,transparent 9.5px),radial-gradient(circle at 100% 50%,#fffdf9 9px,transparent 9.5px),#183c44;color:#fff"><b style="display:flex;align-items:center;padding:0 16px 0 22px;border-right:2px dashed rgba(255,255,255,.22);font-size:20px;font-weight:900;color:#3ccc90;font-variant-numeric:tabular-nums">3 de 8</b><span style="display:flex;align-items:center;padding:0 22px 0 16px;font-size:14px">visitas del pack de&nbsp;Sofi</span></div>
+      </article>
+      <article style="display:flex;flex-direction:column;gap:16px;padding:32px;border-radius:36px;background-color:#3ccc90;background-image:{{ granoOsc }};color:#102b31">
+        <span class="material-symbols-rounded" style="font-size:34px">insert_chart</span>
+        <h3 style="margin:0;font-size:26px;font-weight:900;letter-spacing:-0.025em">Un reporte cada&nbsp;mes</h3>
+        <span style="font-size:16px;line-height:1.5">Qué facturaste, dónde quedan huecos y cómo&nbsp;llenarlos.</span>
+        <a href="Reporte mensual v2.dc.html" style="margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:6px;height:48px;padding:0 18px;border-radius:999px;background:#102b31;color:#fff;font-size:15px;font-weight:900;text-decoration:none">Ver un ejemplo<span class="material-symbols-rounded" style="font-size:20px">arrow_forward</span></a>
+      </article>
+    </div>
+    <div style="display:flex;justify-content:center"><button onClick="{{ irAlta }}" style="display:inline-flex;align-items:center;gap:10px;height:60px;padding:0 30px;border:0;border-radius:999px;background:#3ccc90;color:#102b31;font:900 18px Lato,sans-serif;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 16px 32px -14px rgba(60,204,144,.9);transition:transform .15s cubic-bezier(.2,.7,.2,1)" style-hover="transform:translateY(-2px)">Probalo 7 días gratis<span class="material-symbols-rounded" style="font-size:22px">arrow_forward</span></button></div>
+  </section>
+
+  <section style="max-width:1320px;margin:0 auto;padding:clamp(64px,9vw,120px) clamp(20px,4vw,48px) 0;display:flex;flex-direction:column;gap:28px">
+    <h2 style="margin:0;font-size:clamp(32px,4vw,52px);line-height:1;font-weight:900;letter-spacing:-0.04em">Hecho para tu&nbsp;rubro</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:14px"><sc-for list="{{ rubros }}" as="r"><button onClick="{{ irAlta }}" style="position:relative;display:flex;align-items:flex-end;min-height:260px;padding:22px;border:0;border-radius:32px;overflow:hidden;background-color:#183c44;background-image:linear-gradient(180deg,transparent 30%,rgba(16,43,49,.94)),url(apps/web/static/fotos/{{ r.foto }});background-size:cover;background-position:center;color:#fff;text-align:left;font-family:Lato,sans-serif;cursor:pointer;box-shadow:0 30px 50px -36px rgba(15,35,40,.8);transition:transform .15s cubic-bezier(.2,.7,.2,1)" style-hover="transform:translateY(-4px)"><span style="display:flex;flex-direction:column;gap:4px;width:100%"><b style="font-size:26px;font-weight:900;letter-spacing:-0.02em">{{ r.n }}</b><span style="font-size:14px;color:rgba(255,255,255,.85)">{{ r.s }}</span><span style="display:inline-flex;align-items:center;gap:4px;margin-top:8px;font-size:14px;font-weight:900;color:#3ccc90">Empezar<span class="material-symbols-rounded" style="font-size:18px">arrow_forward</span></span></span></button></sc-for></div>
+  </section>
+
+  <section id="precios" style="max-width:1320px;margin:0 auto;padding:clamp(64px,9vw,120px) clamp(20px,4vw,48px) 0;display:flex;flex-direction:column;gap:40px">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center"><span style="font-size:13px;font-weight:900;letter-spacing:.08em;color:#17805a">PRECIOS</span><h2 style="margin:0;font-size:clamp(38px,5.4vw,72px);line-height:.95;font-weight:900;letter-spacing:-0.045em">7 días con todo. Después&nbsp;elegís.</h2><span style="font-size:17px;color:#33474b">Sin permanencia. Cancelás cuando&nbsp;quieras.</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:20px;max-width:920px;width:100%;margin:0 auto"><sc-for list="{{ precios }}" as="p"><div style="display:flex;flex-direction:column;border-radius:36px;overflow:hidden;background-color:{{ p.bg }};background-image:{{ p.img }};color:{{ p.c }};box-shadow:{{ p.sh }}"><div style="padding:32px 32px 24px;display:flex;flex-direction:column;gap:8px"><span style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="font-size:24px;font-weight:900;letter-spacing:-0.02em">{{ p.n }}</b><sc-if value="{{ p.tag }}"><span style="height:28px;padding:0 12px;border-radius:999px;background:#3ccc90;color:#102b31;display:grid;place-items:center;font-size:12px;font-weight:900;letter-spacing:.08em">{{ p.tag }}</span></sc-if></span><span style="display:flex;align-items:baseline;gap:8px"><b style="font-size:56px;line-height:1;font-weight:900;letter-spacing:-0.045em;font-variant-numeric:tabular-nums">{{ p.precio }}</b><span style="font-size:15px;opacity:.75">por mes</span></span><span style="font-size:15px;opacity:.85">{{ p.para }}</span></div><div style="height:22px;position:relative"><span style="position:absolute;left:-11px;top:0;width:22px;height:22px;border-radius:50%;background:#fffdf9"></span><span style="position:absolute;right:-11px;top:0;width:22px;height:22px;border-radius:50%;background:#fffdf9"></span><span style="position:absolute;left:24px;right:24px;top:10px;border-top:2px dashed {{ p.tro }}"></span></div><div style="padding:16px 32px 32px;display:flex;flex-direction:column;gap:12px;flex:1"><sc-for list="{{ p.inc }}" as="i"><span style="display:flex;gap:10px;font-size:15px;line-height:1.4"><span class="material-symbols-rounded" style="font-size:20px;color:{{ p.ic }}">check_circle</span>{{ i }}</span></sc-for><button onClick="{{ irAlta }}" style="margin-top:auto;height:56px;border:0;border-radius:999px;background:{{ p.btn }};color:{{ p.btnC }};font:900 17px Lato,sans-serif;cursor:pointer">Empezar gratis</button></div></div></sc-for></div>
+  </section>
+
+  <section style="max-width:880px;margin:0 auto;padding:clamp(64px,9vw,120px) clamp(20px,4vw,48px) 0;display:flex;flex-direction:column;gap:12px">
+    <h2 style="margin:0 0 12px;font-size:clamp(32px,4vw,52px);line-height:1;font-weight:900;letter-spacing:-0.04em">Preguntas&nbsp;frecuentes</h2>
+    <sc-for list="{{ faq }}" as="q"><details style="border-radius:22px;background:#f8f3ea;padding:0 22px"><summary style="display:flex;align-items:center;gap:16px;min-height:68px;cursor:pointer;font-size:18px;font-weight:900"><span style="flex:1">{{ q.q }}</span><span class="material-symbols-rounded" style="font-size:26px;color:#17805a">add_circle</span></summary><p style="margin:0 0 22px;font-size:16px;line-height:1.55;color:#33474b;max-width:42em">{{ q.a }}</p></details></sc-for>
+  </section>
+
+  <section style="max-width:1320px;margin:0 auto;padding:clamp(64px,9vw,120px) clamp(20px,4vw,48px)">
+    <div style="position:relative;padding-top:clamp(40px,4vw,52px)">
+      <span aria-hidden="true" style="position:absolute;left:50%;top:0;z-index:2;width:clamp(160px,18vw,220px);height:clamp(80px,8vw,104px);margin-left:calc(clamp(160px,18vw,220px) / -2);border-radius:28px;background:#102b31;box-shadow:0 0 0 14px #fffdf9;display:grid;place-items:center"><img src="marca/simbolo_una_tinta_blanco.svg" alt="" style="width:54px;height:54px"></span>
+      <div style="position:relative;overflow:hidden;border-radius:clamp(32px,4vw,56px);background-color:#3ccc90;background-image:{{ granoOsc }},radial-gradient(rgba(16,43,49,.12) 1.2px,transparent 1.5px);background-size:auto,20px 20px;color:#102b31;padding:clamp(80px,9vw,120px) clamp(24px,5vw,72px) clamp(40px,6vw,72px);display:flex;flex-direction:column;align-items:center;gap:24px;text-align:center;box-shadow:inset 0 2px 0 rgba(255,255,255,.45)">
+        <h2 style="margin:0;font-size:clamp(40px,6.4vw,92px);line-height:.9;font-weight:900;letter-spacing:-0.055em">Tu dirección todavía está&nbsp;libre.</h2>
+        <div style="width:100%;max-width:620px;display:flex;flex-direction:column;gap:10px">
+          <label style="display:flex;align-items:center;min-height:68px;padding:0 8px 0 22px;border-radius:999px;background:#fffdf9;box-shadow:inset 0 0 0 2px {{ slug.borde }},0 24px 40px -20px rgba(16,43,49,.6);font-size:18px;text-align:left"><span style="color:#4a5d61;white-space:nowrap">tengolibre.com.ar/</span><input value="{{ slug.v }}" onInput="{{ slug.set }}" aria-label="Tu dirección" placeholder="tu-negocio" style="flex:1;min-width:0;height:56px;border:0;background:transparent;font:900 18px Lato,sans-serif;color:#0f2328;outline:none"><sc-if value="{{ L.anchoNav }}"><button onClick="{{ irAlta }}" style="height:54px;padding:0 24px;border:0;border-radius:999px;background:#102b31;color:#fff;font:900 16px Lato,sans-serif;cursor:pointer">Reservarla</button></sc-if></label>
+          <span style="display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:15px;font-weight:700"><span class="material-symbols-rounded" style="font-size:20px">{{ slug.ic }}</span>{{ slug.msg }}</span>
+          <sc-if value="{{ L.m }}"><button onClick="{{ irAlta }}" style="height:56px;border:0;border-radius:999px;background:#102b31;color:#fff;font:900 17px Lato,sans-serif">Reservarla y empezar</button></sc-if>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer style="position:relative;overflow:hidden;background-color:#102b31;background-image:{{ grano }};color:rgba(255,255,255,.78)">
+    <div style="max-width:1320px;margin:0 auto;padding:clamp(56px,7vw,88px) clamp(20px,4vw,48px) 0;display:flex;flex-direction:column;gap:56px">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:28px;padding-bottom:48px;border-bottom:2px dashed rgba(255,255,255,.12)">
+        <div style="display:flex;flex-direction:column;gap:16px;max-width:620px"><h2 style="margin:0;font-size:clamp(36px,5vw,68px);line-height:.92;font-weight:900;letter-spacing:-0.05em;color:#fff">¿Tenés un hueco? <span style="color:#3ccc90">Llenalo.</span></h2><span style="font-size:17px">7 días gratis, sin tarjeta. En 5 minutos tenés tu&nbsp;página.</span></div>
+        <div style="display:flex;flex-direction:column;gap:12px;align-items:flex-start"><button onClick="{{ irAlta }}" style="display:inline-flex;align-items:center;gap:10px;height:60px;padding:0 30px;border:0;border-radius:999px;background:#3ccc90;color:#102b31;font:900 18px Lato,sans-serif;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 16px 32px -14px rgba(60,204,144,.9);transition:transform .15s cubic-bezier(.2,.7,.2,1)" style-hover="transform:translateY(-2px)">Empezar gratis<span class="material-symbols-rounded" style="font-size:22px">arrow_forward</span></button><div style="display:flex;flex-wrap:wrap;gap:10px"><a href="#app" style="display:inline-flex;align-items:center;gap:10px;height:56px;padding:0 18px 0 14px;border-radius:14px;background:#0b1214;color:#fff;text-decoration:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2),0 10px 24px -14px rgba(0,0,0,.7)"><img src="apps/web/static/logos/apple.svg" alt="" width="24" height="24" style="filter:invert(1)"><span style="display:flex;flex-direction:column;line-height:1.05;text-align:left"><span style="font-size:11px;opacity:.85">Descargala en</span><b style="font-size:18px;font-weight:900">App Store</b></span></a><a href="#app" style="display:inline-flex;align-items:center;gap:10px;height:56px;padding:0 18px 0 14px;border-radius:14px;background:#0b1214;color:#fff;text-decoration:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2),0 10px 24px -14px rgba(0,0,0,.7)"><span style="width:22px;height:24px;background:linear-gradient(160deg,#3ccc90 0 35%,#2f9be0 35% 60%,#f5c518 60%);clip-path:polygon(0 0,100% 50%,0 100%)"></span><span style="display:flex;flex-direction:column;line-height:1.05;text-align:left"><span style="font-size:11px;opacity:.85">Disponible en</span><b style="font-size:18px;font-weight:900">Google Play</b></span></a></div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:32px;font-size:15px">
+        <sc-for list="{{ pie }}" as="c"><span style="display:flex;flex-direction:column;gap:12px"><b style="font-size:12px;font-weight:900;letter-spacing:.08em;color:#fff">{{ c.t }}</b><sc-for list="{{ c.l }}" as="l"><a href="{{ l.href }}" style="color:rgba(255,255,255,.78);text-decoration:none;min-height:24px" style-hover="color:#3ccc90">{{ l.n }}</a></sc-for></span></sc-for>
+        <span style="display:flex;flex-direction:column;gap:12px"><b style="font-size:12px;font-weight:900;letter-spacing:.08em;color:#fff">SEGUINOS</b><span style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ redes }}" as="r"><a href="#" style="height:40px;padding:0 14px;border-radius:999px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:700;text-decoration:none">{{ r }}</a></sc-for></span><span>hola@tengolibre.com.ar</span></span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 24px;font-size:13px;color:rgba(255,255,255,.6)"><span>© 2026 Tengo Libre · Hecho en Argentina</span><span style="display:flex;flex-wrap:wrap;gap:20px"><a href="#" style="color:inherit;text-decoration:none">Términos</a><a href="#" style="color:inherit;text-decoration:none">Privacidad</a><a href="#" style="color:inherit;text-decoration:none">Defensa del consumidor</a></span></div>
+    </div>
+    <img src="marca/logotipo_horizontal_negativo.svg" alt="" aria-hidden="true" style="display:block;width:calc(100% - 2 * clamp(20px,4vw,48px));max-width:1320px;margin:40px auto -4%;opacity:.07;pointer-events:none">
+  </footer>
+  <sc-if value="{{ barraFija }}"><div style="position:fixed;left:50%;bottom:16px;z-index:30;transform:translateX(-50%);width:min(calc(100% - 24px),460px);display:flex;align-items:center;gap:12px;padding:8px 8px 8px 20px;border-radius:999px;background:rgba(16,43,49,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;box-shadow:0 20px 44px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.1)"><img src="marca/simbolo_una_tinta_blanco.svg" alt="" width="22" height="22"><span style="flex:1;font-size:14px;font-weight:700">7 días gratis, sin tarjeta</span><button onClick="{{ irAlta }}" style="height:48px;padding:0 22px;border:0;border-radius:999px;background:#3ccc90;color:#102b31;font:900 16px Lato,sans-serif;cursor:pointer">Empezar</button></div></sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ esAlta }}">
+<div style="min-height:100vh;display:grid;grid-template-columns:{{ L.alta }}">
+  <aside style="position:relative;overflow:hidden;background-color:#183c44;background-image:{{ grano }};color:#fff;padding:clamp(20px,4vw,48px);display:flex;flex-direction:column;gap:28px">
+    <img src="marca/simbolo_una_tinta_blanco.svg" alt="" aria-hidden="true" style="position:absolute;right:-120px;bottom:-140px;width:520px;opacity:.04;pointer-events:none">
+    <span style="display:flex;align-items:center;gap:12px"><button onClick="{{ irLanding }}" aria-label="Volver" style="width:48px;height:48px;border:0;border-radius:14px;background:rgba(255,255,255,.08);color:#fff;display:grid;place-items:center;cursor:pointer"><span class="material-symbols-rounded" style="font-size:24px">arrow_back</span></button><img src="marca/logotipo_horizontal_negativo.svg" alt="Tengo Libre" style="height:24px;width:auto"></span>
+    <sc-if value="{{ L.altaAncha }}">
+      <div style="margin-top:auto;display:flex;flex-direction:column;gap:24px;max-width:460px">
+        <h1 style="margin:0;font-size:clamp(40px,4.6vw,64px);line-height:.94;font-weight:900;letter-spacing:-0.045em">Tu página, lista antes de que se enfríe el&nbsp;mate.</h1>
+        <div style="position:relative;padding-top:44px">
+          <span style="position:absolute;left:50%;top:0;z-index:2;min-width:180px;height:88px;margin-left:-90px;padding:0 18px;border-radius:22px;background:{{ alta.color }};color:#fff;box-shadow:0 0 0 10px #183c44;display:flex;flex-direction:column;justify-content:center;transition:background .45s"><span style="font-size:11px;font-weight:900;letter-spacing:.08em;opacity:.85">PRÓXIMO LIBRE</span><b style="font-size:30px;font-weight:900;font-variant-numeric:tabular-nums">Hoy 15:30</b></span>
+          <div style="border-radius:32px;background:#fffdf9;color:#0f2328;padding:64px 22px 22px;display:flex;flex-direction:column;gap:12px;box-shadow:0 40px 70px -30px rgba(0,0,0,.6)">
+            <b style="font-size:28px;line-height:1;font-weight:900;letter-spacing:-0.03em;text-align:center">{{ alta.nombreVis }}</b>
+            <span style="text-align:center;font-size:14px;color:#4a5d61">{{ alta.rubro }} · Reservá en un minuto</span>
+            <span style="display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border-radius:999px;background:#f4eee2;font-size:15px;font-variant-numeric:tabular-nums"><span class="material-symbols-rounded" style="font-size:18px;color:#17805a">link</span>tengolibre.com.ar/<b>{{ alta.slugVis }}</b></span>
+          </div>
+        </div>
+      </div>
+      <span style="display:flex;flex-wrap:wrap;gap:8px 20px;font-size:14px;color:rgba(255,255,255,.75)"><span style="display:inline-flex;align-items:center;gap:6px"><span class="material-symbols-rounded" style="font-size:18px;color:#3ccc90">check_circle</span>7 días con todo</span><span style="display:inline-flex;align-items:center;gap:6px"><span class="material-symbols-rounded" style="font-size:18px;color:#3ccc90">check_circle</span>Sin tarjeta</span><span style="display:inline-flex;align-items:center;gap:6px"><span class="material-symbols-rounded" style="font-size:18px;color:#3ccc90">check_circle</span>Cancelás cuando quieras</span></span>
+    </sc-if>
+  </aside>
+  <main style="background:#f4eee2;background-image:radial-gradient(rgba(24,60,68,.07) 1px,transparent 1.3px);background-size:18px 18px;padding:clamp(24px,5vw,64px) clamp(20px,4vw,48px);display:flex;justify-content:center">
+    <div style="width:100%;max-width:520px;display:flex;flex-direction:column;gap:22px">
+      <span style="font-size:13px;font-weight:900;letter-spacing:.08em;color:#17805a">CREAR TU NEGOCIO · 1 MINUTO</span>
+      <h2 style="margin:0;font-size:clamp(32px,4vw,44px);line-height:1;font-weight:900;letter-spacing:-0.04em">Empecemos por lo&nbsp;básico.</h2>
+      <button style="display:flex;align-items:center;justify-content:center;gap:10px;height:56px;border:0;border-radius:999px;background:#fffdf9;box-shadow:inset 0 0 0 1.5px #ddd1b9;font:700 16px Lato,sans-serif;color:#0f2328;cursor:pointer"><img src="apps/web/static/logos/google.svg" alt="" width="20" height="20">Seguir con Google</button>
+      <span style="display:flex;align-items:center;gap:12px;font-size:13px;color:#4a5d61"><span style="flex:1;height:1px;background:#ddd1b9"></span>o con tu mail<span style="flex:1;height:1px;background:#ddd1b9"></span></span>
+      <label style="display:flex;flex-direction:column;gap:8px;font-size:15px;font-weight:700">Nombre del negocio<input value="{{ alta.nombre }}" onInput="{{ alta.setNombre }}" placeholder="Lumi Estética" style="height:56px;padding:0 16px;border:0;border-radius:16px;background:#fffdf9;box-shadow:inset 0 0 0 1.5px #ddd1b9;font:400 16px Lato,sans-serif;color:#0f2328"></label>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:15px;font-weight:700">¿Qué hacés?</span><div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ alta.rubros }}" as="r"><button onClick="{{ r.elegir }}" aria-pressed="{{ r.on }}" style="display:inline-flex;align-items:center;gap:6px;height:48px;padding:0 16px;border:0;border-radius:999px;background:{{ r.bg }};color:{{ r.c }};box-shadow:{{ r.sh }};font:700 15px Lato,sans-serif;cursor:pointer;transition:background .15s"><span class="material-symbols-rounded" style="font-size:18px">{{ r.ic }}</span>{{ r.n }}</button></sc-for></div></div>
+      <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:15px;font-weight:700">Tu dirección web</span><label style="display:flex;align-items:center;height:56px;padding:0 14px 0 16px;border-radius:16px;background:#fffdf9;box-shadow:inset 0 0 0 2px {{ alta.borde }};font-size:16px"><span style="color:#4a5d61;white-space:nowrap">tengolibre.com.ar/</span><input value="{{ alta.slug }}" onInput="{{ alta.setSlug }}" aria-label="Tu dirección web" style="flex:1;min-width:0;height:50px;border:0;background:transparent;font:900 16px Lato,sans-serif;color:#0f2328;outline:none"><span class="material-symbols-rounded" style="font-size:22px;color:{{ alta.borde }}">{{ alta.ic }}</span></label><span style="font-size:14px;font-weight:700;color:{{ alta.mc }}">{{ alta.msg }}</span><sc-if value="{{ alta.hayAlts }}"><div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ alta.alts }}" as="a"><button onClick="{{ a.usar }}" style="height:44px;padding:0 14px;border:0;border-radius:999px;background:repeating-linear-gradient(-45deg,rgba(60,204,144,.22) 0 2px,transparent 2px 9px),#f3fbf7;box-shadow:inset 0 0 0 1.5px rgba(23,128,90,.4);font:700 14px Lato,sans-serif;color:#17805a;cursor:pointer">{{ a.s }}</button></sc-for></div></sc-if></div>
+      <label style="display:flex;flex-direction:column;gap:8px;font-size:15px;font-weight:700">Tu mail<input type="email" value="{{ alta.mail }}" onInput="{{ alta.setMail }}" placeholder="vos@tunegocio.com" style="height:56px;padding:0 16px;border:0;border-radius:16px;background:#fffdf9;box-shadow:inset 0 0 0 1.5px #ddd1b9;font:400 16px Lato,sans-serif;color:#0f2328"><span style="font-size:13px;font-weight:400;color:#4a5d61">Te mandamos un link para entrar. No hay contraseña que&nbsp;recordar.</span></label>
+      <a href="{{ alta.href }}" aria-disabled="{{ alta.bloq }}" style="display:flex;align-items:center;justify-content:center;gap:10px;height:60px;border-radius:999px;background:{{ alta.btn }};color:{{ alta.btnC }};font-size:18px;font-weight:900;text-decoration:none;pointer-events:{{ alta.pe }};transition:background .15s">Crear y seguir<span class="material-symbols-rounded" style="font-size:22px">arrow_forward</span></a>
+      <span style="font-size:13px;line-height:1.5;color:#4a5d61">Al crear tu negocio aceptás los términos y la política de privacidad. Después te guiamos con servicios, horarios y&nbsp;cobros.</span>
+    </div>
+  </main>
+</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const GRANO = 'url("data:image/svg+xml;utf8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'.85\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3CfeColorMatrix values=\'0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .11 0\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")';
+const TOMADOS = ['lumi', 'estilo', 'barberia', 'belleza', 'nails', 'studio'];
+const pesos = n => '$ ' + Math.round(n).toLocaleString('es-AR');
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
+const GRANO_OSC = 'url("data:image/svg+xml;utf8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'.9\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3CfeColorMatrix values=\'0 0 0 0 .06  0 0 0 0 .14  0 0 0 0 .16  0 0 0 .09 0\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")';
+const RUBROS = [['Peluquería', 'content_cut', '#7a3b5e'], ['Barbería', 'face', '#1f2a24'], ['Estética', 'spa', '#7a3b5e'], ['Uñas', 'back_hand', '#b24a3b'], ['Masajes', 'self_improvement', '#2f5d50'], ['Consultorio', 'medical_services', '#24527a'], ['Otro', 'more_horiz', '#183c44']];
+class Component extends DCLogic {
+  state = { w: typeof window !== 'undefined' ? window.innerWidth : 1280, fase: 0, vista: 'landing', lost: 4, precio: 12000, slugCta: '', nombre: '', rubro: 'Estética', slug: '', slugTocado: false, mail: '', scroll: 0 };
+  componentDidMount() {
+    this._r = () => this.setState({ w: window.innerWidth });
+    this._s = () => { const y = window.scrollY; if ((y > 760) !== (this.state.scroll > 760)) this.setState({ scroll: y }); };
+    window.addEventListener('resize', this._r); window.addEventListener('scroll', this._s, { passive: true });
+    const quieto = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    
+  }
+  componentWillUnmount() { clearInterval(this._t); window.removeEventListener('resize', this._r); window.removeEventListener('scroll', this._s); }
+  estadoSlug(v) {
+    if (!v) return { ic: 'edit', msg: 'Escribí el nombre de tu negocio', borde: '#ddd1b9', mc: '#4a5d61', ok: false, alts: [] };
+    if (v.length < 3) return { ic: 'info', msg: 'Tiene que tener al menos 3 letras', borde: '#b26a00', mc: '#8a5200', ok: false, alts: [] };
+    if (TOMADOS.includes(v)) return { ic: 'cancel', msg: 'Ya la usa otro negocio. Probá una de estas:', borde: '#a3241a', mc: '#a3241a', ok: false, alts: [v + '-palermo', v + '-estudio', 'soy' + v] };
+    return { ic: 'check_circle', msg: 'Está libre. Es tuya.', borde: '#17805a', mc: '#17805a', ok: true, alts: [] };
+  }
+  renderVals() {
+    const st = this.state, w = st.w, m = w < 760, t = w < 1040;
+    const f = st.fase, lleno = f >= 2;
+    const fila = (h, n, s, e) => ({ h, n, s, e: e[0], ei: e[1], eb: e[2], ec: e[3], bg: '#f6f0e4', sh: 'none', tro: '#e2d6bf', hc: '#0f2328', nc: '#0f2328', sc: '#4a5d61' });
+    const ok = ['Confirmado', 'check_circle', '#e3f6ec', '#17805a'];
+    const hueco = lleno
+      ? { h: '15:30', n: 'Martina Sosa', s: 'Lifting · Abril', e: 'Seña pagada', ei: 'paid', eb: '#3ccc90', ec: '#102b31', bg: '#183c44', sh: '0 14px 28px -16px rgba(15,35,40,.8)', tro: 'rgba(255,255,255,.22)', hc: '#3ccc90', nc: '#fff', sc: 'rgba(255,255,255,.75)' }
+      : { h: '15:30', n: 'Libre 1 h 30', s: '2 personas esperan hoy', e: 'Libre', ei: 'event_available', eb: '#fffdf9', ec: '#17805a', bg: 'repeating-linear-gradient(-45deg,rgba(60,204,144,.28) 0 2px,rgba(60,204,144,.08) 2px 10px)', sh: 'inset 0 0 0 1.5px rgba(23,128,90,.45)', tro: 'rgba(23,128,90,.35)', hc: '#17805a', nc: '#0f3d2b', sc: '#1d5a43' };
+    const sl = norm(st.slugCta), es = this.estadoSlug(sl);
+    const aSlug = st.slugTocado ? norm(st.slug) : norm(st.nombre), ea = this.estadoSlug(aSlug);
+    const listo = ea.ok && /.+@.+\..+/.test(st.mail);
+    const rubro = RUBROS.find(r => r[0] === st.rubro) || RUBROS[2];
+    const irAlta = () => { this.setState({ vista: 'alta', ...(sl && !st.nombre ? { slug: sl, slugTocado: true } : {}) }); window.scrollTo(0, 0); };
+    return {
+      grano: GRANO,
+      esLanding: st.vista === 'landing', esAlta: st.vista === 'alta',
+      irAlta, irLanding: () => { this.setState({ vista: 'landing' }); window.scrollTo(0, 0); },
+      L: { m, anchoNav: !m, hero: t ? 'minmax(0,1fr)' : '1.05fr .95fr', split: t ? 'minmax(0,1fr)' : '1fr 1.05fr', bento: m ? 'minmax(0,1fr)' : t ? 'repeat(2,minmax(0,1fr))' : 'repeat(3,minmax(0,1fr))', span2: m ? 'auto' : 'span 2', alta: t ? 'minmax(0,1fr)' : 'minmax(0,1fr) minmax(0,1.1fr)', altaAncha: !t },
+      H: {
+        slotBg: f === 0 ? 'repeating-linear-gradient(-45deg,rgba(60,204,144,.35) 0 2px,rgba(60,204,144,.1) 2px 10px)' : 'rgba(60,204,144,.12)',
+        slotTxt: f === 0 ? 1 : 0,
+        tab: f === 0 ? 'translateY(-150px) rotate(-6deg)' : f === 1 ? 'translateY(-26px) rotate(-2deg)' : 'translateY(0) rotate(0)',
+        tabOp: f === 0 ? 0 : 1,
+        toast: lleno ? 'translateY(0)' : 'translateY(16px)', toastOp: lleno ? 1 : 0,
+        libres: lleno ? '1 h 45' : '3 h 15'
+      },
+      diaHero: [fila('10:00', 'Sofía Méndez', 'Lifting · Abril', ok), fila('11:30', 'Camila Duarte', 'Piernas · Mica', ok), fila('13:00', 'Paula Ríos', 'Drenaje · Carla', ['Pendiente', 'schedule', '#fff1d6', '#8a5200']), hueco, fila('17:00', 'Lucía Pérez', 'Cejas · Abril', ok)],
+      integraciones: [['mercadopago.svg', 'Mercado Pago'], ['whatsapp.svg', 'WhatsApp'], ['google.svg', 'Google Calendar'], ['apple.svg', 'Apple']].map(([a, n]) => ({ src: 'apps/web/static/logos/' + a, n })),
+      calc: { n: st.lost, p: st.precio, precioTxt: pesos(st.precio), total: pesos(st.lost * st.precio * 4.3), setN: e => this.setState({ lost: +e.target.value }), setP: e => this.setState({ precio: +e.target.value }) },
+      plantillas: [
+        { n: 'Carta', nom: 'Lumi', bg: '#7a3b5e', tc: '#fff', ac: '#f0d2dc', fh: '52%', foto: 'manicura.jpg' },
+        { n: 'Vidriera', nom: 'Don Tito', bg: '#1f2a24', tc: '#f5c518', ac: '#f5c518', fh: '62%', foto: 'barbero-cortando.jpg' },
+        { n: 'Sobria', nom: 'Estudio Norte', bg: '#fffdf9', tc: '#0f2328', ac: '#24527a', fh: '0%', foto: 'recepcion.jpg' },
+        { n: 'Galería', nom: 'Bruma', bg: '#2f5d50', tc: '#fff', ac: '#cfe5d9', fh: '70%', foto: 'peluquera-con-clienta.jpg' }
+      ],
+      rubros: [
+        { n: 'Peluquerías', s: 'Color, corte y turnos largos', foto: 'peluquera-con-clienta.jpg', href: '#precios' },
+        { n: 'Barberías', s: 'Turnos de 30 minutos sin huecos', foto: 'barbero-cortando.jpg', href: '#precios' },
+        { n: 'Estética y uñas', s: 'Packs, socias y seña', foto: 'manicura.jpg', href: '#precios' },
+        { n: 'Consultorios', s: 'Recepción y varios profesionales', foto: 'recepcion.jpg', href: '#precios' }
+      ],
+      precios: [
+        { n: 'Inicial', precio: '$ 7.000', para: 'Para quien atiende solo o con una persona más.', inc: ['Página y turnos online', 'App para el celular', 'Recordatorios por mail', 'Hasta 2 profesionales'], bg: '#f4eee2', img: GRANO_OSC, c: '#0f2328', sh: 'inset 0 0 0 1.5px #ece3d1', tro: '#e2d6bf', ic: '#17805a', btn: '#183c44', btnC: '#fff', tag: '' },
+        { n: 'Completo', precio: '$ 15.000', para: 'Para equipos que quieren llenar cada hueco.', inc: ['Todo lo del Inicial', 'Seña con Mercado Pago', 'Lista de espera que se ofrece sola', 'Recordatorios por WhatsApp', 'Membresías, cupones y referidos', 'Sin límite de profesionales'], bg: '#183c44', img: GRANO, c: '#fff', sh: '0 40px 70px -40px rgba(15,35,40,.8)', tro: 'rgba(255,255,255,.2)', ic: '#3ccc90', btn: '#3ccc90', btnC: '#102b31', tag: 'EL MÁS ELEGIDO' }
+      ],
+      faq: [
+        { q: '¿Mis clientes tienen que bajarse una app?', a: 'No. Reservan desde tu página en el navegador, sin crear cuenta. Les llega el comprobante por mail o WhatsApp.' },
+        { q: '¿Cómo cobro la seña?', a: 'Conectás tu cuenta de Mercado Pago en un paso. La plata va directo a tu cuenta; nosotros no la tocamos.' },
+        { q: '¿Qué pasa cuando termina la prueba?', a: 'Elegís un plan o la agenda queda en sólo lectura. No se borra nada y no te cobramos sin avisar.' },
+        { q: '¿Puedo usar mi propio dominio?', a: 'Sí, en el plan Completo podés usar turnos.tunegocio.com.ar o el dominio que ya tengas.' }
+      ],
+      slug: { v: st.slugCta, set: e => this.setState({ slugCta: e.target.value }), ic: sl ? (es.ok ? 'check_circle' : 'cancel') : 'edit', msg: sl ? (es.ok ? 'tengolibre.com.ar/' + sl + ' está libre.' : es.msg.replace(' Probá una de estas:', '')) : 'Escribí el nombre de tu negocio', borde: sl && !es.ok ? '#a3241a' : '#fffdf9' },
+      barraFija: st.vista === 'landing' && st.scroll > 760, granoOsc: GRANO_OSC,
+      tira: (() => { const T = (h, n, s, ic, k) => k === 'hueco' ? { h, n, s, ic, bg: 'repeating-linear-gradient(-45deg,rgba(60,204,144,.4) 0 2px,rgba(255,253,249,.9) 2px 10px)', sh: 'inset 0 0 0 1.5px rgba(23,128,90,.45)', c: '#0f3d2b', sc: '#17805a', tro: 'rgba(23,128,90,.4)' } : k === 'nuevo' ? { h, n, s, ic, bg: '#3ccc90', sh: '0 18px 30px -18px rgba(23,128,90,.9)', c: '#102b31', sc: '#102b31', tro: 'rgba(16,43,49,.3)' } : k === 'osc' ? { h, n, s, ic, bg: '#183c44', sh: '0 18px 30px -18px rgba(15,35,40,.9)', c: '#fff', sc: '#3ccc90', tro: 'rgba(255,255,255,.22)' } : { h, n, s, ic, bg: '#fffdf9', sh: '0 18px 30px -20px rgba(15,35,40,.55)', c: '#0f2328', sc: '#4a5d61', tro: '#e2d6bf' };
+        const l = [T('09:30', 'Lucía · Corte', 'Confirmado', 'check_circle'), T('10:15', 'Libre 45 min', 'Avisando a la lista', 'campaign', 'hueco'), T('11:00', 'Martina · Lifting', 'Seña pagada', 'paid', 'nuevo'), T('12:30', 'Don Tito · Barba', 'Confirmado', 'check_circle', 'osc'), T('14:00', 'Paula · Uñas', 'Recordatorio enviado', 'notifications'), T('15:30', 'Libre 1 h 30', '2 personas esperan', 'hourglass_top', 'hueco'), T('16:00', 'Ana · Color', 'Reservó desde Instagram', 'bolt', 'nuevo'), T('17:30', 'Sofi · Masaje', 'Socia · 3 de 8', 'workspace_premium', 'osc')];
+        return [...l, ...l]; })(),
+      appPuntos: [{ ic: 'notifications_active', t: 'Te avisa cada turno nuevo' }, { ic: 'swipe', t: 'Movés turnos con un dedo' }, { ic: 'point_of_sale', t: 'La caja del día, a mano' }],
+      pushes: [{ t: 'ahora', h: 'Nuevo turno · sáb 11:00', s: 'Martina, lifting. Seña de $ 6.600 pagada.', a: '.96', k: '1' }, { t: 'hace 6 min', h: 'Se llenó el hueco de las 15:30', s: 'Ana lo tomó desde la lista de espera.', a: '.86', k: '.97' }, { t: '9:00', h: 'Hoy tenés 12 turnos', s: 'Te queda 1 h 30 libre con Mica.', a: '.72', k: '.94' }],
+      pie: [
+        { t: 'PRODUCTO', l: [['Cómo funciona', '#como'], ['Precios', '#precios'], ['La app', '#app'], ['Plantillas', '#'], ['Integraciones', '#']].map(([n, href]) => ({ n, href })) },
+        { t: 'RUBROS', l: ['Peluquerías', 'Barberías', 'Estética', 'Uñas', 'Consultorios'].map(n => ({ n, href: '#' })) },
+        { t: 'AYUDA', l: [['Centro de ayuda', '#'], ['Buscar un turno', 'Cuenta y accesos v2.dc.html#1e'], ['Ingresar', 'Cuenta y accesos v2.dc.html#1a']].map(([n, href]) => ({ n, href })) },
+        { t: 'EMPRESA', l: ['Quiénes somos', 'Trabajá con nosotros', 'Prensa'].map(n => ({ n, href: '#' })) }
+      ],
+      redes: ['Instagram', 'TikTok', 'LinkedIn'],
+      alta: {
+        nombre: st.nombre, setNombre: e => this.setState({ nombre: e.target.value }),
+        slug: aSlug, setSlug: e => this.setState({ slug: e.target.value, slugTocado: true }),
+        mail: st.mail, setMail: e => this.setState({ mail: e.target.value }),
+        ic: ea.ic, msg: ea.msg, borde: ea.borde, mc: ea.mc, hayAlts: ea.alts.length > 0, alts: ea.alts.map(s => ({ s, usar: () => this.setState({ slug: s, slugTocado: true }) })),
+        rubros: RUBROS.map(([n, ic]) => ({ n, ic, on: st.rubro === n, bg: st.rubro === n ? '#183c44' : '#fffdf9', c: st.rubro === n ? '#fff' : '#0f2328', sh: st.rubro === n ? 'none' : 'inset 0 0 0 1.5px #ddd1b9', elegir: () => this.setState({ rubro: n }) })),
+        rubro: st.rubro, color: rubro[2],
+        nombreVis: st.nombre || 'Tu negocio', slugVis: aSlug || 'tu-negocio',
+        href: listo ? 'Onboarding v2.dc.html' : '#', bloq: !listo, pe: listo ? 'auto' : 'none',
+        btn: listo ? '#3ccc90' : '#e6dcc8', btnC: listo ? '#102b31' : '#6b7a7d'
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

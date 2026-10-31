@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..24,400,0..1,0&amp;display=block" rel="stylesheet"><style>*{box-sizing:border-box}html,body{margin:0;background:#f4eee2;font-family:Lato,system-ui,sans-serif;color:#0f2328;-webkit-font-smoothing:antialiased}button{font-family:inherit;cursor:pointer}a{color:#17805a;text-underline-offset:3px}a:hover{color:#183c44}h1,h2,h3{text-wrap:balance}p{text-wrap:pretty}:focus-visible{outline:3px solid #3ccc90;outline-offset:2px}.material-symbols-rounded{font-variation-settings:'FILL' 1;line-height:1}details>summary{list-style:none}details>summary::-webkit-details-marker{display:none}body{background-image:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}@keyframes tl-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@keyframes tl-drawer{from{opacity:0;transform:translateX(48px)}to{opacity:1;transform:none}}@keyframes tl-fade{from{opacity:0}to{opacity:1}}@keyframes tl-toast{from{opacity:0;transform:translate(-50%,28px) scale(.96)}to{opacity:1;transform:translate(-50%,0)}}@keyframes tl-pulse{0%{box-shadow:0 0 0 0 rgba(60,204,144,.6)}100%{box-shadow:0 0 0 12px rgba(60,204,144,0)}}@keyframes tl-ring{from{opacity:0;transform:rotate(-140deg) scale(.86)}to{opacity:1;transform:none}}@keyframes tl-raya{to{background-position:28.28px 0}}@keyframes tl-pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.06)}100%{transform:none;opacity:1}}@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}</style></helmet>
+<div style="min-height:100vh;display:grid;grid-template-columns:{{ L.cols }};background:transparent">
+
+  <sc-if value="{{ L.ancho }}" hint-placeholder-val="{{ true }}">
+    <nav aria-label="Panel" style="position:sticky;top:0;height:100vh;overflow-x:hidden;overflow-y:auto;scrollbar-width:none;background-color:#183c44;background-image:{{ grano }};color:#fff;display:flex;flex-direction:column;padding:18px 0 16px 14px">
+      <img src="marca/simbolo_una_tinta_blanco.svg" alt="" aria-hidden="true" style="position:absolute;left:-90px;top:150px;width:360px;height:360px;opacity:.035;pointer-events:none">
+      <button style="position:relative;display:flex;align-items:center;gap:10px;padding:6px 8px 6px 4px;margin:0 14px 18px 0;border:0;border-radius:14px;background:transparent;color:#fff;text-align:left">
+        <img src="apps/web/static/marca-icono.png" alt="" width="36" height="36" style="border-radius:10px">
+        <span style="flex:1;display:flex;flex-direction:column;line-height:1.2"><b style="font-size:15px;font-weight:650;letter-spacing:-0.01em">Lumi Estética</b><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.6)">{{ rolNombre }}</span></span>
+        <span class="material-symbols-rounded" style="font-size:20px;color:rgba(255,255,255,.6)">unfold_more</span>
+      </button>
+      <div style="position:relative;display:flex;flex-direction:column;gap:2px">
+        <sc-for list="{{ navPrincipal }}" as="it" hint-placeholder-count="5">
+          <sc-if value="{{ it.on }}"><button onClick="{{ it.ir }}" aria-current="page" style="position:relative;display:flex;align-items:center;gap:12px;height:46px;padding:0 12px;border:0;border-radius:14px 0 0 14px;background:#f4eee2;color:#0f2328;font-size:14px;font-weight:650;text-align:left" style-before="content:'';position:absolute;right:0;top:-14px;width:14px;height:14px;background:radial-gradient(circle at 0 0,transparent 14px,#f4eee2 14.5px)" style-after="content:'';position:absolute;right:0;bottom:-14px;width:14px;height:14px;background:radial-gradient(circle at 0 100%,transparent 14px,#f4eee2 14.5px)"><span class="material-symbols-rounded" style="font-size:21px;color:#17805a">{{ it.icon }}</span><span style="flex:1">{{ it.n }}</span><span style="margin-right:12px;font:600 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ it.k }}</span></button></sc-if>
+          <sc-if value="{{ it.off }}"><button onClick="{{ it.ir }}" style="display:flex;align-items:center;gap:12px;height:42px;padding:0 12px;margin-right:14px;border:0;border-radius:12px;background:transparent;color:rgba(255,255,255,.8);font-size:14px;text-align:left" style-hover="background:rgba(255,255,255,.07)"><span class="material-symbols-rounded" style="font-size:21px;color:rgba(255,255,255,.55);font-variation-settings:'FILL' 0">{{ it.icon }}</span><span style="flex:1">{{ it.n }}</span><sc-if value="{{ it.badge }}"><span style="min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#3ccc90;color:#102b31;font:700 11px Lato,sans-serif;font-variant-numeric:tabular-nums;display:grid;place-items:center">{{ it.badge }}</span></sc-if></button></sc-if>
+        </sc-for>
+      </div>
+      <sc-if value="{{ haySecundario }}">
+        <div style="position:relative;margin:12px 14px 0 0;padding-top:8px;border-top:1px solid rgba(255,255,255,.1)">
+          <button onClick="{{ toggleSec }}" aria-expanded="{{ secAbierto }}" style="display:flex;align-items:center;gap:12px;width:100%;height:40px;padding:0 12px;border:0;border-radius:12px;background:transparent;color:rgba(255,255,255,.72);font-size:13px;text-align:left"><span class="material-symbols-rounded" style="font-size:20px;color:rgba(255,255,255,.5)">apps</span><span style="flex:1">Tu negocio y ajustes</span><span class="material-symbols-rounded" style="font-size:18px">{{ secIcono }}</span></button>
+          <sc-if value="{{ secAbierto }}"><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px 0 2px"><sc-for list="{{ navSecundario }}" as="it"><button onClick="{{ it.ir }}" style="display:flex;align-items:center;gap:6px;min-height:34px;padding:4px 8px;border:0;border-radius:9px;background:{{ it.bg }};color:rgba(255,255,255,.85);font-size:12px;text-align:left;line-height:1.2"><span class="material-symbols-rounded" style="font-size:16px;color:rgba(255,255,255,.5)">{{ it.icon }}</span>{{ it.n }}</button></sc-for></div></sc-if>
+        </div>
+      </sc-if>
+      <button onClick="{{ irHuecos }}" aria-label="Ver los huecos de hoy" style="position:relative;margin:auto 14px 0 0;flex:none;padding:16px 12px 12px;border:0;border-radius:18px;background:rgba(16,43,49,.6);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);color:#fff;display:flex;flex-direction:column;align-items:center;gap:10px">
+        <span style="display:flex;width:100%;justify-content:space-between;align-items:baseline;padding:0 2px"><b style="font-size:13px;font-weight:600">Hoy</b><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.6)">10 · 20 h</span></span>
+        <span style="position:relative;width:100%;display:block;padding-top:30px">
+          <span style="position:absolute;left:50%;top:0;z-index:2;width:96px;height:62px;margin-left:-48px;border-radius:16px;background:#3ccc90;color:#102b31;box-shadow:0 0 0 6px #15323a;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1"><b style="font:900 21px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.02em">{{ ahora }}</b><span style="font-size:11px;font-weight:700">ahora</span></span>
+          <span style="position:relative;display:flex;flex-direction:column;gap:8px;padding:44px 12px 14px;border-radius:24px;background:#0f2328">
+            <sc-for list="{{ carrilesSide }}" as="c" hint-placeholder-count="3"><span style="display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:8px"><span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.75);text-align:left">{{ c.p }}</span><span style="position:relative;height:16px;border-radius:6px;overflow:hidden;background:repeating-linear-gradient(-45deg,#3ccc90 0 3px,rgba(60,204,144,.35) 3px 7px)"><sc-for list="{{ c.segs }}" as="s"><span style="position:absolute;top:0;bottom:0;left:{{ s.l }};width:{{ s.w }};background:#2c5059"></span></sc-for><span style="position:absolute;top:0;bottom:0;left:0;width:{{ ahoraPct }};background:rgba(15,35,40,.62)"></span></span></span></sc-for>
+            <span aria-hidden="true" style="position:absolute;top:36px;bottom:10px;left:calc(58px + (100% - 70px) * {{ ahoraFr }});width:2px;margin-left:-1px;border-radius:1px;background:#fff;box-shadow:0 0 0 2px rgba(60,204,144,.35)"></span>
+            <span style="display:flex;justify-content:space-between;padding-left:46px;font-size:11px;color:rgba(255,255,255,.55);font-variant-numeric:tabular-nums"><span>10</span><span>15</span><span>20</span></span>
+          </span>
+          <span style="display:block;margin-top:10px;font-size:15px;font-weight:900;color:#3ccc90;text-align:center;font-variant-numeric:tabular-nums">{{ libresHoy }} libres</span>
+        </span>
+        <span style="font-size:11px;color:rgba(255,255,255,.62);text-align:center;line-height:1.35">{{ leyendaAnillo }}</span>
+      </button>
+    </nav>
+  </sc-if>
+
+  <div style="display:flex;flex-direction:column;min-width:0;min-height:100vh;background-image:radial-gradient(rgba(24,60,68,.08) 1px,transparent 1.3px);background-size:18px 18px">
+    <sc-if value="{{ L.ancho }}" hint-placeholder-val="{{ true }}">
+      <header style="position:sticky;top:0;z-index:20;height:72px;flex:none;display:flex;align-items:center;gap:12px;padding:0 36px;background:rgba(244,238,226,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)">
+        <label style="display:flex;align-items:center;gap:10px;flex:1 1 440px;min-width:0;max-width:440px;height:44px;padding:0 8px 0 14px;border-radius:14px;background:#fffdf9;box-shadow:0 1px 0 rgba(15,35,40,.05),inset 0 0 0 1px #e6dcc8;color:#4a5d61"><span class="material-symbols-rounded" style="font-size:20px">search</span><input aria-label="Buscar en el panel" placeholder="Buscar cliente, teléfono o turno" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font:400 14px Lato,sans-serif;color:#0f2328"><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;padding:3px 7px;border-radius:6px;background:#f4eee2">/</span></label>
+        <span style="flex:1"></span>
+        <button onClick="{{ simular }}" title="Demo: simula una reserva que entra por la web" aria-label="Demo: entra una reserva" style="flex:none;display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 14px 0 10px;border-radius:14px;border:0;background:transparent;box-shadow:inset 0 0 0 1px #d8ccb4;font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61;white-space:nowrap"><span class="material-symbols-rounded" style="font-size:16px;color:#17805a">bolt</span><sc-if value="{{ L.demoTexto }}">DEMO · ENTRA UNA RESERVA</sc-if></button>
+        <div style="position:relative">
+          <button onClick="{{ toggleNotif }}" aria-label="Notificaciones, {{ sinLeer }} sin leer" aria-expanded="{{ notifAbierta }}" style="position:relative;width:44px;height:44px;border-radius:14px;border:0;background:#fffdf9;box-shadow:inset 0 0 0 1px #e6dcc8;display:grid;place-items:center;color:#0f2328"><span class="material-symbols-rounded" style="font-size:22px;font-variation-settings:'FILL' 0">notifications</span><sc-if value="{{ haySinLeer }}"><span style="position:absolute;top:5px;right:5px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#183c44;color:#3ccc90;font:700 10px Lato,sans-serif;font-variant-numeric:tabular-nums;display:grid;place-items:center">{{ sinLeer }}</span></sc-if></button>
+          <sc-if value="{{ notifAbierta }}">
+            <div role="dialog" aria-label="Notificaciones" style="position:absolute;right:0;top:52px;z-index:30;width:380px;border-radius:18px;background:#fffdf9;box-shadow:0 0 0 1px #e6dcc8,0 30px 60px -20px rgba(15,35,40,.45);overflow:hidden">
+              <div style="display:flex;align-items:center;padding:14px 16px 10px"><b style="flex:1;font-size:15px">Avisos</b><button onClick="{{ marcarLeidas }}" style="border:0;background:transparent;color:#17805a;font-size:13px;font-weight:600;min-height:32px">Marcar todo como leído</button></div>
+              <sc-for list="{{ notifs }}" as="n" hint-placeholder-count="4"><button onClick="{{ n.ir }}" style="display:grid;grid-template-columns:28px 1fr auto;gap:10px;width:100%;padding:12px 16px;border:0;border-top:1px solid #f0e8d8;background:{{ n.bg }};text-align:left;color:#0f2328"><span class="material-symbols-rounded" style="font-size:20px;color:{{ n.c }}">{{ n.ic }}</span><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;font-weight:{{ n.w }}">{{ n.t }}</b><span style="font-size:12px;color:#4a5d61">{{ n.s }}</span></span><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ n.cuando }}</span></button></sc-for>
+              <button onClick="{{ irMails }}" style="display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:0 16px;border:0;border-top:1px solid #f0e8d8;background:transparent;font-size:13px;font-weight:600;color:#17805a;text-align:left"><span class="material-symbols-rounded" style="font-size:18px">outgoing_mail</span>Mails enviados: ¿le llegó el recordatorio?</button>
+            </div>
+          </sc-if>
+        </div>
+        <a href="Reserva v2.dc.html" style="display:flex;align-items:center;gap:6px;height:44px;padding:0 16px;border-radius:14px;background:#fffdf9;box-shadow:inset 0 0 0 1px #e6dcc8;color:#0f2328;font-size:14px;font-weight:600;text-decoration:none;white-space:nowrap;flex:none">Ver mi página<span class="material-symbols-rounded" style="font-size:18px">north_east</span></a>
+      </header>
+    </sc-if>
+    <sc-if value="{{ L.compacto }}">
+      <header style="position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;min-height:60px;padding:8px 12px 8px 16px;background-color:#183c44;background-image:{{ grano }};color:#fff">
+        <img src="apps/web/static/marca-icono.png" alt="" width="30" height="30" style="border-radius:8px">
+        <span style="flex:1;display:flex;flex-direction:column;line-height:1.2"><b style="font-size:15px;font-weight:650">Lumi Estética</b><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.6)">LUN 02·11 · {{ ahora }}</span></span>
+        <button onClick="{{ simular }}" aria-label="Demo: entra una reserva" style="width:44px;height:44px;border:0;border-radius:12px;background:rgba(60,204,144,.16);color:#3ccc90;display:grid;place-items:center"><span class="material-symbols-rounded" style="font-size:22px">bolt</span></button><button aria-label="Buscar" style="width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:#fff;display:grid;place-items:center"><span class="material-symbols-rounded" style="font-size:24px">search</span></button>
+        <button onClick="{{ toggleNotif }}" aria-label="Notificaciones, {{ sinLeer }} sin leer" style="position:relative;width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:#fff;display:grid;place-items:center"><span class="material-symbols-rounded" style="font-size:24px;font-variation-settings:'FILL' 0">notifications</span><sc-if value="{{ haySinLeer }}"><span style="position:absolute;top:8px;right:8px;width:9px;height:9px;border-radius:50%;background:#3ccc90;box-shadow:0 0 0 2px #183c44"></span></sc-if></button>
+      </header>
+      <sc-if value="{{ notifAbierta }}"><div style="position:fixed;inset:60px 0 0;z-index:30;background:#fffdf9;overflow-y:auto"><div style="display:flex;align-items:center;padding:14px 16px"><b style="flex:1;font-size:17px">Avisos</b><button onClick="{{ marcarLeidas }}" style="border:0;background:transparent;color:#17805a;font-size:14px;font-weight:600;min-height:44px">Marcar leídos</button></div><sc-for list="{{ notifs }}" as="n"><button onClick="{{ n.ir }}" style="display:grid;grid-template-columns:28px 1fr auto;gap:10px;width:100%;padding:14px 16px;border:0;border-top:1px solid #f0e8d8;background:{{ n.bg }};text-align:left;color:#0f2328"><span class="material-symbols-rounded" style="font-size:20px;color:{{ n.c }}">{{ n.ic }}</span><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:15px;font-weight:{{ n.w }}">{{ n.t }}</b><span style="font-size:13px;color:#4a5d61">{{ n.s }}</span></span><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ n.cuando }}</span></button></sc-for></div></sc-if>
+    </sc-if>
+
+    <main style="flex:1;padding:{{ L.pad }};display:flex;flex-direction:column;gap:20px;width:100%;max-width:1180px">
+      <sc-if value="{{ lectura.on }}">
+        <div role="status" style="display:flex;align-items:center;flex-wrap:wrap;gap:12px 14px;padding:14px 16px;border-radius:16px;background-color:#183c44;background-image:{{ grano }};color:#fff;font-size:14px;line-height:1.4">
+          <span class="material-symbols-rounded" style="font-size:22px;color:#3ccc90">visibility</span>
+          <span style="flex:1 1 260px"><b>{{ lectura.tit }}</b> {{ lectura.txt }}</span>
+          <sc-if value="{{ lectura.esDuenio }}"><a href="#" style="display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:999px;background:#3ccc90;color:#102b31;font-weight:650;text-decoration:none">Elegir un plan</a></sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ verPrueba }}"><div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:10px 16px;border-radius:14px;background:#fbe9c2;color:#5c3800;font-size:14px"><span style="font:600 14px Lato,sans-serif;font-variant-numeric:tabular-nums">3 días</span><span style="flex:1 1 220px">de prueba. Elegí un plan para no perder los cambios.</span><a href="#" style="color:#5c3800;font-weight:650">Ver planes</a></div></sc-if>
+
+      <sc-if value="{{ esInicio }}" hint-placeholder-val="{{ true }}">
+        <sc-if value="{{ L.compacto }}">
+          <div style="display:flex;align-items:center;gap:18px;padding:16px;border-radius:22px;background-color:#183c44;background-image:{{ grano }};color:#fff">
+            <span style="position:relative;width:132px;height:132px;flex:none;display:block">
+              <sc-for list="{{ anillosChicos }}" as="a"><span style="position:absolute;left:{{ a.off }};top:{{ a.off }};width:{{ a.size }};height:{{ a.size }};border-radius:50%;background:{{ a.bg }};-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 10px),#000 calc(100% - 9px));mask:radial-gradient(farthest-side,transparent calc(100% - 10px),#000 calc(100% - 9px))"></span></sc-for>
+              <span aria-hidden="true" style="position:absolute;left:50%;top:-5px;width:6px;height:38px;margin-left:-3px;border-radius:3px;background:#fff;transform-origin:50% 71px;transform:rotate({{ aguja }})"></span>
+            </span>
+            <span style="display:flex;flex-direction:column;gap:4px"><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.6)">HOY QUEDAN</span><b style="font:600 30px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.04em;color:#3ccc90;line-height:1">{{ libresHoy }}</b><span style="font-size:13px;color:rgba(255,255,255,.75)">libres entre Carla, Abril y Mica</span><button onClick="{{ irHuecos }}" style="align-self:flex-start;margin-top:4px;min-height:36px;padding:0 12px;border-radius:999px;border:0;background:rgba(60,204,144,.18);color:#bff0d9;font-size:13px;font-weight:600">Ver huecos</button></span>
+          </div>
+        </sc-if>
+        <h1 style="margin:4px 0 0;font-size:{{ L.h1 }};line-height:1.02;font-weight:700;letter-spacing:-0.05em;max-width:15em">{{ saludo }} <span style="white-space:nowrap;color:#17805a;background:url(&quot;data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 20' preserveAspectRatio='none'%3E%3Cpath d='M4 14 C80 4 180 4 296 10' fill='none' stroke='%233ccc90' stroke-width='5' stroke-linecap='round' opacity='.6'/%3E%3C/svg%3E&quot;) left 100% / 100% .28em no-repeat;padding-bottom:.06em">{{ libresHoy }} libres.</span></h1>
+        <sc-if value="{{ verAtencion }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px">
+            <sc-for list="{{ atencion }}" as="a" hint-placeholder-count="4"><button onClick="{{ a.ir }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:16px;border:0;border-radius:18px;background:{{ a.bg }};box-shadow:{{ a.sh }};color:#0f2328;text-align:left">
+              <span style="font:600 26px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.03em;color:{{ a.c }};line-height:1.1">{{ a.num }}</span>
+              <b style="font-size:14px;line-height:1.3">{{ a.t }}</b>
+              <span style="font-size:12px;color:#4a5d61">{{ a.s }}</span>
+              <span style="margin-top:4px;font-size:13px;font-weight:650;color:#17805a">{{ a.btn }} →</span>
+            </button></sc-for>
+          </div>
+        </sc-if>
+        <div style="display:grid;grid-template-columns:{{ L.inicioCols }};gap:20px;align-items:start">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:baseline;gap:10px"><b style="font-size:18px;font-weight:650;flex:1">Lo que sigue</b><button onClick="{{ irTurnos }}" style="border:0;background:transparent;color:#17805a;font-size:14px;font-weight:600;min-height:36px">{{ verTodosTxt }} →</button></div>
+            <sc-for list="{{ proximos }}" as="t" hint-placeholder-count="5">
+              <sc-if value="{{ t.esTurno }}" hint-placeholder-val="{{ true }}">
+                <div onClick="{{ t.abrir }}" style="display:grid;grid-template-columns:{{ L.stub }} minmax(0,1fr) auto;align-items:stretch;min-height:62px;border-radius:14px;cursor:pointer;background:{{ t.fondo }};box-shadow:{{ t.sombra }}">
+                  <div style="display:flex;flex-direction:column;justify-content:center;padding:0 14px;border-right:2px dashed #e2d6bf"><b style="font:600 18px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.02em">{{ t.h }}</b><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ t.f }}</span></div>
+                  <div style="display:flex;flex-direction:column;justify-content:center;padding:8px 14px;min-width:0"><b style="font-size:15px;font-weight:600">{{ t.cli }}</b><span style="font-size:12px;color:#4a5d61;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.srv }} · {{ t.prof }}</span></div>
+                  <div style="display:flex;align-items:center;padding-right:14px"><span style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px 0 7px;border-radius:999px;background:{{ t.est.bg }};color:{{ t.est.c }};box-shadow:{{ t.est.sh }};font-size:12px;font-weight:600;white-space:nowrap"><span class="material-symbols-rounded" style="font-size:14px">{{ t.est.ic }}</span>{{ t.estTxt }}</span></div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ t.esLibre }}"><div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;min-height:48px;padding:8px 14px 8px 16px;border-radius:14px;background:repeating-linear-gradient(-45deg,rgba(60,204,144,.22) 0 2px,transparent 2px 10px),rgba(60,204,144,.08);box-shadow:inset 0 0 0 1.5px rgba(23,128,90,.35)"><span style="font:600 13px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#17805a">{{ t.rango }}</span><b style="flex:1;font-size:13px;color:#0f3d2b">{{ t.titulo }}</b><button onClick="{{ t.cargar }}" style="min-height:34px;padding:0 12px;border-radius:999px;border:0;background:#17805a;color:#fff;font-size:13px;font-weight:600">Cargar acá</button></div></sc-if>
+              <sc-if value="{{ t.esAhora }}"><div style="display:flex;align-items:center;gap:10px;height:16px"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;background:#3ccc90;color:#102b31;font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums"><span style="width:6px;height:6px;border-radius:50%;background:#102b31;animation:tl-pulse 1.8s infinite"></span>{{ t.h }}</span><span style="flex:1;height:2px;background:#3ccc90"></span></div></sc-if>
+            </sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:18px;background:#fffdf9;box-shadow:0 10px 20px -16px rgba(15,35,40,.45)">
+              <div style="display:flex;align-items:baseline;gap:8px"><b style="font-size:16px;font-weight:650;flex:1">Huecos de hoy</b><span style="font:500 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#17805a">{{ libresHoy }}</span></div>
+              <span style="font-size:13px;color:#4a5d61;margin-top:-4px">Para ofrecer cuando llaman o pasan por la puerta.</span>
+              <div style="display:flex;flex-direction:column;gap:6px"><sc-for list="{{ huecosLista }}" as="h" hint-placeholder-count="4"><button onClick="{{ h.cargar }}" style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border:0;border-radius:12px;background:repeating-linear-gradient(-45deg,rgba(60,204,144,.18) 0 2px,transparent 2px 9px),#f3fbf7;color:#0f2328;text-align:left"><span style="font:600 13px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#17805a;min-width:96px">{{ h.rango }}</span><span style="flex:1;font-size:13px;font-weight:550">{{ h.p }}</span><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ h.dur }}</span></button></sc-for></div>
+            </div>
+            <sc-if value="{{ verChecklist }}">
+              <div style="display:flex;flex-direction:column;border-radius:18px;background:#fffdf9;box-shadow:0 10px 20px -16px rgba(15,35,40,.45);overflow:hidden">
+                <div style="padding:16px 16px 12px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:baseline"><b style="flex:1;font-size:16px;font-weight:650">Para recibir turnos</b><a href="Onboarding v2.dc.html" style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;font-weight:650;color:#17805a;text-decoration:none">Seguir la guía<span class="material-symbols-rounded" style="font-size:16px">arrow_forward</span></a><span style="font:600 12px Lato,sans-serif;font-variant-numeric:tabular-nums">4/6</span></div><span style="display:grid;grid-template-columns:repeat(6,1fr);gap:3px"><span style="height:6px;border-radius:3px;background:#3ccc90"></span><span style="height:6px;border-radius:3px;background:#3ccc90"></span><span style="height:6px;border-radius:3px;background:#3ccc90"></span><span style="height:6px;border-radius:3px;background:#3ccc90"></span><span style="height:6px;border-radius:3px;background:#efe6d4"></span><span style="height:6px;border-radius:3px;background:#efe6d4"></span></span></div>
+                <div style="height:14px;position:relative;background:radial-gradient(circle at 0 50%,#f4eee2 7px,transparent 7.5px),radial-gradient(circle at 100% 50%,#f4eee2 7px,transparent 7.5px)"><span style="position:absolute;left:12px;right:12px;top:6px;border-top:2px dashed #e2d6bf"></span></div>
+                <div style="display:flex;align-items:center;gap:10px;min-height:52px;padding:0 16px"><img src="apps/web/static/logos/mercadopago.svg" alt="" width="22" height="22"><span style="flex:1;font-size:14px;font-weight:550">Conectá Mercado Pago para cobrar señas</span><span style="font-size:13px;font-weight:650;color:#17805a">Conectar</span></div>
+                <div style="display:flex;align-items:center;gap:10px;min-height:52px;padding:0 16px 6px"><span class="material-symbols-rounded" style="font-size:22px;color:#17805a">link</span><span style="flex:1;font-size:14px;font-weight:550">Poné tu link en la bio de Instagram</span><span style="font-size:13px;font-weight:650;color:#17805a">Copiar</span></div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esTurnos }}">
+        <div style="display:flex;align-items:flex-end;flex-wrap:wrap;gap:16px 20px">
+          <h1 style="margin:0;font-size:{{ L.h1 }};line-height:.9;font-weight:700;letter-spacing:-0.055em">Turnos</h1><sc-if value="{{ L.compacto }}"><span style="flex-basis:100%;order:9;display:flex;align-items:center;gap:6px;font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61"><span class="material-symbols-rounded" style="font-size:16px;color:#17805a">swipe</span>DESLIZÁ → PARA CONFIRMAR · ← PARA CANCELAR</span></sc-if>
+          <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;max-width:100%;padding:2px">
+            <sc-for list="{{ diasTira }}" as="d" hint-placeholder-count="7"><button style="flex:none;width:60px;height:62px;border:0;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:{{ d.bg }};color:{{ d.c }};box-shadow:{{ d.sh }}" aria-pressed="{{ d.on }}"><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;text-transform:uppercase;opacity:.75">{{ d.dow }}</span><b style="font:600 19px Lato,sans-serif;font-variant-numeric:tabular-nums;line-height:1.1">{{ d.n }}</b><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ d.kc }}">{{ d.k }}</span></button></sc-for>
+          </div>
+          <span style="flex:1"></span>
+          <sc-if value="{{ L.ancho }}"><button onClick="{{ abrirNuevo }}" style="white-space:nowrap;flex:none;display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 22px;border-radius:999px;border:0;background:{{ btnNuevo.bg }};color:{{ btnNuevo.c }};font-size:16px;font-weight:650;box-shadow:{{ btnNuevo.sh }}"><span class="material-symbols-rounded" style="font-size:22px">{{ btnNuevo.ic }}</span>Nuevo turno</button></sc-if>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;overflow-x:auto;scrollbar-width:none;padding:2px 2px 4px;margin:-6px -2px 0">
+          <sc-if value="{{ verFiltroProf }}"><sc-for list="{{ filtrosProf }}" as="f"><button onClick="{{ f.ir }}" aria-pressed="{{ f.on }}" style="flex:none;height:38px;padding:0 14px;border-radius:999px;border:0;background:{{ f.bg }};color:{{ f.c }};box-shadow:{{ f.sh }};font-size:13px;font-weight:600">{{ f.n }}</button></sc-for><span style="flex:none;width:1px;height:24px;background:#d8ccb4;margin:0 6px"></span></sc-if>
+          <sc-for list="{{ filtrosEstado }}" as="f"><button onClick="{{ f.ir }}" aria-pressed="{{ f.on }}" style="flex:none;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:999px;border:0;background:{{ f.bg }};color:{{ f.c }};box-shadow:{{ f.sh }};font-size:13px;font-weight:600;white-space:nowrap">{{ f.n }}<sc-if value="{{ f.k }}"><span style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ f.kc }}">{{ f.k }}</span></sc-if></button></sc-for>
+          <button onClick="{{ toggleHuecos }}" aria-pressed="{{ soloHuecos }}" style="flex:none;display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:999px;border:0;background:{{ huecosBtn.bg }};color:{{ huecosBtn.c }};box-shadow:{{ huecosBtn.sh }};font-size:13px;font-weight:600"><span style="width:12px;height:12px;border-radius:3px;background:repeating-linear-gradient(-45deg,#3ccc90 0 2px,#dff4e9 2px 5px)"></span>Sólo huecos</button>
+        </div>
+        <div style="position:relative;display:flex;flex-direction:column;gap:8px">
+          <sc-if value="{{ hayNuevos }}"><div style="position:sticky;top:{{ L.pillTop }};z-index:5;height:0;display:flex;justify-content:center"><button onClick="{{ mostrarNuevos }}" style="transform:translateY(-6px);display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 16px 0 12px;border-radius:999px;border:0;background:#183c44;color:#fff;font-size:13px;font-weight:600;box-shadow:0 12px 24px -10px rgba(15,35,40,.6)"><span style="width:8px;height:8px;border-radius:50%;background:#3ccc90;animation:tl-pulse 1.4s infinite"></span>{{ nuevosTxt }} · Mostrar</button></div></sc-if>
+          <sc-for list="{{ lista }}" as="t" hint-placeholder-count="8">
+            <sc-if value="{{ t.esTurno }}" hint-placeholder-val="{{ true }}">
+              <sc-if value="{{ L.filaAncha }}" hint-placeholder-val="{{ true }}">
+                <div onClick="{{ t.abrir }}" onMouseEnter="{{ t.entrar }}" onMouseLeave="{{ t.salir }}" style-hover="transform:translateY(-2px)" style="display:grid;grid-template-columns:112px minmax(0,1.25fr) minmax(0,1fr) 168px auto;align-items:stretch;min-height:64px;border-radius:14px;cursor:pointer;transition:transform .2s cubic-bezier(.2,.7,.2,1),box-shadow .2s;animation:tl-in .45s cubic-bezier(.2,.7,.2,1) both;opacity:{{ t.op }};background:{{ t.fondo }};box-shadow:{{ t.sombra }}">
+                  <div style="position:relative;display:flex;flex-direction:column;justify-content:center;padding:0 18px;border-right:2px dashed #e2d6bf"><b style="font:600 21px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;text-decoration:{{ t.deco }}">{{ t.h }}</b><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ t.f }}</span><sc-if value="{{ t.picado }}"><span title="Atendido" style="position:absolute;right:12px;top:50%;margin-top:-7px;width:14px;height:14px;border-radius:50%;background:#f4eee2;box-shadow:inset 0 1px 2px rgba(15,35,40,.35)"></span></sc-if></div>
+                  <div style="display:flex;flex-direction:column;justify-content:center;padding:8px 18px;min-width:0"><span style="display:flex;align-items:center;gap:8px"><b style="font-size:15px;font-weight:600">{{ t.cli }}</b><sc-if value="{{ t.vip }}"><span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.06em;padding:2px 6px;border-radius:5px;background:#183c44;color:#f0c46a">VIP</span></sc-if></span><sc-if value="{{ t.nota }}"><span style="display:flex;align-items:center;gap:4px;font-size:12px;color:#8a5300"><span class="material-symbols-rounded" style="font-size:14px">sticky_note_2</span>{{ t.nota }}</span></sc-if><sc-if value="{{ t.sinNota }}"><span style="font:400 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ t.tel }}</span></sc-if></div>
+                  <div style="display:flex;flex-direction:column;justify-content:center;min-width:0"><span style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.srv }}</span><span style="font-size:12px;color:#4a5d61">con {{ t.prof }}</span></div>
+                  <div style="display:flex;flex-direction:column;justify-content:center;gap:4px;align-items:flex-start"><span style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px 0 7px;border-radius:999px;background:{{ t.est.bg }};color:{{ t.est.c }};box-shadow:{{ t.est.sh }};font-size:12px;font-weight:600"><span class="material-symbols-rounded" style="font-size:14px">{{ t.est.ic }}</span>{{ t.estTxt }}</span><span style="display:inline-flex;align-items:center;gap:4px;font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ t.pg.c }}"><span class="material-symbols-rounded" style="font-size:14px">{{ t.pg.ic }}</span>{{ t.pago }}</span></div>
+                  <div style="position:relative;display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:0 12px 0 8px">
+                    <sc-if value="{{ t.acc }}"><button onClick="{{ t.accion }}" style-hover="transform:translateY(-1px);box-shadow:0 10px 18px -10px rgba(24,60,68,.8)" style-active="transform:scale(.95)" style="transition:transform .15s,box-shadow .15s;display:inline-flex;align-items:center;gap:5px;height:36px;padding:0 13px;border-radius:999px;border:0;background:#183c44;color:#fff;font-size:13px;font-weight:600"><span class="material-symbols-rounded" style="font-size:16px;color:#3ccc90">{{ t.accIc }}</span>{{ t.accTxt }}</button></sc-if>
+                    <button onClick="{{ t.menuBtn }}" aria-label="Más acciones para {{ t.cli }}, {{ t.h }}" aria-expanded="{{ t.menuOn }}" style-focus="opacity:1" style="opacity:{{ t.masOp }};transition:opacity .18s,background .18s;width:36px;height:36px;border-radius:50%;border:0;background:{{ t.menuBg }};display:grid;place-items:center;color:#0f2328"><span class="material-symbols-rounded" style="font-size:20px">more_horiz</span></button>
+                    <sc-if value="{{ t.menuOn }}"><div role="menu" style="position:absolute;right:8px;top:54px;z-index:6;width:210px;padding:6px;border-radius:16px;background:#fffdf9;box-shadow:0 0 0 1px #e6dcc8,0 20px 40px -14px rgba(15,35,40,.45);display:flex;flex-direction:column"><sc-for list="{{ t.menu }}" as="m"><button role="menuitem" onClick="{{ m.ir }}" style="display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px;border-radius:10px;border:0;background:transparent;color:{{ m.c }};font-size:14px;font-weight:550;text-align:left" style-hover="background:#f4eee2"><span class="material-symbols-rounded" style="font-size:20px">{{ m.ic }}</span>{{ m.t }}</button></sc-for></div></sc-if>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ L.filaCompacta }}">
+                <div style="position:relative;border-radius:16px;background:{{ t.swBg }};animation:tl-in .45s both"><div aria-hidden="true" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#fff;font-size:13px;font-weight:650"><span style="display:flex;align-items:center;gap:6px;opacity:{{ t.swOpI }}"><span class="material-symbols-rounded" style="font-size:20px">{{ t.swIcI }}</span>{{ t.swTxtI }}</span><span style="display:flex;align-items:center;gap:6px;opacity:{{ t.swOpD }}">Cancelar<span class="material-symbols-rounded" style="font-size:20px">cancel</span></span></div><div onClick="{{ t.abrir }}" onPointerDown="{{ t.swDown }}" onPointerMove="{{ t.swMove }}" onPointerUp="{{ t.swUp }}" onPointerLeave="{{ t.swUp }}" style="position:relative;touch-action:pan-y;user-select:none;transform:translateX({{ t.swX }}) rotate({{ t.swRot }});transition:{{ t.swTr }};display:grid;grid-template-columns:76px minmax(0,1fr);border-radius:16px;cursor:grab;opacity:{{ t.op }};background:{{ t.fondoC }};box-shadow:{{ t.sombra }}">
+                  <div style="position:relative;display:flex;flex-direction:column;justify-content:center;padding:0 12px;border-right:2px dashed #e2d6bf"><b style="font:600 18px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.03em;text-decoration:{{ t.deco }}">{{ t.h }}</b><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ t.f }}</span><sc-if value="{{ t.picado }}"><span style="position:absolute;right:8px;bottom:10px;width:11px;height:11px;border-radius:50%;background:#f4eee2;box-shadow:inset 0 1px 2px rgba(15,35,40,.35)"></span></sc-if></div>
+                  <div style="display:flex;flex-direction:column;gap:6px;padding:12px 12px 12px 14px;min-width:0">
+                    <span style="display:flex;align-items:center;gap:6px"><b style="font-size:15px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.cli }}</b><span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px 0 6px;border-radius:999px;background:{{ t.est.bg }};color:{{ t.est.c }};box-shadow:{{ t.est.sh }};font-size:11px;font-weight:600;white-space:nowrap"><span class="material-symbols-rounded" style="font-size:13px">{{ t.est.ic }}</span>{{ t.estTxt }}</span></span>
+                    <span style="font-size:13px;color:#4a5d61;margin-top:-4px">{{ t.srv }} · {{ t.prof }}</span>
+                    <sc-if value="{{ t.nota }}"><span style="display:flex;align-items:center;gap:4px;font-size:12px;color:#8a5300"><span class="material-symbols-rounded" style="font-size:14px">sticky_note_2</span>{{ t.nota }}</span></sc-if>
+                    <span style="display:flex;align-items:center;gap:8px"><span style="flex:1;display:inline-flex;align-items:center;gap:4px;font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ t.pg.c }}"><span class="material-symbols-rounded" style="font-size:14px">{{ t.pg.ic }}</span>{{ t.pago }}</span><sc-if value="{{ t.acc }}"><button onClick="{{ t.accion }}" style="display:inline-flex;align-items:center;gap:5px;height:40px;padding:0 14px;border-radius:999px;border:0;background:#183c44;color:#fff;font-size:13px;font-weight:600"><span class="material-symbols-rounded" style="font-size:16px;color:#3ccc90">{{ t.accIc }}</span>{{ t.accTxt }}</button></sc-if></span>
+                  </div>
+                </div></div>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ t.esAhora }}"><div style="display:flex;align-items:center;gap:10px;height:16px"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;background:#3ccc90;color:#102b31;font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums"><span style="width:6px;height:6px;border-radius:50%;background:#102b31;animation:tl-pulse 1.8s infinite"></span>{{ t.h }}</span><span style="flex:1;height:2px;border-radius:1px;background:#3ccc90"></span><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#17805a">ahora</span></div></sc-if>
+            <sc-if value="{{ t.esLibre }}"><div style="animation:tl-in .45s both,tl-raya 3.5s linear infinite;display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;min-height:54px;padding:8px 12px 8px 18px;border-radius:14px;background:repeating-linear-gradient(-45deg,rgba(60,204,144,.22) 0 2px,transparent 2px 10px),rgba(60,204,144,.08);box-shadow:inset 0 0 0 1.5px rgba(23,128,90,.35)">
+              <span style="font:600 14px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#17805a;min-width:94px">{{ t.rango }}</span>
+              <span style="flex:1 1 160px;display:flex;flex-direction:column;line-height:1.3"><b style="font-size:14px;font-weight:650;color:#0f3d2b">{{ t.titulo }}</b><span style="font-size:12px;color:#17805a">{{ t.sub }}</span></span>
+              <sc-if value="{{ t.puedeAvisar }}"><button onClick="{{ t.avisar }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:999px;border:0;background:#fffdf9;color:#0f2328;font-size:13px;font-weight:600;box-shadow:0 1px 0 rgba(15,35,40,.08)"><span class="material-symbols-rounded" style="font-size:16px;color:#17805a">campaign</span>Ofrecer a la lista · {{ t.espera }}</button></sc-if>
+              <sc-if value="{{ t.ofreciendo }}"><span style="order:5;flex-basis:100%;display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding-top:2px"><span style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;background:#183c44;color:#3ccc90;font:600 13px Lato,sans-serif;font-variant-numeric:tabular-nums"><span class="material-symbols-rounded" style="font-size:16px">timer</span>{{ t.cuenta }}</span><b style="font-size:13px;color:#0f3d2b">Ofreciendo a {{ t.aQuien }}</b><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#17805a">{{ t.sigue }}</span><span style="flex:1"></span><button onClick="{{ t.simularToma }}" style="height:34px;padding:0 12px;border-radius:999px;border:0;background:#fffdf9;font:500 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#0f2328">DEMO · LO TOMA</button><button onClick="{{ t.frenar }}" style="height:34px;padding:0 8px;border:0;background:transparent;font-size:13px;font-weight:600;color:#a3241a">Frenar</button></span></sc-if>
+              <button onClick="{{ t.cargar }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 13px;border-radius:999px;border:0;background:#17805a;color:#fff;font-size:13px;font-weight:600"><span class="material-symbols-rounded" style="font-size:16px">add</span>Cargar acá</button>
+            </div></sc-if>
+          </sc-for>
+          <sc-if value="{{ listaVacia }}"><div style="padding:40px 20px;border-radius:18px;background:#fffdf9;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center"><span class="material-symbols-rounded" style="font-size:28px;color:#17805a">filter_alt_off</span><b>No hay turnos con este filtro</b><button onClick="{{ limpiarFiltros }}" style="min-height:40px;padding:0 16px;border-radius:999px;border:0;box-shadow:inset 0 0 0 1px #d8ccb4;background:#fffdf9;font-size:14px;font-weight:600">Ver todos</button></div></sc-if>
+          <sc-if value="{{ hayCancelOcultos }}"><button onClick="{{ verCancelados }}" style="align-self:center;display:flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:0;border-radius:999px;background:transparent;color:#4a5d61;font-size:13px;font-weight:600"><span class="material-symbols-rounded" style="font-size:18px">visibility</span>{{ cancelOcultosTxt }}</button></sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esCal }}">
+        <div style="display:flex;align-items:flex-end;flex-wrap:wrap;gap:14px 16px">
+          <h1 style="margin:0;font-size:{{ L.h1 }};line-height:.9;font-weight:700;letter-spacing:-0.055em">Calendario</h1>
+          <div style="display:flex;align-items:center;gap:2px;padding:3px;border-radius:999px;background:#fffdf9;box-shadow:inset 0 0 0 1px #e6dcc8"><button aria-label="Anterior" style="width:38px;height:38px;border:0;border-radius:50%;background:transparent;display:grid;place-items:center"><span class="material-symbols-rounded" style="font-size:20px">chevron_left</span></button><b style="font:600 14px Lato,sans-serif;font-variant-numeric:tabular-nums;padding:0 8px">{{ cal.titulo }}</b><button aria-label="Siguiente" style="width:38px;height:38px;border:0;border-radius:50%;background:transparent;display:grid;place-items:center"><span class="material-symbols-rounded" style="font-size:20px">chevron_right</span></button></div>
+          <div role="group" aria-label="Vista" style="display:flex;padding:3px;border-radius:999px;background:#fffdf9;box-shadow:inset 0 0 0 1px #e6dcc8"><sc-for list="{{ cal.vistas }}" as="v"><button onClick="{{ v.ir }}" aria-pressed="{{ v.on }}" style="height:38px;padding:0 16px;border-radius:999px;border:0;background:{{ v.bg }};color:{{ v.c }};font-size:13px;font-weight:600">{{ v.n }}</button></sc-for></div>
+          <span style="flex:1"></span>
+          <button onClick="{{ cal.toggleCanc }}" aria-pressed="{{ cal.verCanc }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:999px;border:0;background:{{ cal.cancBg }};color:{{ cal.cancC }};box-shadow:inset 0 0 0 1px #d8ccb4;font-size:13px;font-weight:600"><span class="material-symbols-rounded" style="font-size:18px">{{ cal.cancIc }}</span>Cancelados</button>
+          <button onClick="{{ cal.abrirIcal }}" style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:999px;border:0;background:#183c44;color:#fff;font-size:13px;font-weight:600"><img src="apps/web/static/logos/google.svg" alt="" width="16" height="16" style="background:#fff;border-radius:50%;padding:1px">Verlo en tu calendario</button>
+        </div>
+        <sc-if value="{{ cal.esDia }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ L.compacto }}"><div style="display:flex;gap:6px;overflow-x:auto"><sc-for list="{{ cal.profChips }}" as="p"><button onClick="{{ p.ir }}" style="flex:none;height:40px;padding:0 16px;border-radius:999px;border:0;background:{{ p.bg }};color:{{ p.c }};box-shadow:{{ p.sh }};font-size:13px;font-weight:600">{{ p.n }}</button></sc-for></div></sc-if>
+          <div style="border-radius:20px;background:#fffdf9;box-shadow:0 1px 0 rgba(15,35,40,.05),0 20px 40px -30px rgba(15,35,40,.5);overflow:hidden">
+            <div style="display:grid;grid-template-columns:56px repeat({{ cal.n }},minmax(0,1fr));border-bottom:1px solid #eee5d3">
+              <span></span>
+              <sc-for list="{{ cal.cols }}" as="col"><div style="display:flex;align-items:center;gap:10px;padding:12px 12px;border-left:1px solid #eee5d3"><span style="width:34px;height:34px;border-radius:50%;background:#f4eee2;display:grid;place-items:center;font-size:12px;font-weight:650">{{ col.ini }}</span><span style="display:flex;flex-direction:column;line-height:1.2"><b style="font-size:14px">{{ col.p }}</b><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#17805a">{{ col.libres }} libres</span></span></div></sc-for>
+            </div>
+            <div style="position:relative;display:grid;grid-template-columns:56px repeat({{ cal.n }},minmax(0,1fr));height:{{ cal.alto }}">
+              <div style="position:relative">
+                <sc-for list="{{ cal.horas }}" as="h"><span style="position:absolute;right:8px;top:{{ h.top }};transform:translateY(-6px);font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ h.t }}</span></sc-for>
+              </div>
+              <sc-for list="{{ cal.cols }}" as="col">
+                <div onClick="{{ col.clickHueco }}" title="Tocá un hueco para cargar un turno" style="position:relative;border-left:1px solid #eee5d3;cursor:copy;background:repeating-linear-gradient(to bottom,transparent 0 77px,rgba(15,35,40,.07) 77px 78px),repeating-linear-gradient(-45deg,rgba(60,204,144,.16) 0 2px,transparent 2px 10px),#f5fbf8">
+                  <span aria-hidden="true" style="position:absolute;left:0;right:0;top:0;height:{{ cal.pasado }};background:rgba(250,246,238,.82);pointer-events:none"></span>
+                  <sc-for list="{{ col.bloques }}" as="b"><button onClick="{{ b.abrir }}" aria-label="{{ b.label }}" style="position:absolute;left:6px;right:6px;top:{{ b.top }};height:{{ b.alto }};display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:5px 10px;overflow:hidden;border:0;border-radius:10px;background:{{ b.bg }};color:{{ b.c }};box-shadow:{{ b.sh }};outline:{{ b.ol }};outline-offset:-2px;opacity:{{ b.op }};text-align:left;cursor:pointer">
+                    <span style="display:flex;align-items:center;gap:6px;width:100%"><b style="font:600 12px Lato,sans-serif;font-variant-numeric:tabular-nums;text-decoration:{{ b.deco }}">{{ b.h }}</b><span style="flex:1;min-width:0;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.cli }}</span><span class="material-symbols-rounded" style="font-size:15px;color:{{ b.icc }}">{{ b.ic }}</span></span>
+                    <span style="font-size:12px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">{{ b.srv }}</span>
+                  </button></sc-for>
+                </div>
+              </sc-for>
+              <div aria-hidden="true" style="position:absolute;left:44px;right:0;top:{{ cal.pasado }};display:flex;align-items:center;pointer-events:none;transform:translateY(-11px)"><span style="display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:999px;background:#3ccc90;color:#102b31;font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums">{{ ahora }}</span><span style="flex:1;height:2px;background:#3ccc90"></span></div>
+            </div>
+          </div>
+          <span style="font-size:13px;color:#4a5d61">Lo rayado está libre: tocalo para cargar un turno a esa hora. Los turnos que entran por la web aparecen solos, con contorno menta.</span>
+        </sc-if>
+        <sc-if value="{{ cal.esSemana }}">
+          <div style="border-radius:20px;background:#fffdf9;box-shadow:0 20px 40px -30px rgba(15,35,40,.5);overflow-x:auto">
+            <div style="display:grid;grid-template-columns:56px repeat(6,minmax(96px,1fr));min-width:640px">
+              <span style="border-bottom:1px solid #eee5d3"></span>
+              <sc-for list="{{ cal.semDias }}" as="d"><button onClick="{{ d.ir }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px;border:0;border-left:1px solid #eee5d3;border-bottom:1px solid #eee5d3;background:{{ d.bg }};color:{{ d.c }};text-align:left"><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;text-transform:uppercase;opacity:.75">{{ d.dow }}</span><b style="font:600 20px Lato,sans-serif;font-variant-numeric:tabular-nums;line-height:1">{{ d.n }}</b><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ d.kc }}">{{ d.k }}</span></button></sc-for>
+              <sc-for list="{{ cal.semFilas }}" as="f">
+                <span style="padding:8px 8px 0 0;text-align:right;font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ f.h }}</span>
+                <sc-for list="{{ f.celdas }}" as="x"><button onClick="{{ x.ir }}" title="{{ x.t }}" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:6px;height:44px;border:0;border-left:1px solid #eee5d3;border-top:1px solid #f4eee2;background:transparent"><sc-for list="{{ x.p }}" as="q"><span style="border-radius:4px;background:{{ q }}"></span></sc-for></button></sc-for>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:#4a5d61"><span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:4px;background:#183c44"></span>Ocupado</span><span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:4px;background:repeating-linear-gradient(-45deg,#3ccc90 0 2px,#dff4e9 2px 5px)"></span>Libre</span><span>Cada celda es una hora: una barrita por profesional (Carla, Abril, Mica). Tocá un día para abrirlo.</span></div>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{ esEspera }}">
+        <div style="display:flex;align-items:flex-end;flex-wrap:wrap;gap:14px 16px"><h1 style="margin:0;font-size:{{ L.h1 }};line-height:.9;font-weight:700;letter-spacing:-0.055em">Lista de espera</h1><span style="flex:1"></span><div role="tablist" style="display:flex;padding:3px;border-radius:999px;background:#fffdf9;box-shadow:inset 0 0 0 1px #e6dcc8"><sc-for list="{{ esp.tabs }}" as="t"><button role="tab" onClick="{{ t.ir }}" aria-selected="{{ t.on }}" style="display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:999px;border:0;background:{{ t.bg }};color:{{ t.c }};font-size:13px;font-weight:600">{{ t.n }}<span style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums;opacity:.75">{{ t.k }}</span></button></sc-for></div></div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ esp.lista }}" as="e" hint-placeholder-count="3">
+            <div style="display:grid;grid-template-columns:{{ L.espCols }};border-radius:16px;opacity:{{ e.op }};background:radial-gradient(circle at {{ L.espStub }} 0,#f4eee2 9px,transparent 9.5px),radial-gradient(circle at {{ L.espStub }} 100%,#f4eee2 9px,transparent 9.5px),#fffdf9;box-shadow:0 10px 20px -16px rgba(15,35,40,.45)">
+              <div style="display:flex;flex-direction:column;justify-content:center;gap:2px;padding:12px 16px;border-right:2px dashed #e2d6bf"><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">LE SIRVE</span><b style="font:600 14px Lato,sans-serif;font-variant-numeric:tabular-nums;line-height:1.25">{{ e.franja }}</b><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#17805a">{{ e.momento }}</span></div>
+              <div style="display:flex;flex-direction:column;justify-content:center;gap:3px;padding:12px 16px;min-width:0"><b style="font-size:15px">{{ e.n }}</b><span style="font-size:13px;color:#4a5d61">{{ e.srv }} · {{ e.prof }}</span><span style="font:400 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ e.contacto }}</span></div>
+              <div style="display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:8px;padding:10px 14px">
+                <sc-if value="{{ e.hayMatch }}"><span style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;border-radius:10px;background:repeating-linear-gradient(-45deg,rgba(60,204,144,.22) 0 2px,transparent 2px 9px),#f3fbf7;box-shadow:inset 0 0 0 1px rgba(23,128,90,.3);font:600 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#17805a">{{ e.match }}</span></sc-if>
+                <sc-if value="{{ e.esperando }}"><button onClick="{{ e.avisar }}" style="display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:999px;border:0;background:#183c44;color:#fff;font-size:13px;font-weight:600"><span class="material-symbols-rounded" style="font-size:16px;color:#3ccc90">campaign</span>Avisar</button><button onClick="{{ e.quitar }}" style="height:38px;padding:0 10px;border:0;background:transparent;font-size:13px;font-weight:600;color:#4a5d61">Quitar</button></sc-if>
+                <sc-if value="{{ e.nota }}"><span style="font:500 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ e.notaC }}">{{ e.nota }}</span></sc-if>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ esp.vacia }}"><div style="padding:40px 24px;border-radius:20px;background:#fffdf9;display:flex;flex-direction:column;align-items:flex-start;gap:10px"><span class="material-symbols-rounded" style="font-size:30px;color:#17805a">hourglass_empty</span><b style="font-size:18px">Nadie esperando acá</b><span style="font-size:14px;color:#4a5d61;max-width:32em">Cuando un día se llena, tu página ofrece anotarse. Si alguien cancela, te mostramos a quién avisar primero.</span></div></sc-if>
+        </div>
+        <span style="font-size:13px;color:#4a5d61">El primero que toma el lugar se lo queda. Avisamos por mail y, si dejó teléfono, con un link a WhatsApp.</span>
+      </sc-if>
+
+      <sc-if value="{{ esClientes }}">
+        <div style="display:flex;align-items:flex-end;flex-wrap:wrap;gap:14px 16px"><h1 style="margin:0;font-size:{{ L.h1 }};line-height:.9;font-weight:700;letter-spacing:-0.055em">Clientes</h1><span style="font:500 13px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61;padding-bottom:4px">{{ cli.total }}</span><span style="flex:1"></span><a href="#" style="font-size:14px;font-weight:600">Etiquetas</a><a href="#" style="font-size:14px;font-weight:600">Penalidades <span style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums">1</span></a></div>
+        <label style="display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;border-radius:16px;background:#fffdf9;box-shadow:inset 0 0 0 1px #e6dcc8"><span class="material-symbols-rounded" style="font-size:22px;color:#4a5d61">search</span><input value="{{ cli.q }}" onInput="{{ cli.escribir }}" aria-label="Buscar clientes" placeholder="Nombre, teléfono o email" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font:400 16px Lato,sans-serif;color:#0f2328"></label>
+        <div style="display:flex;gap:6px;overflow-x:auto;margin-top:-6px"><sc-for list="{{ cli.filtros }}" as="f"><button onClick="{{ f.ir }}" aria-pressed="{{ f.on }}" style="flex:none;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:999px;border:0;background:{{ f.bg }};color:{{ f.c }};box-shadow:{{ f.sh }};font-size:13px;font-weight:600">{{ f.n }}<span style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums;opacity:.7">{{ f.k }}</span></button></sc-for></div>
+        <div style="display:flex;flex-direction:column;border-radius:20px;background:#fffdf9;overflow:hidden;box-shadow:0 20px 40px -30px rgba(15,35,40,.5)">
+          <sc-for list="{{ cli.lista }}" as="k" hint-placeholder-count="6"><button onClick="{{ k.abrir }}" style="display:grid;grid-template-columns:{{ L.cliCols }};align-items:center;gap:14px;min-height:68px;padding:10px 18px;border:0;border-top:1px solid #f0e8d8;background:transparent;color:#0f2328;text-align:left">
+            <span style="width:42px;height:42px;border-radius:50%;background:{{ k.av }};display:grid;place-items:center;font-size:13px;font-weight:650">{{ k.ini }}</span>
+            <span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b style="font-size:15px">{{ k.n }}</b><sc-for list="{{ k.tags }}" as="g"><span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.05em;padding:2px 6px;border-radius:5px;background:{{ g.bg }};color:{{ g.c }}">{{ g.t }}</span></sc-for></span><span style="font:400 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ k.tel }}</span></span>
+            <sc-if value="{{ L.ancho }}"><span style="font-size:13px;color:#4a5d61">{{ k.visitas }}</span></sc-if>
+            <span style="justify-self:end;font:500 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ k.proxC }}">{{ k.prox }}</span>
+          </button></sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esGestion }}"><div style="margin:0 -4px;overflow-x:auto;scrollbar-width:thin"><div style="min-width:{{ L.gestMin }}"><dc-import name="Gestion secciones" seccion="{{ gestionSec }}" hint-size="100%,900px"></dc-import></div></div></sc-if>
+      <sc-if value="{{ esOtra }}"><div style="padding:40px 0;display:flex;flex-direction:column;gap:10px;max-width:560px"><h1 style="margin:0;font-size:{{ L.h1 }};font-weight:700;letter-spacing:-0.05em;line-height:1">{{ otraNombre }}</h1><p style="margin:0;font-size:15px;color:#4a5d61">Esta sección llega en otra tanda. En este prototipo andan Inicio y Turnos, con su detalle y la carga rápida.</p></div></sc-if>
+      <sc-if value="{{ L.compacto }}"><div style="height:84px"></div></sc-if>
+    </main>
+  </div>
+
+  <sc-if value="{{ L.compacto }}">
+    <button onClick="{{ abrirNuevo }}" aria-label="Nuevo turno" style="animation:tl-drawer .32s cubic-bezier(.2,.8,.2,1) both;position:fixed;right:16px;bottom:96px;z-index:15;display:inline-flex;align-items:center;gap:8px;height:56px;padding:0 20px 0 16px;border-radius:999px;border:0;background:{{ btnNuevo.bg }};color:{{ btnNuevo.c }};font-size:15px;font-weight:650;box-shadow:{{ btnNuevo.sh }}"><span class="material-symbols-rounded" style="font-size:24px">{{ btnNuevo.ic }}</span>Nuevo turno</button>
+    <nav aria-label="Panel" style="position:fixed;left:0;right:0;bottom:0;z-index:15;display:grid;grid-template-columns:repeat({{ tabsN }},1fr);height:80px;padding:6px 4px 18px;background:#fffdf9;box-shadow:0 -1px 0 #e6dcc8">
+      <sc-for list="{{ tabs }}" as="it"><button onClick="{{ it.ir }}" aria-current="{{ it.cur }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;background:transparent;color:{{ it.c }};font-size:11px;font-weight:600"><span style="padding:3px 14px;border-radius:999px;background:{{ it.bg }}"><span class="material-symbols-rounded" style="font-size:22px;font-variation-settings:'FILL' {{ it.fill }}">{{ it.icon }}</span></span>{{ it.n }}</button></sc-for>
+    </nav>
+    <sc-if value="{{ masAbierto }}"><div onClick="{{ cerrarMas }}" style="position:fixed;inset:0;z-index:40;background:rgba(15,35,40,.4)"></div><div style="position:fixed;left:0;right:0;bottom:0;z-index:41;padding:10px 16px 28px;border-radius:24px 24px 0 0;background:#fffdf9;display:flex;flex-direction:column;gap:4px"><span style="align-self:center;width:40px;height:4px;border-radius:2px;background:#d8ccb4;margin-bottom:8px"></span><sc-for list="{{ navSecundario }}" as="it"><button onClick="{{ it.ir }}" style="display:flex;align-items:center;gap:14px;min-height:52px;padding:0 6px;border:0;border-bottom:1px solid #f0e8d8;background:transparent;color:#0f2328;font-size:16px;text-align:left"><span class="material-symbols-rounded" style="font-size:22px;color:#17805a">{{ it.icon }}</span>{{ it.n }}</button></sc-for></div></sc-if>
+  </sc-if>
+
+  <sc-if value="{{ hayDrawer }}"><div onClick="{{ cerrarDrawer }}" style="position:fixed;inset:0;z-index:40;background:rgba(15,35,40,.35);backdrop-filter:blur(2px);animation:tl-fade .25s both"></div></sc-if>
+
+  <sc-if value="{{ det.on }}">
+    <aside aria-label="Detalle del turno" style="animation:tl-drawer .32s cubic-bezier(.2,.8,.2,1) both;position:fixed;top:{{ L.drTop }};right:0;bottom:0;width:{{ L.drW }};z-index:41;background:#fffdf9;border-radius:{{ L.drRad }};box-shadow:-30px 0 60px -30px rgba(15,35,40,.5);display:flex;flex-direction:column;overflow:hidden">
+      <div style="position:relative;padding:18px 20px 22px;background-color:#183c44;background-image:{{ grano }};color:#fff;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px 0 8px;border-radius:999px;background:rgba(255,255,255,.14);font-size:13px;font-weight:600"><span class="material-symbols-rounded" style="font-size:16px;color:{{ det.icc }}">{{ det.est.ic }}</span>{{ det.estTxt }}</span><span style="flex:1"></span><button onClick="{{ cerrarDrawer }}" aria-label="Cerrar" style="width:44px;height:44px;border-radius:14px;border:0;background:rgba(255,255,255,.1);color:#fff;display:grid;place-items:center"><span class="material-symbols-rounded" style="font-size:22px">close</span></button></div>
+        <div style="display:flex;align-items:flex-end;gap:12px"><b style="font:600 52px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.06em;line-height:.9">{{ det.h }}</b><span style="font:500 13px Lato,sans-serif;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.7);padding-bottom:4px">→ {{ det.f }} · LUN 02</span></div>
+        <span style="font-size:15px;color:rgba(255,255,255,.85)">{{ det.srv }} · con {{ det.prof }}</span>
+      </div>
+      <div style="height:18px;flex:none;position:relative;background:linear-gradient(#183c44 0 50%,#fffdf9 50%)"><span style="position:absolute;left:-9px;top:0;width:18px;height:18px;border-radius:50%;background:{{ L.notch }}"></span><span style="position:absolute;right:-9px;top:0;width:18px;height:18px;border-radius:50%;background:{{ L.notch }}"></span><span style="position:absolute;left:16px;right:16px;top:8px;border-top:2px dashed #e2d6bf"></span></div>
+      <div style="flex:1;overflow-y:auto;padding:4px 20px 20px;display:flex;flex-direction:column">
+        <div style="padding:12px 0 16px;border-bottom:1px solid #f0e8d8;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:12px"><span style="width:44px;height:44px;border-radius:50%;background:#f4eee2;display:grid;place-items:center;font-weight:650;font-size:14px">{{ det.ini }}</span><span style="flex:1;display:flex;flex-direction:column"><span style="display:flex;gap:8px;align-items:center"><b style="font-size:17px;font-weight:650">{{ det.cli }}</b><sc-if value="{{ det.vip }}"><span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;padding:2px 6px;border-radius:5px;background:#183c44;color:#f0c46a">VIP</span></sc-if></span><span style="font-size:13px;color:#4a5d61">{{ det.historial }}</span></span><a href="#" style="font-size:14px;font-weight:600">Ficha</a></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><a href="#" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:999px;background:#f4eee2;color:#0f2328;font:500 13px Lato,sans-serif;font-variant-numeric:tabular-nums;text-decoration:none"><img src="apps/web/static/logos/whatsapp.svg" alt="" width="16" height="16">{{ det.tel }}</a><a href="#" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:999px;background:#f4eee2;color:#0f2328;font-size:13px;font-weight:600;text-decoration:none"><span class="material-symbols-rounded" style="font-size:17px">call</span>Llamar</a></div>
+        </div>
+        <div style="padding:14px 0;border-bottom:1px solid #f0e8d8;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px">Precio</span><b style="font:600 16px Lato,sans-serif;font-variant-numeric:tabular-nums">{{ det.precio }}</b></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;color:{{ det.pg.c }}"><span style="display:flex;gap:6px;align-items:center"><span class="material-symbols-rounded" style="font-size:18px">{{ det.pg.ic }}</span>{{ det.pagoLargo }}</span><sc-if value="{{ det.puedeDevolver }}"><button style="border:0;background:transparent;color:#b42318;font-size:13px;font-weight:600;text-decoration:underline;text-underline-offset:3px;min-height:36px">Devolver</button></sc-if></div>
+          <sc-if value="{{ det.resta }}"><div style="display:flex;justify-content:space-between;font-size:14px;color:#4a5d61"><span>Resta cobrar en el local</span><b style="font:600 15px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#0f2328">{{ det.resta }}</b></div></sc-if>
+        </div>
+        <label style="padding:14px 0;border-bottom:1px solid #f0e8d8;display:flex;flex-direction:column;gap:8px"><span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.08em;color:#4a5d61">NOTA INTERNA</span><textarea rows="2" placeholder="Sólo la ve el equipo" style="padding:10px 12px;border-radius:12px;border:0;background:#f8f3ea;box-shadow:inset 0 0 0 1px #e6dcc8;font:400 15px Lato,sans-serif;resize:vertical;color:#0f2328">{{ det.nota }}</textarea></label>
+        <div style="padding:14px 0;display:flex;flex-direction:column;gap:10px">
+          <span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.08em;color:#4a5d61">HISTORIA</span>
+          <sc-for list="{{ det.hist }}" as="x"><div style="display:grid;grid-template-columns:14px 1fr auto;gap:10px;align-items:baseline;font-size:13px"><span style="width:8px;height:8px;border-radius:50%;background:{{ x.c }}"></span><span>{{ x.t }}</span><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ x.cuando }}</span></div></sc-for>
+        </div>
+      </div>
+      <sc-if value="{{ det.puedeActuar }}">
+        <div style="flex:none;display:flex;flex-wrap:wrap;gap:8px;padding:14px 20px 18px;border-top:1px solid #f0e8d8">
+          <sc-if value="{{ det.acc }}"><button onClick="{{ det.accion }}" style="flex:1 1 160px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;border-radius:999px;border:0;background:#3ccc90;color:#102b31;font-size:16px;font-weight:650;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 10px 20px -10px rgba(60,204,144,.8)"><span class="material-symbols-rounded" style="font-size:20px">{{ det.accIc }}</span>{{ det.accTxt }}</button></sc-if>
+          <button style="flex:1 1 120px;min-height:52px;padding:0 16px;border-radius:999px;border:0;box-shadow:inset 0 0 0 1.5px #d8ccb4;background:#fffdf9;font-size:15px;font-weight:600;color:#0f2328">Reprogramar</button>
+          <button onClick="{{ det.cancelar }}" style="min-height:52px;padding:0 14px;border-radius:999px;border:0;background:transparent;color:#b42318;font-size:15px;font-weight:600">Cancelar</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ lectura.on }}"><div style="flex:none;padding:14px 20px;border-top:1px solid #f0e8d8;font-size:13px;color:#4a5d61;display:flex;gap:8px;align-items:center"><span class="material-symbols-rounded" style="font-size:18px">lock</span>Sólo lectura: para cambiar el turno hace falta un plan.</div></sc-if>
+    </aside>
+  </sc-if>
+
+  <sc-if value="{{ caja.on }}">
+    <aside aria-label="Cobrar" style="animation:tl-drawer .32s cubic-bezier(.2,.8,.2,1) both;position:fixed;top:0;right:0;bottom:0;width:{{ L.drW }};z-index:41;background:#fffdf9;border-radius:{{ L.drRad }};box-shadow:-30px 0 60px -30px rgba(15,35,40,.5);display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:18px 20px 22px;background-color:#183c44;background-image:{{ grano }};color:#fff;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center"><span style="flex:1;font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.08em;color:#3ccc90">ATENDIDA · {{ caja.cli }}</span><button onClick="{{ cerrarDrawer }}" aria-label="Cerrar" style="width:44px;height:44px;border-radius:14px;border:0;background:rgba(255,255,255,.1);color:#fff;display:grid;place-items:center"><span class="material-symbols-rounded" style="font-size:22px">close</span></button></div>
+        <span style="font-size:14px;color:rgba(255,255,255,.8)">Resta cobrar</span>
+        <b style="font:600 52px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.06em;line-height:1">{{ caja.total }}</b>
+      </div>
+      <div style="height:18px;flex:none;position:relative;background:linear-gradient(#183c44 0 50%,#fffdf9 50%)"><span style="position:absolute;left:-9px;top:0;width:18px;height:18px;border-radius:50%;background:{{ L.notch }}"></span><span style="position:absolute;right:-9px;top:0;width:18px;height:18px;border-radius:50%;background:{{ L.notch }}"></span><span style="position:absolute;left:16px;right:16px;top:8px;border-top:2px dashed #e2d6bf"></span></div>
+      <div style="flex:1;overflow-y:auto;padding:6px 20px 20px;display:flex;flex-direction:column;gap:12px;font-size:14px">
+        <sc-for list="{{ caja.lineas }}" as="l"><div style="display:flex;justify-content:space-between;gap:10px;color:{{ l.c }}"><span>{{ l.t }}</span><span style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums">{{ l.m }}</span></div></sc-for>
+        <span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.08em;color:#4a5d61;margin-top:8px">¿SE LLEVÓ ALGO?</span>
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ caja.productos }}" as="p"><button onClick="{{ p.ir }}" aria-pressed="{{ p.on }}" style="display:inline-flex;align-items:center;gap:6px;height:42px;padding:0 14px;border-radius:999px;border:0;background:{{ p.bg }};color:{{ p.c }};box-shadow:{{ p.sh }};font-size:13px;font-weight:600">{{ p.n }}<span style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums;opacity:.8">{{ p.m }}</span></button></sc-for></div>
+        <span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.08em;color:#4a5d61;margin-top:8px">CÓMO PAGA</span>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"><sc-for list="{{ caja.medios }}" as="m"><button onClick="{{ m.ir }}" aria-pressed="{{ m.on }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:68px;border-radius:14px;border:0;background:{{ m.bg }};color:{{ m.c }};font-size:12px;font-weight:600"><span class="material-symbols-rounded" style="font-size:22px">{{ m.ic }}</span>{{ m.t }}</button></sc-for></div>
+      </div>
+      <div style="flex:none;display:flex;gap:8px;padding:14px 20px 18px;border-top:1px solid #f0e8d8"><button onClick="{{ caja.cobrar }}" style="flex:1;min-height:52px;border-radius:999px;border:0;background:#3ccc90;color:#102b31;font-size:16px;font-weight:650;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 10px 20px -10px rgba(60,204,144,.8)">Cobrar {{ caja.total }}</button><button onClick="{{ caja.despues }}" style="min-height:52px;padding:0 14px;border-radius:999px;border:0;background:transparent;font-size:14px;font-weight:600;color:#4a5d61">Cobrar después</button></div>
+    </aside>
+  </sc-if>
+
+  <sc-if value="{{ nv.on }}">
+    <aside aria-label="Nuevo turno" style="animation:tl-drawer .32s cubic-bezier(.2,.8,.2,1) both;position:fixed;top:{{ L.drTop }};right:0;bottom:0;width:{{ L.drW2 }};z-index:41;background:#fffdf9;border-radius:{{ L.drRad }};box-shadow:-30px 0 60px -30px rgba(15,35,40,.5);display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid #f0e8d8"><span style="flex:1;display:flex;flex-direction:column"><b style="font-size:22px;font-weight:700;letter-spacing:-0.03em">Nuevo turno</b><sc-if value="{{ nv.desdeHueco }}"><span style="font:500 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#17805a">{{ nv.desdeHueco }}</span></sc-if></span><button onClick="{{ cerrarDrawer }}" aria-label="Cerrar" style="width:44px;height:44px;border-radius:14px;border:0;background:#f4eee2;display:grid;place-items:center"><span class="material-symbols-rounded" style="font-size:22px">close</span></button></div>
+      <div style="flex:1;overflow-y:auto;padding:16px 20px 24px;display:flex;flex-direction:column;gap:22px">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.08em;color:#4a5d61">CLIENTE</span>
+          <sc-if value="{{ nv.sinCli }}" hint-placeholder-val="{{ true }}">
+            <label style="display:flex;align-items:center;gap:8px;height:50px;padding:0 14px;border-radius:14px;background:#fff;box-shadow:inset 0 0 0 2px #3ccc90"><span class="material-symbols-rounded" style="font-size:20px;color:#4a5d61">person_search</span><input value="{{ nv.q }}" onInput="{{ nv.escribir }}" aria-label="Buscar cliente por nombre o teléfono" placeholder="Nombre o teléfono" style="flex:1;min-width:0;border:0;outline:none;font:400 16px Lato,sans-serif;color:#0f2328;background:transparent"></label>
+            <div style="display:flex;flex-direction:column;border-radius:14px;background:#fff;box-shadow:inset 0 0 0 1px #e6dcc8;overflow:hidden">
+              <sc-for list="{{ nv.resultados }}" as="r"><button onClick="{{ r.elegir }}" style="display:flex;align-items:center;gap:10px;min-height:54px;padding:6px 14px;border:0;border-bottom:1px solid #f0e8d8;background:transparent;text-align:left;color:#0f2328"><span style="flex:1;display:flex;flex-direction:column"><b style="font-size:15px;font-weight:600">{{ r.n }}</b><span style="font:400 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ r.tel }} · {{ r.extra }}</span></span><sc-if value="{{ r.socia }}"><span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#7a5a1e"><span class="material-symbols-rounded" style="font-size:15px">card_membership</span>Socia</span></sc-if></button></sc-for>
+              <button onClick="{{ nv.cargarNuevo }}" style="display:flex;align-items:center;gap:10px;min-height:50px;padding:0 14px;border:0;background:#f8f3ea;text-align:left;color:#17805a;font-size:14px;font-weight:600"><span class="material-symbols-rounded" style="font-size:20px">person_add</span>{{ nv.nuevoTxt }}</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ nv.conCli }}">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:#f4eee2"><span style="width:38px;height:38px;border-radius:50%;background:#fffdf9;display:grid;place-items:center;font-size:13px;font-weight:650">{{ nv.cliIni }}</span><span style="flex:1;display:flex;flex-direction:column"><b style="font-size:15px;font-weight:600">{{ nv.cliNombre }}</b><span style="font-size:12px;color:#4a5d61">{{ nv.cliSub }}</span></span><button onClick="{{ nv.quitarCli }}" style="border:0;background:transparent;color:#17805a;font-size:13px;font-weight:600;min-height:40px">Cambiar</button></div>
+            <sc-if value="{{ nv.esNuevo }}"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px"><input aria-label="Teléfono" placeholder="Teléfono" style="height:48px;padding:0 14px;border-radius:12px;border:0;box-shadow:inset 0 0 0 1.5px #d8ccb4;font:400 16px Lato,sans-serif"><input aria-label="Email" placeholder="Email (opcional)" style="height:48px;padding:0 14px;border-radius:12px;border:0;box-shadow:inset 0 0 0 1.5px #d8ccb4;font:400 16px Lato,sans-serif"></div></sc-if>
+          </sc-if>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.08em;color:#4a5d61">SERVICIO</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ nv.servicios }}" as="s"><button onClick="{{ s.elegir }}" aria-pressed="{{ s.on }}" style="min-height:42px;padding:0 14px;border-radius:999px;border:0;background:{{ s.bg }};color:{{ s.c }};box-shadow:{{ s.sh }};font-size:13px;font-weight:600">{{ s.n }}</button></sc-for></div>
+        </div>
+        <sc-if value="{{ nv.conSrv }}">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.08em;color:#4a5d61">CON QUIÉN Y CUÁNDO</span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ nv.profs }}" as="p"><button onClick="{{ p.elegir }}" aria-pressed="{{ p.on }}" style="min-height:42px;padding:0 16px;border-radius:999px;border:0;background:{{ p.bg }};color:{{ p.c }};box-shadow:{{ p.sh }};font-size:13px;font-weight:600">{{ p.n }}</button></sc-for></div>
+            <div style="display:flex;gap:6px"><sc-for list="{{ nv.dias }}" as="d"><button onClick="{{ d.elegir }}" disabled="{{ d.off }}" style="flex:1;min-width:0;height:58px;border-radius:14px;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:{{ d.bg }};color:{{ d.c }};box-shadow:{{ d.sh }};cursor:{{ d.cur }}"><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;text-transform:uppercase">{{ d.dow }}</span><span style="font:600 17px Lato,sans-serif;font-variant-numeric:tabular-nums;text-decoration:{{ d.deco }}">{{ d.t }}</span></button></sc-for></div>
+            <sc-if value="{{ nv.sinSobre }}"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:6px"><sc-for list="{{ nv.horas }}" as="h"><button onClick="{{ h.elegir }}" style="height:46px;border-radius:12px;border:0;background:{{ h.bg }};color:{{ h.c }};box-shadow:{{ h.sh }};font:600 14px Lato,sans-serif;font-variant-numeric:tabular-nums">{{ h.h }}</button></sc-for></div></sc-if>
+            <label style="display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px;cursor:pointer"><input type="checkbox" checked="{{ nv.sobre }}" onChange="{{ nv.toggleSobre }}" style="width:20px;height:20px;accent-color:#183c44">Sobreturno: a una hora que no figura libre</label>
+            <sc-if value="{{ nv.sobre }}"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;border-radius:14px;background:#fbe9c2;color:#5c3800;font-size:13px"><input type="time" value="13:00" aria-label="Hora del sobreturno" style="height:44px;padding:0 10px;border-radius:10px;border:0;box-shadow:inset 0 0 0 1.5px #ecc97f;font:500 15px Lato,sans-serif;font-variant-numeric:tabular-nums;background:#fffdf9"><span style="flex:1 1 180px">Se va a superponer con otro turno. Avisale a {{ nv.profCorto }}.</span></div></sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ nv.memb }}"><div style="display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:14px;background:#f1e5c9;font-size:14px;color:#4a3a17"><span class="material-symbols-rounded" style="font-size:20px;color:#7a5a1e">card_membership</span><span><b>Va con su membresía.</b> Se descuenta 1 visita de Plan Glow (le quedan 3).</span></div></sc-if>
+      </div>
+      <div style="flex:none;display:flex;align-items:center;gap:12px;padding:14px 20px 18px;border-top:1px solid #f0e8d8">
+        <span style="flex:1;display:flex;flex-direction:column;font-size:12px;color:#4a5d61;line-height:1.35"><b style="font:600 15px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#0f2328">{{ nv.resumen }}</b>Le llega la confirmación por mail.</span>
+        <button onClick="{{ nv.reservar }}" disabled="{{ nv.noListo }}" style="min-height:52px;padding:0 22px;border-radius:999px;border:0;background:{{ nv.btnBg }};color:{{ nv.btnC }};font-size:16px;font-weight:650;cursor:{{ nv.btnCur }};box-shadow:{{ nv.btnSh }}">Reservar</button>
+      </div>
+    </aside>
+  </sc-if>
+
+  <sc-if value="{{ ficha.on }}">
+    <div onClick="{{ ficha.cerrar }}" style="position:fixed;inset:0;z-index:40;background:rgba(15,35,40,.35);backdrop-filter:blur(2px);animation:tl-fade .25s both"></div>
+    <aside aria-label="Ficha de cliente" style="animation:tl-drawer .32s cubic-bezier(.2,.8,.2,1) both;position:fixed;top:0;right:0;bottom:0;width:{{ L.drW2 }};z-index:41;background:#fffdf9;border-radius:{{ L.drRad }};box-shadow:-30px 0 60px -30px rgba(15,35,40,.5);display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:18px 20px 20px;background-color:#183c44;background-image:{{ grano }};color:#fff;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:12px"><span style="width:52px;height:52px;border-radius:50%;background:#3ccc90;color:#102b31;display:grid;place-items:center;font-size:17px;font-weight:700">{{ ficha.ini }}</span><span style="flex:1;display:flex;flex-direction:column;gap:4px"><b style="font-size:22px;letter-spacing:-0.03em">{{ ficha.n }}</b><span style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ ficha.tags }}" as="g"><span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;padding:2px 7px;border-radius:5px;background:rgba(255,255,255,.14);color:#f0c46a">{{ g.t }}</span></sc-for><button style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;padding:2px 7px;border-radius:5px;border:1px dashed rgba(255,255,255,.35);background:transparent;color:rgba(255,255,255,.8)">+ ETIQUETA</button></span></span><button onClick="{{ ficha.cerrar }}" aria-label="Cerrar" style="width:44px;height:44px;border-radius:14px;border:0;background:rgba(255,255,255,.1);color:#fff;display:grid;place-items:center"><span class="material-symbols-rounded" style="font-size:22px">close</span></button></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><sc-for list="{{ ficha.stats }}" as="s"><div style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.08)"><b style="font:600 20px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.03em">{{ s.v }}</b><span style="font-size:11px;color:rgba(255,255,255,.7)">{{ s.n }}</span></div></sc-for></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><span style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:999px;background:rgba(255,255,255,.1);font:500 13px Lato,sans-serif;font-variant-numeric:tabular-nums"><img src="apps/web/static/logos/whatsapp.svg" alt="" width="16" height="16">{{ ficha.tel }}</span><span style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:999px;background:rgba(255,255,255,.1);font-size:13px">{{ ficha.email }}</span></div>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:18px 20px 24px;display:flex;flex-direction:column;gap:18px">
+        <sc-if value="{{ ficha.penal }}"><div role="status" style="display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:16px;background:#fbe9c2;color:#5c3800"><span style="display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.45"><span class="material-symbols-rounded" style="font-size:20px;color:#7a4a00">block</span><span><b>No puede reservar online hasta el 15 de noviembre.</b> Faltó 3 veces sin avisar este mes.</span></span><button onClick="{{ ficha.levantar }}" style="align-self:flex-start;height:40px;padding:0 14px;border-radius:999px;border:0;background:#fffdf9;font-size:13px;font-weight:650;color:#0f2328">Levantar la penalidad</button></div></sc-if>
+        <sc-if value="{{ ficha.socia }}"><div style="display:grid;grid-template-columns:minmax(0,1fr) 104px;border-radius:16px;overflow:hidden;background:#f3e8d0"><div style="padding:14px 16px;display:flex;flex-direction:column;gap:4px;border-right:2px dashed #dccaa2"><span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.1em;color:#7a5a1e">MEMBRESÍA</span><b style="font-size:16px">Plan Glow</b><span style="font-size:12px;color:#4a3a17">Vence el 28 de noviembre · <a href="#" style="color:#4a3a17">Movimientos</a></span></div><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px"><b style="font:600 28px Lato,sans-serif;font-variant-numeric:tabular-nums;line-height:1">3</b><span style="font-size:11px;color:#4a3a17">visitas</span></div></div></sc-if>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.08em;color:#4a5d61">NOTAS DEL EQUIPO</span><sc-for list="{{ ficha.notas }}" as="x"><div style="padding:10px 12px;border-radius:12px;background:#f8f3ea;font-size:14px;line-height:1.45">{{ x.t }}<span style="display:block;margin-top:4px;font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ x.quien }}</span></div></sc-for><input aria-label="Agregar una nota" placeholder="Agregar una nota…" style="height:46px;padding:0 14px;border-radius:12px;border:0;box-shadow:inset 0 0 0 1.5px #e6dcc8;font:400 15px Lato,sans-serif;background:#fff"></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.08em;color:#4a5d61">TURNOS</span><sc-for list="{{ ficha.hist }}" as="h"><div style="display:grid;grid-template-columns:86px minmax(0,1fr) auto;min-height:52px;border-radius:12px;background:radial-gradient(circle at 86px 0,#fffdf9 7px,transparent 7.5px),radial-gradient(circle at 86px 100%,#fffdf9 7px,transparent 7.5px),{{ h.bg }}"><div style="display:flex;flex-direction:column;justify-content:center;padding:0 12px;border-right:2px dashed #e2d6bf"><b style="font:600 13px Lato,sans-serif;font-variant-numeric:tabular-nums">{{ h.f }}</b><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61">{{ h.h }}</span></div><div style="display:flex;flex-direction:column;justify-content:center;padding:0 12px;min-width:0"><span style="font-size:13px;font-weight:600">{{ h.srv }}</span><span style="font-size:12px;color:#4a5d61">{{ h.prof }}</span></div><div style="display:flex;align-items:center;padding-right:12px"><span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px 0 6px;border-radius:999px;background:{{ h.est.bg }};color:{{ h.est.c }};box-shadow:{{ h.est.sh }};font-size:11px;font-weight:600"><span class="material-symbols-rounded" style="font-size:13px">{{ h.est.ic }}</span>{{ h.est.t }}</span></div></div></sc-for></div>
+      </div>
+      <div style="flex:none;display:flex;gap:8px;padding:14px 20px 18px;border-top:1px solid #f0e8d8"><button onClick="{{ ficha.nuevo }}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;border-radius:999px;border:0;background:#3ccc90;color:#102b31;font-size:16px;font-weight:650;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 10px 20px -10px rgba(60,204,144,.8)"><span class="material-symbols-rounded" style="font-size:20px">add</span>Turno para {{ ficha.corto }}</button></div>
+    </aside>
+  </sc-if>
+
+  <sc-if value="{{ cal.icalOn }}">
+    <div onClick="{{ cal.cerrarIcal }}" style="position:fixed;inset:0;z-index:40;background:rgba(15,35,40,.35);backdrop-filter:blur(2px);animation:tl-fade .25s both"></div>
+    <aside aria-label="Verlo en tu calendario" style="animation:tl-drawer .32s cubic-bezier(.2,.8,.2,1) both;position:fixed;top:0;right:0;bottom:0;width:{{ L.drW2 }};z-index:41;background:#fffdf9;border-radius:{{ L.drRad }};box-shadow:-30px 0 60px -30px rgba(15,35,40,.5);display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:18px 20px 20px;background-color:#183c44;background-image:{{ grano }};color:#fff;display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center"><b style="flex:1;font-size:22px;letter-spacing:-0.03em">Verlo en tu calendario</b><button onClick="{{ cal.cerrarIcal }}" aria-label="Cerrar" style="width:44px;height:44px;border-radius:14px;border:0;background:rgba(255,255,255,.1);color:#fff;display:grid;place-items:center"><span class="material-symbols-rounded" style="font-size:22px">close</span></button></div><span style="font-size:14px;line-height:1.45;color:rgba(255,255,255,.8)">Un link privado que se actualiza solo en Google Calendar, Apple u Outlook. Quien lo tenga ve los turnos: si se filtra, generá uno nuevo.</span></div>
+      <div style="flex:1;overflow-y:auto;padding:16px 20px 24px;display:flex;flex-direction:column;gap:12px">
+        <sc-for list="{{ cal.links }}" as="k" hint-placeholder-count="4">
+          <div style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:18px;background:{{ k.bg }};box-shadow:inset 0 0 0 1px #eee5d3;opacity:{{ k.op }}">
+            <div style="display:flex;align-items:center;gap:10px"><span class="material-symbols-rounded" style="font-size:22px;color:#17805a">{{ k.ic }}</span><b style="flex:1;font-size:15px">{{ k.n }}</b><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ k.ec }}">{{ k.estado }}</span></div>
+            <span style="font:500 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61;padding:8px 10px;border-radius:10px;background:#f4eee2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ k.url }}</span>
+            <sc-if value="{{ k.activo }}"><div style="display:flex;flex-wrap:wrap;gap:6px"><button onClick="{{ k.google }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:999px;border:0;background:#183c44;color:#fff;font-size:13px;font-weight:600"><img src="apps/web/static/logos/google.svg" alt="" width="15" height="15" style="background:#fff;border-radius:50%;padding:1px">Agregar a Google</button><button style="height:40px;padding:0 12px;border-radius:999px;border:0;box-shadow:inset 0 0 0 1px #d8ccb4;background:transparent;font-size:13px;font-weight:600">Apple</button><button style="height:40px;padding:0 12px;border-radius:999px;border:0;box-shadow:inset 0 0 0 1px #d8ccb4;background:transparent;font-size:13px;font-weight:600">Outlook</button><button onClick="{{ k.copiar }}" style="height:40px;padding:0 12px;border-radius:999px;border:0;box-shadow:inset 0 0 0 1px #d8ccb4;background:transparent;font-size:13px;font-weight:600">Copiar</button></div>
+            <div style="display:flex;gap:14px;font-size:13px;font-weight:600"><button onClick="{{ k.regenerar }}" style="border:0;background:transparent;padding:0;min-height:32px;color:#17805a">Generar uno nuevo</button><button onClick="{{ k.desactivar }}" style="border:0;background:transparent;padding:0;min-height:32px;color:#a3241a">Desactivar</button></div></sc-if>
+            <sc-if value="{{ k.inactivo }}"><button onClick="{{ k.regenerar }}" style="align-self:flex-start;height:40px;padding:0 14px;border-radius:999px;border:0;background:#183c44;color:#fff;font-size:13px;font-weight:600">Activar con un link nuevo</button></sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </aside>
+  </sc-if>
+
+  <sc-if value="{{ toast.on }}"><div role="status" style="animation:tl-toast .34s cubic-bezier(.2,.8,.2,1) both;position:fixed;left:50%;bottom:{{ L.toastBottom }};transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:14px;max-width:calc(100vw - 24px);min-height:52px;padding:0 8px 0 18px;border-radius:999px;background-color:#102b31;background-image:{{ grano }};color:#fff;font-size:14px;box-shadow:0 16px 32px -12px rgba(15,35,40,.6)"><span>{{ toast.txt }}</span><sc-if value="{{ toast.puede }}"><button onClick="{{ toast.deshacer }}" style="height:40px;padding:0 14px;border-radius:999px;border:0;background:rgba(60,204,144,.16);color:#3ccc90;font-size:14px;font-weight:650">Deshacer</button></sc-if><sc-if value="{{ toast.sinUndo }}"><span style="width:10px"></span></sc-if></div></sc-if>
+
+  
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;rol&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Dueño/a&quot;,&quot;Encargado/a&quot;,&quot;Recepción&quot;,&quot;Profesional&quot;],&quot;default&quot;:&quot;Dueño/a&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototipo&quot;},&quot;soloLectura&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototipo&quot;}}">
+const AHORA = '10:12';
+const T0 = [
+  { id: 1, h: '09:30', f: '10:00', cli: 'Lucía Pérez', tel: '11 4433 2211', srv: 'Axilas', prof: 'Mica', e: 'atendido', pago: 'Pagado', pk: 'ok', precio: 8000 },
+  { id: 2, h: '10:00', f: '11:00', cli: 'Valeria Ortiz', tel: '11 6020 1188', srv: 'Limpieza facial profunda', prof: 'Carla', e: 'confirmado', pago: 'Seña $ 8.400', pk: 'ok', precio: 28000 },
+  { id: 3, h: '10:30', f: '11:30', cli: 'Sofía Méndez', tel: '11 5555 1234', srv: 'Lifting de pestañas', prof: 'Abril', e: 'pendiente', pago: 'Seña $ 6.600', pk: 'ok', precio: 22000, vip: true, nota: 'Alérgica al látex' },
+  { id: 4, h: '11:00', f: '11:45', cli: 'Camila Duarte', tel: '11 3098 7766', srv: 'Piernas completas', prof: 'Mica', e: 'confirmado', pago: 'Sin seña', pk: 'no', precio: 26000 },
+  { id: 5, h: '11:30', f: '12:00', cli: 'Martina Gómez', tel: '11 2345 6789', srv: 'Perfilado de cejas', prof: 'Carla', e: 'confirmado', pago: 'Membresía', pk: 'memb', precio: 9000, vip: true },
+  { id: 6, h: '12:00', f: '12:45', cli: 'Rocío Benítez', tel: '11 4567 1290', srv: 'Laminado de cejas', prof: 'Abril', e: 'pendiente_pago', pago: 'Seña vence 10:25', pk: 'wait', precio: 16000 },
+  { id: 7, h: '14:00', f: '15:00', cli: 'Paula Ríos', tel: '11 3344 5566', srv: 'Drenaje linfático', prof: 'Carla', e: 'confirmado', pago: 'Seña $ 7.500', pk: 'ok', precio: 25000 },
+  { id: 8, h: '14:30', f: '15:30', cli: 'Juana Ferro', tel: '11 2211 0099', srv: 'Lifting de pestañas', prof: 'Abril', e: 'pendiente', pago: 'Seña $ 6.600', pk: 'ok', precio: 22000 },
+  { id: 9, h: '15:30', f: '16:15', cli: 'Ana Sosa', tel: '11 7788 1122', srv: 'Piernas completas', prof: 'Mica', e: 'cancelado', pago: 'Seña devuelta', pk: 'ref', precio: 26000, espera: 2 },
+  { id: 10, h: '16:00', f: '16:45', cli: 'Belén Cruz', tel: '11 9900 3344', srv: 'Dermaplaning', prof: 'Carla', e: 'confirmado', pago: 'Seña $ 7.200', pk: 'ok', precio: 24000 },
+  { id: 11, h: '17:00', f: '17:30', cli: 'Nadia Paz', tel: '11 6655 4433', srv: 'Perfilado de cejas', prof: 'Abril', e: 'pendiente', pago: 'Sin seña', pk: 'no', precio: 9000 },
+  { id: 12, h: '18:30', f: '19:15', cli: 'Laura Vega', tel: '11 5544 3322', srv: 'Piernas completas', prof: 'Mica', e: 'confirmado', pago: 'Seña $ 7.800', pk: 'ok', precio: 26000 }
+];
+const EST = {
+  confirmado: { t: 'Confirmado', ic: 'check_circle', bg: '#e3f6ec', c: '#17805a', sh: 'none' },
+  pendiente: { t: 'Pendiente', ic: 'radio_button_unchecked', bg: '#fffdf9', c: '#0f2328', sh: 'inset 0 0 0 1px #c9bda4' },
+  pendiente_pago: { t: 'Esperando pago', ic: 'hourglass_top', bg: '#fbe9c2', c: '#7a4a00', sh: 'none' },
+  atendido: { t: 'Atendido', ic: 'done_all', bg: '#183c44', c: '#fff', sh: 'none' },
+  ausente: { t: 'No vino', ic: 'person_off', bg: '#fbe0dc', c: '#a3241a', sh: 'none' },
+  cancelado: { t: 'Cancelado', ic: 'cancel', bg: '#ece5d6', c: '#4a5d61', sh: 'none' }
+};
+const PG = { ok: { ic: 'paid', c: '#17805a' }, memb: { ic: 'card_membership', c: '#7a5a1e' }, wait: { ic: 'hourglass_top', c: '#7a4a00' }, no: { ic: 'money_off', c: '#4a5d61' }, ref: { ic: 'currency_exchange', c: '#a3241a' } };
+const CLIENTES = [
+  { n: 'Martina Gómez', tel: '11 2345 6789', extra: '9 visitas', socia: true },
+  { n: 'Mariana López', tel: '11 7788 9900', extra: '2 visitas' },
+  { n: 'Marisa Quiroga', tel: '11 4321 8765', extra: 'última: agosto' },
+  { n: 'Sofía Méndez', tel: '11 5555 1234', extra: '3 visitas' },
+  { n: 'Valeria Ortiz', tel: '11 6020 1188', extra: '5 visitas' }
+];
+const SRV = [
+  { n: 'Perfilado de cejas', d: 30, p: 9000, pr: ['Carla', 'Abril'], m: true },
+  { n: 'Lifting de pestañas', d: 60, p: 22000, pr: ['Carla', 'Abril'], m: true },
+  { n: 'Laminado de cejas', d: 45, p: 16000, pr: ['Abril'], m: true },
+  { n: 'Limpieza facial profunda', d: 60, p: 28000, pr: ['Carla'] },
+  { n: 'Dermaplaning', d: 45, p: 24000, pr: ['Carla'] },
+  { n: 'Axilas', d: 15, p: 8000, pr: ['Mica'] },
+  { n: 'Piernas completas', d: 45, p: 26000, pr: ['Mica'] },
+  { n: 'Drenaje linfático', d: 60, p: 25000, pr: ['Carla', 'Mica'] }
+];
+const PROFS = ['Carla', 'Abril', 'Mica'];
+const ROLES = { 'Dueño/a': 'duenio', 'Encargado/a': 'encargado', 'Recepción': 'recepcion', 'Profesional': 'profesional' };
+const pesos = n => '$ ' + Math.round(n).toLocaleString('es-AR');
+const toM = s => +s.slice(0, 2) * 60 + +s.slice(3, 5);
+const hhmm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+const fmt = m => { const h = Math.floor(m / 60), r = m % 60; return h ? h + ' h' + (r ? ' ' + r : '') : r + ' min'; };
+const NOW = toM(AHORA), A = 600, B = 1200;
+const GRANO = 'url("data:image/svg+xml;utf8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'.85\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3CfeColorMatrix values=\'0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .11 0\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")';
+
+class Component extends DCLogic {
+  state = { hov: null, sw: null, ofrecidos: {}, caja: null, tick: 0, espTab: 'esperando', espAvisados: [], espQuitados: [], cliQ: '', cliF: 'todas', fichaId: null, penalOff: false, calVista: 'dia', calProf: 'Carla', calCanc: false, ical: false, icalOff: [], icalGen: {}, w: 1280, vista: 'inicio', turnos: T0, sel: null, nuevo: false, menu: null, toast: null, cola: [], fProf: 'todas', fEst: 'todos', huecos: false, verCanc: false, recien: null, notif: false, leidas: false, extraNotif: [], avisados: [], sec: false, mas: false, nv: this.nvVacio() };
+  nvVacio() { return { q: '', cli: null, srv: null, prof: 'any', dia: 2, hora: null, sobre: false, desde: '' }; }
+  componentDidMount() { this.onR = () => this.setState({ w: window.innerWidth }); window.addEventListener('resize', this.onR); this.onR(); this.ti = setInterval(() => { if (Object.keys(this.state.ofrecidos || {}).length) this.setState({ tick: Date.now() }); }, 1000); }
+  componentWillUnmount() { window.removeEventListener('resize', this.onR); clearTimeout(this.tt); clearTimeout(this.tr); clearInterval(this.ti); }
+  hacer(t, a) {
+    if (a.to === 'atendido') this.setState({ caja: { id: t.id, prod: [], medio: 'Efectivo' }, sel: null, menu: null });
+    else this.cambiar(t.id, a.to, a.msg);
+  }
+  caja() {
+    const st = this.state, cj = st.caja;
+    const t = cj && st.turnos.find(x => x.id === cj.id);
+    if (!t) return { on: false, lineas: [], productos: [], medios: [] };
+    const set = o => this.setState(s => ({ caja: { ...s.caja, ...o } }));
+    const PROD = [['Sérum de pestañas', 9000], ['Máscara hidratante', 6500], ['Cera tibia', 4000]];
+    const sena = t.pk === 'ok' && t.pago.startsWith('Seña') ? parseInt(t.pago.replace(/\D/g, '')) : 0;
+    const memb = t.pk === 'memb';
+    const prods = PROD.filter(p => cj.prod.includes(p[0]));
+    const total = (memb ? 0 : t.precio - sena) + prods.reduce((s, p) => s + p[1], 0);
+    const lineas = [{ t: t.srv, m: memb ? 'Membresía' : pesos(t.precio), c: '#0f2328' }];
+    if (sena) lineas.push({ t: 'Seña pagada (Mercado Pago)', m: '− ' + pesos(sena), c: '#17805a' });
+    prods.forEach(p => lineas.push({ t: p[0], m: pesos(p[1]), c: '#0f2328' }));
+    const fin = (pagado) => { const prev = st.turnos; this.setState({ turnos: prev.map(x => x.id === t.id ? { ...x, e: 'atendido', pago: pagado ? 'Pagado ' + pesos(total + sena) : x.pago, pk: pagado ? 'ok' : x.pk } : x), caja: null }); this.avisar(pagado ? 'Cobraste ' + pesos(total) + ' a ' + t.cli.split(' ')[0] + ' en ' + cj.medio.toLowerCase() + '.' : t.cli.split(' ')[0] + ' quedó atendida; el cobro queda pendiente.', prev); };
+    return {
+      on: true, cli: t.cli.toUpperCase(), total: pesos(total), lineas,
+      productos: PROD.map(([n, m]) => { const on = cj.prod.includes(n); return { n, m: pesos(m), on, bg: on ? '#183c44' : '#fff', c: on ? '#fff' : '#0f2328', sh: on ? 'none' : 'inset 0 0 0 1.5px #d8ccb4', ir: () => set({ prod: on ? cj.prod.filter(x => x !== n) : [...cj.prod, n] }) }; }),
+      medios: [['payments', 'Efectivo'], ['account_balance', 'Transfer.'], ['qr_code_2', 'QR MP'], ['credit_card', 'Tarjeta']].map(([ic, n]) => { const on = cj.medio === n; return { ic, t: n, on, bg: on ? '#183c44' : '#f4eee2', c: on ? '#fff' : '#0f2328', ir: () => set({ medio: n }) }; }),
+      cobrar: () => fin(true), despues: () => fin(false)
+    };
+  }
+
+  avisar(txt, prev) { clearTimeout(this.tt); this.setState({ toast: { txt, prev } }); this.tt = setTimeout(() => this.setState({ toast: null }), 7000); }
+  cambiar(id, e, txt) { const prev = this.state.turnos; this.setState({ turnos: prev.map(t => t.id === id ? { ...t, e } : t), menu: null }); this.avisar(txt, prev); }
+  marcar(id) { clearTimeout(this.tr); this.setState({ recien: id }); this.tr = setTimeout(() => this.setState({ recien: null }), 6000); }
+  accion(t) {
+    if (t.e === 'pendiente' || t.e === 'pendiente_pago') return { t: 'Confirmar', ic: 'check', to: 'confirmado', msg: 'Confirmaste a ' + t.cli.split(' ')[0] + '.' };
+    if (t.e === 'confirmado' && t.h <= AHORA) return { t: 'Atendido', ic: 'done_all', to: 'atendido', msg: t.cli.split(' ')[0] + ' quedó como atendida.' };
+    return null;
+  }
+  occ(p) { return this.state.turnos.filter(t => t.prof === p && t.e !== 'cancelado').map(t => [toM(t.h), toM(t.f)]); }
+  libreEn(p, m) { return !this.occ(p).some(([x, y]) => m >= x && m < y); }
+  gaps(p) {
+    const out = []; let start = null; const s0 = Math.ceil(NOW / 5) * 5;
+    for (let m = s0; m <= B; m += 5) {
+      const free = m < B && this.libreEn(p, m);
+      if (free) { if (start === null) start = m; }
+      else if (start !== null) { const ini = start === s0 ? Math.ceil(NOW / 15) * 15 : start; if (m - ini >= 30) out.push({ p, s: ini, e: m }); start = null; }
+    }
+    return out;
+  }
+  ring(p) {
+    this._prevCol = null; this._prevOcu = null;
+    const o = this.occ(p); const pts = new Set([A, B, NOW]);
+    o.forEach(([x, y]) => { pts.add(Math.max(A, Math.min(B, x))); pts.add(Math.max(A, Math.min(B, y))); });
+    const arr = [...pts].sort((a, b) => a - b); const st = [];
+    for (let k = 0; k < arr.length - 1; k++) {
+      const a = arr[k], b = arr[k + 1]; if (b <= a) continue;
+      const mid = (a + b) / 2, ocu = !this.libreEn(p, mid), past = mid < NOW;
+      const col = ocu ? (past ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.34)') : (past ? 'rgba(60,204,144,.22)' : '#3ccc90');
+      const d1 = (a - A) * 0.6, d2 = (b - A) * 0.6, gap = this._prevCol && this._prevCol !== col && ocu !== this._prevOcu ? 1.2 : 0;
+      if (gap) st.push('transparent ' + d1.toFixed(2) + 'deg ' + (d1 + gap).toFixed(2) + 'deg');
+      st.push(col + ' ' + (d1 + gap).toFixed(2) + 'deg ' + d2.toFixed(2) + 'deg');
+      this._prevCol = col; this._prevOcu = ocu;
+    }
+    return 'conic-gradient(' + st.join(',') + ')';
+  }
+  abrirHueco(p, s) { if (this.props.soloLectura) return this.avisar('El panel está en sólo lectura: para cargar turnos hace falta un plan.'); this.setState({ nuevo: true, sel: null, menu: null, nv: { ...this.nvVacio(), prof: p, hora: hhmm(s), desde: 'Hueco de ' + p + ' · ' + hhmm(s) } }); }
+
+  ticket(t, ro, compacto) {
+    const st = this.state, a = ro ? null : this.accion(t);
+    const enCurso = t.e === 'confirmado' && t.h <= AHORA && t.f > AHORA, rec = st.recien === t.id;
+    const menu = [{ t: 'Abrir detalle', ic: 'open_in_full', c: '#0f2328', ir: e => { e.stopPropagation(); this.setState({ sel: t.id, menu: null }); } }];
+    if (!ro && t.e !== 'cancelado') {
+      if (t.h <= AHORA && t.e !== 'ausente') menu.push({ t: 'No vino', ic: 'person_off', c: '#0f2328', ir: e => { e.stopPropagation(); this.cambiar(t.id, 'ausente', 'Marcaste a ' + t.cli.split(' ')[0] + ' como «No vino».'); } });
+      menu.push({ t: 'Reprogramar', ic: 'event_repeat', c: '#0f2328', ir: e => { e.stopPropagation(); this.setState({ menu: null }); } });
+      menu.push({ t: 'Cancelar turno', ic: 'cancel', c: '#a3241a', ir: e => { e.stopPropagation(); this.cambiar(t.id, 'cancelado', 'Cancelaste el turno de ' + t.cli.split(' ')[0] + '. Quedó el hueco.'); } });
+    }
+    const notch = w => 'radial-gradient(circle at ' + w + ' 0,#f4eee2 9px,transparent 9.5px),radial-gradient(circle at ' + w + ' 100%,#f4eee2 9px,transparent 9.5px),';
+    const papel = rec ? '#effaf4' : t.e === 'atendido' ? '#f8f2e6' : '#fffdf9';
+    return {
+      esTurno: true, ...t, est: EST[t.e], estTxt: enCurso ? 'En curso' : EST[t.e].t, pg: PG[t.pk],
+      nota: t.nota || '', sinNota: !t.nota, picado: t.e === 'atendido',
+      acc: !!a, accTxt: a ? a.t : '', accIc: a ? a.ic : '',
+      accion: e => { e.stopPropagation(); if (a) this.hacer(t, a); },
+      abrir: () => { if (this.swMoved) { this.swMoved = false; return; } this.setState({ sel: t.id, menu: null }); },
+      entrar: () => { if (st.hov !== t.id) this.setState({ hov: t.id }); }, salir: () => this.setState({ hov: null }),
+      masOp: st.hov === t.id || st.menu === t.id ? 1 : 0.3,
+      ...(() => {
+        const sw = st.sw && st.sw.id === t.id ? st.sw : null, dx = sw ? sw.dx : 0;
+        return {
+          swX: dx + 'px', swRot: (dx / 60).toFixed(2) + 'deg', swTr: sw ? 'none' : 'transform .35s cubic-bezier(.2,.9,.25,1.2)',
+          swBg: dx > 0 ? (a ? '#17805a' : '#9aa6a3') : dx < 0 ? '#a3241a' : 'transparent',
+          swOpI: dx > 0 ? Math.min(1, dx / 80).toFixed(2) : 0, swOpD: dx < 0 ? Math.min(1, -dx / 80).toFixed(2) : 0,
+          swIcI: a ? a.ic : 'block', swTxtI: a ? a.t : 'Nada para hacer',
+          swDown: e => { this.swStart = e.clientX; this.swMoved = false; this.setState({ sw: { id: t.id, dx: 0 } }); },
+          swMove: e => { const s = this.state.sw; if (!s || s.id !== t.id) return; const d = e.clientX - this.swStart; if (Math.abs(d) > 6) this.swMoved = true; this.setState({ sw: { id: t.id, dx: Math.max(-150, Math.min(150, d)) } }); },
+          swUp: () => { const s = this.state.sw; if (!s || s.id !== t.id) return; const d = s.dx; this.setState({ sw: null }); if (d > 90 && a) this.hacer(t, a); else if (d < -90 && !ro && t.e !== 'cancelado') this.cambiar(t.id, 'cancelado', 'Cancelaste el turno de ' + t.cli.split(' ')[0] + '. Quedó el hueco.'); }
+        };
+      })(),
+      menuOn: st.menu === t.id, menuBg: st.menu === t.id ? '#ece5d6' : 'transparent', menu,
+      menuBtn: e => { e.stopPropagation(); this.setState({ menu: st.menu === t.id ? null : t.id }); },
+      fondo: notch('112px') + papel, fondoC: notch('76px') + papel,
+      sombra: rec ? '0 0 0 2px #3ccc90,0 12px 24px -14px rgba(23,128,90,.6)' : enCurso ? '0 0 0 2px #183c44,0 10px 20px -16px rgba(15,35,40,.45)' : '0 1px 0 rgba(15,35,40,.05),0 10px 20px -16px rgba(15,35,40,.45)',
+      op: t.e === 'cancelado' ? 0.55 : 1, deco: t.e === 'cancelado' ? 'line-through' : 'none'
+    };
+  }
+  bloque(g, extra) {
+    const st = this.state;
+    const id = g.p + g.s;
+    const of = (st.ofrecidos || {})[id];
+    const COLA = ['Martina G.', 'Lola F.'];
+    const restan = of ? Math.max(0, of.fin - Date.now()) : 0;
+    const extraOf = extra && extra.espera ? {
+      puedeAvisar: !of, ofreciendo: !!of, aQuien: of ? COLA[of.idx] : '', sigue: of && COLA[of.idx + 1] ? 'SIGUE: ' + COLA[of.idx + 1].toUpperCase() : 'ES LA ÚLTIMA',
+      cuenta: String(Math.floor(restan / 60000)).padStart(2, '0') + ':' + String(Math.floor(restan / 1000) % 60).padStart(2, '0'),
+      avisar: () => { this.setState({ ofrecidos: { ...(st.ofrecidos || {}), [id]: { idx: 0, fin: Date.now() + 30 * 60000 } } }); this.avisar('Le ofrecimos el lugar a Martina. Tiene 30 minutos para tomarlo.'); },
+      frenar: () => { const o = { ...(st.ofrecidos || {}) }; delete o[id]; this.setState({ ofrecidos: o }); this.avisar('Dejamos de ofrecer el lugar de las ' + hhmm(g.s) + '.'); },
+      simularToma: () => { const o = { ...(st.ofrecidos || {}) }; delete o[id]; const nid = Date.now(); const t = { id: nid, h: hhmm(g.s), f: hhmm(g.e), cli: 'Martina Gómez', tel: '11 2345 6789', srv: 'Piernas completas', prof: g.p, e: 'confirmado', pago: 'Seña $ 7.800', pk: 'ok', precio: 26000 }; this.setState({ ofrecidos: o, turnos: [...st.turnos, t].sort((x, y) => x.h.localeCompare(y.h)), extraNotif: [{ ic: 'bolt', c: '#17805a', t: 'Se llenó el hueco', s: 'Martina tomó las ' + hhmm(g.s) + ' con ' + g.p, cuando: AHORA, id: nid }, ...st.extraNotif] }); this.marcar(nid); this.avisar('Martina tomó las ' + hhmm(g.s) + '. El hueco se llenó solo.'); }
+    } : { puedeAvisar: false, ofreciendo: false };
+    const avisado = false;
+    return { esLibre: true, k: g.s, rango: hhmm(g.s) + ' – ' + hhmm(g.e), titulo: extra ? extra.titulo : g.p + ' libre ' + fmt(g.e - g.s), sub: extra ? extra.sub : '', espera: extra ? extra.espera : '', puedeAvisar: !!(extra && extra.espera && !avisado), avisado: !!(extra && extra.espera && avisado),
+      cargar: () => this.abrirHueco(g.p, g.s), ...extraOf };
+  }
+
+  renderVals() {
+    const st = this.state;
+    const rolNombre = Object.keys(ROLES).includes(this.props.rol) ? this.props.rol : 'Dueño/a';
+    const rol = ROLES[rolNombre], ro = !!this.props.soloLectura, esProf = rol === 'profesional';
+    const compacto = st.w < 860;
+    const L = {
+      compacto, ancho: !compacto, cols: compacto ? 'minmax(0,1fr)' : '264px minmax(0,1fr)',
+      pad: compacto ? '16px 14px 24px' : '8px 36px 64px', h1: compacto ? '34px' : '50px',
+      inicioCols: st.w < 1100 ? 'minmax(0,1fr)' : 'minmax(0,1.5fr) minmax(0,1fr)', stub: compacto ? '76px' : '96px',
+      drTop: compacto ? '0' : '0', drW: compacto ? '100vw' : '480px', drW2: compacto ? '100vw' : '520px', drRad: compacto ? '0' : '24px 0 0 24px',
+      notch: compacto ? 'transparent' : 'rgba(15,35,40,.35)', pillTop: compacto ? '70px' : '84px',
+      toastBottom: compacto ? '96px' : '28px', demoTexto: st.w >= 1180, filaAncha: st.w >= 1100, filaCompacta: st.w < 1100, gestMin: compacto ? '900px' : '0',
+      espCols: compacto ? '112px minmax(0,1fr)' : '150px minmax(0,1fr) auto', espStub: compacto ? '112px' : '150px', cliCols: compacto ? '42px minmax(0,1fr) auto' : '42px minmax(0,1.4fr) minmax(0,1fr) 150px', demoLeft: compacto ? '12px' : '280px', demoBottom: compacto ? '160px' : '20px'
+    };
+    const mios = esProf ? st.turnos.filter(t => t.prof === 'Abril') : st.turnos;
+    const vivos = mios.filter(t => t.e !== 'cancelado');
+    const sinConf = vivos.filter(t => t.e === 'pendiente' || t.e === 'pendiente_pago').length;
+    const profsVis = esProf ? ['Abril'] : PROFS;
+    const todosGaps = profsVis.flatMap(p => this.gaps(p)).sort((a, b) => a.s - b.s);
+    const libres = todosGaps.reduce((s, g) => s + g.e - g.s, 0);
+    const libresHoy = fmt(libres - libres % 15);
+
+    const chipOscuro = on => on ? { bg: '#183c44', c: '#fff', sh: 'none' } : { bg: 'transparent', c: '#0f2328', sh: 'inset 0 0 0 1px #d8ccb4' };
+    let base = mios;
+    if (st.fProf !== 'todas' && !esProf) base = base.filter(t => t.prof === st.fProf);
+    let lista;
+    if (st.huecos) {
+      lista = todosGaps.filter(g => st.fProf === 'todas' || esProf || g.p === st.fProf).map(g => this.bloque(g));
+    } else {
+      let ts = base;
+      if (st.fEst === 'sin') ts = ts.filter(t => t.e === 'pendiente' || t.e === 'pendiente_pago');
+      if (st.fEst === 'confirmado') ts = ts.filter(t => t.e === 'confirmado');
+      if (st.fEst === 'atendido') ts = ts.filter(t => t.e === 'atendido' || t.e === 'ausente');
+      const canc = ts.filter(t => t.e === 'cancelado');
+      const cancOcultos = st.verCanc ? 0 : canc.length;
+      this._cancOcultos = cancOcultos;
+      if (!st.verCanc) ts = ts.filter(t => t.e !== 'cancelado');
+      lista = ts.map(t => ({ ...this.ticket(t, ro, compacto), k: toM(t.h) + 0.1 }));
+      if (st.fEst === 'todos') canc.filter(t => toM(t.h) > NOW && this.libreEn(t.prof, toM(t.h))).forEach(t => {
+        lista.push({ ...this.bloque({ p: t.prof, s: toM(t.h), e: toM(t.f) }, { titulo: 'Se liberó: ' + t.cli.split(' ')[0] + ' canceló', sub: t.prof + ' · ' + fmt(toM(t.f) - toM(t.h)), espera: t.espera || '' }), k: toM(t.h) });
+      });
+      lista.forEach(x => { if (x.k === undefined) x.k = 0; });
+      lista.sort((a, b) => a.k - b.k);
+    }
+    const iAhora = lista.findIndex(x => (x.esTurno ? toM(x.h) : x.k) > NOW);
+    if (lista.length && !st.huecos) lista.splice(iAhora < 0 ? lista.length : iAhora, 0, { esAhora: true, h: AHORA });
+
+    const proximos = [{ esAhora: true, h: AHORA }];
+    vivos.filter(t => t.f > AHORA).slice(0, 5).forEach(t => proximos.push(this.ticket(t, ro, compacto)));
+    const g1 = todosGaps.find(g => g.s >= toM(proximos[proximos.length - 1].h || AHORA) - 60 && g.e - g.s >= 60);
+    if (g1) { const b = this.bloque(g1); b.titulo = g1.p + ' libre ' + fmt(g1.e - g1.s); proximos.splice(Math.min(proximos.length, 4), 0, b); }
+
+    const sel = st.turnos.find(t => t.id === st.sel);
+    const a = sel && !ro ? this.accion(sel) : null;
+    const yo = esProf ? 'Abril' : rol === 'recepcion' ? 'Flor' : rol === 'encargado' ? 'Juli' : 'Carla';
+    const det = sel ? {
+      on: true, ...sel, est: EST[sel.e], estTxt: EST[sel.e].t, icc: sel.e === 'confirmado' ? '#3ccc90' : sel.e === 'pendiente_pago' ? '#f0c46a' : '#fff', pg: PG[sel.pk], vip: !!sel.vip,
+      ini: sel.cli.split(' ').map(x => x[0]).join(''),
+      historial: sel.id === 3 ? '3ª visita · nunca faltó' : 'Clienta habitual',
+      precio: pesos(sel.precio),
+      pagoLargo: sel.pk === 'ok' && sel.pago.startsWith('Seña') ? sel.pago + ' por Mercado Pago' : sel.pk === 'memb' ? 'Usa 1 visita de Plan Glow' : sel.pago,
+      puedeDevolver: !ro && sel.pk === 'ok' && sel.e !== 'atendido',
+      resta: sel.pk === 'ok' && sel.pago.startsWith('Seña') ? pesos(sel.precio - parseInt(sel.pago.replace(/\D/g, ''))) : '',
+      nota: sel.nota || '',
+      hist: [{ t: 'Reservó por la web', cuando: 'sáb 31 · 18:02', c: '#c9bda4' }, ...(sel.pk === 'ok' ? [{ t: 'Pagó la seña', cuando: 'sáb 31 · 18:04', c: '#3ccc90' }] : []), ...(sel.e !== 'pendiente' ? [{ t: EST[sel.e].t + ' · Flor (recepción)', cuando: 'hoy · 09:40', c: '#183c44' }] : [])],
+      puedeActuar: !ro && sel.e !== 'cancelado', acc: !!a, accTxt: a ? a.t : '', accIc: a ? a.ic : '',
+      accion: () => { if (a) this.hacer(sel, a); },
+      cancelar: () => { this.cambiar(sel.id, 'cancelado', 'Cancelaste el turno de ' + sel.cli.split(' ')[0] + '. Quedó el hueco.'); this.setState({ sel: null }); }
+    } : { on: false, est: EST.pendiente, pg: PG.ok, hist: [] };
+
+    const G = ['duenio', 'encargado'];
+    const prin = [['inicio', 'Inicio', 'home'], ['turnos', 'Turnos', 'event_note'], ['cal', 'Calendario', 'calendar_month'], ['espera', 'Lista de espera', 'hourglass_top', null, 2], ['clientes', 'Clientes', 'group', [...G, 'recepcion']]]
+      .filter(i => !esProf || ['inicio', 'turnos', 'cal'].includes(i[0])).filter(i => !i[3] || i[3].includes(rol));
+    const secu = [['web', 'Mi web', 'language', G], ['plantillas', 'Plantillas', 'dashboard_customize', G], ['integ', 'Integraciones e IA', 'hub', G], ['srv', 'Servicios', 'spa', G], ['equipo', esProf ? 'Mi horario' : 'Equipo y horarios', 'badge'], ['pagos', 'Pagos', 'payments', [...G, 'recepcion']], ['memb', 'Membresías y cupones', 'card_membership', [...G, 'recepcion']], ['resenas', 'Reseñas', 'star'], ['ref', 'Referidos', 'redeem', G], ['rep', 'Reportes', 'bar_chart', G], ['conf', 'Configuración', 'settings', G], ['sus', 'Suscripción', 'workspace_premium', ['duenio']], ['sucursales', 'Sucursales', 'store', ['duenio']]]
+      .filter(i => !i[3] || i[3].includes(rol));
+    const ir = k => () => this.setState({ vista: k, sel: null, nuevo: false, menu: null, mas: false, notif: false });
+    const nombres = Object.fromEntries([...prin, ...secu].map(i => [i[0], i[1]]));
+
+    const notifsBase = [
+      { ic: 'event_available', c: '#17805a', t: 'Nueva reserva: Juana Ferro', s: 'Lifting · hoy 14:30 con Abril', cuando: '09:58', id: 8 },
+      { ic: 'cancel', c: '#a3241a', t: 'Ana Sosa canceló', s: 'Piernas · hoy 15:30 · seña devuelta', cuando: '09:41', id: 9 },
+      { ic: 'paid', c: '#17805a', t: 'Seña cobrada: $ 6.600', s: 'Sofía Méndez · Mercado Pago', cuando: 'sáb', id: 3 },
+      { ic: 'star', c: '#b26a00', t: 'Reseña de 3 estrellas', s: 'Paula R. · «Tuve que esperar»', cuando: 'sáb', id: 7 }
+    ];
+    const notifs = [...st.extraNotif, ...notifsBase].map((n, i) => ({ ...n, bg: !st.leidas && i < 3 + st.extraNotif.length ? '#f3fbf7' : 'transparent', w: !st.leidas && i < 3 + st.extraNotif.length ? 650 : 500, ir: () => this.setState({ sel: n.id, notif: false }) }));
+    const sinLeer = st.leidas ? st.extraNotif.length : 3 + st.extraNotif.length;
+    const ringSizes = (R, step) => PROFS.map((p, i) => ({ p, size: R - i * step + 'px', off: (i * step) / 2 + 'px', bg: this.ring(p) }));
+    const dia = (dow, n, k, tipo) => ({ dow, n, k, on: tipo === 'on', ...(tipo === 'on' ? { bg: '#183c44', c: '#fff', sh: 'none', kc: '#3ccc90' } : tipo === 'off' ? { bg: 'transparent', c: '#7d8c8f', sh: 'inset 0 0 0 1px #e2d6bf', kc: '#7d8c8f' } : { bg: '#fffdf9', c: '#0f2328', sh: '0 1px 0 rgba(15,35,40,.06),0 6px 14px -10px rgba(15,35,40,.4)', kc: tipo === 'lleno' ? '#a3241a' : '#4a5d61' }) });
+    const abrirNuevo = () => { if (ro) this.avisar('El panel está en sólo lectura: para cargar turnos hace falta un plan.'); else this.setState({ nuevo: true, sel: null, menu: null, nv: this.nvVacio() }); };
+
+    const tabs = (esProf ? [['inicio', 'Hoy', 'today'], ['turnos', 'Turnos', 'event_note'], ['cal', 'Semana', 'calendar_month'], ['mas', 'Yo', 'person']] : [['inicio', 'Inicio', 'home'], ['turnos', 'Turnos', 'event_note'], ['cal', 'Agenda', 'calendar_month'], ['clientes', 'Clientes', 'group'], ['mas', 'Más', 'menu']])
+      .map(([k, n, icon]) => { const on = k === 'mas' ? st.mas : st.vista === k && !st.mas; return { n, icon, cur: on ? 'page' : undefined, c: on ? '#183c44' : '#4a5d61', bg: on ? '#e3f6ec' : 'transparent', fill: on ? 1 : 0, ir: k === 'mas' ? () => this.setState({ mas: !st.mas }) : ir(k) }; });
+
+    return {
+      L, grano: GRANO, ahora: AHORA, rolNombre, libresHoy,
+      navPrincipal: prin.map(([k, n, icon, r, badge]) => ({ n, icon, on: st.vista === k, off: st.vista !== k, badge: badge || '', k: k === 'turnos' ? String(vivos.length) : '', ir: ir(k) })),
+      navSecundario: secu.map(([k, n, icon]) => ({ n, icon, bg: st.vista === k ? 'rgba(60,204,144,.18)' : 'transparent', ir: ir(k) })),
+      haySecundario: secu.length > 0, secAbierto: st.sec || secu.some(i => i[0] === st.vista), secIcono: st.sec ? 'expand_less' : 'expand_more', toggleSec: () => this.setState({ sec: !st.sec }),
+      carrilesSide: (esProf ? ['Abril'] : PROFS).map(p => ({ p, segs: this.occ(p).map(([x, y]) => [Math.max(x, A), Math.min(y, B)]).filter(([x, y]) => y > x).map(([x, y]) => ({ l: ((x - A) / (B - A) * 100).toFixed(2) + '%', w: ((y - x) / (B - A) * 100).toFixed(2) + '%' })) })), ahoraPct: ((NOW - A) / (B - A) * 100).toFixed(2) + '%', ahoraFr: ((NOW - A) / (B - A)).toFixed(4), anillosChicos: ringSizes(132, 26), aguja: ((NOW - A) * 0.6).toFixed(1) + 'deg',
+      leyendaAnillo: esProf ? 'Tu día. Lo rayado está libre.' : 'Una fila por profesional. Lo rayado está libre: tocá para ver los huecos.',
+      irHuecos: () => this.setState({ vista: 'turnos', huecos: true, fEst: 'todos', mas: false }),
+      notifAbierta: st.notif, toggleNotif: () => this.setState({ notif: !st.notif }), notifs, sinLeer, haySinLeer: sinLeer > 0,
+      marcarLeidas: () => this.setState({ leidas: true, extraNotif: [] }),
+      lectura: { on: ro, esDuenio: rol === 'duenio', tit: rol === 'duenio' ? 'Tu prueba gratis terminó.' : 'El panel está en sólo lectura.', txt: rol === 'duenio' ? 'Podés ver todo, pero para hacer cambios tenés que elegir un plan. Tu página sigue tomando reservas.' : 'Para volver a hacer cambios, el dueño tiene que elegir un plan. La página sigue tomando reservas.' },
+      verPrueba: rol === 'duenio' && !ro,
+      esInicio: st.vista === 'inicio', esTurnos: st.vista === 'turnos', esOtra: !['inicio', 'turnos', 'cal', 'espera', 'clientes', 'web', 'srv', 'equipo', 'pagos', 'memb', 'resenas', 'ref', 'rep', 'conf', 'sus', 'mails', 'plantillas', 'integ', 'sucursales'].includes(st.vista),
+      esGestion: ['web', 'srv', 'equipo', 'pagos', 'memb', 'resenas', 'ref', 'rep', 'conf', 'sus', 'mails', 'plantillas', 'integ', 'sucursales'].includes(st.vista), gestionSec: st.vista,
+      irMails: () => this.setState({ vista: 'mails', notif: false, sel: null }), esEspera: st.vista === 'espera', esClientes: st.vista === 'clientes', esp: this.espera(), cli: this.clientes(), ficha: this.ficha(), esCal: st.vista === 'cal', cal: this.calendario(ro, compacto, esProf), otraNombre: nombres[st.vista] || '',
+      saludo: 'Buen día, ' + yo + '. ' + (esProf ? 'Hoy tenés' : 'Hoy quedan'),
+      verAtencion: !esProf,
+      atencion: [
+        { num: '13′', c: '#7a4a00', t: 'para que se libere el laminado de Rocío', s: 'No pagó la seña de las 12:00', btn: 'Recordarle', bg: '#fffdf9', sh: '0 10px 20px -16px rgba(15,35,40,.45)', ir: () => this.setState({ sel: 6 }) },
+        { num: '15:30', c: '#17805a', t: 'se liberó con Mica', s: '2 personas esperan ese día', btn: 'Ver el hueco', bg: 'repeating-linear-gradient(-45deg,rgba(60,204,144,.2) 0 2px,transparent 2px 10px),#f3fbf7', sh: 'inset 0 0 0 1.5px rgba(23,128,90,.3)', ir: () => this.setState({ vista: 'turnos', huecos: false, fEst: 'todos', fProf: 'Mica' }) },
+        { num: String(sinConf), c: '#0f2328', t: 'turnos de hoy sin confirmar', s: 'Al confirmar sale el recordatorio', btn: 'Ver', bg: '#fffdf9', sh: '0 10px 20px -16px rgba(15,35,40,.45)', ir: () => this.setState({ vista: 'turnos', fEst: 'sin', huecos: false, fProf: 'todas' }) },
+        ...(rol !== 'recepcion' ? [{ num: '3★', c: '#0f2328', t: 'reseña de Paula sin responder', s: '«Tuve que esperar 15 minutos»', btn: 'Responder', bg: '#fffdf9', sh: '0 10px 20px -16px rgba(15,35,40,.45)', ir: ir('resenas') }] : [])
+      ],
+      proximos, verTodosTxt: 'Ver los ' + vivos.length, irTurnos: ir('turnos'),
+      huecosLista: todosGaps.slice(0, 6).map(g => ({ rango: hhmm(g.s) + '–' + hhmm(g.e), p: g.p, dur: fmt(g.e - g.s), cargar: () => this.abrirHueco(g.p, g.s) })),
+      verChecklist: rol === 'duenio' && !ro,
+      diasTira: [dia('sáb', '31', '—', 'off'), dia('dom', '01', 'cerrado', 'off'), dia('lun', '02', String(vivos.length), 'on'), dia('mar', '03', '9'), dia('mié', '04', 'lleno', 'lleno'), dia('jue', '05', '7'), dia('vie', '06', '11')],
+      btnNuevo: ro ? { bg: '#ece5d6', c: '#4a5d61', sh: 'none', ic: 'lock' } : { bg: '#3ccc90', c: '#102b31', sh: 'inset 0 1px 0 rgba(255,255,255,.45),0 12px 24px -10px rgba(60,204,144,.8)', ic: 'add' },
+      abrirNuevo,
+      verFiltroProf: !esProf,
+      filtrosProf: ['todas', ...PROFS].map(p => ({ n: p === 'todas' ? 'Todas' : p, on: st.fProf === p, ...chipOscuro(st.fProf === p), ir: () => this.setState({ fProf: p }) })),
+      filtrosEstado: [['todos', 'Todos', ''], ['sin', 'Sin confirmar', sinConf], ['confirmado', 'Confirmados', ''], ['atendido', 'Atendidos', '']].map(([k, n, c]) => ({ n, k: c ? String(c) : '', kc: st.fEst === k && !st.huecos ? '#f0c46a' : '#7a4a00', on: st.fEst === k && !st.huecos, ...chipOscuro(st.fEst === k && !st.huecos), ir: () => this.setState({ fEst: k, huecos: false }) })),
+      soloHuecos: st.huecos, huecosBtn: st.huecos ? { bg: '#17805a', c: '#fff', sh: 'none' } : { bg: 'transparent', c: '#0f2328', sh: 'inset 0 0 0 1px #d8ccb4' },
+      toggleHuecos: () => this.setState({ huecos: !st.huecos }),
+      lista, listaVacia: lista.length === 0, limpiarFiltros: () => this.setState({ fEst: 'todos', fProf: 'todas', huecos: false }),
+      hayCancelOcultos: !st.huecos && this._cancOcultos > 0, cancelOcultosTxt: 'Mostrar ' + this._cancOcultos + (this._cancOcultos === 1 ? ' cancelado' : ' cancelados'),
+      verCancelados: () => this.setState({ verCanc: true }),
+      hayNuevos: st.cola.length > 0, nuevosTxt: st.cola.length + (st.cola.length === 1 ? ' turno nuevo' : ' turnos nuevos'),
+      mostrarNuevos: () => { const n = st.cola; this.setState({ turnos: [...st.turnos, ...n].sort((x, y) => x.h.localeCompare(y.h)), cola: [] }); if (n[0]) this.marcar(n[0].id); },
+      simular: () => {
+        const id = Date.now();
+        const t = { id, h: '16:30', f: '17:30', cli: 'Florencia Ibáñez', tel: '11 3030 4040', srv: 'Lifting de pestañas', prof: 'Abril', e: 'confirmado', pago: 'Seña $ 6.600', pk: 'ok', precio: 22000 };
+        const nn = { ic: 'event_available', c: '#17805a', t: 'Nueva reserva: Florencia Ibáñez', s: 'Lifting · hoy 16:30 con Abril', cuando: AHORA, id };
+        if (st.vista === 'turnos') this.setState({ cola: [...st.cola, t], extraNotif: [nn, ...st.extraNotif] });
+        else { this.setState({ turnos: [...st.turnos, t].sort((x, y) => x.h.localeCompare(y.h)), extraNotif: [nn, ...st.extraNotif] }); this.marcar(id); this.avisar('Entró una reserva: Florencia, hoy 16:30 con Abril.'); }
+      },
+      tabs, tabsN: tabs.length, masAbierto: st.mas, cerrarMas: () => this.setState({ mas: false }),
+      hayDrawer: !!sel || st.nuevo || !!st.caja, cerrarDrawer: () => this.setState({ sel: null, nuevo: false, caja: null }),
+      det, nv: this.nuevoTurno(ro), caja: this.caja(),
+      toast: st.toast ? { on: true, txt: st.toast.txt, puede: !!st.toast.prev, sinUndo: !st.toast.prev, deshacer: () => { clearTimeout(this.tt); this.setState({ turnos: st.toast.prev, toast: null }); } } : { on: false }
+    };
+  }
+
+  espera() {
+    const st = this.state, set = o => this.setState(o);
+    const base = [
+      { id: 1, n: 'Martina Gómez', srv: 'Piernas completas', prof: 'Mica', franja: 'HOY 02', momento: 'TARDE', contacto: 'martu.g@gmail.com · 11 2345 6789', match: 'HOY 15:30 · MICA', est: 'esperando' },
+      { id: 2, n: 'Lola Ferrari', srv: 'Piernas completas', prof: 'Cualquiera', franja: 'LUN 02 → MIÉ 04', momento: 'CUALQUIER HORA', contacto: 'lola.ferrari@gmail.com', match: 'HOY 15:30 · MICA', est: 'esperando' },
+      { id: 3, n: 'Camila Rey', srv: 'Lifting de pestañas', prof: 'Abril', franja: 'MIÉ 04', momento: 'MAÑANA', contacto: '11 6677 8899', match: '', est: 'esperando' },
+      { id: 4, n: 'Julieta Paz', srv: 'Laminado de cejas', prof: 'Abril', franja: 'SÁB 31', momento: 'MAÑANA', contacto: 'juli.paz@hotmail.com', nota: 'AVISADA SÁB 09:10 · NO RESPONDIÓ', est: 'avisado' },
+      { id: 5, n: 'Rita Gil', srv: 'Dermaplaning', prof: 'Carla', franja: 'SÁB 31', momento: 'TARDE', contacto: '11 2020 3030', nota: 'TOMÓ EL LUGAR · SÁB 15:00', est: 'avisado' },
+      { id: 6, n: 'Eva Luna', srv: 'Axilas', prof: 'Mica', franja: 'VIE 30', momento: 'TARDE', contacto: 'eva.l@gmail.com', nota: 'VENCIÓ SIN LUGAR', est: 'vencido' }
+    ].filter(e => !st.espQuitados.includes(e.id)).map(e => st.espAvisados.includes(e.id) ? { ...e, est: 'avisado', nota: 'AVISADA HOY ' + AHORA + ' · TIENE 2 H' } : e);
+    const k = t => base.filter(e => e.est === t).length;
+    const lista = base.filter(e => e.est === st.espTab).map(e => ({ ...e, hayMatch: !!e.match && e.est === 'esperando', esperando: e.est === 'esperando', nota: e.nota || '', notaC: e.est === 'vencido' ? '#4a5d61' : '#17805a', op: e.est === 'vencido' ? 0.65 : 1,
+      avisar: () => { set({ espAvisados: [...st.espAvisados, e.id] }); this.avisar('Le avisamos a ' + e.n.split(' ')[0] + ' por mail y WhatsApp.'); },
+      quitar: () => { set({ espQuitados: [...st.espQuitados, e.id] }); this.avisar(e.n.split(' ')[0] + ' salió de la lista.'); } }));
+    return { lista, vacia: lista.length === 0, tabs: [['esperando', 'Esperando'], ['avisado', 'Avisados'], ['vencido', 'Vencidos']].map(([t, n]) => ({ n, k: String(k(t)), on: st.espTab === t, bg: st.espTab === t ? '#183c44' : 'transparent', c: st.espTab === t ? '#fff' : '#0f2328', ir: () => set({ espTab: t }) })) };
+  }
+
+  clientes() {
+    const st = this.state, set = o => this.setState(o);
+    const TAG = { VIP: { bg: '#183c44', c: '#f0c46a' }, SOCIA: { bg: '#f3e8d0', c: '#7a5a1e' }, '1ª VEZ': { bg: '#e3f6ec', c: '#17805a' }, PENALIZADA: { bg: '#fbe9c2', c: '#7a4a00' } };
+    const q = st.cliQ.toLowerCase().trim();
+    const lista = this.CLI.filter(c => st.cliF === 'todas' || c.tags.includes(st.cliF)).filter(c => !q || c.n.toLowerCase().includes(q) || c.tel.replace(/\D/g, '').includes(q.replace(/\D/g, '') || '#') || c.email.includes(q))
+      .map(c => ({ ...c, ini: c.n.split(' ').map(x => x[0]).join(''), av: c.tags.includes('VIP') ? '#f3e8d0' : '#f4eee2', tags: c.tags.filter(t => t !== 'PENALIZADA' || !st.penalOff).map(t => ({ t, ...TAG[t] })), proxC: c.prox.startsWith('HOY') ? '#17805a' : '#4a5d61', abrir: () => set({ fichaId: c.id }) }));
+    const n = t => this.CLI.filter(c => c.tags.includes(t)).length;
+    return { q: st.cliQ, escribir: e => set({ cliQ: e.target.value }), total: this.CLI.length * 31 + ' en total', lista,
+      filtros: [['todas', 'Todas', ''], ['VIP', 'VIP', n('VIP')], ['SOCIA', 'Socias', n('SOCIA')], ['1ª VEZ', 'Primera vez', n('1ª VEZ')], ['PENALIZADA', 'Penalizadas', n('PENALIZADA')]].map(([k, nn, c]) => ({ n: nn, k: c ? String(c) : '', on: st.cliF === k, ...(st.cliF === k ? { bg: '#183c44', c: '#fff', sh: 'none' } : { bg: 'transparent', c: '#0f2328', sh: 'inset 0 0 0 1px #d8ccb4' }), ir: () => set({ cliF: k }) })) };
+  }
+
+  get CLI() {
+    return [
+      { id: 1, n: 'Sofía Méndez', tel: '11 5555 1234', email: 'sofia.mendez@gmail.com', tags: ['VIP'], visitas: '3 visitas · última 14 sep', prox: 'HOY 10:30' },
+      { id: 2, n: 'Martina Gómez', tel: '11 2345 6789', email: 'martu.g@gmail.com', tags: ['VIP', 'SOCIA'], visitas: '9 visitas · última 19 oct', prox: 'HOY 11:30' },
+      { id: 3, n: 'Nadia Paz', tel: '11 6655 4433', email: 'nadiapaz@gmail.com', tags: ['1ª VEZ'], visitas: 'Primera visita', prox: 'HOY 17:00' },
+      { id: 4, n: 'Valeria Ortiz', tel: '11 6020 1188', email: 'vale.ortiz@gmail.com', tags: [], visitas: '5 visitas · última 2 oct', prox: 'HOY 10:00' },
+      { id: 5, n: 'Brenda Ruiz', tel: '11 6123 4567', email: 'bren.ruiz@gmail.com', tags: ['PENALIZADA'], visitas: '6 visitas · 3 ausencias', prox: '—' },
+      { id: 6, n: 'Paula Ríos', tel: '11 3344 5566', email: 'pau.rios@gmail.com', tags: ['SOCIA'], visitas: '12 visitas · última 26 oct', prox: 'HOY 14:00' },
+      { id: 7, n: 'Mariana López', tel: '11 7788 9900', email: 'mariana.lopez@gmail.com', tags: [], visitas: '2 visitas · última agosto', prox: '—' }
+    ];
+  }
+
+  ficha() {
+    const st = this.state, c = this.CLI.find(x => x.id === st.fichaId);
+    if (!c) return { on: false, tags: [], stats: [], notas: [], hist: [] };
+    const pen = c.tags.includes('PENALIZADA') && !st.penalOff;
+    return { on: true, n: c.n, corto: c.n.split(' ')[0], ini: c.n.split(' ').map(x => x[0]).join(''), tel: c.tel, email: c.email,
+      tags: c.tags.filter(t => t !== 'PENALIZADA' || pen).map(t => ({ t })),
+      stats: [{ v: c.id === 2 ? '9' : c.id === 5 ? '6' : '3', n: 'visitas' }, { v: c.id === 5 ? '3' : '0', n: 'ausencias' }, { v: c.id === 2 ? '$ 186k' : '$ 66k', n: 'en el año' }],
+      penal: pen, socia: c.tags.includes('SOCIA'),
+      levantar: () => { this.setState({ penalOff: true }); this.avisar('Levantaste la penalidad de ' + c.n.split(' ')[0] + '. Ya puede reservar online.'); },
+      notas: c.id === 1 ? [{ t: 'Alérgica al látex. Usar guantes de nitrilo.', quien: 'CARLA · 14 SEP' }] : [{ t: 'Prefiere turnos a la mañana.', quien: 'FLOR · 2 OCT' }],
+      hist: [
+        { f: 'HOY', h: c.prox.replace('HOY ', '') || '—', srv: 'Lifting de pestañas', prof: 'con Abril', est: EST.pendiente, bg: '#fffdf9' },
+        { f: '14 SEP', h: '10:30', srv: 'Lifting de pestañas', prof: 'con Abril', est: EST.atendido, bg: '#f8f2e6' },
+        { f: '02 AGO', h: '17:00', srv: 'Perfilado de cejas', prof: 'con Carla', est: c.id === 5 ? EST.ausente : EST.atendido, bg: '#f8f2e6' }
+      ],
+      cerrar: () => this.setState({ fichaId: null }),
+      nuevo: () => this.setState({ fichaId: null, nuevo: true, nv: { ...this.nvVacio(), cli: { n: c.n, tel: c.tel, extra: 'cliente', socia: c.tags.includes('SOCIA') } } })
+    };
+  }
+
+  calendario(ro, compacto, esProf) {
+    const st = this.state, PX = 1.3;
+    const set = o => this.setState(o);
+    const profs = esProf ? ['Abril'] : compacto ? [st.calProf] : PROFS;
+    const px = m => (m * PX).toFixed(1) + 'px';
+    const cols = profs.map(p => {
+      const gs = this.gaps(p); const lib = gs.reduce((s, g) => s + g.e - g.s, 0);
+      const bloques = st.turnos.filter(t => t.prof === p && (st.calCanc || t.e !== 'cancelado')).map(t => {
+        const s = toM(t.h), e = toM(t.f), enCurso = t.e === 'confirmado' && s <= NOW && e > NOW, rec = st.recien === t.id;
+        const E = EST[t.e];
+        const look = t.e === 'pendiente_pago' ? { bg: '#fbe9c2', c: '#5c3800', sh: 'none', ol: 'none' } : t.e === 'atendido' ? { bg: '#efe7d6', c: '#0f2328', sh: 'none', ol: 'none' } : t.e === 'cancelado' ? { bg: '#ece5d6', c: '#4a5d61', sh: 'none', ol: 'none' } : t.e === 'pendiente' ? { bg: '#fffdf9', c: '#0f2328', sh: '0 6px 14px -10px rgba(15,35,40,.5)', ol: '1.5px dashed #b9ab8e' } : { bg: '#fffdf9', c: '#0f2328', sh: '0 6px 14px -10px rgba(15,35,40,.5)', ol: 'none' };
+        if (enCurso) look.ol = '2px solid #183c44';
+        if (rec) look.ol = '2px solid #3ccc90';
+        return { ...look, h: t.h, cli: t.cli, srv: t.srv, ic: E.ic, icc: E.c === '#fff' ? '#183c44' : E.c, top: px(s - A + 1), alto: px(e - s - 2), op: t.e === 'cancelado' ? 0.6 : 1, deco: t.e === 'cancelado' ? 'line-through' : 'none', label: t.h + ', ' + t.cli + ', ' + t.srv + ', ' + E.t, abrir: ev => { ev.stopPropagation(); set({ sel: t.id }); } };
+      });
+      return { p, ini: p.slice(0, 2).toUpperCase(), libres: fmt(lib - lib % 15), bloques,
+        clickHueco: ev => { if (ev.target !== ev.currentTarget) return; const m = A + Math.floor(ev.nativeEvent.offsetY / PX / 15) * 15; if (m < NOW) return this.avisar('Esa hora ya pasó.'); if (!this.libreEn(p, m)) return; this.abrirHueco(p, m); } };
+    });
+    const horas = []; for (let h = 10; h <= 20; h++) horas.push({ t: String(h).padStart(2, '0') + ':00', top: px((h * 60) - A) });
+    const vistas = [['dia', 'Día'], ['semana', 'Semana']].map(([k, n]) => ({ n, on: st.calVista === k, bg: st.calVista === k ? '#183c44' : 'transparent', c: st.calVista === k ? '#fff' : '#0f2328', ir: () => set({ calVista: k }) }));
+    const DS = [['lun', 2], ['mar', 3], ['mié', 4], ['jue', 5], ['vie', 6], ['sáb', 7]];
+    const ocupadoSem = (d, h, i) => { if (d === 2) return !this.libreEn(PROFS[i], h * 60 + 15) || !this.libreEn(PROFS[i], h * 60 + 45); if (d === 4) return true; if (d === 7 && h >= 14) return null; return ((d * 7 + h * 3 + i * 5) % 5) < 2; };
+    const libreSem = d => { let n = 0; for (let h = 10; h < 20; h++) for (let i = 0; i < 3; i++) if (ocupadoSem(d, h, i) === false) n++; return n; };
+    const semFilas = []; for (let h = 10; h < 20; h++) semFilas.push({ h: String(h).padStart(2, '0'), celdas: DS.map(([, d]) => ({ t: d + ' · ' + h + ' h', ir: () => set({ calVista: 'dia' }), p: [0, 1, 2].map(i => { const o = ocupadoSem(d, h, i); return o === null ? 'transparent' : o ? (d === 2 && h * 60 + 60 <= NOW ? 'rgba(24,60,68,.35)' : '#183c44') : 'repeating-linear-gradient(-45deg,#3ccc90 0 2px,#dff4e9 2px 5px)'; }) })) });
+    const linkBase = ['Todo el negocio', ...PROFS].filter(n => !esProf || n === 'Abril');
+    const codigo = n => { const g = st.icalGen[n] || 0; return ['7f3k', 'q81z', 'm2vd', 'x9pa'][(linkBase.indexOf(n) + g) % 4] + (g ? 'n' + g : ''); };
+    return {
+      titulo: st.calVista === 'dia' ? 'LUN 02 · NOV' : 'SEMANA 02–07 · NOV', vistas, esDia: st.calVista === 'dia', esSemana: st.calVista === 'semana',
+      n: cols.length, cols, horas, alto: px(B - A), pasado: px(NOW - A),
+      profChips: PROFS.map(p => ({ n: p, ...(st.calProf === p ? { bg: '#183c44', c: '#fff', sh: 'none' } : { bg: 'transparent', c: '#0f2328', sh: 'inset 0 0 0 1px #d8ccb4' }), ir: () => set({ calProf: p }) })),
+      verCanc: st.calCanc, toggleCanc: () => set({ calCanc: !st.calCanc }), cancIc: st.calCanc ? 'visibility' : 'visibility_off', cancBg: st.calCanc ? '#183c44' : 'transparent', cancC: st.calCanc ? '#fff' : '#0f2328',
+      semDias: DS.map(([dow, d]) => ({ dow, n: String(d).padStart(2, '0'), k: d === 4 ? 'lleno' : libreSem(d) + ' h libres', kc: d === 4 ? '#a3241a' : '#17805a', bg: d === 2 ? '#f3fbf7' : 'transparent', c: '#0f2328', ir: () => set({ calVista: 'dia' }) })),
+      semFilas,
+      icalOn: st.ical, abrirIcal: () => set({ ical: true }), cerrarIcal: () => set({ ical: false }),
+      links: linkBase.map(n => { const off = st.icalOff.includes(n); return {
+        n, ic: n === 'Todo el negocio' ? 'storefront' : 'person', activo: !off, inactivo: off, op: off ? 0.75 : 1, bg: '#fffdf9',
+        estado: off ? 'DESACTIVADO' : 'ACTIVO', ec: off ? '#a3241a' : '#17805a',
+        url: off ? '—' : 'tengolibre.com.ar/cal/' + codigo(n) + '…ics',
+        google: () => this.avisar('Abrimos Google Calendar para suscribirte.'), copiar: () => this.avisar('Link copiado.'),
+        regenerar: () => { set({ icalGen: { ...st.icalGen, [n]: (st.icalGen[n] || 0) + 1 }, icalOff: st.icalOff.filter(x => x !== n) }); this.avisar('Generamos un link nuevo. El anterior dejó de andar.'); },
+        desactivar: () => { set({ icalOff: [...st.icalOff, n] }); this.avisar('Desactivamos el link de ' + n + '.'); }
+      }; })
+    };
+  }
+
+  nuevoTurno(ro) {
+    const st = this.state, n = st.nv;
+    const set = o => this.setState(s => ({ nv: { ...s.nv, ...o } }));
+    const srv = SRV.find(s => s.n === n.srv);
+    const q = (n.q || '').toLowerCase().trim();
+    const res = q ? CLIENTES.filter(c => c.n.toLowerCase().includes(q) || (q.replace(/\D/g, '') && c.tel.replace(/\D/g, '').includes(q.replace(/\D/g, '')))).slice(0, 3) : CLIENTES.slice(0, 3);
+    const chip = on => on ? { bg: '#183c44', c: '#fff', sh: 'none' } : { bg: '#fff', c: '#0f2328', sh: 'inset 0 0 0 1.5px #d8ccb4' };
+    const pid = srv && srv.pr.length === 1 ? srv.pr[0] : n.prof;
+    const profs = srv ? ['any', ...srv.pr] : [];
+    let horas = [];
+    if (n.dia === 2) { const ps = pid === 'any' ? PROFS : [pid]; const set2 = new Set(); ps.forEach(p => this.gaps(p).forEach(g => { for (let m = Math.ceil(g.s / 30) * 30; m + (srv ? srv.d : 30) <= g.e; m += 30) set2.add(m); })); horas = [...set2].sort((a, b) => a - b).slice(0, 15).map(hhmm); }
+    else horas = ['10:00', '10:30', '11:30', '12:00', '14:00', '15:30', '16:00', '17:30'].filter((h, i) => (i + n.dia) % 3 !== 0);
+    if (n.hora && !horas.includes(n.hora)) horas = [n.hora, ...horas];
+    const dias = [[2, 'hoy'], [3, 'mar'], [4, 'mié'], [5, 'jue'], [6, 'vie'], [7, 'sáb']].map(([d, dow]) => { const off = d === 4, on = n.dia === d; return { t: String(d), dow, off, ...(on ? chip(true) : off ? { bg: '#f4eee2', c: '#7d8c8f', sh: 'none' } : chip(false)), deco: off ? 'line-through' : 'none', cur: off ? 'default' : 'pointer', elegir: () => { if (!off) set({ dia: d, hora: null }); } }; });
+    const listo = !!(n.cli && srv && (n.hora || n.sobre));
+    const memb = !!(n.cli && n.cli.socia && srv && srv.m);
+    return {
+      on: st.nuevo, q: n.q, escribir: e => set({ q: e.target.value }), desdeHueco: n.desde,
+      sinCli: !n.cli, conCli: !!n.cli, esNuevo: !!(n.cli && n.cli.nuevo),
+      resultados: res.map(c => ({ ...c, socia: !!c.socia, elegir: () => set({ cli: c }) })),
+      nuevoTxt: q ? 'Cargar «' + n.q + '» como cliente nuevo' : 'Cargar un cliente nuevo',
+      cargarNuevo: () => set({ cli: { n: n.q || 'Cliente nuevo', nuevo: true } }),
+      cliNombre: n.cli ? n.cli.n : '', cliIni: n.cli ? n.cli.n.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase() : '',
+      cliSub: n.cli ? (n.cli.nuevo ? 'Con un teléfono o un email le llegan los avisos' : n.cli.tel + ' · ' + n.cli.extra + (n.cli.socia ? ' · socia' : '')) : '',
+      quitarCli: () => set({ cli: null }),
+      servicios: SRV.filter(s => n.prof === 'any' || !n.desde || s.pr.includes(n.prof)).map(s => ({ n: s.n, on: n.srv === s.n, ...chip(n.srv === s.n), elegir: () => set({ srv: s.n, prof: s.pr.length === 1 ? s.pr[0] : (s.pr.includes(n.prof) ? n.prof : 'any') }) })),
+      conSrv: !!srv,
+      profs: profs.map(p => ({ n: p === 'any' ? 'Cualquiera' : p, on: pid === p, ...chip(pid === p), elegir: () => set({ prof: p, hora: null }) })),
+      dias, horas: horas.map(h => ({ h, ...chip(n.hora === h), elegir: () => set({ hora: h, sobre: false }) })),
+      sobre: n.sobre, sinSobre: !n.sobre, toggleSobre: () => set({ sobre: !n.sobre, hora: null }), profCorto: pid === 'any' ? 'quien lo tome' : pid,
+      memb,
+      resumen: listo ? (n.dia === 2 ? 'HOY' : 'DÍA ' + n.dia) + ' · ' + (n.hora || '13:00') : 'Cliente, servicio y hora',
+      noListo: !listo || ro, btnBg: listo && !ro ? '#3ccc90' : '#ece5d6', btnC: listo && !ro ? '#102b31' : '#4a5d61', btnCur: listo && !ro ? 'pointer' : 'not-allowed', btnSh: listo && !ro ? 'inset 0 1px 0 rgba(255,255,255,.45),0 10px 20px -10px rgba(60,204,144,.8)' : 'none',
+      reservar: () => {
+        if (!listo || ro) return;
+        const id = Date.now(), h = n.hora || '13:00', p = pid === 'any' ? srv.pr[0] : pid;
+        const t = { id, h, f: hhmm(toM(h) + srv.d), cli: n.cli.n, tel: n.cli.tel || '—', srv: srv.n, prof: p, e: 'confirmado', pago: memb ? 'Membresía' : 'Sin seña', pk: memb ? 'memb' : 'no', precio: srv.p };
+        const prev = st.turnos;
+        this.setState({ turnos: n.dia === 2 ? [...prev, t].sort((a, b) => a.h.localeCompare(b.h)) : prev, nuevo: false, nv: this.nvVacio() });
+        if (n.dia === 2) this.marcar(id);
+        this.avisar('Turno cargado: ' + n.cli.n.split(' ')[0] + ', ' + (n.dia === 2 ? 'hoy' : 'el ' + n.dia) + ' a las ' + h + '.', prev);
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

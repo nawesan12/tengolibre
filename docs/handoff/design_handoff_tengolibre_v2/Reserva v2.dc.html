@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..24,400,0..1,0&amp;display=block" rel="stylesheet"><style>*{box-sizing:border-box}html,body{margin:0;background:#faf6ee;font-family:Lato,system-ui,sans-serif;color:#0f2328;-webkit-font-smoothing:antialiased}button{font-family:inherit;cursor:pointer}a{color:#0f2328;text-underline-offset:3px}h1,h2,h3{text-wrap:balance}p{text-wrap:pretty}:focus-visible{outline:3px solid #3ccc90;outline-offset:2px}.material-symbols-rounded{font-variation-settings:'FILL' 1;line-height:1}details>summary{list-style:none}details>summary::-webkit-details-marker{display:none}body{background-image:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}@keyframes tl-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}@keyframes tl-pop{0%{opacity:0;transform:scale(.7)}70%{transform:scale(1.05)}100%{opacity:1;transform:none}}@keyframes tl-imprime{from{clip-path:inset(0 0 100% 0);transform:translateY(-14px)}to{clip-path:inset(0 0 0 0);transform:none}}@keyframes tl-raya{to{background-position:28.28px 0}}@keyframes tl-sello{0%{opacity:0;transform:rotate(-14deg) scale(1.6)}60%{opacity:1;transform:rotate(-8deg) scale(.95)}100%{opacity:1;transform:rotate(-8deg) scale(1)}}@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}</style></helmet>
+<div style="min-height:100vh;background:{{ E.bg }};color:{{ E.ink }};transition:background .3s,color .3s">
+
+  <sc-if value="{{ V.armando }}" hint-placeholder-val="{{ true }}">
+    <div style="display:grid;grid-template-columns:{{ L.cols }};gap:{{ L.gap }};max-width:1240px;margin:0 auto;padding:{{ L.pad }};align-items:start">
+
+      <sc-if value="{{ V.verPagina }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:28px;min-width:0;padding-bottom:{{ L.padBottom }}">
+          <sc-if value="{{ PL.vidriera }}"><div style="position:relative;height:{{ L.portadaV }};border-radius:{{ L.radPortada }};overflow:hidden;background:{{ E.vidBg }}">
+            <img src="apps/web/static/fotos/peluquera-con-clienta.jpg" alt="El salón de Lumi" style="width:100%;height:100%;object-fit:cover;object-position:50% 35%;display:block;opacity:{{ E.fotoOp }};transition:opacity .3s">
+            <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(15,35,40,.82) 0%,rgba(15,35,40,.2) 50%,transparent 70%)"></div>
+            <div style="position:absolute;left:0;right:0;bottom:{{ L.inset }};display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;color:#fff;padding:0 16px">
+              <span style="width:64px;height:64px;border-radius:{{ E.cr }};background:{{ c.pri }};color:{{ c.on }};display:grid;place-items:center;font-size:26px;font-weight:700;box-shadow:0 0 0 4px rgba(255,255,255,.9)">L</span>
+              <h1 style="margin:0;font-size:{{ L.h1 }};line-height:.95;font-weight:{{ E.tw }};letter-spacing:{{ E.tl }}">Lumi Estética</h1>
+              <span style="font-size:14px;opacity:.9">Estética · Palermo · ★ 4,9</span>
+              <button onClick="{{ irReserva }}" style="height:48px;padding:0 24px;border-radius:{{ E.br }};border:0;background:{{ c.pri }};color:{{ c.on }};font-size:15px;font-weight:650;cursor:pointer">Reservar turno</button>
+            </div>
+          </div></sc-if>
+          <sc-if value="{{ PL.sobria }}"><div style="position:relative;overflow:hidden;border-radius:{{ L.radPortada }};padding:{{ L.sobriaPad }};background-color:{{ c.pri }};background-image:{{ grano }};color:{{ c.on }};display:flex;flex-direction:column;gap:18px">
+            <span aria-hidden="true" style="position:absolute;right:-80px;top:-80px;width:280px;height:280px;border-radius:50%;box-shadow:inset 0 0 0 44px {{ c.onA }}"></span>
+            <span style="position:relative;width:72px;height:72px;border-radius:{{ E.cr }};background:{{ c.on }};color:{{ c.pri }};display:grid;place-items:center;font-size:30px;font-weight:700">L</span>
+            <h1 style="position:relative;margin:0;font-size:{{ L.h1S }};line-height:.92;font-weight:{{ E.tw }};letter-spacing:{{ E.tl }}">Lumi<br>Estética</h1>
+            <span style="position:relative;font-size:15px;opacity:.9;max-width:28em">Cejas, pestañas, faciales y depilación láser con turno, sin esperas. Palermo, CABA.</span>
+          </div></sc-if>
+          <sc-if value="{{ PL.galeria }}"><div style="display:flex;flex-direction:column;gap:14px"><div style="display:grid;grid-template-columns:2fr 1fr;grid-template-rows:{{ L.galFilas }};gap:6px;border-radius:{{ L.radPortada }};overflow:hidden"><img src="apps/web/static/fotos/manicura.jpg" alt="Un tratamiento de manos" style="grid-row:span 2;width:100%;height:100%;object-fit:cover"><img src="apps/web/static/fotos/recepcion.jpg" alt="La recepción" style="width:100%;height:100%;object-fit:cover"><img src="apps/web/static/fotos/peluquera-con-clienta.jpg" alt="El salón" style="width:100%;height:100%;object-fit:cover"></div><div style="display:flex;align-items:center;gap:12px;padding:0 {{ L.lado }}"><span style="width:52px;height:52px;border-radius:15px;background:{{ c.pri }};color:{{ c.on }};display:grid;place-items:center;font-size:22px;font-weight:700">L</span><span style="display:flex;flex-direction:column"><h1 style="margin:0;font-size:30px;line-height:1;font-weight:{{ E.tw }};letter-spacing:{{ E.tl }}">Lumi Estética</h1><span style="font-size:14px;color:{{ E.sub }}">Estética · Palermo, CABA</span></span></div></div></sc-if>
+          <sc-if value="{{ PL.editorial }}"><div style="display:grid;grid-template-columns:{{ L.edCols }};gap:24px;align-items:end;padding:{{ L.edPad }}"><div style="display:flex;flex-direction:column;gap:14px"><span style="font-size:14px;font-weight:600;color:{{ E.txtMarca }}">Estética · Palermo, CABA</span><h1 style="margin:0;font-size:{{ L.h1E }};line-height:.84;font-weight:{{ E.tw }};letter-spacing:{{ E.tl }}">Lumi<br>Estética.</h1><span style="font-size:16px;line-height:1.45;color:{{ E.sub2 }};max-width:24em">Cejas, pestañas, faciales y depilación láser. Turnos sin espera desde&nbsp;2019.</span></div><img src="apps/web/static/fotos/peluquera-con-clienta.jpg" alt="El salón de Lumi" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:50%;box-shadow:0 0 0 10px {{ E.tint }}"></div></sc-if>
+          <sc-if value="{{ PL.bloques }}"><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:{{ L.blq }};gap:8px;padding:0 {{ L.lado }}"><div style="grid-column:span 2;grid-row:span 2;border-radius:{{ E.cr }};background-color:{{ c.pri }};background-image:{{ grano }};color:{{ c.on }};padding:20px;display:flex;flex-direction:column;justify-content:space-between"><span style="width:48px;height:48px;border-radius:{{ E.sr }};background:{{ c.on }};color:{{ c.pri }};display:grid;place-items:center;font-size:22px;font-weight:700">L</span><h1 style="margin:0;font-size:{{ L.h1B }};line-height:.92;font-weight:{{ E.tw }};letter-spacing:{{ E.tl }}">Lumi Estética</h1></div><img src="apps/web/static/fotos/barbero-cortando.jpg" alt="" style="grid-column:span 2;width:100%;height:100%;object-fit:cover;border-radius:{{ E.cr }}"><div style="border-radius:{{ E.cr }};background:{{ c.acc }};padding:14px;display:flex;flex-direction:column;justify-content:flex-end;color:#14181a"><b style="font-size:28px;letter-spacing:-0.04em;font-variant-numeric:tabular-nums">4,9 ★</b><span style="font-size:13px">128 reseñas</span></div><img src="apps/web/static/fotos/manicura.jpg" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:{{ E.cr }}"></div></sc-if>
+          <sc-if value="{{ PL.carta }}" hint-placeholder-val="{{ true }}"><div style="position:relative;height:{{ L.portada }};border-radius:{{ L.radPortada }};overflow:hidden;background:{{ c.pri }}">
+            <img src="apps/web/static/fotos/manicura.jpg" alt="Una profesional de Lumi atiende a una clienta" style="width:100%;height:100%;object-fit:cover;display:block;opacity:{{ E.fotoOp }};transition:opacity .3s">
+            <div style="position:absolute;inset:0;background:linear-gradient(to top,{{ c.pri }} 4%,{{ c.priA }} 38%,transparent 72%)"></div>
+            <div style="position:absolute;inset:0;background-image:{{ grano }};mix-blend-mode:overlay;opacity:.9"></div>
+            <div style="position:absolute;left:{{ L.inset }};right:{{ L.inset }};bottom:{{ L.inset }};display:flex;align-items:flex-end;gap:14px;color:{{ c.on }}">
+              <span style="width:{{ L.logo }};height:{{ L.logo }};flex:none;border-radius:{{ E.cr }};background:{{ c.on }};color:{{ c.pri }};display:grid;place-items:center;font-size:28px;font-weight:700">L</span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><h1 style="margin:0;font-size:{{ L.h1 }};line-height:.95;font-weight:{{ E.tw }};letter-spacing:{{ E.tl }}">Lumi Estética</h1><span style="font-size:14px;opacity:.9">Estética · Palermo, CABA</span></span>
+            </div>
+          </div></sc-if>
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:0 {{ L.lado }}">
+            <a href="#resenas" style="display:flex;align-items:baseline;gap:6px;text-decoration:none"><b style="font:600 20px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.03em">4,9</b><span style="color:{{ c.acc }};font-size:16px;letter-spacing:1px" aria-hidden="true">★★★★★</span><span style="font-size:13px;color:{{ E.sub }};text-decoration:underline">128 reseñas</span></a>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:{{ E.ok }}"><span style="width:7px;height:7px;border-radius:50%;background:#3ccc90"></span>Abierto hasta las 20</span>
+          </div>
+          <div style="display:flex;gap:8px;overflow-x:auto;padding:0 {{ L.lado }}">
+            <a href="#" style="flex:none;display:inline-flex;align-items:center;gap:8px;height:46px;padding:0 16px;border-radius:{{ E.br }};background:{{ E.papel }};box-shadow:inset 0 0 0 1px {{ E.line }};font-size:14px;font-weight:600;text-decoration:none"><img src="apps/web/static/logos/whatsapp.svg" alt="" width="20" height="20">WhatsApp</a>
+            <a href="#donde" style="flex:none;display:inline-flex;align-items:center;gap:8px;height:46px;padding:0 16px;border-radius:{{ E.br }};background:{{ E.papel }};box-shadow:inset 0 0 0 1px {{ E.line }};font-size:14px;font-weight:600;text-decoration:none"><span class="material-symbols-rounded" style="font-size:20px">directions</span>Cómo llegar</a>
+            <a href="#" style="flex:none;display:inline-flex;align-items:center;gap:8px;height:46px;padding:0 16px;border-radius:{{ E.br }};background:{{ E.papel }};box-shadow:inset 0 0 0 1px {{ E.line }};font-size:14px;font-weight:600;text-decoration:none"><span class="material-symbols-rounded" style="font-size:20px">photo_camera</span>Instagram</a>
+            <a href="#" style="flex:none;display:inline-flex;align-items:center;gap:8px;height:46px;padding:0 16px;border-radius:{{ E.br }};background:{{ E.papel }};box-shadow:inset 0 0 0 1px {{ E.line }};font-size:14px;font-weight:600;text-decoration:none"><span class="material-symbols-rounded" style="font-size:20px">ios_share</span>Compartir</a>
+          </div>
+
+          <section aria-labelledby="t-carta" style="display:flex;flex-direction:column;gap:6px;padding:0 {{ L.lado }}">
+            <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px"><h2 id="t-carta" style="margin:0;font-size:28px;font-weight:{{ E.tw }};letter-spacing:{{ E.tl }};flex:1">Servicios</h2><span style="font:500 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ E.sub }}">8 · precios finales</span></div>
+            <sc-for list="{{ carta }}" as="g" hint-placeholder-count="4">
+              <span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.1em;text-transform:uppercase;color:{{ E.txtMarca }};padding:14px 0 4px">{{ g.n }}</span>
+              <sc-for list="{{ g.items }}" as="s"><button onClick="{{ s.elegir }}" style-hover="padding-left:10px;background:{{ E.tint }}" style-active="transform:scale(.99)" style="transition:padding .2s cubic-bezier(.2,.7,.2,1),background .2s;border-radius:10px;display:flex;flex-direction:column;gap:2px;width:100%;padding:12px 0;border:0;border-bottom:1px solid {{ E.line }};background:transparent;color:{{ E.ink }};text-align:left">
+                <span style="display:flex;align-items:baseline;gap:8px;width:100%"><span style="font-size:17px;font-weight:550">{{ s.n }}</span><span aria-hidden="true" style="flex:1;min-width:20px;border-bottom:2px dotted {{ E.line2 }};transform:translateY(-4px)"></span><b style="font:600 16px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.02em">{{ s.precio }}</b></span>
+                <span style="display:flex;justify-content:space-between;width:100%;font-size:13px;color:{{ E.sub }}"><span style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums">{{ s.dur }}</span><span style="font-weight:600;color:{{ E.txtMarca }}">{{ s.cta }}</span></span>
+              </button></sc-for>
+            </sc-for>
+          </section>
+
+          <div style="margin:0 {{ L.lado }};border-radius:{{ E.cr }};overflow:hidden;background:{{ E.socios }};display:grid;grid-template-columns:minmax(0,1fr) 120px">
+            <div style="padding:18px 20px;display:flex;flex-direction:column;gap:6px;border-right:2px dashed #dccaa2"><span style="display:flex;gap:6px;align-items:center;font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.1em;color:#7a5a1e"><span class="material-symbols-rounded" style="font-size:16px">card_membership</span>MEMBRESÍA</span><b style="font-size:19px;letter-spacing:-0.02em">Plan Glow</b><span style="font-size:14px;line-height:1.45;color:{{ E.sociosTxt }}">4 visitas de cejas y pestañas por mes, y reservás 3 días antes que el&nbsp;resto.</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:12px;text-align:center"><b style="font:600 20px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.03em">$ 45.000</b><span style="font-size:12px;color:{{ E.sociosTxt }}">por mes</span></div>
+          </div>
+
+          <section id="resenas" aria-labelledby="t-res" style="display:flex;flex-direction:column;gap:16px;padding:0 {{ L.lado }}">
+            <div style="display:flex;align-items:baseline;gap:12px"><h2 id="t-res" style="margin:0;font-size:28px;font-weight:{{ E.tw }};letter-spacing:{{ E.tl }};flex:1">Reseñas</h2><b style="font:600 20px Lato,sans-serif;font-variant-numeric:tabular-nums">4,9</b><span style="font-size:13px;color:{{ E.sub }}">de 128</span></div>
+            <figure style="margin:0;display:flex;flex-direction:column;gap:10px"><blockquote style="margin:0;font-size:22px;line-height:1.3;font-weight:500;letter-spacing:-0.02em">«Abril es una genia, el lifting me duró un montón. Súper&nbsp;puntuales.»</blockquote><figcaption style="display:flex;gap:8px;align-items:center;font-size:13px;color:{{ E.sub }}"><span style="color:{{ c.acc }}">★★★★★</span>Martina G. · Lifting de pestañas</figcaption></figure>
+            <div style="display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:{{ E.cr }};background:{{ E.papel }};font-size:14px;line-height:1.5"><span style="display:flex;gap:8px;align-items:baseline"><b>Paula R.</b><span style="color:{{ c.acc }}">★★★★</span><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ E.sub }};margin-left:auto">hace 2 sem.</span></span>Muy linda la atención. Tuve que esperar 15 minutos.<span style="padding:10px 12px;border-radius:12px;background:{{ E.tint }};font-size:13px"><b>Lumi respondió:</b> ¡Gracias, Paula! Ya sumamos un margen entre turnos.</span></div>
+          </section>
+
+          <section aria-labelledby="t-eq" style="display:flex;flex-direction:column;gap:12px;padding:0 {{ L.lado }}">
+            <h2 id="t-eq" style="margin:0;font-size:28px;font-weight:{{ E.tw }};letter-spacing:{{ E.tl }}">Equipo</h2>
+            <div style="display:flex;gap:18px;overflow-x:auto"><sc-for list="{{ equipo }}" as="p"><div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:92px;text-align:center"><span style="width:72px;height:72px;border-radius:50%;background:{{ E.tint }};display:grid;place-items:center;font-weight:650;color:{{ E.txtMarca }}">{{ p.ini }}</span><b style="font-size:14px;font-weight:600">{{ p.corto }}</b><span style="font-size:12px;color:{{ E.sub }};line-height:1.2">{{ p.esp }}</span></div></sc-for></div>
+          </section>
+
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;grid-template-rows:{{ L.fotos }};gap:6px;margin:0 {{ L.lado }};border-radius:{{ E.cr }};overflow:hidden"><img src="apps/web/static/fotos/peluquera-con-clienta.jpg" alt="El salón" style="width:100%;height:100%;object-fit:cover"><img src="apps/web/static/fotos/recepcion.jpg" alt="La recepción" style="width:100%;height:100%;object-fit:cover"><img src="apps/web/static/fotos/manicura.jpg" alt="Un tratamiento" style="width:100%;height:100%;object-fit:cover"></div>
+
+          <section id="donde" style="display:flex;flex-direction:column;gap:0;padding:0 {{ L.lado }}">
+            <div style="display:flex;align-items:flex-start;gap:14px;padding:16px 0;border-top:1px solid {{ E.line }}"><span class="material-symbols-rounded" style="font-size:22px;color:{{ E.txtMarca }}">location_on</span><span style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:16px;font-weight:600">Gorriti 4820, Palermo</b><span style="font-size:13px;color:{{ E.sub }}">Timbre «Lumi», primer piso</span></span><a href="#" style="font-size:14px;font-weight:600;color:{{ E.txtMarca }}">Cómo llegar</a></div>
+            <div style="display:flex;align-items:flex-start;gap:14px;padding:16px 0;border-top:1px solid {{ E.line }}"><span class="material-symbols-rounded" style="font-size:22px;color:{{ E.txtMarca }}">schedule</span><span style="flex:1;font:500 14px Lato,sans-serif;font-variant-numeric:tabular-nums;line-height:1.6">LUN–VIE 10–20<br>SÁB 10–14</span></div>
+            <details style="border-top:1px solid {{ E.line }}"><summary style="display:flex;align-items:center;gap:14px;min-height:56px;cursor:pointer"><span class="material-symbols-rounded" style="font-size:22px;color:{{ E.txtMarca }}">info</span><b style="flex:1;font-size:16px;font-weight:600">Acerca de Lumi</b><span class="material-symbols-rounded" style="font-size:22px;color:{{ E.sub }}">expand_more</span></summary><p style="margin:0 0 16px 36px;font-size:14px;line-height:1.55;color:{{ E.sub2 }}">Desde 2019 en Palermo. Turnos sin espera y productos veganos.</p></details>
+            <details style="border-top:1px solid {{ E.line }};border-bottom:1px solid {{ E.line }}"><summary style="display:flex;align-items:center;gap:14px;min-height:56px;cursor:pointer"><span class="material-symbols-rounded" style="font-size:22px;color:{{ E.txtMarca }}">policy</span><b style="flex:1;font-size:16px;font-weight:600">Cancelaciones</b><span style="font:500 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ E.sub }}">24 h</span></summary><p style="margin:0 0 16px 36px;font-size:14px;line-height:1.55;color:{{ E.sub2 }}">Sin cargo hasta 24 horas antes. Después, la seña no se devuelve.</p></details>
+          </section>
+          <div style="display:flex;justify-content:center;gap:8px;align-items:center;font-size:12px;color:{{ E.sub }};padding-bottom:12px"><img src="apps/web/static/marca-icono.png" alt="" width="18" height="18" style="border-radius:5px">Turnos con <b style="color:{{ E.ink }}">Tengo Libre</b></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ V.verReserva }}">
+        <section aria-label="Reservar" style="position:{{ L.resPos }};top:24px;display:flex;flex-direction:column;border-radius:{{ L.resRad }};background:{{ E.papel }};box-shadow:{{ L.resSh }};overflow:hidden;min-height:{{ L.resMin }}">
+          <div style="display:flex;align-items:center;gap:10px;padding:16px 18px;background-color:{{ c.pri }};background-image:{{ grano }};color:{{ c.on }}">
+            <sc-if value="{{ L.compacto }}"><button onClick="{{ volverPagina }}" aria-label="Volver a Lumi" style="width:44px;height:44px;margin-left:-8px;border:0;border-radius:{{ E.sr }};background:transparent;color:{{ c.on }};display:grid;place-items:center"><span class="material-symbols-rounded" style="font-size:24px">arrow_back</span></button></sc-if>
+            <span style="flex:1;display:flex;flex-direction:column;line-height:1.2"><b style="font-size:19px;font-weight:{{ E.tw }};letter-spacing:{{ E.tl }}">Reservá tu turno</b><span style="font:500 12px Lato,sans-serif;font-variant-numeric:tabular-nums;opacity:.85">PRIMER LUGAR · LUN 02 · 10:00</span></span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column">
+            <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid {{ E.line }}">
+              <div style="display:flex;align-items:center;gap:10px"><span style="font:600 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ E.txtMarca }}">01</span><b style="flex:1;font-size:16px;font-weight:650">Qué te hacés</b><sc-if value="{{ R.tieneSrv }}"><button onClick="{{ R.cambiarSrv }}" style="min-height:40px;border:0;background:transparent;color:{{ E.txtMarca }};font-size:14px;font-weight:600;text-decoration:underline;text-underline-offset:3px">Cambiar</button></sc-if></div>
+              <sc-if value="{{ R.tieneSrv }}"><div style="display:flex;align-items:baseline;gap:8px;font-size:15px"><span>{{ R.srvNombre }}</span><span aria-hidden="true" style="flex:1;border-bottom:2px dotted {{ E.line2 }};transform:translateY(-4px)"></span><b style="font:600 15px Lato,sans-serif;font-variant-numeric:tabular-nums">{{ R.precio }}</b></div></sc-if>
+              <sc-if value="{{ R.sinSrv }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ R.servicios }}" as="s" hint-placeholder-count="6"><button onClick="{{ s.elegir }}" style="white-space:nowrap;min-height:44px;padding:0 14px;border-radius:{{ E.br }};border:0;background:{{ E.campo }};box-shadow:inset 0 0 0 1.5px {{ E.line2 }};color:{{ E.ink }};font-size:14px;font-weight:550">{{ s.n }}</button></sc-for></div></sc-if>
+            </div>
+            <sc-if value="{{ R.tieneSrv }}">
+              <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid {{ E.line }}">
+                <div style="display:flex;align-items:center;gap:10px"><span style="font:600 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ E.txtMarca }}">02</span><b style="font-size:16px;font-weight:650">Con quién</b></div>
+                <sc-if value="{{ R.unico }}"><span style="font-size:15px">{{ R.profTxt }}, la única que lo&nbsp;hace.</span></sc-if>
+                <sc-if value="{{ R.varios }}"><div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ R.profs }}" as="p"><button onClick="{{ p.elegir }}" aria-pressed="{{ p.on }}" style="min-height:44px;padding:0 16px;border-radius:{{ E.br }};border:0;background:{{ p.bg }};color:{{ p.c }};box-shadow:{{ p.sh }};font-size:14px;font-weight:600">{{ p.n }}</button></sc-for></div></sc-if>
+              </div>
+              <div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid {{ E.line }}">
+                <div style="display:flex;align-items:center;gap:10px"><span style="font:600 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ E.txtMarca }}">03</span><b style="flex:1;font-size:16px;font-weight:650">Cuándo</b><span style="font:500 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ E.sub }}">NOV</span></div>
+                <div style="display:flex;gap:6px;overflow-x:auto;margin:0 -18px;padding:2px 18px"><sc-for list="{{ R.dias }}" as="d" hint-placeholder-count="7"><button onClick="{{ d.elegir }}" disabled="{{ d.off }}" aria-label="{{ d.label }}" style="flex:none;width:54px;height:66px;border-radius:{{ E.sr }};border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:{{ d.bg }};color:{{ d.c }};box-shadow:{{ d.sh }};cursor:{{ d.cur }}"><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;text-transform:uppercase">{{ d.dow }}</span><span style="font:600 19px Lato,sans-serif;font-variant-numeric:tabular-nums;text-decoration:{{ d.deco }}">{{ d.t }}</span></button></sc-for></div>
+                <span style="font-size:13px;color:{{ E.sub }}">{{ R.diaLargo }} · {{ R.cuantos }}</span>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:6px"><sc-for list="{{ R.horas }}" as="h" hint-placeholder-count="8"><button onClick="{{ h.elegir }}" style-hover="transform:translateY(-2px)" style-active="transform:scale(.94)" aria-pressed="{{ h.on }}" style="height:48px;border-radius:12px;border:0;background:{{ h.bg }};color:{{ h.c }};box-shadow:{{ h.sh }};font:600 15px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;transition:transform .15s;animation:tl-pop .35s both,tl-raya 4s linear infinite">{{ h.h }}</button></sc-for></div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ R.tieneHora }}">
+              <div style="padding:16px 18px 20px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;gap:10px"><span style="font:600 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ E.txtMarca }}">04</span><b style="font-size:16px;font-weight:650">Tus datos</b></div>
+                <sc-if value="{{ R.invitarSocio }}"><div style="display:flex;align-items:center;gap:10px;padding:8px 8px 8px 12px;border-radius:{{ E.sr }};background:{{ E.socios }};font-size:14px;color:{{ E.sociosTxt }}"><span class="material-symbols-rounded" style="font-size:20px;color:#7a5a1e">card_membership</span><span style="flex:1">¿Sos socio?</span><button onClick="{{ R.ingresar }}" style="min-height:40px;padding:0 14px;border-radius:{{ E.br }};border:0;background:{{ E.papel }};font-size:13px;font-weight:600;color:{{ E.ink }}">Ingresá</button></div></sc-if>
+                <sc-if value="{{ R.socio }}"><label style="display:flex;align-items:flex-start;gap:12px;padding:14px;border-radius:{{ E.sr }};background:{{ E.socios }};cursor:pointer"><input type="checkbox" checked="{{ R.usar }}" onChange="{{ R.toggleUsar }}" style="width:22px;height:22px;margin:0;accent-color:#183c44;flex:none"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:15px">Usar mi Plan Glow</b><span style="font-size:13px;color:{{ E.sociosTxt }}">{{ R.membTxt }}</span></span></label></sc-if>
+                <sc-if value="{{ R.pedirDatos }}">
+                  <input aria-label="Nombre y apellido" placeholder="Nombre y apellido" autocomplete="name" style="min-height:50px;padding:0 14px;border-radius:{{ E.sr }};border:0;background:{{ E.campo }};box-shadow:inset 0 0 0 1.5px {{ E.line2 }};font:400 16px Lato,sans-serif;width:100%">
+                  <input aria-label="Teléfono o email" placeholder="Teléfono o email (con uno alcanza)" autocomplete="tel" style="min-height:50px;padding:0 14px;border-radius:{{ E.sr }};border:0;background:{{ E.campo }};box-shadow:inset 0 0 0 1.5px {{ E.line2 }};font:400 16px Lato,sans-serif;width:100%">
+                </sc-if>
+                <details open="{{ R.cupon }}"><summary style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px;font-weight:600;cursor:pointer"><span class="material-symbols-rounded" style="font-size:18px;color:{{ E.sub }}">sell</span>Cupón, nota o código de referido<span style="margin-left:auto;font:500 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ E.ok }}">{{ R.cuponTxt }}</span></summary><div style="display:flex;gap:8px;padding-bottom:6px"><input aria-label="Cupón" value="LUMI10" readonly style="flex:1;min-width:0;min-height:48px;padding:0 14px;border-radius:12px;border:0;background:{{ E.campo }};box-shadow:inset 0 0 0 1.5px {{ E.line2 }};font:500 16px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.08em"><button onClick="{{ R.aplicarCupon }}" style="min-height:48px;padding:0 16px;border-radius:12px;border:0;box-shadow:inset 0 0 0 1.5px {{ E.line2 }};background:{{ E.campo }};font-size:14px;font-weight:600;color:{{ E.ink }}">Aplicar</button></div></details>
+                <div style="border-radius:{{ E.sr }};overflow:hidden;background:{{ E.chip }}">
+                  <div style="padding:14px 16px;display:flex;flex-direction:column;gap:6px;font-size:14px">
+                    <div style="display:flex;justify-content:space-between"><span>{{ R.srvNombre }}</span><span style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums">{{ R.precio }}</span></div>
+                    <sc-if value="{{ R.hayDesc }}"><div style="display:flex;justify-content:space-between;color:{{ E.ok }}"><span>LUMI10</span><span style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums">− {{ R.desc }}</span></div></sc-if>
+                  </div>
+                  <div style="height:14px;position:relative;background:radial-gradient(circle at 0 50%,{{ E.papel }} 7px,transparent 7.5px),radial-gradient(circle at 100% 50%,{{ E.papel }} 7px,transparent 7.5px)"><span style="position:absolute;left:12px;right:12px;top:6px;border-top:2px dashed #dccfb6"></span></div>
+                  <div style="padding:10px 16px 14px;display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:15px">Total</b><b style="font:600 20px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.03em">{{ R.total }}</b></div><sc-if value="{{ R.haySena }}"><span style="font-size:12px;line-height:1.45;color:{{ E.sub }}">Hoy pagás la seña de <b style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ E.ink }}">{{ R.sena }}</b> con Mercado Pago; el resto, en el local. Sin cargo si cancelás hasta 24 h antes.</span></sc-if></div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+          <div style="position:{{ L.barPos }};bottom:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:12px;padding:12px 18px {{ L.barPadB }};background:{{ E.papel }};box-shadow:0 -1px 0 {{ E.line }}">
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3"><b style="font:600 15px Lato,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ R.barraTit }}</b><span style="font-size:12px;color:{{ E.sub }}">{{ R.barraSub }}</span></span>
+            <button onClick="{{ R.confirmar }}" disabled="{{ R.noListo }}" style="min-height:52px;padding:0 22px;border-radius:{{ E.br }};border:0;background:{{ R.btnBg }};color:{{ R.btnC }};font-size:16px;font-weight:650;cursor:{{ R.btnCur }};box-shadow:{{ R.btnSh }}">{{ R.textoBoton }}</button>
+          </div>
+        </section>
+      </sc-if>
+    </div>
+    <sc-if value="{{ V.barraPagina }}">
+      <div style="position:{{ L.barFijo }};left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;gap:12px;padding:12px 16px 22px;background:rgba(255,253,249,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 -1px 0 {{ E.line }}">
+        <span style="flex:1;display:flex;flex-direction:column;line-height:1.25"><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ E.sub }}">PRÓXIMO LUGAR</span><b style="font:600 16px Lato,sans-serif;font-variant-numeric:tabular-nums">LUN 02 · 10:00</b></span>
+        <button onClick="{{ irReserva }}" style-hover="transform:translateY(-2px)" style-active="transform:scale(.96)" style="transition:transform .15s;min-height:52px;padding:0 24px;border-radius:{{ E.br }};border:0;background:{{ c.pri }};color:{{ c.on }};font-size:16px;font-weight:650;box-shadow:0 12px 24px -12px {{ c.pri }}">Reservar turno</button>
+      </div>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ V.esMp }}">
+    <div style="max-width:460px;margin:0 auto;padding:48px 20px;display:flex;flex-direction:column;gap:18px">
+      <span style="width:60px;height:60px;border-radius:{{ E.cr }};background:{{ E.campo }};box-shadow:inset 0 0 0 1px {{ E.line }};display:grid;place-items:center"><img src="apps/web/static/logos/mercadopago.svg" alt="" width="38" height="38"></span>
+      <h1 style="margin:0;font-size:32px;line-height:1.05;font-weight:{{ E.tw }};letter-spacing:{{ E.tl }}">Falta la seña de <span style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.06em">{{ R.sena }}</span></h1>
+      <p style="margin:0;font-size:16px;line-height:1.5;color:{{ E.sub2 }}">Te guardamos el lugar del <b>{{ R.cuandoCorto }}</b> durante 15 minutos. Pagás en Mercado Pago y volvés&nbsp;sola.</p>
+      <div style="display:flex;justify-content:space-between;padding:14px 16px;border-radius:{{ E.sr }};background:{{ E.chip }};font-size:14px"><span>Seña · {{ R.srvNombre }}</span><b style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums">{{ R.sena }}</b></div>
+      <button onClick="{{ pagar }}" style="min-height:54px;border-radius:{{ E.br }};border:0;background:#009ee3;color:#fff;font-size:16px;font-weight:650">Pagar con Mercado Pago</button>
+      <span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ E.sub }};text-align:center">PROTOTIPO · EL BOTÓN SIMULA EL PAGO Y LA VUELTA</span>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ V.esTurno }}">
+    <div style="max-width:460px;margin:0 auto;padding:24px 18px 48px;display:flex;flex-direction:column;gap:14px">
+      <sc-if value="{{ M.recien }}"><div role="status" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:{{ E.sr }};background:{{ E.tint }};font-size:14px;line-height:1.4"><span class="material-symbols-rounded" style="font-size:22px;color:{{ E.txtMarca }}">celebration</span><span>¡Listo! Guardá este link: desde acá lo cambiás o lo&nbsp;cancelás.</span></div></sc-if>
+      <div style="position:relative;border-radius:{{ E.cr }};overflow:hidden;background:{{ E.papel }};box-shadow:0 30px 50px -30px rgba(15,35,40,.5);opacity:{{ M.op }};animation:tl-imprime .9s cubic-bezier(.2,.7,.2,1) both"><sc-if value="{{ M.sello }}"><span aria-hidden="true" style="position:absolute;right:18px;top:96px;z-index:2;padding:6px 12px;border-radius:10px;border:3px solid {{ c.on }};color:{{ c.on }};font:700 15px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.12em;opacity:.9;animation:tl-sello .6s .8s cubic-bezier(.2,.8,.2,1) both">{{ M.selloTxt }}</span></sc-if>
+        <div style="padding:18px 20px 24px;background-color:{{ c.pri }};background-image:{{ grano }};color:{{ c.on }};display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:34px;height:34px;border-radius:50%;background:{{ c.on }};color:{{ c.pri }};display:grid;place-items:center;font-weight:700">L</span><b style="flex:1;font-size:15px">Lumi Estética</b><span style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 11px 0 8px;border-radius:{{ E.br }};background:{{ c.onA }};font-size:12px;font-weight:650"><span class="material-symbols-rounded" style="font-size:15px">{{ M.ic }}</span>{{ M.estado }}</span></div>
+          <div style="display:flex;flex-direction:column"><span style="font:500 13px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.08em;opacity:.85">{{ M.fecha }}</span><b style="font:600 72px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-0.07em;line-height:.95;text-decoration:{{ M.deco }}">{{ M.hora }}</b></div>
+        </div>
+        <div style="height:22px;position:relative;background:linear-gradient({{ c.pri }} 0 50%,#fffdf9 50%)"><span style="position:absolute;left:-11px;top:0;width:22px;height:22px;border-radius:50%;background:{{ E.bg }}"></span><span style="position:absolute;right:-11px;top:0;width:22px;height:22px;border-radius:50%;background:{{ E.bg }}"></span><span style="position:absolute;left:18px;right:18px;top:10px;border-top:2px dashed #e2d6bf"></span></div>
+        <div style="padding:6px 20px 20px;display:flex;flex-direction:column;gap:12px;font-size:15px">
+          <div style="display:flex;justify-content:space-between;gap:10px"><span>{{ R.srvNombre }}</span><span style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums">{{ R.dur }}</span></div>
+          <div style="display:flex;justify-content:space-between;gap:10px"><span>{{ R.profTxt }}</span><span style="color:{{ E.sub }}">Gorriti 4820</span></div>
+          <div style="display:flex;justify-content:space-between;gap:10px;padding-top:12px;border-top:1px solid {{ E.line }}"><span style="display:flex;gap:6px;align-items:center;color:{{ E.ok }}"><span class="material-symbols-rounded" style="font-size:18px">{{ M.pagoIc }}</span>{{ M.pagoTxt }}</span><span style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums">{{ M.pagoMonto }}</span></div>
+          <sc-if value="{{ R.haySena }}"><div style="display:flex;justify-content:space-between;gap:10px"><span style="color:{{ E.sub }}">En el local</span><b style="font:600 15px Lato,sans-serif;font-variant-numeric:tabular-nums">{{ R.resto }}</b></div></sc-if>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid {{ E.line }}"><span style="font:600 15px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.14em">LUMI-7K2Q</span><span style="font-size:12px;color:{{ E.sub }}">mostralo al llegar</span></div>
+        </div>
+      </div>
+      <sc-if value="{{ M.activo }}">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><a href="#" style="display:flex;align-items:center;justify-content:center;gap:6px;min-height:50px;border-radius:{{ E.br }};background:{{ E.papel }};box-shadow:inset 0 0 0 1px {{ E.line }};font-size:14px;font-weight:600;text-decoration:none"><span class="material-symbols-rounded" style="font-size:20px">calendar_add_on</span>Agendar</a><a href="#" style="display:flex;align-items:center;justify-content:center;gap:6px;min-height:50px;border-radius:{{ E.br }};background:{{ E.papel }};box-shadow:inset 0 0 0 1px {{ E.line }};font-size:14px;font-weight:600;text-decoration:none"><span class="material-symbols-rounded" style="font-size:20px">directions</span>Cómo llegar</a></div>
+        <sc-if value="{{ M.sinAccion }}"><div style="display:flex;gap:8px"><button onClick="{{ M.abrirCambio }}" style="flex:1;min-height:50px;border-radius:{{ E.br }};border:0;box-shadow:inset 0 0 0 1.5px {{ E.line2 }};background:transparent;font-size:15px;font-weight:600;color:{{ E.ink }}">Cambiar día u hora</button><button onClick="{{ M.abrirCancelar }}" style="min-height:50px;padding:0 18px;border-radius:{{ E.br }};border:0;background:transparent;font-size:15px;font-weight:600;color:#a3241a">Cancelar</button></div><span style="font-size:13px;color:{{ E.sub }};text-align:center;margin-top:-4px">Sin cargo hasta el <span style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums">{{ M.limite }}</span></span></sc-if>
+        <sc-if value="{{ M.cambiando }}">
+          <div style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:{{ E.cr }};background:{{ E.papel }};box-shadow:inset 0 0 0 1px {{ E.line }}">
+            <b style="font-size:16px">¿Para cuándo lo pasamos?</b>
+            <div style="display:flex;gap:6px;overflow-x:auto"><sc-for list="{{ R.dias }}" as="d"><button onClick="{{ d.elegir }}" disabled="{{ d.off }}" style="flex:none;width:52px;height:62px;border-radius:{{ E.sr }};border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:{{ d.bg }};color:{{ d.c }};box-shadow:{{ d.sh }};cursor:{{ d.cur }}"><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums;text-transform:uppercase">{{ d.dow }}</span><span style="font:600 18px Lato,sans-serif;font-variant-numeric:tabular-nums;text-decoration:{{ d.deco }}">{{ d.t }}</span></button></sc-for></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px"><sc-for list="{{ R.horas }}" as="h"><button onClick="{{ h.elegir }}" style="height:46px;border-radius:12px;border:0;background:{{ h.bg }};color:{{ h.c }};box-shadow:{{ h.sh }};font:600 14px Lato,sans-serif;font-variant-numeric:tabular-nums">{{ h.h }}</button></sc-for></div>
+            <span style="font-size:12px;color:{{ E.sub }}">La seña pasa al turno nuevo. Mismo servicio y misma profesional.</span>
+            <div style="display:flex;gap:8px"><button onClick="{{ M.confirmarCambio }}" style="flex:1;min-height:50px;border-radius:{{ E.br }};border:0;background:{{ c.pri }};color:{{ c.on }};font-size:15px;font-weight:650">Cambiar a las {{ M.nuevaHora }}</button><button onClick="{{ M.cerrarAcciones }}" style="min-height:50px;padding:0 16px;border-radius:{{ E.br }};border:0;background:transparent;font-size:15px;font-weight:600;color:{{ E.ink }}">No</button></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ M.cancelando }}">
+          <div style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:{{ E.cr }};background:{{ E.papel }};box-shadow:inset 0 0 0 1.5px #f1c5bf">
+            <b style="font-size:16px">¿Cancelás el turno?</b>
+            <span style="font-size:14px;line-height:1.5;color:{{ E.sub2 }}">Estás a tiempo: te devolvemos la seña de <b style="font-family:Lato,sans-serif;font-variant-numeric:tabular-nums">{{ R.sena }}</b> a Mercado Pago. El horario queda libre para otra&nbsp;persona.</span>
+            <div style="display:flex;gap:8px"><button onClick="{{ M.confirmarCancelar }}" style="flex:1;min-height:50px;border-radius:{{ E.br }};border:0;background:#a3241a;color:#fff;font-size:15px;font-weight:650">Sí, cancelar</button><button onClick="{{ M.cerrarAcciones }}" style="min-height:50px;padding:0 16px;border-radius:{{ E.br }};border:0;background:transparent;font-size:15px;font-weight:600;color:{{ E.ink }}">No, lo mantengo</button></div>
+          </div>
+        </sc-if>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+          <b style="font-size:17px">Tu próximo turno</b>
+          <div style="display:grid;grid-template-columns:96px minmax(0,1fr);min-height:64px;border-radius:{{ E.sr }};background:radial-gradient(circle at 96px 0,{{ E.bg }} 8px,transparent 8.5px),radial-gradient(circle at 96px 100%,{{ E.bg }} 8px,transparent 8.5px),repeating-linear-gradient(-45deg,{{ E.raya }} 0 2px,transparent 2px 10px),{{ E.tint }}"><div style="display:flex;flex-direction:column;justify-content:center;padding:0 14px;border-right:2px dashed {{ E.troquel }}"><span style="font:500 11px Lato,sans-serif;font-variant-numeric:tabular-nums">LUN 14 DIC</span><b style="font:600 19px Lato,sans-serif;font-variant-numeric:tabular-nums">10:30</b></div><div style="display:flex;align-items:center;gap:10px;padding:0 14px"><span style="flex:1;font-size:13px;line-height:1.35">El lifting dura unas 6 semanas. Abril tiene lugar.</span><span style="font-size:14px;font-weight:650;color:{{ E.txtMarca }}">Reservar</span></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:{{ E.cr }};background:#183c44;background-image:{{ grano }};color:#fff">
+          <span style="display:flex;gap:8px;align-items:center"><span class="material-symbols-rounded" style="font-size:22px;color:#3ccc90">redeem</span><b style="font-size:16px">Recomendá Lumi y ganá 15%</b></span>
+          <span style="font-size:13px;line-height:1.45;color:rgba(255,255,255,.8)">Cuando alguien reserva con tu código, te llega un cupón (hasta $ 5.000).</span>
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 6px 6px 14px;border-radius:{{ E.br }};background:rgba(255,255,255,.1)"><span style="flex:1;font:600 15px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.1em">SOFI-LUMI</span><button style="min-height:40px;padding:0 14px;border-radius:{{ E.br }};border:0;background:#3ccc90;color:#102b31;font-size:13px;font-weight:650">Compartir</button></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ M.cancelado }}"><div style="display:flex;flex-direction:column;gap:12px;padding:4px 2px"><span style="font-size:15px;line-height:1.5;color:{{ E.sub2 }}">Cancelaste el turno. Le avisamos a Lumi y la devolución ya está pedida a Mercado Pago.</span><button onClick="{{ reiniciar }}" style="min-height:52px;border-radius:{{ E.br }};border:0;background:{{ c.pri }};color:{{ c.on }};font-size:16px;font-weight:650">Sacar otro turno</button></div></sc-if>
+      <button onClick="{{ reiniciar }}" style="align-self:center;min-height:44px;padding:0 14px;border:0;background:transparent;font:500 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:{{ E.sub }}">VOLVER A EMPEZAR EL PROTOTIPO</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;plantilla&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Carta&quot;,&quot;Vidriera&quot;,&quot;Sobria&quot;,&quot;Galería&quot;,&quot;Editorial&quot;,&quot;Bloques&quot;],&quot;default&quot;:&quot;Carta&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Plantilla de la web&quot;},&quot;portada&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Con foto&quot;,&quot;Sólo color&quot;],&quot;default&quot;:&quot;Con foto&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Plantilla de la web&quot;},&quot;fondo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Crema&quot;,&quot;Blanco&quot;,&quot;Noche&quot;],&quot;default&quot;:&quot;Crema&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Plantilla de la web&quot;},&quot;titulos&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Grandes&quot;,&quot;Medianos&quot;,&quot;Livianos&quot;],&quot;default&quot;:&quot;Grandes&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Plantilla de la web&quot;},&quot;forma&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Redondos&quot;,&quot;Suaves&quot;,&quot;Rectos&quot;],&quot;default&quot;:&quot;Redondos&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Plantilla de la web&quot;},&quot;primario&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#7a3b5e&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#7a3b5e&quot;,&quot;#1f2a24&quot;,&quot;#f5c518&quot;,&quot;#4fa3d9&quot;],&quot;section&quot;:&quot;Marca del negocio&quot;},&quot;acento&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#f0a98c&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#f0a98c&quot;,&quot;#c8a25a&quot;,&quot;#e2553f&quot;,&quot;#1d3557&quot;],&quot;section&quot;:&quot;Marca del negocio&quot;}}">
+const SERV = [
+  { id: 's1', cat: 'Facial', n: 'Limpieza facial profunda', d: 60, p: 28000, pr: ['p1'] },
+  { id: 's2', cat: 'Facial', n: 'Dermaplaning', d: 45, p: 24000, pr: ['p1'] },
+  { id: 's3', cat: 'Cejas y pestañas', n: 'Perfilado de cejas', d: 30, p: 9000, pr: ['p1', 'p2'] },
+  { id: 's4', cat: 'Cejas y pestañas', n: 'Laminado de cejas', d: 45, p: 16000, pr: ['p2'] },
+  { id: 's5', cat: 'Cejas y pestañas', n: 'Lifting de pestañas', d: 60, p: 22000, pr: ['p1', 'p2'] },
+  { id: 's6', cat: 'Depilación láser', n: 'Axilas', d: 15, p: 8000, pr: ['p3'] },
+  { id: 's7', cat: 'Depilación láser', n: 'Piernas completas', d: 45, p: 26000, pr: ['p3'] },
+  { id: 's8', cat: 'Corporales', n: 'Drenaje linfático', d: 60, p: 25000, pr: ['p1', 'p3'] }
+];
+const CUBRE = ['s3', 's4', 's5'];
+const PROFS = [
+  { id: 'p1', n: 'Carla Ruiz', corto: 'Carla', esp: 'Cosmetóloga', ini: 'CR' },
+  { id: 'p2', n: 'Abril Sosa', corto: 'Abril', esp: 'Cejas y pestañas', ini: 'AS' },
+  { id: 'p3', n: 'Mica Ferreyra', corto: 'Mica', esp: 'Depilación', ini: 'MF' }
+];
+const DOW = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const DOW3 = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const BASE = ['10:00', '10:30', '11:00', '11:30', '12:00', '14:00', '14:30', '15:30', '16:00', '17:00', '17:30', '18:30'];
+const pesos = n => '$ ' + Math.round(n).toLocaleString('es-AR');
+const dur = m => m < 60 ? m + ' min' : (m % 60 ? Math.floor(m / 60) + ' h ' + (m % 60) + ' min' : m / 60 + ' h');
+const dow = d => (d - 1 + 7) % 7;
+const sinLugar = d => dow(d) === 0 || [4, 7, 12].includes(d);
+const horasDe = (d, pid) => { if (sinLugar(d)) return []; const l = BASE.filter((h, i) => (i * 7 + d + (pid === 'p2' ? 1 : 0)) % 3 !== 0); return [3, 6, 10].includes(d) ? l.slice(-2) : l; };
+const GRANO = 'url("data:image/svg+xml;utf8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'.85\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3CfeColorMatrix values=\'0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .11 0\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")';
+
+class Component extends DCLogic {
+  state = this.inicial();
+  inicial() { return { w: typeof window !== 'undefined' ? window.innerWidth : 1280, vista: 'pagina', srv: null, prof: 'any', dia: 2, hora: null, socio: false, usar: true, cupon: false, accion: null, cambio: null, cancelado: false, recien: true }; }
+  componentDidMount() { this.onR = () => this.setState({ w: window.innerWidth }); window.addEventListener('resize', this.onR); this.onR(); }
+  componentWillUnmount() { window.removeEventListener('resize', this.onR); }
+
+  lum(hex) { const n = hex.replace('#', ''); const c = [0, 2, 4].map(i => parseInt(n.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+  ratio(a, b) { const x = this.lum(a), y = this.lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  mix(hex, to, t) { const a = hex.replace('#', ''), b = to.replace('#', ''); return '#' + [0, 2, 4].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t).toString(16).padStart(2, '0')).join(''); }
+  rgba(hex, a) { const n = hex.replace('#', ''); return 'rgba(' + [0, 2, 4].map(i => parseInt(n.slice(i, i + 2), 16)).join(',') + ',' + a + ')'; }
+  colores() {
+    const ok = h => /^#[0-9a-f]{6}$/i.test(h || '');
+    const pri = ok(this.props.primario) ? this.props.primario : '#7a3b5e';
+    const acc = ok(this.props.acento) ? this.props.acento : '#f0a98c';
+    const blanco = this.ratio(pri, '#ffffff') >= this.ratio(pri, '#14181a');
+    const on = blanco ? '#ffffff' : '#14181a';
+    let texto = pri, t = 0; while (this.ratio(texto, '#ffffff') < 4.5 && t < 1) { t += 0.05; texto = this.mix(pri, '#000000', t); }
+    return { pri, acc, on, texto, onA: blanco ? 'rgba(255,255,255,.18)' : 'rgba(20,24,26,.1)', priA: this.rgba(pri, 0.55), tint: this.mix(pri, '#fffdf9', 0.88), raya: this.rgba(pri, 0.14), troquel: this.mix(pri, '#fffdf9', 0.7) };
+  }
+
+  renderVals() {
+    const st = this.state, c = this.colores();
+    const set = o => this.setState(o);
+    const compacto = (this.props.ancho || st.w) < 900;
+    const L = {
+      compacto, cols: compacto ? 'minmax(0,1fr)' : 'minmax(0,1fr) 410px', gap: compacto ? '0' : '48px', pad: compacto ? '0' : '28px 32px 64px',
+      portada: compacto ? '300px' : '380px', radPortada: compacto ? '0' : '28px', inset: compacto ? '16px' : '28px', logo: compacto ? '64px' : '80px', h1: compacto ? '38px' : '56px',
+      lado: compacto ? '16px' : '0', fotos: compacto ? '110px 110px' : '200px', padBottom: compacto ? '96px' : '0',
+      resPos: compacto ? 'relative' : 'sticky', resRad: compacto ? '0' : '24px', resSh: compacto ? 'none' : '0 0 0 1px #eee5d3,0 30px 60px -30px rgba(15,35,40,.4)', resMin: compacto ? '100vh' : '0',
+      portadaV: compacto ? '520px' : '560px', edCols: compacto ? 'minmax(0,1fr) 120px' : 'minmax(0,1fr) 260px', edPad: compacto ? '28px 16px 0' : '12px 0 0', h1E: compacto ? '64px' : '112px', blq: compacto ? '110px' : '150px', h1B: compacto ? '28px' : '44px', sobriaPad: compacto ? '64px 20px 28px' : '56px 44px 40px', h1S: compacto ? '64px' : '88px', galFilas: compacto ? '150px 120px' : '220px 180px',
+      barFijo: this.props.incrustado ? 'sticky' : 'fixed', barPos: compacto ? 'sticky' : 'relative', barPadB: compacto ? '22px' : '16px'
+    };
+    const srv = SERV.find(s => s.id === st.srv);
+    const profsSrv = srv ? PROFS.filter(p => srv.pr.includes(p.id)) : [];
+    const unico = profsSrv.length === 1;
+    const pid = unico ? profsSrv[0].id : st.prof;
+    const prof = PROFS.find(p => p.id === pid);
+    const cubre = st.socio && st.usar && srv && CUBRE.includes(srv.id);
+    const precio = srv ? srv.p : 0, desc = st.cupon && !cubre ? Math.round(precio * 0.1) : 0;
+    const total = cubre ? 0 : precio - desc, sena = Math.round(total * 0.3 / 100) * 100;
+    const elegirSrv = s => this.setState({ srv: s.id, prof: 'any', hora: null, vista: compacto ? 'reservar' : st.vista });
+    const cats = [...new Set(SERV.map(s => s.cat))];
+    const sel = (on) => on ? { bg: c.pri, c: c.on, sh: 'none' } : { bg: '#fff', c: '#0f2328', sh: 'inset 0 0 0 1.5px #e0d5bf' };
+    const dias = []; for (let d = 2; d <= 15; d++) { const off = sinLugar(d), on = st.dia === d; dias.push({ t: String(d).padStart(2, '0'), dow: DOW3[dow(d)], off, label: DOW[dow(d)] + ' ' + d + (off ? ', sin lugar' : ''), ...(on ? sel(true) : off ? { bg: 'transparent', c: '#9aa6a3', sh: 'inset 0 0 0 1px #eee5d3' } : sel(false)), deco: off ? 'line-through' : 'none', cur: off ? 'default' : 'pointer', elegir: () => { if (!off) set({ dia: d, hora: null }); } }); }
+    const hs = horasDe(st.dia, pid);
+    const horas = hs.map(h => { const on = st.hora === h; return { h, on, ...(on ? { bg: c.pri, c: c.on, sh: 'none' } : { bg: 'repeating-linear-gradient(-45deg,' + c.raya + ' 0 2px,transparent 2px 9px),' + c.tint, c: '#0f2328', sh: 'inset 0 0 0 1.5px ' + c.troquel }), elegir: () => set({ hora: h }) }; });
+    const listo = !!(srv && st.hora);
+    const cuandoCorto = DOW3[dow(st.dia)] + ' ' + st.dia + ', ' + (st.hora || '');
+    const R = {
+      tieneSrv: !!srv, sinSrv: !srv, cambiarSrv: () => set({ srv: null, hora: null }),
+      servicios: SERV.map(s => ({ n: s.n, elegir: () => elegirSrv(s) })),
+      srvNombre: srv ? srv.n : '', precio: pesos(precio), dur: srv ? dur(srv.d) : '',
+      unico, varios: !!srv && !unico, profTxt: pid === 'any' ? 'Con quien esté libre' : prof ? 'Con ' + prof.n : '',
+      profs: [{ id: 'any', n: 'Cualquiera' }, ...profsSrv.map(p => ({ id: p.id, n: p.corto }))].map(p => ({ n: p.n, on: st.prof === p.id, ...sel(st.prof === p.id), elegir: () => set({ prof: p.id, hora: null }) })),
+      dias, horas, diaLargo: DOW[dow(st.dia)].replace(/^./, m => m.toUpperCase()) + ' ' + st.dia + ' de noviembre', cuantos: hs.length + ' horarios libres',
+      tieneHora: listo, invitarSocio: !st.socio, socio: st.socio, usar: st.usar, toggleUsar: () => set({ usar: !st.usar }), ingresar: () => set({ socio: true, usar: true }),
+      membTxt: srv && CUBRE.includes(srv.id) ? 'Te quedan 3 visitas · sin seña' : 'No incluye este servicio: se paga aparte',
+      pedirDatos: !cubre, cupon: st.cupon, cuponTxt: st.cupon && !cubre ? '− ' + pesos(desc) : '', aplicarCupon: () => set({ cupon: true }),
+      hayDesc: desc > 0, desc: pesos(desc), total: cubre ? 'Membresía' : pesos(total), sena: pesos(sena), resto: pesos(total - sena), haySena: !cubre,
+      barraTit: srv ? (st.hora ? DOW3[dow(st.dia)].toUpperCase() + ' ' + String(st.dia).padStart(2, '0') + ' · ' + st.hora : srv.n) : 'Elegí un servicio',
+      barraSub: listo ? (cubre ? 'Con tu membresía' : 'Total ' + pesos(total) + ' · seña ' + pesos(sena)) : srv ? 'Elegí día y horario' : 'Lo más pedido: Lifting de pestañas',
+      noListo: !listo, btnBg: listo ? c.pri : '#ece5d6', btnC: listo ? c.on : '#4a5d61', btnCur: listo ? 'pointer' : 'not-allowed', btnSh: listo ? '0 12px 24px -12px ' + c.pri : 'none',
+      textoBoton: listo && !cubre ? 'Reservar y pagar seña' : 'Reservar',
+      confirmar: () => { if (listo) set({ vista: cubre ? 'turno' : 'mp', recien: true, accion: null, cancelado: false }); },
+      cuandoCorto
+    };
+    const activo = !st.cancelado;
+    const M = {
+      recien: st.recien && activo, activo, sello: true, selloTxt: st.cancelado ? 'CANCELADO' : cubre ? 'SOCIA' : 'SEÑA OK', cancelado: st.cancelado, op: st.cancelado ? 0.6 : 1, deco: st.cancelado ? 'line-through' : 'none',
+      estado: st.cancelado ? 'Cancelado' : 'Confirmado', ic: st.cancelado ? 'cancel' : 'check_circle',
+      fecha: DOW3[dow(st.dia)].toUpperCase() + ' ' + String(st.dia).padStart(2, '0') + ' · NOV', hora: st.hora || '',
+      pagoIc: cubre ? 'card_membership' : 'paid', pagoTxt: cubre ? 'Con tu membresía' : 'Seña pagada', pagoMonto: cubre ? '1 visita' : pesos(sena),
+      limite: DOW3[dow(st.dia - 1)] + ' ' + (st.dia - 1) + ', ' + (st.hora || ''),
+      sinAccion: !st.accion, cambiando: st.accion === 'cambio', cancelando: st.accion === 'cancelar',
+      abrirCambio: () => set({ accion: 'cambio', recien: false }), abrirCancelar: () => set({ accion: 'cancelar', recien: false }), cerrarAcciones: () => set({ accion: null }),
+      nuevaHora: st.hora || '', confirmarCambio: () => set({ accion: null, recien: false }),
+      confirmarCancelar: () => set({ accion: null, cancelado: true, recien: false })
+    };
+    const armando = st.vista === 'pagina' || st.vista === 'reservar';
+    const fondo = this.props.fondo || 'Crema', tit = this.props.titulos || 'Grandes', forma = this.props.forma || 'Redondos', conFoto = (this.props.portada || 'Con foto') === 'Con foto';
+    const FD = { Crema: { bg: '#faf6ee', papel: '#fffdf9', campo: '#ffffff', chip: '#f4eee2', socios: '#f3e8d0', sociosTxt: '#4a3a17', ink: '#0f2328', sub: '#4a5d61', sub2: '#33474b', line: '#eee5d3', line2: '#e0d5bf' }, Blanco: { bg: '#ffffff', papel: '#f7f8f7', campo: '#ffffff', chip: '#f1f3f2', socios: '#f4efe4', sociosTxt: '#4a3a17', ink: '#0f2328', sub: '#4a5d61', sub2: '#33474b', line: '#e6e9e8', line2: '#d5dad8' }, Noche: { bg: '#14221f', papel: '#1d2f2b', campo: '#22362f', chip: '#26393a', socios: '#2e2a1d', sociosTxt: '#f1dfb4', ink: '#f4eee2', sub: '#b9c4c1', sub2: '#d6dcda', line: '#2f4440', line2: '#3c524d' } }[fondo] || {};
+    const TT = { Grandes: ['700', '-0.055em'], Medianos: ['650', '-0.03em'], Livianos: ['500', '-0.01em'] }[tit] || ['700', '-0.055em'];
+    const FM = { Redondos: ['999px', '24px', '14px'], Suaves: ['12px', '16px', '10px'], Rectos: ['4px', '6px', '4px'] }[forma] || ['999px', '24px', '14px'];
+    const E = { ...FD, tw: TT[0], tl: TT[1], br: FM[0], cr: FM[1], sr: FM[2], fotoOp: conFoto ? 1 : 0, vidBg: conFoto ? '#0f2328' : c.pri, txtMarca: fondo === 'Noche' ? this.mix(c.pri, '#ffffff', 0.6) : c.texto, ok: fondo === 'Noche' ? '#3ccc90' : '#17805a', tint: fondo === 'Noche' ? this.mix(c.pri, '#14221f', 0.7) : c.tint, raya: fondo === 'Noche' ? this.rgba(c.pri, 0.3) : c.raya, troquel: fondo === 'Noche' ? this.mix(c.pri, '#14221f', 0.4) : c.troquel };
+    const pl = ['Carta', 'Vidriera', 'Sobria', 'Galería', 'Editorial', 'Bloques'].includes(this.props.plantilla) ? this.props.plantilla : 'Carta';
+    return {
+      PL: { carta: pl === 'Carta', vidriera: pl === 'Vidriera', sobria: pl === 'Sobria', galeria: pl === 'Galería', editorial: pl === 'Editorial', bloques: pl === 'Bloques' },
+      E, c, L, R, M, grano: GRANO,
+      V: { armando, verPagina: armando && (!compacto || st.vista === 'pagina'), verReserva: armando && (!compacto || st.vista === 'reservar'), barraPagina: compacto && st.vista === 'pagina', esMp: st.vista === 'mp', esTurno: st.vista === 'turno' },
+      carta: cats.map(n => ({ n, items: SERV.filter(s => s.cat === n).map(s => ({ n: s.n, precio: pesos(s.p), dur: dur(s.d), cta: st.srv === s.id ? 'Elegido' : 'Reservar', elegir: () => elegirSrv(s) })) })),
+      equipo: PROFS,
+      irReserva: () => set({ vista: 'reservar' }), volverPagina: () => set({ vista: 'pagina' }),
+      pagar: () => set({ vista: 'turno', recien: true }),
+      reiniciar: () => this.setState({ ...this.inicial(), w: st.w })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..24,400,0..1,0&amp;display=block" rel="stylesheet"><style>*{box-sizing:border-box}body{margin:0;background:#f4eee2;font-family:Lato,system-ui,sans-serif;color:#0f2328;-webkit-font-smoothing:antialiased}a{color:#17805a}h1,h2,h3{text-wrap:balance}p{text-wrap:pretty}.material-symbols-rounded{font-variation-settings:'FILL' 1;line-height:1}body{background-image:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}.dv-opt{animation:tl-in .7s cubic-bezier(.2,.7,.2,1) both}@keyframes tl-in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}@keyframes tl-raya{to{background-position:28.28px 0}}@keyframes tl-flota{50%{transform:translateY(-10px)}}@keyframes tl-pulse{0%{box-shadow:0 0 0 0 rgba(60,204,144,.6)}100%{box-shadow:0 0 0 12px rgba(60,204,144,0)}}@keyframes tl-ring{from{opacity:0;transform:rotate(-140deg) scale(.86)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}</style></helmet>
+<div style="max-width:1180px;margin:0 auto;padding:56px 32px 80px;display:flex;flex-direction:column;gap:28px">
+  <div style="display:flex;flex-direction:column;gap:12px;max-width:760px">
+    <span style="font:600 12px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.1em;color:#17805a">PROPUESTAS · APARTE DE LO QUE YA EXISTE</span>
+    <h1 style="margin:0;font-size:52px;line-height:1;font-weight:700;letter-spacing:-0.055em">Lo que haría la app claramente mejor</h1>
+    <p style="margin:0;font-size:17px;line-height:1.5;color:#4a5d61">Ordenadas por impacto sobre el esfuerzo. Ninguna está en el brief: son para decidir cuáles se construyen. La etiqueta dice a quién ayuda y cuánto cuesta, a ojo.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px">
+    <sc-for list="{{ ideas }}" as="i" hint-placeholder-count="12">
+      <div style-hover="transform:translateY(-3px) rotate(-.4deg)" style="transition:transform .2s cubic-bezier(.2,.7,.2,1);animation:tl-in .6s both;display:grid;grid-template-columns:64px minmax(0,1fr);border-radius:20px;background:radial-gradient(circle at 64px 0,#f4eee2 9px,transparent 9.5px),radial-gradient(circle at 64px 100%,#f4eee2 9px,transparent 9.5px),#fffdf9;box-shadow:0 12px 24px -18px rgba(15,35,40,.5)">
+        <span style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;padding:18px 0;border-right:2px dashed #e2d6bf"><b style="font:600 16px Lato,sans-serif;font-variant-numeric:tabular-nums">{{ i.n }}</b><span class="material-symbols-rounded" style="font-size:22px;color:#17805a">{{ i.ic }}</span></span>
+        <span style="display:flex;flex-direction:column;gap:8px;padding:18px 18px 16px">
+          <b style="font-size:17px;line-height:1.25;letter-spacing:-0.01em">{{ i.t }}</b>
+          <span style="font-size:14px;line-height:1.5;color:#33474b">{{ i.d }}</span>
+          <span style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"><span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.06em;padding:4px 8px;border-radius:6px;background:#183c44;color:#fff">{{ i.quien }}</span><span style="font:600 11px Lato,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.06em;padding:4px 8px;border-radius:6px;background:{{ i.ebg }};color:{{ i.ec }}">ESFUERZO {{ i.e }}</span></span>
+          <sc-if value="{{ i.integrada }}"><a href="{{ i.link }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;margin-top:2px;font-size:13px;font-weight:650;color:#17805a"><span class="material-symbols-rounded" style="font-size:16px">check_circle</span>Integrada · ver diseño</a></sc-if>
+          <sc-if value="{{ i.pendiente }}"><span style="font:500 12px Lato,sans-serif;font-variant-numeric:tabular-nums;color:#4a5d61;margin-top:2px">EN ESPERA</span></sc-if>
+        </span>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const E = { BAJO: ['#e3f6ec', '#17805a'], MEDIO: ['#fbe9c2', '#7a4a00'], ALTO: ['#fbe0dc', '#a3241a'] };
+    const ideas = [
+      ['bolt', 'Ofrecer el hueco solo', 'Cuando alguien cancela, en vez de sólo avisar a la lista de espera, el sistema le manda el lugar al primero con un link de un toque. Si no lo toma en 30 minutos, pasa al siguiente. El hueco se llena sin que nadie del local haga nada.', 'DUEÑO · CLIENTE', 'MEDIO'],
+      ['chat', 'Confirmación por WhatsApp', 'Un mensaje el día anterior con «Confirmo / Necesito cambiarlo». Las respuestas cambian el estado del turno. Es lo que más baja las ausencias en Argentina, más que el mail.', 'RECEPCIÓN · CLIENTE', 'ALTO'],
+      ['repeat', 'Turno fijo', 'Reservar «todos los martes a las 18» o «cada 3 semanas» en una sola acción, con aviso si una fecha choca con un bloqueo. Lo piden las barberías y los consultorios.', 'CLIENTE · RECEPCIÓN', 'MEDIO'],
+      ['event_repeat', 'Volver a reservar en un toque', 'En el recordatorio post-turno y en Mi turno: «Repetir lo mismo en 4 semanas», con el horario más parecido ya elegido. Usa la sugerencia que ya calcula la API.', 'CLIENTE', 'BAJO'],
+      ['person_raised_hand', 'Llegó / está esperando', 'Recepción marca «llegó» y la profesional lo ve en su teléfono. Da el dato real de puntualidad y la sala de espera deja de ser un misterio.', 'RECEPCIÓN · PROFESIONAL', 'BAJO'],
+      ['event_busy', 'Pedir un día libre', 'La profesional pide un bloqueo desde su teléfono y el dueño lo aprueba de un toque, viendo qué turnos hay que mover. Ya aparece en el diseño de Yo.', 'PROFESIONAL · DUEÑO', 'BAJO'],
+      ['point_of_sale', 'Cobrar en el local', 'Registrar el resto pagado en efectivo, transferencia o QR al marcar «Atendido». Así Reportes muestra la plata real del día y no sólo las señas.', 'RECEPCIÓN · DUEÑO', 'MEDIO'],
+      ['inventory', 'Productos al pasar', 'Sumar un producto vendido (un sérum, una cera) al turno. Es simple, no es un stock completo, y suma ticket promedio.', 'DUEÑO', 'MEDIO'],
+      ['qr_code_2', 'QR del mostrador', 'Un cartel A5 imprimible con el QR del link y el nombre del negocio, generado con sus colores. Es el paso 6 de Primeros pasos.', 'DUEÑO', 'BAJO'],
+      ['notifications_active', 'Avisos push en el panel', 'Antes que las apps nativas: notificaciones web para nuevas reservas y cancelaciones en el celular del dueño. Ya hay SSE, falta el permiso.', 'DUEÑO · PROFESIONAL', 'MEDIO'],
+      ['insights', 'Horas muertas', 'Un reporte que diga «los martes de 14 a 16 quedan vacíos el 70% de las veces» y proponga un cupón para esa franja con un toque.', 'DUEÑO', 'MEDIO'],
+      ['cake', 'Cumpleaños y «hace mucho que no venís»', 'Recordatorios automáticos con un cupón opcional, a clientas que no vuelven hace más del doble de su frecuencia habitual.', 'DUEÑO · CLIENTE', 'MEDIO']
+    ].map(([ic, t, d, quien, e], k) => { const anc = { 1: '1a', 2: '1b', 3: '1c', 4: '1d', 6: '1e', 7: '1f', 8: '1f', 9: '1g', 10: '1h', 11: '1i', 12: '1j' }[k + 1]; return { n: String(k + 1).padStart(2, '0'), ic, t, d, quien, e, ebg: E[e][0], ec: E[e][1], integrada: !!anc, pendiente: !anc, link: 'Propuestas integradas.dc.html#' + (anc || '') }; });
+    return { ideas };
+  }
+}
+</script>
+</body>
+</html>

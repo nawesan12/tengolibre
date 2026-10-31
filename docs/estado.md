@@ -19,6 +19,12 @@ Google Calendar (y Apple/Outlook): link iCal secreto por negocio o por profesion
 (`calendario`, `/panel/calendario/suscribirse`, migración 00010). El front sirve `/cal/{token}.ics`
 reenviando `GET /v1/cal/…`; un profesional con usuario vinculado maneja sólo el suyo.
 
+Push al teléfono (`push`, migración 00011): la app registra su token en `POST /v1/yo/dispositivos`
+(atado a la sesión) y el worker manda cada notificación nueva de la campanita a los miembros activos,
+por APNs (iPhone, clave «Vimo APNs») y FCM (Android, cuenta `fcm-tengolibre`). Las claves viven sólo
+en el VPS, en `/opt/tengolibre/claves/` (montada en el worker); `vimo-copia` las guarda.
+Diseño: el handoff v2 está en `docs/handoff/design_handoff_tengolibre_v2/` (README con las reglas).
+
 Desplegar el front: `cd apps/web && bun run build`, `rsync -az --delete build/ root@187.41.102.190:/opt/tengolibre/web/build/`
 y `docker compose restart web` en /opt/tengolibre. Config en `/opt/tengolibre/web.conf`.
 

@@ -1,0 +1,104 @@
+/* Tengo Libre · tokens v2 — reemplazan las variables de apps/web/src/app.css */
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap');
+
+:root {
+  /* Paleta (no inventar colores fuera de esta lista) */
+  --tl-petroleo: #183c44;       /* marca, superficies oscuras */
+  --tl-petroleo-hondo: #102b31; /* pie, bloques más oscuros, texto sobre menta */
+  --tl-menta: #3ccc90;          /* acción principal, huecos. Sin texto encima salvo petróleo hondo */
+  --tl-menta-texto: #17805a;    /* menta para texto/íconos sobre claro (≥4,5:1) */
+  --tl-menta-suave: #e3f6ec;    /* fondos de estado «ok» */
+  --tl-crema: #f4eee2;          /* fondo de tarjetas con puntos */
+  --tl-crema-pagina: #faf6ee;   /* fondo de la web pública (Crema) */
+  --tl-papel: #fffdf9;          /* superficies claras */
+  --tl-tinta: #0f2328;          /* texto principal */
+  --tl-sub: #4a5d61;            /* texto secundario */
+  --tl-sub-2: #33474b;          /* párrafos sobre crema */
+  --tl-linea: #ece3d1;
+  --tl-linea-2: #e2d6bf;        /* troqueles punteados sobre claro */
+  --tl-noche: #14221f;          /* fondo «Noche» de la web pública */
+
+  /* Tipografía: Lato sola, nunca monoespaciada */
+  --tl-font: Lato, system-ui, sans-serif;
+  --tl-w-regular: 400; --tl-w-bold: 700; --tl-w-black: 900;
+  --tl-rotulo: 900 12px/1 var(--tl-font);      /* + letter-spacing .08em, MAYÚSCULAS */
+  --tl-rotulo-ls: .08em;
+  --tl-h1: clamp(58px, 11vw, 176px);           /* hero landing, lh .86, ls -0.06em */
+  --tl-h2: clamp(38px, 5.4vw, 72px);           /* lh .95, ls -0.045em */
+  --tl-h3: 28px;                               /* lh 1.05, ls -0.025em */
+  --tl-body: 16px;                             /* lh 1.5 */
+  --tl-small: 13px;                            /* mínimo para texto corrido */
+  --tl-min-rotulo: 11px;
+
+  /* Espaciado: múltiplos de 4 */
+  --tl-s1: 4px; --tl-s2: 8px; --tl-s3: 12px; --tl-s4: 16px; --tl-s6: 24px; --tl-s8: 32px; --tl-s12: 48px;
+
+  /* Formas */
+  --tl-r-pastilla: 999px;
+  --tl-r-xl: 36px;   /* tarjetas grandes de la landing */
+  --tl-r-l: 24px;    /* tarjetas del panel */
+  --tl-r-m: 18px;    /* filas, avisos */
+  --tl-r-s: 12px;
+
+  /* Sombras */
+  --tl-sh-tarjeta: 0 14px 28px -22px rgba(15,35,40,.45);
+  --tl-sh-alta: 0 30px 50px -36px rgba(15,35,40,.8);
+  --tl-luz-arriba: inset 0 2px 0 rgba(255,255,255,.7);   /* sobre crema/menta */
+  --tl-luz-arriba-osc: inset 0 1px 0 rgba(255,255,255,.12); /* sobre petróleo */
+
+  /* Movimiento */
+  --tl-ease: cubic-bezier(.2,.7,.2,1);
+  --tl-entrar: 450ms; --tl-tocar: 150ms;
+
+  /* Texturas */
+  --tl-grano: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .11 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --tl-grano-osc: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .06  0 0 0 0 .14  0 0 0 0 .16  0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --tl-puntos: radial-gradient(rgba(24,60,68,.12) 1.2px, transparent 1.5px) 0 0 / 20px 20px;
+}
+
+.tl-num { font-variant-numeric: tabular-nums; }
+.tl-rotulo { font: var(--tl-rotulo); letter-spacing: var(--tl-rotulo-ls); text-transform: uppercase; }
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
+
+/* Superficies con textura */
+.tl-petroleo { background-color: var(--tl-petroleo); background-image: var(--tl-grano); color: #fff; }
+.tl-crema { background-color: var(--tl-crema); background-image: var(--tl-grano-osc), radial-gradient(rgba(24,60,68,.1) 1.2px, transparent 1.4px); background-size: auto, 18px 18px; }
+
+/* Talón (turno): troquel vertical a --talon-x, dos medialunas del color del fondo */
+.tl-talon {
+  --talon-x: 88px; --talon-fondo: var(--tl-papel);
+  display: grid; grid-template-columns: var(--talon-x) minmax(0,1fr); min-height: 78px; border-radius: 20px;
+  background:
+    radial-gradient(circle at var(--talon-x) 0, var(--talon-fondo) 9px, transparent 9.5px),
+    radial-gradient(circle at var(--talon-x) 100%, var(--talon-fondo) 9px, transparent 9.5px),
+    var(--tl-papel);
+  box-shadow: 0 18px 30px -20px rgba(15,35,40,.55);
+}
+.tl-talon > :first-child { display: flex; align-items: center; justify-content: center; border-right: 2px dashed var(--tl-linea-2); font-weight: 900; font-variant-numeric: tabular-nums; }
+.tl-talon--nuevo { background-color: var(--tl-menta); color: var(--tl-petroleo-hondo); }   /* recién llegó */
+.tl-talon--encurso { box-shadow: inset 0 0 0 2px var(--tl-petroleo); }                       /* en curso */
+.tl-talon--pasado { opacity: .55; }                                                          /* atendido: «picado» */
+.tl-talon--cancelado { text-decoration: line-through; opacity: .6; }
+
+/* Hueco (tiempo libre): rayado menta que corre despacio */
+.tl-hueco {
+  background: repeating-linear-gradient(-45deg, rgba(60,204,144,.4) 0 2px, rgba(255,253,249,.9) 2px 10px);
+  background-size: 34px 34px; box-shadow: inset 0 0 0 1.5px rgba(23,128,90,.45); color: #0f3d2b;
+  animation: tl-raya 2.4s linear infinite;
+}
+@keyframes tl-raya { to { background-position: 34px 0; } }
+@keyframes tl-gin { from { opacity: 0; transform: translateY(12px); } }
+@keyframes tl-pulse { 50% { opacity: .35; } }
+
+/* Pastilla de acción */
+.tl-cta { display: inline-flex; align-items: center; gap: 10px; height: 56px; padding: 0 28px; border: 0; border-radius: 999px;
+  background: var(--tl-menta); color: var(--tl-petroleo-hondo); font: 900 17px var(--tl-font); cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 16px 32px -14px rgba(60,204,144,.9);
+  transition: transform var(--tl-tocar) var(--tl-ease); }
+.tl-cta:hover { transform: translateY(-2px); }
+.tl-cta:active { transform: scale(.96); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
