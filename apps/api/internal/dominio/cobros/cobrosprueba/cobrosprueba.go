@@ -1,7 +1,7 @@
 // Package cobrosprueba arma, para los tests de punta a punta de la plata, la API con todos los
-// dominios enganchados como en cmd/api (turnos con sus extras, cobros, promos, membresías y
-// suscripción) contra un Mercado Pago falso. Lo usan los tests de cobros, promos, membresias y
-// suscripcion.
+// dominios enganchados como en cmd/api (turnos con sus extras, cobros, promos, membresías,
+// suscripción, caja y reportes) contra un Mercado Pago falso. Lo usan los tests de cobros, promos,
+// membresias, suscripcion y caja.
 package cobrosprueba
 
 import (
@@ -15,12 +15,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/caja"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/catalogo"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/cobros"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/disponibilidad"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/membresias"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/promos"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/reportes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/suscripcion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/turnos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago"
@@ -58,7 +60,11 @@ func En(s string) time.Time {
 }
 
 // Armar levanta todo. Ahora: domingo 1/11/2026 a las 10.
-func Armar(t *testing.T) *Entorno {
+func Armar(t *testing.T) *Entorno { return ArmarCon(t, nil) }
+
+// ArmarCon es Armar más los dominios de otro test (p. ej. la lista de espera), que reciben el
+// servicio de turnos con sus extras.
+func ArmarCon(t *testing.T, mas func(a *prueba.API, tur *turnos.Servicio) []servidor.Dominio) *Entorno {
 	e := &Entorno{Avisos: map[string][]string{}}
 	e.MP = mpfalso.Nuevo(t)
 	clave := make([]byte, 32)
@@ -81,13 +87,19 @@ func Armar(t *testing.T) *Entorno {
 		e.Cobros = cob
 		pro := &promos.Servicio{Pool: app, Sesion: a.Sesion, Escritura: sus.Escritura, Ahora: reloj}
 		mem := &membresias.Servicio{Pool: app, Sesion: a.Sesion, Escritura: sus.Escritura, Ahora: reloj}
-		return []servidor.Dominio{
+		// El orden de los extras importa: la membresía cubre, el cupón descuenta, el cobro cobra lo que queda.
+		tur := &turnos.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj, Avisar: avisar, Extras: []turnos.Extra{mem, pro, cob}}
+		ds := []servidor.Dominio{
 			&negocios.Servicio{Pool: app, Sesion: a.Sesion},
 			&catalogo.Servicio{Pool: app, Sesion: a.Sesion},
-			// El orden de los extras importa: la membresía cubre, el cupón descuenta, el cobro cobra lo que queda.
-			&turnos.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj, Avisar: avisar, Extras: []turnos.Extra{mem, pro, cob}},
-			cob, pro, mem, sus,
+			tur, cob, pro, mem, sus,
+			&caja.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj},
+			&reportes.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj},
 		}
+		if mas != nil {
+			ds = append(ds, mas(a, tur)...)
+		}
+		return ds
 	})
 	var n negocios.Negocio
 	e.Esperar(http.StatusCreated, P{Metodo: "POST", Ruta: "/v1/negocios", Quien: Duenia,

@@ -3,7 +3,8 @@
 // La app (iOS o Android) registra el token de cada teléfono atado a la sesión con que entró
 // (POST /v1/yo/dispositivos) y lo da de baja al salir (DELETE); cerrar o vencer la sesión también lo
 // borra. El worker toma cada notificación nueva de la campanita y la manda a los teléfonos de los
-// miembros activos del negocio: por APNs al iPhone y por FCM a Android.
+// miembros activos del negocio: por APNs al iPhone, por FCM a Android y por Web Push al panel abierto
+// en el navegador (web.go). Cada persona elige qué tipos de la campanita le llegan (preferencias.go).
 package push
 
 import (
@@ -86,12 +87,17 @@ func Normalizar(d Dispositivo) (Dispositivo, error) {
 type Servicio struct {
 	Pool   *db.Pool
 	Sesion *sesion.Servicio
+	// ClaveVAPID: la pública del push web (base64url). Vacía: el push web está apagado.
+	ClaveVAPID string
 }
 
-// Rutas: POST y DELETE /v1/yo/dispositivos, con la sesión propia de la persona (la de la app).
+// Rutas: POST y DELETE /v1/yo/dispositivos, con la sesión propia de la persona (la de la app); las
+// del push web y las preferencias.
 func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/yo/dispositivos", s.Sesion.Persona(web.Envolver(s.registrar)))
 	mux.HandleFunc("DELETE /v1/yo/dispositivos", s.Sesion.Persona(web.Envolver(s.baja)))
+	s.rutasWeb(mux)
+	s.rutasPreferencias(mux)
 }
 
 func sesionPropia(ctx context.Context) (sesion.Sesion, error) {

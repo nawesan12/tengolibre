@@ -13,6 +13,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/fcm"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/trabajos"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/webpush"
 )
 
 // EnviadorAPNs es lo que hace falta de APNs (*apns.Cliente lo cumple; en los tests, uno falso).
@@ -25,6 +26,11 @@ type EnviadorFCM interface {
 	Enviar(context.Context, fcm.Envio) error
 }
 
+// EnviadorWeb es lo que hace falta de Web Push (*webpush.Cliente lo cumple; en los tests, uno falso).
+type EnviadorWeb interface {
+	Enviar(context.Context, webpush.Envio) error
+}
+
 // Frescura: una notificación con más de esto ya no se manda (el worker estuvo caído, o el push se
 // prendió después): llega a la campanita, pero no suena tarde en el teléfono.
 const Frescura = 30 * time.Minute
@@ -32,11 +38,13 @@ const Frescura = 30 * time.Minute
 // Vida: cuánto guardan APNs y FCM el aviso si el teléfono está apagado.
 const Vida = 2 * time.Hour
 
-// Envios manda la campanita a los teléfonos. Sin APNs ni FCM (nil), el trabajo no hace nada.
+// Envios manda la campanita a los teléfonos y a los navegadores. Sin APNs, FCM ni Web Push (nil),
+// el trabajo no hace nada.
 type Envios struct {
 	Pool *db.Pool
 	APNs EnviadorAPNs
 	FCM  EnviadorFCM
+	Web  EnviadorWeb
 	Log  *slog.Logger
 }
 
@@ -59,7 +67,17 @@ func Nuevo(p *db.Pool, a *apns.Cliente, f *fcm.Cliente, log *slog.Logger) *Envio
 	return e
 }
 
-func (e *Envios) activo() bool { return e != nil && (e.APNs != nil || e.FCM != nil) }
+// ConWeb suma el push web del panel. Un cliente nil lo deja apagado (y el log lo dice).
+func (e *Envios) ConWeb(w *webpush.Cliente) *Envios {
+	if w == nil {
+		e.Log.Info("push: Web Push sin configurar (TENGOLIBRE_VAPID_*), no se mandan avisos al navegador")
+	} else {
+		e.Web = w
+	}
+	return e
+}
+
+func (e *Envios) activo() bool { return e != nil && (e.APNs != nil || e.FCM != nil || e.Web != nil) }
 
 // Trabajo del worker: cada 10 segundos (el planificador pasa cada 5).
 func (e *Envios) Trabajo() trabajos.Trabajo {
@@ -68,6 +86,8 @@ func (e *Envios) Trabajo() trabajos.Trabajo {
 
 // Aviso es una notificación ya decidida para un teléfono.
 type Aviso struct {
+	// Tipo de la campanita (reserva, cancelacion…): decide a quién le llega.
+	Tipo           string
 	Titulo, Cuerpo string
 	// Ruta de la app para abrir la pantalla (turnos/<id>, notificaciones).
 	Ruta string
@@ -97,9 +117,13 @@ func PayloadAPNs(a Aviso) []byte {
 	return b
 }
 
-// destino es un teléfono de un miembro activo del negocio.
+// destino es un teléfono o un navegador de un miembro activo del negocio, con lo que eligió que le
+// llegue (apagados nil: lo de su rol).
 type destino struct {
 	plataforma, token, entorno string
+	p256dh, auth               string
+	rol                        string
+	apagados                   []string
 }
 
 type pendiente struct {
@@ -118,15 +142,15 @@ func (e *Envios) Correr(ctx context.Context, ahora time.Time) (any, error) {
 	err := trabajos.PorNegocio(ctx, e.Pool, func(negocio string, tx pgx.Tx) error {
 		filas, err := tx.Query(ctx, `UPDATE notificaciones SET push = false WHERE id IN (
 				SELECT id FROM notificaciones WHERE push ORDER BY creado_en LIMIT 100 FOR UPDATE SKIP LOCKED)
-			RETURNING id::text, titulo, texto, coalesce(turno_id::text, ''), creado_en`)
+			RETURNING id::text, tipo, titulo, texto, coalesce(turno_id::text, ''), creado_en`)
 		if err != nil {
 			return err
 		}
 		var avisos []Aviso
 		for filas.Next() {
-			var id, titulo, texto, turno string
+			var id, tipo, titulo, texto, turno string
 			var creado time.Time
-			if err := filas.Scan(&id, &titulo, &texto, &turno, &creado); err != nil {
+			if err := filas.Scan(&id, &tipo, &titulo, &texto, &turno, &creado); err != nil {
 				filas.Close()
 				return err
 			}
@@ -137,23 +161,32 @@ func (e *Envios) Correr(ctx context.Context, ahora time.Time) (any, error) {
 			if turno != "" {
 				ruta = "turnos/" + turno
 			}
-			avisos = append(avisos, Aviso{Titulo: titulo, Cuerpo: texto, Ruta: ruta, Negocio: negocio, Colapso: "noti-" + id})
+			avisos = append(avisos, Aviso{Tipo: tipo, Titulo: titulo, Cuerpo: texto, Ruta: ruta, Negocio: negocio, Colapso: "noti-" + id})
 		}
 		filas.Close()
 		if err := filas.Err(); err != nil || len(avisos) == 0 {
 			return err
 		}
-		filas, err = tx.Query(ctx, `SELECT DISTINCT d.plataforma, d.token, d.entorno
+		// push_preferencias tiene RLS: el LEFT JOIN trae sólo lo elegido en este negocio.
+		filas, err = tx.Query(ctx, `SELECT d.plataforma, d.token, d.entorno, '', '', m.rol, p.apagados
 			FROM miembros m
 			JOIN auth.dispositivos d ON d.clerk_id = m.clerk_id
 			JOIN auth.sesiones s ON s.hash = d.sesion_hash
+			LEFT JOIN push_preferencias p ON p.clerk_id = m.clerk_id
+			WHERE m.activo AND s.vence_en > $1
+			UNION ALL
+			SELECT 'web', w.endpoint, '', w.p256dh, w.auth, m.rol, p.apagados
+			FROM miembros m
+			JOIN auth.suscripciones_web w ON w.clerk_id = m.clerk_id
+			JOIN auth.sesiones s ON s.hash = w.sesion_hash
+			LEFT JOIN push_preferencias p ON p.clerk_id = m.clerk_id
 			WHERE m.activo AND s.vence_en > $1`, ahora)
 		if err != nil {
 			return err
 		}
 		ds, err := pgx.CollectRows(filas, func(f pgx.CollectableRow) (destino, error) {
 			var d destino
-			err := f.Scan(&d.plataforma, &d.token, &d.entorno)
+			err := f.Scan(&d.plataforma, &d.token, &d.entorno, &d.p256dh, &d.auth, &d.rol, &d.apagados)
 			return d, err
 		})
 		if err != nil {
@@ -161,7 +194,9 @@ func (e *Envios) Correr(ctx context.Context, ahora time.Time) (any, error) {
 		}
 		for _, a := range avisos {
 			for _, d := range ds {
-				cola = append(cola, pendiente{a, d})
+				if !Apagado(a.Tipo, d.rol, d.apagados) {
+					cola = append(cola, pendiente{a, d})
+				}
 			}
 		}
 		return nil
@@ -171,7 +206,7 @@ func (e *Envios) Correr(ctx context.Context, ahora time.Time) (any, error) {
 }
 
 func (e *Envios) mandar(ctx context.Context, cola []pendiente, ahora time.Time) (mandados, muertos int) {
-	var invalidos []string
+	var invalidos, vencidas []string
 	for _, p := range cola {
 		var err error
 		switch {
@@ -181,10 +216,15 @@ func (e *Envios) mandar(ctx context.Context, cola []pendiente, ahora time.Time) 
 		case p.destino.plataforma == "android" && e.FCM != nil:
 			err = e.FCM.Enviar(ctx, fcm.Envio{Token: p.destino.token, Titulo: p.aviso.Titulo, Cuerpo: p.aviso.Cuerpo,
 				Datos: map[string]string{"ruta": p.aviso.Ruta, "negocio": p.aviso.Negocio}, Colapso: p.aviso.Colapso, Vida: Vida})
+		case p.destino.plataforma == "web" && e.Web != nil:
+			err = e.Web.Enviar(ctx, webpush.Envio{Suscripcion: webpush.Suscripcion{Endpoint: p.destino.token,
+				P256dh: p.destino.p256dh, Auth: p.destino.auth}, Payload: PayloadWeb(p.aviso), TTL: Vida, Tema: p.aviso.Colapso})
 		default:
 			continue
 		}
 		switch {
+		case p.destino.plataforma == "web" && esVencida(err):
+			vencidas = append(vencidas, p.destino.token)
 		case errors.Is(err, apns.ErrTokenInvalido) || errors.Is(err, fcm.ErrTokenInvalido):
 			invalidos = append(invalidos, p.destino.token)
 		case err != nil:
@@ -195,12 +235,17 @@ func (e *Envios) mandar(ctx context.Context, cola []pendiente, ahora time.Time) 
 			mandados++
 		}
 	}
-	if len(invalidos) == 0 {
+	if len(invalidos) == 0 && len(vencidas) == 0 {
 		return mandados, 0
 	}
 	err := e.Pool.EnTx(ctx, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, "DELETE FROM auth.dispositivos WHERE token = ANY($1)", invalidos)
+		if err != nil {
+			return err
+		}
 		muertos = int(tag.RowsAffected())
+		tag, err = tx.Exec(ctx, "DELETE FROM auth.suscripciones_web WHERE endpoint = ANY($1)", vencidas)
+		muertos += int(tag.RowsAffected())
 		return err
 	})
 	if err != nil {

@@ -91,6 +91,8 @@ type Cliente struct {
 	Telefono string    `json:"telefono"`
 	Email    string    `json:"email"`
 	CreadoEn time.Time `json:"creadoEn"`
+	// Nacimiento: AAAA-MM-DD, opcional (para el recordatorio de cumpleaños).
+	Nacimiento *string `json:"nacimiento"`
 	// Visitas: turnos atendidos. Gastado: la suma de sus precios (no hay cobros todavía).
 	Visitas      int        `json:"visitas"`
 	UltimaVisita *time.Time `json:"ultimaVisita"`
@@ -107,7 +109,7 @@ func columnasCliente(n int) string {
 	return strings.ReplaceAll(columnasConAhora, "$ahora", "$"+strconv.Itoa(n))
 }
 
-const columnasConAhora = `c.id::text, c.nombre, c.telefono, c.email, c.creado_en,
+const columnasConAhora = `c.id::text, c.nombre, c.telefono, c.email, c.creado_en, to_char(c.nacimiento, 'YYYY-MM-DD'),
 	count(t.id) FILTER (WHERE t.estado = 'atendido') AS visitas,
 	max(t.inicio) FILTER (WHERE t.estado = 'atendido') AS ultima,
 	min(t.inicio) FILTER (WHERE t.estado IN ('pendiente_pago', 'pendiente', 'confirmado') AND t.inicio >= $ahora
@@ -120,7 +122,7 @@ const desdeClientes = " FROM clientes c LEFT JOIN turnos t ON t.cliente_id = c.i
 
 func escanearCliente(f pgx.Row, c *Cliente) error {
 	c.Etiquetas = []Etiqueta{}
-	return f.Scan(&c.ID, &c.Nombre, &c.Telefono, &c.Email, &c.CreadoEn,
+	return f.Scan(&c.ID, &c.Nombre, &c.Telefono, &c.Email, &c.CreadoEn, &c.Nacimiento,
 		&c.Visitas, &c.UltimaVisita, &c.ProximoTurno, &c.Gastado, &c.Ausencias, &c.Penalizado)
 }
 
@@ -343,11 +345,25 @@ func validarEmail(e string) error {
 	return nil
 }
 
+// ValidarNacimiento: AAAA-MM-DD, desde 1900 y no en el futuro. "" queda en nil (sin fecha).
+func ValidarNacimiento(v *string, ahora time.Time, ruta string) (*string, error) {
+	if v == nil || strings.TrimSpace(*v) == "" {
+		return nil, nil
+	}
+	f, err := time.Parse(time.DateOnly, strings.TrimSpace(*v))
+	if err != nil || f.Year() < 1900 || f.After(ahora) {
+		return nil, problema.Invalido("Revisá la fecha de nacimiento (AAAA-MM-DD).", problema.Campo{Ruta: ruta, Mensaje: "inválida"})
+	}
+	x := f.Format(time.DateOnly)
+	return &x, nil
+}
+
 func (s *Servicio) crear(w http.ResponseWriter, r *http.Request) error {
 	var in struct {
-		Nombre   string `json:"nombre"`
-		Telefono string `json:"telefono"`
-		Email    string `json:"email"`
+		Nombre     string  `json:"nombre"`
+		Telefono   string  `json:"telefono"`
+		Email      string  `json:"email"`
+		Nacimiento *string `json:"nacimiento"`
 	}
 	if err := web.Leer(w, r, &in); err != nil {
 		return err
@@ -362,8 +378,12 @@ func (s *Servicio) crear(w http.ResponseWriter, r *http.Request) error {
 	if len(in.Telefono) > 30 {
 		return problema.Invalido("Revisá el teléfono.", problema.Campo{Ruta: "telefono", Mensaje: "inválido"})
 	}
+	nacimiento, err := ValidarNacimiento(in.Nacimiento, s.ahora(), "nacimiento")
+	if err != nil {
+		return err
+	}
 	var c Cliente
-	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
+	err = s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
 		if in.Telefono != "" {
 			var otro string
 			err := tx.QueryRow(ctx, "SELECT nombre FROM clientes WHERE telefono = $1", in.Telefono).Scan(&otro)
@@ -375,8 +395,8 @@ func (s *Servicio) crear(w http.ResponseWriter, r *http.Request) error {
 			}
 		}
 		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO clientes (negocio_id, nombre, telefono, email) VALUES (app.negocio_actual(), $1, $2, $3)
-			RETURNING id::text`, in.Nombre, in.Telefono, in.Email).Scan(&id); err != nil {
+		if err := tx.QueryRow(ctx, `INSERT INTO clientes (negocio_id, nombre, telefono, email, nacimiento)
+			VALUES (app.negocio_actual(), $1, $2, $3, $4::date) RETURNING id::text`, in.Nombre, in.Telefono, in.Email, nacimiento).Scan(&id); err != nil {
 			return err
 		}
 		var err error
@@ -449,11 +469,13 @@ func (s *Servicio) ficha(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// editar el nombre o el email. El teléfono no: es lo que identifica al cliente cuando reserva.
+// editar el nombre, el email o la fecha de nacimiento ("" la borra). El teléfono no: es lo que
+// identifica al cliente cuando reserva.
 func (s *Servicio) editar(w http.ResponseWriter, r *http.Request) error {
 	var in struct {
-		Nombre *string `json:"nombre"`
-		Email  *string `json:"email"`
+		Nombre     *string `json:"nombre"`
+		Email      *string `json:"email"`
+		Nacimiento *string `json:"nacimiento"`
 	}
 	if err := web.Leer(w, r, &in); err != nil {
 		return err
@@ -470,10 +492,15 @@ func (s *Servicio) editar(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	}
+	nacimiento, err := ValidarNacimiento(in.Nacimiento, s.ahora(), "nacimiento")
+	if err != nil {
+		return err
+	}
 	var c Cliente
-	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, "UPDATE clientes SET nombre = coalesce($2, nombre), email = coalesce($3, email) WHERE id = $1",
-			r.PathValue("id"), in.Nombre, in.Email)
+	err = s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `UPDATE clientes SET nombre = coalesce($2, nombre), email = coalesce($3, email),
+			nacimiento = CASE WHEN $4 THEN $5::date ELSE nacimiento END WHERE id = $1`,
+			r.PathValue("id"), in.Nombre, in.Email, in.Nacimiento != nil, nacimiento)
 		if err != nil {
 			return err
 		}
