@@ -1,7 +1,8 @@
 // Package reportes: los números del negocio para el panel (panel/reports y panel/stats de Jiku):
 // ingresos, turnos por estado, por profesional y por servicio, ocupación, clientes nuevos y
 // recurrentes, ausencias; el tablero de inicio, y los CSV de clientes y de turnos. Ingresos es lo
-// facturado: el precio de los turnos atendidos (los cobros online llegan en otra tanda).
+// facturado: el precio de los turnos atendidos. Cobrado es la plata que entró de verdad: las señas
+// online aprobadas y lo cobrado en la caja del local, por el día en que entró.
 package reportes
 
 import (
@@ -14,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/caja"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/clientes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/disponibilidad"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
@@ -119,6 +121,8 @@ type Dia struct {
 	Turnos    int    `json:"turnos"`
 	Atendidos int    `json:"atendidos"`
 	Ingresos  int64  `json:"ingresos"`
+	// Cobrado: señas y caja que entraron ese día.
+	Cobrado int64 `json:"cobrado" db:"-"`
 }
 
 // Resumen del período.
@@ -134,6 +138,16 @@ type Resumen struct {
 	TasaAusencias *float64 `json:"tasaAusencias"`
 	// Ocupacion: minutos reservados sobre minutos de horario, en porcentaje. Null sin horarios.
 	Ocupacion *float64 `json:"ocupacion"`
+	// La plata real del período (por el día en que entró): Cobrado = CobradoSenas + CobradoCaja.
+	Cobrado      int64 `json:"cobrado"`
+	CobradoSenas int64 `json:"cobradoSenas"`
+	CobradoCaja  int64 `json:"cobradoCaja"`
+	// CobradoPorMedio: la caja por medio de pago (efectivo, transferencia, debito, credito, mercadopago).
+	CobradoPorMedio map[string]int64 `json:"cobradoPorMedio"`
+	// Productos: cuánto de la caja fue de productos.
+	Productos int64 `json:"productos"`
+	// Debe: lo que quedó debiendo («Después») de los turnos del período.
+	Debe int64 `json:"debe"`
 }
 
 // Reporte de un período.
@@ -308,6 +322,10 @@ func armar(ctx context.Context, tx pgx.Tx, rg rango) (Reporte, error) {
 		return rep, err
 	}
 
+	if err := cobrado(ctx, tx, rg, &rep); err != nil {
+		return rep, err
+	}
+
 	rep.Resumen.Clientes = rep.ClientesNuevos + rep.ClientesRecurrentes
 	if rep.Resumen.Atendidos > 0 {
 		rep.Resumen.TicketPromedio = rep.Resumen.Ingresos / int64(rep.Resumen.Atendidos)
@@ -315,6 +333,69 @@ func armar(ctx context.Context, tx pgx.Tx, rg rango) (Reporte, error) {
 	rep.Resumen.TasaAusencias = porcentaje(int64(rep.PorEstado["ausente"]), int64(rep.Resumen.Atendidos+rep.PorEstado["ausente"]))
 	rep.Resumen.Ocupacion = porcentaje(reservados, totales)
 	return rep, nil
+}
+
+// cobrado suma al reporte la plata que entró: señas online (caja.SenasEntre) y la caja del local.
+func cobrado(ctx context.Context, tx pgx.Tx, rg rango, rep *Reporte) error {
+	r := &rep.Resumen
+	r.CobradoPorMedio = map[string]int64{}
+	for _, m := range caja.Medios {
+		if m != "despues" {
+			r.CobradoPorMedio[m] = 0
+		}
+	}
+	if err := tx.QueryRow(ctx, caja.SenasEntre, rg.ini, rg.fin).Scan(&r.CobradoSenas); err != nil {
+		return err
+	}
+	filas, err := tx.Query(ctx, `SELECT medio, sum(total)::bigint, sum(productos)::bigint FROM caja_cobros
+		WHERE estado = 'cobrado' AND cobrado_en >= $1 AND cobrado_en < $2 GROUP BY 1`, rg.ini, rg.fin)
+	if err != nil {
+		return err
+	}
+	for filas.Next() {
+		var m string
+		var total, productos int64
+		if err := filas.Scan(&m, &total, &productos); err != nil {
+			filas.Close()
+			return err
+		}
+		r.CobradoPorMedio[m] = total
+		r.CobradoCaja += total
+		r.Productos += productos
+	}
+	filas.Close()
+	if err := filas.Err(); err != nil {
+		return err
+	}
+	r.Cobrado = r.CobradoSenas + r.CobradoCaja
+	if err := tx.QueryRow(ctx, `SELECT coalesce(sum(k.total), 0)::bigint FROM caja_cobros k JOIN turnos t ON t.id = k.turno_id
+		WHERE k.estado = 'debe' AND t.inicio >= $1 AND t.inicio < $2`, rg.ini, rg.fin).Scan(&r.Debe); err != nil {
+		return err
+	}
+	// Por día, en la zona del negocio.
+	filas, err = tx.Query(ctx, `SELECT dia, sum(monto)::bigint FROM (
+			SELECT to_char(creado_en AT TIME ZONE $3, 'YYYY-MM-DD') AS dia, monto - devuelto AS monto FROM pagos
+			WHERE estado = 'aprobado' AND creado_en >= $1 AND creado_en < $2
+			UNION ALL
+			SELECT to_char(cobrado_en AT TIME ZONE $3, 'YYYY-MM-DD'), total FROM caja_cobros
+			WHERE estado = 'cobrado' AND cobrado_en >= $1 AND cobrado_en < $2) x GROUP BY 1`, rg.ini, rg.fin, rg.zona.String())
+	if err != nil {
+		return err
+	}
+	defer filas.Close()
+	porFecha := map[string]int64{}
+	for filas.Next() {
+		var d string
+		var m int64
+		if err := filas.Scan(&d, &m); err != nil {
+			return err
+		}
+		porFecha[d] = m
+	}
+	for i := range rep.PorDia {
+		rep.PorDia[i].Cobrado = porFecha[rep.PorDia[i].Fecha]
+	}
+	return filas.Err()
 }
 
 func (s *Servicio) enNegocio(r *http.Request, fn func(context.Context, pgx.Tx) error) error {

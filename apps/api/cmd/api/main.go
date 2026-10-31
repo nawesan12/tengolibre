@@ -13,6 +13,7 @@ import (
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/admin"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/arranque"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/caja"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/avisos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/calendario"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/catalogo"
@@ -109,6 +110,7 @@ func correr() error {
 				tur,
 				&clientes.Servicio{Pool: app, Sesion: ses},
 				&reportes.Servicio{Pool: app, Sesion: ses},
+				&caja.Servicio{Pool: app, Sesion: ses},
 				av,
 				cob, pro, mem, sus,
 				&resenas.Servicio{Pool: app, Sesion: ses},

@@ -1,7 +1,7 @@
 // Package cobrosprueba arma, para los tests de punta a punta de la plata, la API con todos los
-// dominios enganchados como en cmd/api (turnos con sus extras, cobros, promos, membresías y
-// suscripción) contra un Mercado Pago falso. Lo usan los tests de cobros, promos, membresias y
-// suscripcion.
+// dominios enganchados como en cmd/api (turnos con sus extras, cobros, promos, membresías,
+// suscripción, caja y reportes) contra un Mercado Pago falso. Lo usan los tests de cobros, promos,
+// membresias, suscripcion y caja.
 package cobrosprueba
 
 import (
@@ -15,12 +15,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/caja"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/catalogo"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/cobros"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/disponibilidad"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/membresias"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/promos"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/reportes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/suscripcion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/turnos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago"
@@ -87,6 +89,8 @@ func Armar(t *testing.T) *Entorno {
 			// El orden de los extras importa: la membresía cubre, el cupón descuenta, el cobro cobra lo que queda.
 			&turnos.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj, Avisar: avisar, Extras: []turnos.Extra{mem, pro, cob}},
 			cob, pro, mem, sus,
+			&caja.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj},
+			&reportes.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj},
 		}
 	})
 	var n negocios.Negocio
