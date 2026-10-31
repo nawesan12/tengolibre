@@ -1,6 +1,8 @@
 import { redirect } from '@sveltejs/kit';
 import { apiDe, ErrorApi, type NegocioDeLaPersona, type Persona } from '#lib/server/api.ts';
 import { borrarSesion, elegirNegocio } from '#lib/server/sesion.ts';
+import { dia } from '#lib/formato.ts';
+import type { Anotado, Notificacion, Profesional, Turno } from '#lib/operacion/tipos.ts';
 import type { LayoutServerLoad } from './$types';
 
 export type Acceso = { bloqueado: boolean; pruebaHasta: string | null; diasDePrueba: number; conSuscripcion: boolean };
@@ -8,6 +10,10 @@ export type Acceso = { bloqueado: boolean; pruebaHasta: string | null; diasDePru
 /**
  * El panel exige sesión y un negocio. El negocio elegido vive en una cookie; si no es de la persona
  * (o no hay), se toma el primero. Sin negocios, a darse de alta.
+ *
+ * Además trae lo que el armazón muestra en todas las pantallas: la campanita, el acceso (prueba o
+ * sólo lectura), los turnos y profesionales de hoy («El día» del costado) y cuántos esperan en la
+ * lista. Si algo de eso falla, el panel sigue sin ese dato.
  */
 export const load: LayoutServerLoad = async (event) => {
 	const { locals, url, cookies } = event;
@@ -34,17 +40,26 @@ export const load: LayoutServerLoad = async (event) => {
 		elegirNegocio(cookies, negocio.id);
 		locals.negocio = negocio.id;
 	}
-	// El contador de la campanita: se recarga con el tiempo real; si falla, la barra sigue sin número.
-	event.depends('panel:notificaciones');
-	// Y el acceso: con la prueba vencida el panel avisa arriba que está en sólo lectura.
-	const [sinLeer, acceso] = await Promise.all([
-		apiDe(event)
-			.get<{ sinLeer: number }>('/v1/panel/campanita/sin-leer')
-			.then((r) => r.sinLeer)
-			.catch(() => 0),
-		apiDe(event)
-			.get<Acceso>('/v1/panel/acceso')
-			.catch(() => null)
+	// Se recargan con el tiempo real.
+	event.depends('panel:notificaciones', 'panel:turnos', 'panel:espera');
+	const hoy = dia();
+	const sinDato = <T>(p: Promise<T>) => p.catch(() => null);
+	const a = apiDe(event);
+	const [campanita, acceso, turnosHoy, profesionales, espera] = await Promise.all([
+		sinDato(a.get<{ notificaciones: Notificacion[]; sinLeer: number }>('/v1/panel/campanita')),
+		sinDato(a.get<Acceso>('/v1/panel/acceso')),
+		sinDato(a.get<{ turnos: Turno[] }>(`/v1/panel/turnos?${new URLSearchParams({ desde: hoy, hasta: hoy })}`)),
+		sinDato(a.get<{ profesionales: Profesional[] }>('/v1/panel/profesionales')),
+		negocio.rol === 'profesional' ? null : sinDato(a.get<{ espera: Anotado[] }>('/v1/panel/espera'))
 	]);
-	return { persona, negocios, negocio, sinLeer, acceso };
+	return {
+		persona,
+		negocios,
+		negocio,
+		sinLeer: campanita?.sinLeer ?? 0,
+		avisos: (campanita?.notificaciones ?? []).slice(0, 5),
+		acceso,
+		hoy: { fecha: hoy, turnos: turnosHoy?.turnos ?? [], profesionales: profesionales?.profesionales ?? [] },
+		esperando: (espera?.espera ?? []).filter((x) => !x.avisadoEn && x.hasta >= hoy).length
+	};
 };

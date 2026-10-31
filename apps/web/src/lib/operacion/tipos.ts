@@ -1,3 +1,5 @@
+import type { ExtrasTurno } from './contrato.ts';
+
 /** Las formas de la API que usa la operación diaria del panel (turnos, clientes, reportes, avisos). */
 
 export type ClienteDelTurno = { id?: string; nombre: string; telefono: string; email: string };
@@ -18,7 +20,7 @@ export type Turno = {
 	nota: string;
 	venceEn: string | null;
 	creadoEn: string;
-};
+} & ExtrasTurno;
 
 export type Franja = { dia: number; desde: string; hasta: string };
 
@@ -151,6 +153,8 @@ export type Notificacion = {
 	turnoId: string | null;
 	creadoEn: string;
 	nueva: boolean;
+	/** Contrato nuevo: el pedido de días libres que se aprueba desde el aviso. */
+	pedidoId?: string | null;
 };
 
 export type RegistroAviso = {

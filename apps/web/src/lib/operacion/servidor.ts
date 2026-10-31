@@ -16,6 +16,19 @@ export async function siSePuede<T>(p: Promise<T>): Promise<T | null> {
 	}
 }
 
+/**
+ * Una lectura de las funciones nuevas (lib/operacion/contrato.ts): mientras la API no las tenga
+ * (404, 405, 501) o el rol no las vea (403), vuelve null y la pantalla sigue sin ese dato.
+ */
+export async function siExiste<T>(p: Promise<T>): Promise<T | null> {
+	try {
+		return await p;
+	} catch (e) {
+		if (e instanceof ErrorApi && [403, 404, 405, 501].includes(e.estado)) return null;
+		throw e;
+	}
+}
+
 /** Profesionales y servicios para los selectores (los activos primero, en su orden). */
 export async function catalogo(api: Api) {
 	const [{ profesionales }, { servicios }] = await Promise.all([
