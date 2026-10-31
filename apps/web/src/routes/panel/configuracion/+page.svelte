@@ -14,6 +14,7 @@
 	<h1>Configuración</h1>
 	<nav class="fila" aria-label="Más configuración">
 		<a class="boton" href="/panel/auditoria">Registro de cambios</a>
+		<a class="boton" href="/panel/sucursales">Sucursales</a>
 		<a class="boton" href="/panel/pagos">Cobros</a>
 		<a class="boton" href="/panel/suscripcion">Suscripción</a>
 	</nav>
