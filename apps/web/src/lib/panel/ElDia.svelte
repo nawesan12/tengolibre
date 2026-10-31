@@ -45,7 +45,7 @@
 		<span class="pestania"><b class="tl-num">{ahoraTexto}</b><span>ahora</span></span>
 		<span class="caja">
 			{#each conHorario as d (d.id)}
-				<span class="fila">
+				<span class="carril">
 					<span class="quien">{primerNombre(d.nombre)}</span>
 					<span class="barra">
 						{#each cerrado(d) as [x, y], i (i)}<span class="seg cerrado" style:left={pct(x)} style:width={ancho(x, y)}></span>{/each}
@@ -142,7 +142,7 @@
 		border-radius: 24px;
 		background: var(--tl-tinta);
 	}
-	.fila {
+	.carril {
 		display: grid;
 		grid-template-columns: 38px minmax(0, 1fr);
 		align-items: center;

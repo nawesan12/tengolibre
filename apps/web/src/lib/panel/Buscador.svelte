@@ -142,7 +142,7 @@
 				<span class="tl-rotulo grupo">Clientes</span>
 				{#each res.clientes as c (c.id)}
 					{@const i = indice(`c${c.id}`)}
-					<a id={`r-c${c.id}`} role="option" aria-selected={i === elegido} class="fila" class:elegido={i === elegido} href={`/panel/clientes/${c.id}`} onclick={cerrar}>
+					<a id={`r-c${c.id}`} role="option" aria-selected={i === elegido} class="res" class:elegido={i === elegido} href={`/panel/clientes/${c.id}`} onclick={cerrar}>
 						<span class="avatar">{iniciales(c.nombre)}</span>
 						<span class="texto"><b>{c.nombre}</b><span class="tl-num">{[c.telefono, c.email].filter(Boolean).join(' · ')}</span></span>
 						{#if i === elegido}<span class="tl-rotulo enter">Enter ↵</span>{/if}
@@ -153,7 +153,7 @@
 				<span class="tl-rotulo grupo">Turnos</span>
 				{#each res.turnos as t (t.id)}
 					{@const i = indice(`t${t.id}`)}
-					<a id={`r-t${t.id}`} role="option" aria-selected={i === elegido} class="fila talon" class:elegido={i === elegido} href={`/panel/turnos/${t.id}`} onclick={cerrar}>
+					<a id={`r-t${t.id}`} role="option" aria-selected={i === elegido} class="res talon" class:elegido={i === elegido} href={`/panel/turnos/${t.id}`} onclick={cerrar}>
 						<span class="cuando tl-num"><b>{cuando(t.inicio)}</b><b>{hora(t.inicio)}</b></span>
 						<span class="texto"><b>{t.cliente}</b><span>{t.servicio}{t.profesional ? ` · ${t.profesional}` : ''}</span></span>
 						<span class="tl-rotulo est" style:color={t.estado === 'confirmado' ? '#17805a' : '#4a5d61'}>{ESTILO[t.estado]?.texto ?? t.estado}</span>
@@ -164,7 +164,7 @@
 				<span class="tl-rotulo grupo">Servicios</span>
 				{#each res.servicios as s (s.id)}
 					{@const i = indice(`s${s.id}`)}
-					<a id={`r-s${s.id}`} role="option" aria-selected={i === elegido} class="fila" class:elegido={i === elegido} href="/panel/servicios" onclick={cerrar}>
+					<a id={`r-s${s.id}`} role="option" aria-selected={i === elegido} class="res" class:elegido={i === elegido} href="/panel/servicios" onclick={cerrar}>
 						<Icono nombre="spa" tam={22} />
 						<span class="texto"><b>{s.nombre}</b><span class="tl-num">{s.duracion} min · {pesos(s.precio)}{s.activo ? '' : ' · inactivo'}</span></span>
 					</a>
@@ -241,7 +241,7 @@
 		color: var(--tl-sub);
 		margin: 8px 0 0;
 	}
-	.fila {
+	.res {
 		display: flex;
 		align-items: center;
 		gap: 12px;
@@ -253,10 +253,10 @@
 		text-decoration: none;
 		box-shadow: 0 1px 0 rgba(15, 35, 40, 0.05);
 	}
-	.fila :global(.icono) {
+	.res :global(.icono) {
 		color: var(--tl-menta-texto);
 	}
-	.fila.elegido {
+	.res.elegido {
 		background: #f3fbf7;
 		box-shadow: inset 0 0 0 2px var(--tl-menta);
 	}

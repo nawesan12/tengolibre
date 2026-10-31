@@ -129,12 +129,12 @@ export const horaAhora = (d = new Date()) => hora(d);
 /** Primera palabra de un nombre (para el saludo y las etiquetas cortas). */
 export const primerNombre = (n: string) => n.trim().split(/\s+/)[0] ?? '';
 
-/** Iniciales (dos letras como mucho). */
-export const iniciales = (n: string) =>
-	n
-		.trim()
-		.split(/\s+/)
-		.filter(Boolean)
+/** Iniciales (dos letras; con un solo nombre, sus dos primeras: «Carla» → «CA»). */
+export function iniciales(n: string) {
+	const p = n.trim().split(/\s+/).filter(Boolean);
+	if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
+	return p
 		.slice(0, 2)
 		.map((x) => x[0]!.toUpperCase())
 		.join('');
+}

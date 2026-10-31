@@ -45,7 +45,7 @@
 			</div>
 			{#each avisos as n (n.id)}
 				{@const ic = iconoAviso(n.tipo)}
-				<a class="aviso" class:nuevo={n.nueva} href={destinoAviso(n)} onclick={() => (abierto = false)}>
+				<a class="item-aviso" class:nuevo={n.nueva} href={destinoAviso(n)} onclick={() => (abierto = false)}>
 					<span style:color={ic.color}><Icono nombre={ic.icono} lleno tam={20} /></span>
 					<span class="texto">
 						<b>{#if n.nueva}<span class="visualmente-oculto">Nuevo: </span>{/if}{n.titulo}</b>
@@ -156,7 +156,7 @@
 		min-height: 44px;
 		cursor: pointer;
 	}
-	.aviso {
+	.item-aviso {
 		display: grid;
 		grid-template-columns: 28px 1fr auto;
 		gap: 10px;
@@ -165,10 +165,10 @@
 		color: var(--tl-tinta);
 		text-decoration: none;
 	}
-	.aviso:hover {
+	.item-aviso:hover {
 		background: #faf6ee;
 	}
-	.aviso.nuevo {
+	.item-aviso.nuevo {
 		background: #f3fbf7;
 	}
 	.texto {

@@ -46,7 +46,7 @@
 				{#each negocios as n (n.id)}
 					{@const es = n.id === negocio.id}
 					<button class="item" class:es name="id" value={n.id} aria-current={es ? 'true' : undefined} disabled={es}>
-						<span class="avatar chico" aria-hidden="true">{inicial(n.nombre)}</span>
+						<span class="avatar avatar-n" aria-hidden="true">{inicial(n.nombre)}</span>
 						<span class="texto">
 							<b>{n.nombre}</b>
 							<span>{ROLES[n.rol] ?? n.rol}</span>
@@ -108,7 +108,7 @@
 		font: 900 17px var(--tl-font);
 		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
 	}
-	.avatar.chico {
+	.avatar.avatar-n {
 		width: 36px;
 		height: 36px;
 		background: var(--tl-petroleo);
