@@ -1,6 +1,6 @@
 // Comando worker: los trabajos en segundo plano de TengoLibre. Manda la cola de mails (con
 // reintentos), encola recordatorios, pedidos de reseña y el resumen diario, marca ausentes en los
-// negocios que lo pidieron y purga lo viejo. Corre aparte de la API, con el rol de la app.
+// negocios que lo pidieron, manda el push y los WhatsApp (confirmaciones) y purga lo viejo. Corre aparte de la API, con el rol de la app.
 package main
 
 import (
@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/avisos"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/confirmaciones"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/espera"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/push"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/resenas"
@@ -21,6 +22,8 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/fcm"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/trabajos"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/webpush"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/whatsapp"
 )
 
 func main() {
@@ -69,8 +72,16 @@ func correr() error {
 	if err != nil {
 		slog.Error("push: la cuenta de FCM no sirve, no se mandan avisos a Android", "error", err)
 	}
-	ps := push.Nuevo(app, cliAPNs, cliFCM, slog.Default())
-	p := &trabajos.Planificador{Pool: app, Trabajos: append(tj.Lista(env), rs.Trabajo(), ps.Trabajo())}
+	// Push web del panel (VAPID): las mismas notificaciones, al navegador.
+	cliWeb, err := webpush.Desde(cfg.VAPIDPublica, cfg.VAPIDPrivada, cfg.VAPIDSujeto)
+	if err != nil {
+		slog.Error("push: las claves VAPID no sirven, no se mandan avisos al navegador", "error", err)
+	}
+	ps := push.Nuevo(app, cliAPNs, cliFCM, slog.Default()).ConWeb(cliWeb)
+	// WhatsApp (confirmación del día antes, recordatorio, respuestas). Sin configurar, sin trabajos.
+	wa := confirmaciones.Nuevos(app, whatsapp.Desde(cfg.WhatsAppToken, cfg.WhatsAppTelefonoID, cfg.WhatsAppVersion), cfg.Sitio, slog.Default())
+	lista := append(tj.Lista(env), rs.Trabajo(), ps.Trabajo())
+	p := &trabajos.Planificador{Pool: app, Trabajos: append(lista, wa.Lista()...)}
 	slog.Info("worker andando", "entorno", cfg.Entorno, "smtp", cfg.SMTP != "")
 	p.Correr(ctx, 5*time.Second)
 	return nil

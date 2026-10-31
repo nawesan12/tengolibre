@@ -75,20 +75,31 @@ type Turno struct {
 	CreadoEn      time.Time  `json:"creadoEn"`
 	// SerieID: el turno fijo del que es parte (ver serie.go). null: un turno suelto.
 	SerieID *string `json:"serieId"`
+	// De dónde vino la confirmación (whatsapp, web, panel) y cuándo: el talón dice «Confirmó por
+	// WhatsApp · 10:02». CambioPedidoEn: tocó «Necesito cambiarlo».
+	ConfirmadoPor  *string    `json:"confirmadoPor"`
+	ConfirmadoEn   *time.Time `json:"confirmadoEn"`
+	CambioPedidoEn *time.Time `json:"cambioPedidoEn"`
+	// Para recepción (el cliente no lo ve): desde cuándo hay que llamarlo y por qué (cambio,
+	// sin_respuesta, no_llego).
+	LlamarDesde  *time.Time `json:"llamarDesde"`
+	LlamarMotivo *string    `json:"llamarMotivo"`
 	// Sólo en la respuesta de la reserva: lo que descontó el cupón y el pago que queda pendiente.
 	Descuento int64 `json:"descuento,omitempty"`
 	Pago      *Pago `json:"pago,omitempty"`
 }
 
 const columnasTurno = `t.id::text, t.codigo, t.servicio_id::text, t.servicio, t.profesional_id::text, t.profesional,
-	c.id::text, c.nombre, c.telefono, c.email, t.inicio, t.fin, t.precio, t.estado, t.origen, t.nota, t.vence_en, t.creado_en, t.serie_id::text`
+	c.id::text, c.nombre, c.telefono, c.email, t.inicio, t.fin, t.precio, t.estado, t.origen, t.nota, t.vence_en, t.creado_en,
+	t.serie_id::text, t.confirmado_por, t.confirmado_en, t.cambio_pedido_en, t.llamar_desde, t.llamar_motivo`
 
 const desdeTurnos = " FROM turnos t JOIN clientes c ON c.id = t.cliente_id"
 
 func escanearTurno(f pgx.Row, t *Turno) error {
 	return f.Scan(&t.ID, &t.Codigo, &t.ServicioID, &t.Servicio, &t.ProfesionalID, &t.Profesional,
 		&t.Cliente.ID, &t.Cliente.Nombre, &t.Cliente.Telefono, &t.Cliente.Email,
-		&t.Inicio, &t.Fin, &t.Precio, &t.Estado, &t.Origen, &t.Nota, &t.VenceEn, &t.CreadoEn, &t.SerieID)
+		&t.Inicio, &t.Fin, &t.Precio, &t.Estado, &t.Origen, &t.Nota, &t.VenceEn, &t.CreadoEn,
+		&t.SerieID, &t.ConfirmadoPor, &t.ConfirmadoEn, &t.CambioPedidoEn, &t.LlamarDesde, &t.LlamarMotivo)
 }
 
 func leerTurno(ctx context.Context, tx pgx.Tx, donde string, arg any, bloquear bool) (Turno, error) {

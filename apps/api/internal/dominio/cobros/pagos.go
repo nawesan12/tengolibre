@@ -342,7 +342,9 @@ func (s *Servicio) aplicar(ctx context.Context, negocio string, p mercadopago.Pa
 			return err
 		}
 		evento = "confirmado"
-		_, err = tx.Exec(ctx, "UPDATE turnos SET estado = 'confirmado', vence_en = NULL, actualizado_en = now() WHERE id = $1", turnoID)
+		// Pagó la seña desde la web: la confirmación es del cliente (el talón lo muestra así).
+		_, err = tx.Exec(ctx, `UPDATE turnos SET estado = 'confirmado', confirmado_por = 'web', vence_en = NULL, actualizado_en = now()
+			WHERE id = $1`, turnoID)
 		return err
 	})
 	return turnoID, evento, err
