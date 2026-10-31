@@ -13,21 +13,6 @@ async function otroNegocio(page: Page, nombre: string) {
 	return nombre;
 }
 
-/**
- * Con el front recién levantado, Vite descubre dependencias en la primera visita y recarga la página
- * a mitad de camino (pasa también en panel.spec.ts). Se calienta antes de las pruebas.
- */
-test.beforeAll(async ({ browser }) => {
-	const page = await browser.newPage();
-	await entrar(page, `user_e2e${unico()}`, '/empezar');
-	await expect(page.getByRole('heading', { name: 'Creá tu negocio' })).toBeVisible({ timeout: 30_000 });
-	await page.getByLabel('Nombre del negocio').fill(`Calentar ${unico()}`);
-	await page.getByRole('button', { name: 'Crear' }).click();
-	await expect(page.getByRole('heading', { name: /Hola/ })).toBeVisible({ timeout: 30_000 });
-	for (const r of ['/panel/sucursales', '/mi-cuenta', '/admin', '/']) await page.goto(r, { waitUntil: 'networkidle' });
-	await page.close();
-});
-
 test('mi cuenta: dos negocios y cambiar entre ellos', async ({ page }) => {
 	const slug = await negocioNuevo(page);
 	const primero = `Barbería ${slug.replace('barberia-', '')}`;
