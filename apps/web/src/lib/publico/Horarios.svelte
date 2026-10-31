@@ -27,7 +27,7 @@
 	{#each horarios as h, i (h.inicio)}
 		<li style:--i={i}>
 			{#if href}
-				<a class="hora" href={href(h)} data-sveltekit-noscroll aria-current={igual(actual, h.inicio) ? 'true' : undefined}>{h.hora}</a>
+				<a class="hora" href={href(h)} data-sveltekit-reset="false" aria-current={igual(actual, h.inicio) ? 'true' : undefined}>{h.hora}</a>
 			{:else}
 				<label class="hora hora-op"><input type="radio" name={nombre} value={h.inicio} required bind:group={elegida} />{h.hora}</label>
 			{/if}

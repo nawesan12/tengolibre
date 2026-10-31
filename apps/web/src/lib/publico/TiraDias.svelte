@@ -32,7 +32,7 @@
 			<a
 				class="dia"
 				href={href(d.fecha)}
-				data-sveltekit-noscroll
+				data-sveltekit-reset="false"
 				aria-label={etiqueta(d.fecha, d.libres)}
 				aria-current={d.fecha === elegida ? 'date' : undefined}
 				data-fecha={d.fecha}><span class="dow">{t.dow}</span><span class="num">{t.numero}</span></a

@@ -113,7 +113,7 @@
 {/snippet}
 
 {#snippet hueco(href: string, h: string, texto: string)}
-	<a class="hueco-w" {href} data-sveltekit-noscroll><b class="tl-num">{h}</b><span>{texto}</span><Icono nombre="arrow_forward" tam={18} /></a>
+	<a class="hueco-w" {href} data-sveltekit-reset="false"><b class="tl-num">{h}</b><span>{texto}</span><Icono nombre="arrow_forward" tam={18} /></a>
 {/snippet}
 
 <main>
@@ -146,7 +146,7 @@
 						{#if data.servicios.length === 0}<p class="sub">Este negocio todavía no cargó&nbsp;servicios.</p>{/if}
 						<div class="opciones">
 							{#each data.servicios as s (s.id)}
-								<a class="opcion" href={ir('profesional', { servicio: s.id })} data-sveltekit-noscroll>{s.nombre}</a>
+								<a class="opcion" href={ir('profesional', { servicio: s.id })} data-sveltekit-reset="false">{s.nombre}</a>
 							{/each}
 						</div>
 					{/if}
@@ -160,9 +160,9 @@
 							<span class="texto">{sinViuda(`Con ${data.profesionales[0].nombre}, que es quien lo hace.`)}</span>
 						{:else}
 							<div class="opciones">
-								<a class="opcion" href={ir('dia', { profesional: CUALQUIERA })} data-sveltekit-noscroll aria-current={data.profesionalId === CUALQUIERA ? 'true' : undefined}>Cualquiera</a>
+								<a class="opcion" href={ir('dia', { profesional: CUALQUIERA })} data-sveltekit-reset="false" aria-current={data.profesionalId === CUALQUIERA ? 'true' : undefined}>Cualquiera</a>
 								{#each data.profesionales as p (p.id)}
-									<a class="opcion" href={ir('dia', { profesional: p.id })} data-sveltekit-noscroll aria-current={data.profesionalId === p.id ? 'true' : undefined}>
+									<a class="opcion" href={ir('dia', { profesional: p.id })} data-sveltekit-reset="false" aria-current={data.profesionalId === p.id ? 'true' : undefined}>
 										{#if p.foto}<img src={p.foto} alt="" width="28" height="28" />{/if}{p.nombre}
 									</a>
 								{/each}

@@ -27,24 +27,24 @@ test('reserva completa, reprogramar, cancelar y reseña', async ({ page }) => {
 	await expect(page.getByRole('heading', { name: a.nombre, level: 1 })).toBeVisible();
 	await expect(page.getByText('Corte y lavado').first()).toBeVisible();
 	await expect(page.getByText('Ana', { exact: true })).toBeVisible();
-	await expect(page.getByRole('link', { name: 'Cómo llegar' })).toHaveAttribute('href', /google\.com\/maps/);
+	await expect(page.getByRole('link', { name: 'Cómo llegar' }).first()).toHaveAttribute('href', /google\.com\/maps/);
 	await sinDesborde(page);
 
 	// Servicio → profesional → día → horario → datos.
 	await page.getByRole('link', { name: /Corte y lavado/ }).first().click();
 	await expect(page.getByRole('heading', { name: /Con.quién/ })).toBeVisible();
 	await page.getByRole('link', { name: /Cualquiera/ }).click();
-	await expect(page.getByRole('heading', { name: /Elegí el.día/ })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Cuándo' })).toBeVisible();
 	await sinDesborde(page);
 	await elegirDia(page);
-	await expect(page.getByRole('heading', { name: 'Elegí el horario' })).toBeVisible();
+	await expect(page.getByText(/horarios? libres?$/)).toBeVisible();
 	await page.getByRole('link', { name: '10:00' }).click();
 
 	await expect(page.getByRole('heading', { name: 'Tus datos' })).toBeVisible();
 	await sinDesborde(page);
 	// Un cupón que no existe avisa sin perder lo cargado.
 	await page.getByLabel('Nombre y apellido').fill('Carla Gómez');
-	await page.getByText('Tengo un cupón o un código de referido').click();
+	await page.getByText('Cupón, nota o código de referido').click();
 	await page.getByLabel('Cupón').fill('NOEXISTE');
 	await page.getByRole('button', { name: 'Aplicar' }).click();
 	await expect(page.getByRole('status')).toContainText(/no encontrado/i);
@@ -52,33 +52,34 @@ test('reserva completa, reprogramar, cancelar y reseña', async ({ page }) => {
 	await page.getByLabel('Cupón').fill('');
 
 	// Sin teléfono ni email, la API lo frena y el mensaje vuelve al formulario.
-	await page.getByRole('button', { name: 'Confirmar turno' }).click();
+	await page.getByRole('button', { name: 'Reservar', exact: true }).click();
 	await expect(page.getByRole('alert')).toContainText('teléfono o un email');
 
 	const email = `carla${unico()}@prueba.com`;
 	await page.getByLabel('Teléfono', { exact: true }).fill('11 5555-0101');
 	await page.getByLabel('Email', { exact: true }).fill(email);
-	await page.getByRole('button', { name: 'Confirmar turno' }).click();
+	await page.getByRole('button', { name: 'Reservar', exact: true }).click();
 
 	// El link del turno.
 	await expect(page).toHaveURL(/\/turno\/[\w-]+\?nuevo=1/);
-	await expect(page.getByText('¡Listo! Reservaste tu turno')).toBeVisible();
-	await expect(page.getByText(/10:00 a 10:30/)).toBeVisible();
-	await expect(page.getByText('Ana')).toBeVisible();
+	await expect(page.getByText('¡Listo! Guardá este link')).toBeVisible();
+	await expect(page.locator('.hora-turno')).toHaveText('10:00');
+	await expect(page.getByText(/hasta las 10:30/)).toBeVisible();
+	await expect(page.getByText('Con Ana')).toBeVisible();
 	await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
 	const codigo = new URL(page.url()).pathname.split('/').pop()!;
 
 	// Reprogramar a otro día.
-	await page.getByRole('link', { name: 'Cambiar día u horario' }).click();
+	await page.getByRole('link', { name: 'Cambiar día u hora' }).click();
 	await elegirDia(page);
 	await page.locator('label.hora-op', { hasText: '11:00' }).click();
-	await page.getByRole('button', { name: 'Cambiar a este horario' }).click();
+	await page.getByRole('button', { name: /^Cambiar a / }).click();
 	await expect(page.getByText(/Cambiamos tu turno/)).toBeVisible();
-	await expect(page.getByText(/11:00 a 11:30/)).toBeVisible();
+	await expect(page.locator('.hora-turno')).toHaveText('11:00');
 
 	// Cancelar.
-	await page.locator('summary', { hasText: 'Cancelar el turno' }).click();
-	await page.getByRole('button', { name: 'Sí, cancelar el turno' }).click();
+	await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
+	await page.getByRole('button', { name: 'Sí, cancelar' }).click();
 	await expect(page.getByRole('heading', { name: 'Turno cancelado' })).toBeVisible();
 	await expect(page.getByRole('link', { name: 'Sacar otro turno' })).toBeVisible();
 
@@ -88,11 +89,11 @@ test('reserva completa, reprogramar, cancelar y reseña', async ({ page }) => {
 		SELECT :'p1', negocio_id, id, now() + interval '1 day' FROM turnos WHERE codigo = :'p2'`, tk, codigo);
 	await page.goto(`/resena/${tk}`);
 	await expect(page.getByRole('heading', { name: '¿Cómo te fue, Carla?' })).toBeVisible();
-	await page.getByRole('button', { name: 'Enviar reseña' }).click(); // sin estrellas: lo frena el navegador
+	await page.getByRole('button', { name: 'Publicar reseña' }).click(); // sin estrellas: lo frena el navegador
 	await expect(page.getByRole('heading', { name: '¿Cómo te fue, Carla?' })).toBeVisible();
 	await page.locator('label[for="p5"]').click();
-	await page.getByLabel('Contanos más (opcional)').fill('Excelente atención.');
-	await page.getByRole('button', { name: 'Enviar reseña' }).click();
+	await page.getByLabel('¿Qué te gustó? (opcional)').fill('Excelente atención.');
+	await page.getByRole('button', { name: 'Publicar reseña' }).click();
 	await expect(page.getByRole('heading', { name: '¡Gracias, Carla!' })).toBeVisible();
 	await page.goto(`/resena/${tk}`);
 	await expect(page.getByRole('heading', { name: 'Ya dejaste tu reseña' })).toBeVisible();
@@ -126,10 +127,10 @@ test('reservar funciona sin JavaScript', async ({ browser }) => {
 	await page.getByRole('link', { name: '09:30' }).click();
 	await page.getByLabel('Nombre y apellido').fill('Diego Sin JS');
 	await page.getByLabel('Teléfono', { exact: true }).fill('11 4444-0000');
-	await page.getByRole('button', { name: 'Confirmar turno' }).click();
+	await page.getByRole('button', { name: 'Reservar', exact: true }).click();
 	await expect(page).toHaveURL(/\/turno\/[\w-]+\?nuevo=1/);
-	await expect(page.getByText(/09:30 a 10:00/)).toBeVisible();
-	await expect(page.getByText('Ana')).toBeVisible();
+	await expect(page.locator('.hora-turno')).toHaveText('09:30');
+	await expect(page.getByText('Con Ana')).toBeVisible();
 	await ctx.close();
 });
 
@@ -138,8 +139,8 @@ test('sin horarios, la lista de espera', async ({ page }) => {
 	// Un día sin lugar: ayer ya pasó, así que /libres viene vacío.
 	const ayer = new Date(Date.parse(hoy() + 'T12:00:00Z') - 86_400_000).toISOString().slice(0, 10);
 	await page.goto(`/${a.slug}/reservar?servicio=${a.servicio}&profesional=cualquiera&fecha=${ayer}`);
-	await expect(page.getByText('Ese día ya no quedan horarios.')).toBeVisible();
-	await page.getByText('Anotarme en la lista de espera').click();
+	await expect(page.getByRole('heading', { name: /Ese día ya no hay.lugar/ })).toBeVisible();
+	await page.getByText(/^Anotarme para el/).click();
 	await page.getByLabel('Nombre', { exact: true }).fill('Elena');
 	await page.getByLabel('Email', { exact: true }).fill(`elena${unico()}@prueba.com`);
 	await page.getByLabel('Desde').fill(hoy());
@@ -189,7 +190,7 @@ test('el socio ingresa desde la reserva y usa su membresía', async ({ page }) =
 	await expect(page.getByText('te queda 1 visita')).toBeVisible();
 	await expect(page.getByLabel('Nombre y apellido')).toHaveCount(0);
 	await sinDesborde(page);
-	await page.getByRole('button', { name: 'Confirmar turno' }).click();
+	await page.getByRole('button', { name: 'Reservar', exact: true }).click();
 	await expect(page).toHaveURL(/\/turno\/[\w-]+\?nuevo=1/);
 	expect(sql(`SELECT count(*) FROM membresia_creditos WHERE negocio_id = :'p1' AND cantidad < 0`, a.negocio)).toBe('1');
 });
