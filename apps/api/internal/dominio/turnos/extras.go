@@ -22,6 +22,12 @@ type Extra interface {
 	AlCancelar(ctx context.Context, tx pgx.Tx, turnoID string) error
 }
 
+// Estimador: un Extra que sabe cuánto se cobraría por adelantado sobre un precio, para mostrarlo
+// antes de reservar (volver a reservar, en repetir.go). Lo implementa cobros. nil: no se cobra.
+type Estimador interface {
+	Estimar(ctx context.Context, tx pgx.Tx, precio int64) (*Pago, error)
+}
+
 // Reserva que se está haciendo: el turno recién creado y lo que pidió quien reserva.
 type Reserva struct {
 	Turno  *Turno
@@ -42,7 +48,7 @@ type Pago struct {
 }
 
 func (s *Servicio) alReservar(ctx context.Context, tx pgx.Tx, t *Turno, in Pedido, origen string) error {
-	r := &Reserva{Turno: t, Pedido: in, Origen: origen, Identificado: in.ClienteID != "" && origen == "web", Ahora: s.ahora()}
+	r := &Reserva{Turno: t, Pedido: in, Origen: origen, Identificado: in.UsarMembresia && in.ClienteID != "" && origen == "web", Ahora: s.ahora()}
 	for _, e := range s.Extras {
 		if err := e.AlReservar(ctx, tx, r); err != nil {
 			return err
@@ -64,4 +70,16 @@ func (s *Servicio) alCancelar(ctx context.Context, tx pgx.Tx, turnoID string) er
 		}
 	}
 	return nil
+}
+
+func (s *Servicio) estimar(ctx context.Context, tx pgx.Tx, precio int64) (*Pago, error) {
+	for _, e := range s.Extras {
+		if x, ok := e.(Estimador); ok {
+			p, err := x.Estimar(ctx, tx, precio)
+			if err != nil || p != nil {
+				return p, err
+			}
+		}
+	}
+	return nil, nil
 }

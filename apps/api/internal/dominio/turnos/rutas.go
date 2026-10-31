@@ -31,6 +31,8 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/t/{codigo}", web.Envolver(s.verTurno))
 	mux.HandleFunc("POST /v1/t/{codigo}/cancelar", web.Envolver(s.cancelarCliente))
 	mux.HandleFunc("POST /v1/t/{codigo}/reprogramar", web.Envolver(s.reprogramarCliente))
+	mux.HandleFunc("GET /v1/t/{codigo}/repetir", web.Envolver(s.verRepetir))
+	mux.HandleFunc("POST /v1/t/{codigo}/repetir", web.Envolver(s.reservarRepetir))
 	// Agenda del panel.
 	a := func(h web.Manejador) http.HandlerFunc { return s.Sesion.Panel(sesion.Agenda, web.Envolver(h)) }
 	mux.HandleFunc("GET /v1/panel/turnos", a(s.agenda))
@@ -39,6 +41,11 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /v1/panel/turnos/{id}", a(s.cambiar))
 	mux.HandleFunc("POST /v1/panel/turnos/{id}/reprogramar", a(s.reprogramarPanel))
 	mux.HandleFunc("GET /v1/panel/libres", a(s.libresPanel))
+	// Turno fijo (serie.go).
+	mux.HandleFunc("POST /v1/panel/series/previa", a(s.previaSerie))
+	mux.HandleFunc("POST /v1/panel/series", a(s.reservarSerie))
+	mux.HandleFunc("GET /v1/panel/series/{id}", a(s.verSerie))
+	mux.HandleFunc("POST /v1/panel/turnos/{id}/cancelar-siguientes", a(s.cancelarSiguientes))
 }
 
 // ProfesionalPublico: lo que la página muestra de cada profesional (sin email ni teléfono).

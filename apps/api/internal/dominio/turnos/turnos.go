@@ -73,20 +73,22 @@ type Turno struct {
 	Nota          string     `json:"nota"`
 	VenceEn       *time.Time `json:"venceEn"`
 	CreadoEn      time.Time  `json:"creadoEn"`
+	// SerieID: el turno fijo del que es parte (ver serie.go). null: un turno suelto.
+	SerieID *string `json:"serieId"`
 	// Sólo en la respuesta de la reserva: lo que descontó el cupón y el pago que queda pendiente.
 	Descuento int64 `json:"descuento,omitempty"`
 	Pago      *Pago `json:"pago,omitempty"`
 }
 
 const columnasTurno = `t.id::text, t.codigo, t.servicio_id::text, t.servicio, t.profesional_id::text, t.profesional,
-	c.id::text, c.nombre, c.telefono, c.email, t.inicio, t.fin, t.precio, t.estado, t.origen, t.nota, t.vence_en, t.creado_en`
+	c.id::text, c.nombre, c.telefono, c.email, t.inicio, t.fin, t.precio, t.estado, t.origen, t.nota, t.vence_en, t.creado_en, t.serie_id::text`
 
 const desdeTurnos = " FROM turnos t JOIN clientes c ON c.id = t.cliente_id"
 
 func escanearTurno(f pgx.Row, t *Turno) error {
 	return f.Scan(&t.ID, &t.Codigo, &t.ServicioID, &t.Servicio, &t.ProfesionalID, &t.Profesional,
 		&t.Cliente.ID, &t.Cliente.Nombre, &t.Cliente.Telefono, &t.Cliente.Email,
-		&t.Inicio, &t.Fin, &t.Precio, &t.Estado, &t.Origen, &t.Nota, &t.VenceEn, &t.CreadoEn)
+		&t.Inicio, &t.Fin, &t.Precio, &t.Estado, &t.Origen, &t.Nota, &t.VenceEn, &t.CreadoEn, &t.SerieID)
 }
 
 func leerTurno(ctx context.Context, tx pgx.Tx, donde string, arg any, bloquear bool) (Turno, error) {
@@ -276,12 +278,21 @@ type Pedido struct {
 	// visita de su membresía. Lo resuelve reservarPublico, que deja ClienteID.
 	UsarMembresia bool   `json:"usarMembresia,omitempty"`
 	ClienteID     string `json:"-"`
+	// SerieID: el turno fijo al que pertenece (lo pone reservarSerie).
+	SerieID string `json:"-"`
+	// reglas, si no es nil, reemplaza las del negocio (el turno fijo mira más allá de la vista).
+	reglas *disponibilidad.Reglas
 }
 
 // elegir el profesional para el horario: el pedido, o el primero libre en el orden del negocio.
 // Bloquea al elegido hasta el final de la transacción y recalcula ahí adentro.
 func elegir(ctx context.Context, tx pgx.Tx, c contexto, srv catalogo.Prestacion, pedido string, inicio time.Time, ahora time.Time,
 	forzar bool, sinTurno string) (catalogo.Profesional, error) {
+	return elegirCon(ctx, tx, c, c.reglas(), srv, pedido, inicio, ahora, forzar, sinTurno)
+}
+
+func elegirCon(ctx context.Context, tx pgx.Tx, c contexto, reglas disponibilidad.Reglas, srv catalogo.Prestacion, pedido string,
+	inicio time.Time, ahora time.Time, forzar bool, sinTurno string) (catalogo.Profesional, error) {
 	fecha := inicio.In(c.zona).Format(time.DateOnly)
 	var candidatos []string
 	if pedido != "" {
@@ -316,7 +327,7 @@ func elegir(ctx context.Context, tx pgx.Tx, c contexto, srv catalogo.Prestacion,
 			return p, err
 		}
 		if disponibilidad.Libre(disponibilidad.Consulta{Profesional: d, Fecha: fecha, Duracion: srv.Duracion,
-			Reglas: c.reglas(), Ahora: ahora, Zona: c.zona}, inicio) {
+			Reglas: reglas, Ahora: ahora, Zona: c.zona}, inicio) {
 			return p, nil
 		}
 	}
@@ -340,7 +351,11 @@ func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora ti
 	if err != nil || !srv.Activo {
 		return Turno{}, problema.NoEncontrado("Ese servicio no existe o no se puede reservar.")
 	}
-	p, err := elegir(ctx, tx, c, srv, in.ProfesionalID, in.Inicio, ahora, in.Forzar, "")
+	reglas := c.reglas()
+	if in.reglas != nil {
+		reglas = *in.reglas
+	}
+	p, err := elegirCon(ctx, tx, c, reglas, srv, in.ProfesionalID, in.Inicio, ahora, in.Forzar, "")
 	if err != nil {
 		return Turno{}, err
 	}
@@ -368,9 +383,10 @@ func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora ti
 	}
 	var id string
 	err = tx.QueryRow(ctx, `INSERT INTO turnos (negocio_id, codigo, servicio_id, servicio, profesional_id, profesional, cliente_id,
-		inicio, fin, precio, estado, origen, nota) VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		RETURNING id::text`, codigo(), srv.ID, srv.Nombre, p.ID, p.Nombre, clienteID,
-		in.Inicio, in.Inicio.Add(time.Duration(srv.Duracion)*time.Minute), srv.Precio, estado, origen, strings.TrimSpace(in.Nota)).Scan(&id)
+		inicio, fin, precio, estado, origen, nota, serie_id) VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+		nullif($13, '')::uuid) RETURNING id::text`, codigo(), srv.ID, srv.Nombre, p.ID, p.Nombre, clienteID,
+		in.Inicio, in.Inicio.Add(time.Duration(srv.Duracion)*time.Minute), srv.Precio, estado, origen, strings.TrimSpace(in.Nota),
+		in.SerieID).Scan(&id)
 	if err != nil {
 		return Turno{}, err
 	}
