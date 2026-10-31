@@ -22,6 +22,12 @@ type Extra interface {
 	AlCancelar(ctx context.Context, tx pgx.Tx, turnoID string) error
 }
 
+// Estimador: un Extra que sabe cuánto se cobraría por adelantado sobre un precio, para mostrarlo
+// antes de reservar (volver a reservar, en repetir.go). Lo implementa cobros. nil: no se cobra.
+type Estimador interface {
+	Estimar(ctx context.Context, tx pgx.Tx, precio int64) (*Pago, error)
+}
+
 // Reserva que se está haciendo: el turno recién creado y lo que pidió quien reserva.
 type Reserva struct {
 	Turno  *Turno
@@ -42,7 +48,7 @@ type Pago struct {
 }
 
 func (s *Servicio) alReservar(ctx context.Context, tx pgx.Tx, t *Turno, in Pedido, origen string) error {
-	r := &Reserva{Turno: t, Pedido: in, Origen: origen, Identificado: in.ClienteID != "" && origen == "web", Ahora: s.ahora()}
+	r := &Reserva{Turno: t, Pedido: in, Origen: origen, Identificado: in.UsarMembresia && in.ClienteID != "" && origen == "web", Ahora: s.ahora()}
 	for _, e := range s.Extras {
 		if err := e.AlReservar(ctx, tx, r); err != nil {
 			return err
@@ -64,4 +70,42 @@ func (s *Servicio) alCancelar(ctx context.Context, tx pgx.Tx, turnoID string) er
 		}
 	}
 	return nil
+}
+
+func (s *Servicio) estimar(ctx context.Context, tx pgx.Tx, precio int64) (*Pago, error) {
+	for _, e := range s.Extras {
+		if x, ok := e.(Estimador); ok {
+			p, err := x.Estimar(ctx, tx, precio)
+			if err != nil || p != nil {
+				return p, err
+			}
+		}
+	}
+	return nil, nil
+}
+
+// ReservarEn reserva desde otro dominio (la lista de espera) dentro de su transacción, con el
+// negocio fijado: las mismas reglas que la página pública (origen "web": penalidades, seña) o que el
+// panel (origen "panel"), extras incluidos. Confirmada la transacción, va Confirmado.
+func (s *Servicio) ReservarEn(ctx context.Context, tx pgx.Tx, in Pedido, origen string) (Turno, error) {
+	in.Forzar, in.UsarMembresia, in.ClienteID = false, false, ""
+	if origen == "web" {
+		// Lo que se cargue desde acá no es de confianza (ver app.cuidar_email).
+		if _, err := tx.Exec(ctx, "SELECT set_config('app.origen', 'web', true)"); err != nil {
+			return Turno{}, err
+		}
+	}
+	t, err := reservar(ctx, tx, in, origen, s.ahora())
+	if err != nil {
+		return t, err
+	}
+	err = s.alReservar(ctx, tx, &t, in, origen)
+	return t, err
+}
+
+// Confirmado corre lo de después de una reserva hecha con ReservarEn: el link de pago y los avisos,
+// con el evento que corresponda ("reservado", o "reservado_espera" si lo tomó alguien de la lista).
+func (s *Servicio) Confirmado(ctx context.Context, negocioID string, t *Turno, evento string) {
+	s.despuesDeReservar(ctx, negocioID, t)
+	s.avisar(ctx, negocioID, t.ID, evento)
 }

@@ -32,6 +32,14 @@ func TestICS(t *testing.T) {
 	}
 }
 
+func TestPesos(t *testing.T) {
+	for n, quiero := range map[int64]string{0: "$ 0", 900: "$ 900", 26000: "$ 26.000", 1234567: "$ 1.234.567"} {
+		if Pesos(n) != quiero {
+			t.Errorf("Pesos(%d) = %q, quería %q", n, Pesos(n), quiero)
+		}
+	}
+}
+
 func TestEsperaCreciente(t *testing.T) {
 	if EsperaReintento(1) != time.Minute || EsperaReintento(3) != 4*time.Minute || EsperaReintento(20) != 6*time.Hour {
 		t.Fatal("espera")

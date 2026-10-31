@@ -105,6 +105,23 @@ func (s *Servicio) AlReservar(ctx context.Context, tx pgx.Tx, r *turnos.Reserva)
 	return nil
 }
 
+// Estimar (turnos.Estimador): lo que se cobraría por adelantado sobre un precio, con las mismas
+// condiciones que AlReservar en la web (modo de cobro y cuenta usable). nil: no se cobra.
+func (s *Servicio) Estimar(ctx context.Context, tx pgx.Tx, precio int64) (*turnos.Pago, error) {
+	c, err := leerConfig(ctx, tx)
+	if err != nil || c.Modo == "sin_cobro" {
+		return nil, err
+	}
+	monto := Monto(precio, c)
+	if monto <= 0 {
+		return nil, nil
+	}
+	if ok, err := s.puedeCobrar(ctx, tx); err != nil || !ok {
+		return nil, err
+	}
+	return &turnos.Pago{Monto: monto, Modo: c.Modo}, nil
+}
+
 // DespuesDeReservar (turnos.Extra): pide el link de Checkout Pro. Si Mercado Pago no responde, la
 // reserva queda igual y el link se pide de nuevo desde /v1/t/{codigo}/pagar.
 func (s *Servicio) DespuesDeReservar(ctx context.Context, negocio string, t *turnos.Turno) {
@@ -325,7 +342,9 @@ func (s *Servicio) aplicar(ctx context.Context, negocio string, p mercadopago.Pa
 			return err
 		}
 		evento = "confirmado"
-		_, err = tx.Exec(ctx, "UPDATE turnos SET estado = 'confirmado', vence_en = NULL, actualizado_en = now() WHERE id = $1", turnoID)
+		// Pagó la seña desde la web: la confirmación es del cliente (el talón lo muestra así).
+		_, err = tx.Exec(ctx, `UPDATE turnos SET estado = 'confirmado', confirmado_por = 'web', vence_en = NULL, actualizado_en = now()
+			WHERE id = $1`, turnoID)
 		return err
 	})
 	return turnoID, evento, err
