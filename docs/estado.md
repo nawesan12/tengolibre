@@ -44,7 +44,7 @@ sólo lectura), `web`, `problema`, `archivos`, `correo`, `auditoria`, `trabajos`
 - Registro común de todas las apps: `/opt/VPS.md`.
 
 ### Pendiente
-1. Front en SvelteKit (127.0.0.1:3400) con el handoff.
+1. Front: SvelteKit + adapter-node (127.0.0.1:3400), calcando mostrador-v2/apps/web; la UI, fiel al handoff (cuando llegue).
 2. Credenciales de Mercado Pago de TengoLibre: App ID y secreto (marketplace con PKCE), clave de
    webhooks y token de la cuenta de la plataforma (`TENGOLIBRE_MP_*`). Sin eso, cobrar y suscribirse
    responden que falta configurarlo.
