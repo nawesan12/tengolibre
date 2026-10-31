@@ -32,5 +32,11 @@ export const load: LayoutServerLoad = async (event) => {
 		elegirNegocio(cookies, negocio.id);
 		locals.negocio = negocio.id;
 	}
-	return { persona, negocios, negocio };
+	// El contador de la campanita: se recarga con el tiempo real; si falla, la barra sigue sin número.
+	event.depends('panel:notificaciones');
+	const sinLeer = await apiDe(event)
+		.get<{ sinLeer: number }>('/v1/panel/campanita/sin-leer')
+		.then((r) => r.sinLeer)
+		.catch(() => 0);
+	return { persona, negocios, negocio, sinLeer };
 };
