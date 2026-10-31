@@ -68,6 +68,24 @@ func ConSesion(ctx context.Context, s Sesion) context.Context {
 type Servicio struct {
 	Pool        *db.Pool
 	Verificador Verificador
+	// Escritura envuelve toda ruta del panel que escribe (POST, PUT, PATCH, DELETE): la suscripción
+	// la usa para dejar el panel en sólo lectura cuando vence la prueba. nil: no se chequea.
+	Escritura func(http.HandlerFunc) http.HandlerFunc
+	// SinChequeoDeEscritura: prefijos de ruta que escriben igual con el panel bloqueado (suscribirse,
+	// desconectar Mercado Pago, devolver plata a un cliente).
+	SinChequeoDeEscritura []string
+}
+
+func (s *Servicio) chequeaEscritura(r *http.Request) bool {
+	if s.Escritura == nil || r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return false
+	}
+	for _, p := range s.SinChequeoDeEscritura {
+		if strings.HasPrefix(r.URL.Path, p) {
+			return false
+		}
+	}
+	return true
 }
 
 func token(r *http.Request) string {
@@ -119,7 +137,11 @@ func (s *Servicio) Panel(roles []string, next http.HandlerFunc) http.HandlerFunc
 			return
 		}
 		ses.NegocioID, ses.Rol = negocio, ns[i].Rol
-		next(w, r.WithContext(ConSesion(r.Context(), ses)))
+		h := next
+		if s.chequeaEscritura(r) {
+			h = s.Escritura(next)
+		}
+		h(w, r.WithContext(ConSesion(r.Context(), ses)))
 	})
 }
 

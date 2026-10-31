@@ -26,10 +26,8 @@ ALTER TABLE negocios
 	ADD COLUMN latitud double precision CHECK (latitud BETWEEN -90 AND 90),
 	ADD COLUMN longitud double precision CHECK (longitud BETWEEN -180 AND 180),
 	ADD CONSTRAINT negocios_coordenadas CHECK ((latitud IS NULL) = (longitud IS NULL)),
-	ADD COLUMN grupo_id uuid,
-	-- Fin de la prueba gratis (trialEndsAt, 7 días en Jiku). IF NOT EXISTS: la tanda de cobros puede
-	-- traer la misma columna, y así da igual cuál se aplica primero.
-	ADD COLUMN IF NOT EXISTS prueba_hasta timestamptz DEFAULT now() + interval '7 days';
+	ADD COLUMN grupo_id uuid;
+-- El fin de la prueba gratis (prueba_hasta) lo agrega 00004_cobros.
 GRANT UPDATE (rubro, provincia, acerca, portada, color_primario, color_acento, email, sitio_web, facebook, tiktok,
 	latitud, longitud, grupo_id) ON negocios TO tengolibre_app;
 
@@ -319,5 +317,4 @@ ALTER TABLE negocios DROP CONSTRAINT negocios_grupo;
 DROP TABLE grupos;
 ALTER TABLE negocios DROP CONSTRAINT negocios_coordenadas, DROP COLUMN rubro, DROP COLUMN provincia, DROP COLUMN acerca,
 	DROP COLUMN portada, DROP COLUMN color_primario, DROP COLUMN color_acento, DROP COLUMN email, DROP COLUMN sitio_web,
-	DROP COLUMN facebook, DROP COLUMN tiktok, DROP COLUMN latitud, DROP COLUMN longitud, DROP COLUMN grupo_id,
-	DROP COLUMN IF EXISTS prueba_hasta;
+	DROP COLUMN facebook, DROP COLUMN tiktok, DROP COLUMN latitud, DROP COLUMN longitud, DROP COLUMN grupo_id;

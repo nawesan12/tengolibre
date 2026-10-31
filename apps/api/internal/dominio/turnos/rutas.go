@@ -11,7 +11,9 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/catalogo"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/miweb"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/resenas"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/web"
@@ -61,6 +63,9 @@ func (s *Servicio) pagina(w http.ResponseWriter, r *http.Request) error {
 		Profesionales       []ProfesionalPublico  `json:"profesionales"`
 		DiasVista           int                   `json:"diasVista"`
 		PoliticaCancelacion string                `json:"politicaCancelacion"`
+		Web                 miweb.Web             `json:"web"`
+		Galeria             []miweb.Foto          `json:"galeria"`
+		Resenas             resenas.Resumen       `json:"resenas"`
 	}
 	err = s.Pool.EnNegocio(ctx, id, func(tx pgx.Tx) error {
 		var err error
@@ -82,7 +87,17 @@ func (s *Servicio) pagina(w http.ResponseWriter, r *http.Request) error {
 			out.Profesionales = append(out.Profesionales, ProfesionalPublico{p.ID, p.Nombre, p.Especialidad, p.Bio, p.Foto, p.Servicios})
 		}
 		a, err := negocios.LeerAjustes(ctx, tx)
+		if err != nil {
+			return err
+		}
 		out.DiasVista, out.PoliticaCancelacion = a.DiasVista, a.PoliticaCancelacion
+		if out.Web, err = miweb.Leer(ctx, tx); err != nil {
+			return err
+		}
+		if out.Galeria, err = miweb.Galeria(ctx, tx); err != nil {
+			return err
+		}
+		out.Resenas, err = resenas.Promedio(ctx, tx)
 		return err
 	})
 	if err != nil {
@@ -196,12 +211,15 @@ func (s *Servicio) reservarPublico(w http.ResponseWriter, r *http.Request) error
 	in.Forzar = false
 	var t Turno
 	err = s.Pool.EnNegocio(ctx, id, func(tx pgx.Tx) (err error) {
-		t, err = reservar(ctx, tx, in, "web", s.ahora())
-		return err
+		if t, err = reservar(ctx, tx, in, "web", s.ahora()); err != nil {
+			return err
+		}
+		return s.alReservar(ctx, tx, &t, in, "web")
 	})
 	if err != nil {
 		return err
 	}
+	s.despuesDeReservar(ctx, id, &t)
 	s.avisar(ctx, id, t.ID, "reservado")
 	web.JSON(w, http.StatusCreated, t)
 	return nil
@@ -216,12 +234,15 @@ func (s *Servicio) reservarPanel(w http.ResponseWriter, r *http.Request) error {
 	negocio := sesion.De(ctx).NegocioID
 	var t Turno
 	err := s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) (err error) {
-		t, err = reservar(ctx, tx, in, "panel", s.ahora())
-		return err
+		if t, err = reservar(ctx, tx, in, "panel", s.ahora()); err != nil {
+			return err
+		}
+		return s.alReservar(ctx, tx, &t, in, "panel")
 	})
 	if err != nil {
 		return err
 	}
+	s.despuesDeReservar(ctx, negocio, &t)
 	s.avisar(ctx, negocio, t.ID, "reservado")
 	web.JSON(w, http.StatusCreated, t)
 	return nil
@@ -291,7 +312,7 @@ func (s *Servicio) cancelarCliente(w http.ResponseWriter, r *http.Request) error
 			return err
 		}
 		t.Estado = "cancelado"
-		return nil
+		return s.alCancelar(ctx, tx, t.ID)
 	})
 	if err != nil {
 		return err
@@ -436,6 +457,11 @@ func (s *Servicio) cambiar(w http.ResponseWriter, r *http.Request) error {
 			vence_en = CASE WHEN coalesce($2, estado) = 'pendiente_pago' THEN vence_en END, actualizado_en = now() WHERE id = $1`,
 			t.ID, in.Estado, in.Nota); err != nil {
 			return err
+		}
+		if in.Estado != nil && *in.Estado == "cancelado" && antes != "cancelado" {
+			if err := s.alCancelar(ctx, tx, t.ID); err != nil {
+				return err
+			}
 		}
 		t, err = leerTurno(ctx, tx, "t.id = $1", t.ID, false)
 		return err

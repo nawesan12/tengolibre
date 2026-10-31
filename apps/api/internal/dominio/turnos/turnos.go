@@ -31,6 +31,8 @@ type Servicio struct {
 	// Avisar se llama después de confirmar cada cambio (reserva, cancelación, reprogramación, estado).
 	// Lo engancha el dominio de avisos; nil: no se avisa.
 	Avisar func(ctx context.Context, negocioID, turnoID, evento string)
+	// Extras: membresías, cupones y cobros (ver extras.go). nil: la reserva no toca plata.
+	Extras []Extra
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -71,6 +73,9 @@ type Turno struct {
 	Nota          string     `json:"nota"`
 	VenceEn       *time.Time `json:"venceEn"`
 	CreadoEn      time.Time  `json:"creadoEn"`
+	// Sólo en la respuesta de la reserva: lo que descontó el cupón y el pago que queda pendiente.
+	Descuento int64 `json:"descuento,omitempty"`
+	Pago      *Pago `json:"pago,omitempty"`
 }
 
 const columnasTurno = `t.id::text, t.codigo, t.servicio_id::text, t.servicio, t.profesional_id::text, t.profesional,
@@ -264,6 +269,9 @@ type Pedido struct {
 	Nota          string    `json:"nota"`
 	// Forzar (sólo panel): reserva aunque el horario no figure libre (sobreturno).
 	Forzar bool `json:"forzar,omitempty"`
+	// Cupon y Referido: los códigos que trae quien reserva (los aplica el extra de promos).
+	Cupon    string `json:"cupon,omitempty"`
+	Referido string `json:"referido,omitempty"`
 }
 
 // elegir el profesional para el horario: el pedido, o el primero libre en el orden del negocio.

@@ -79,12 +79,14 @@ func TestReservaDePuntaAPunta(t *testing.T) {
 
 	// La página pública muestra el negocio, el servicio y los dos profesionales, sin datos de contacto.
 	var pag struct {
-		Negocio       negocios.Negocio      `json:"negocio"`
-		Servicios     []catalogo.Prestacion `json:"servicios"`
-		Profesionales []map[string]any      `json:"profesionales"`
+		Negocio       negocios.Negocio       `json:"negocio"`
+		Servicios     []catalogo.Prestacion  `json:"servicios"`
+		Profesionales []map[string]any       `json:"profesionales"`
+		Galeria       []any                  `json:"galeria"`
+		Resenas       struct{ Cantidad int } `json:"resenas"`
 	}
 	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/p/el-corte"}, &pag)
-	if pag.Negocio.Nombre != "El Corte" || len(pag.Servicios) != 1 || len(pag.Profesionales) != 2 {
+	if pag.Negocio.Nombre != "El Corte" || len(pag.Servicios) != 1 || len(pag.Profesionales) != 2 || pag.Galeria == nil || pag.Resenas.Cantidad != 0 {
 		t.Fatalf("página: %+v", pag)
 	}
 	if _, ok := pag.Profesionales[0]["email"]; ok {

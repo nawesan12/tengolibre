@@ -31,6 +31,12 @@ type Config struct {
 	// Dominios propios: el host al que apunta el CNAME del cliente y la IP del VPS (para el A de un
 	// dominio raíz, que no admite CNAME).
 	DominiosDestino, VPSIP string
+	// Mercado Pago: la aplicación de TengoLibre (OAuth de los negocios), la clave de los webhooks y el
+	// token de la cuenta de la plataforma (suscripciones). Sin aplicación, los negocios no cobran; sin
+	// token de la plataforma, no se puede suscribir.
+	MPAppID, MPSecreto, MPSecretoWebhook, MPTokenPlataforma string
+	// ClaveCifrado: 32 bytes en base64 para cifrar los tokens de los negocios en la base.
+	ClaveCifrado string
 }
 
 // Desarrollo dice si se está corriendo en local.
@@ -57,6 +63,12 @@ func Leer() (Config, error) {
 		Admins:          lista(os.Getenv("TENGOLIBRE_ADMINS")),
 		DominiosDestino: valor("TENGOLIBRE_DOMINIOS_DESTINO", "dominios.tengolibre.com.ar"),
 		VPSIP:           valor("TENGOLIBRE_VPS_IP", "187.41.102.190"),
+
+		MPAppID:           os.Getenv("TENGOLIBRE_MP_APP_ID"),
+		MPSecreto:         os.Getenv("TENGOLIBRE_MP_SECRETO"),
+		MPSecretoWebhook:  os.Getenv("TENGOLIBRE_MP_SECRETO_WEBHOOK"),
+		MPTokenPlataforma: os.Getenv("TENGOLIBRE_MP_TOKEN_PLATAFORMA"),
+		ClaveCifrado:      os.Getenv("TENGOLIBRE_CLAVE_CIFRADO"),
 	}
 	switch c.Entorno {
 	case "desarrollo", "staging", "produccion":
