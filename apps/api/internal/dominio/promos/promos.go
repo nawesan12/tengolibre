@@ -59,12 +59,30 @@ type Cupon struct {
 	Activo     bool       `json:"activo"`
 	ReferidoID *string    `json:"referidoId,omitempty"`
 	CreadoEn   time.Time  `json:"creadoEn"`
+	// Restricciones (franja.go). Dias: días de la semana en que vale (0 = domingo; vacío: todos).
+	// HoraDesde y HoraHasta ("14:00"): el turno tiene que empezar en esa franja. AntiguedadDias:
+	// sólo para clientes cuyo primer turno atendido fue hace al menos esos días.
+	Dias           []int   `json:"dias"`
+	HoraDesde      *string `json:"horaDesde"`
+	HoraHasta      *string `json:"horaHasta"`
+	AntiguedadDias *int    `json:"antiguedadDias"`
+	// Condiciones: las restricciones en palabras («Vale los martes de 14 a 16 h.»). Vacío: ninguna.
+	Condiciones string `json:"condiciones"`
 }
 
-const columnasCupon = `id::text, codigo, tipo, valor, minimo, max_usos, usos, desde, hasta, activo, referido_id::text, creado_en`
+const columnasCupon = `id::text, codigo, tipo, valor, minimo, max_usos, usos, desde, hasta, activo, referido_id::text, creado_en,
+	dias, to_char(hora_desde, 'HH24:MI'), to_char(hora_hasta, 'HH24:MI'), antiguedad_dias`
 
 func escanearCupon(f pgx.Row, c *Cupon) error {
-	return f.Scan(&c.ID, &c.Codigo, &c.Tipo, &c.Valor, &c.Minimo, &c.MaxUsos, &c.Usos, &c.Desde, &c.Hasta, &c.Activo, &c.ReferidoID, &c.CreadoEn)
+	if err := f.Scan(&c.ID, &c.Codigo, &c.Tipo, &c.Valor, &c.Minimo, &c.MaxUsos, &c.Usos, &c.Desde, &c.Hasta, &c.Activo, &c.ReferidoID, &c.CreadoEn,
+		&c.Dias, &c.HoraDesde, &c.HoraHasta, &c.AntiguedadDias); err != nil {
+		return err
+	}
+	if c.Dias == nil {
+		c.Dias = []int{}
+	}
+	c.Condiciones = Condiciones(*c)
+	return nil
 }
 
 // Normalizar un código: sin espacios y en mayúsculas (se busca sin distinguir).
@@ -148,6 +166,11 @@ func (s *Servicio) AlReservar(ctx context.Context, tx pgx.Tx, r *turnos.Reserva)
 		c, motivo, err := vigente(ctx, tx, r.Pedido.Cupon, &t.Precio, r.Ahora)
 		if err != nil {
 			return err
+		}
+		if motivo == "" {
+			if motivo, err = restriccion(ctx, tx, c, t.Inicio, t.Cliente.ID, r.Ahora); err != nil {
+				return err
+			}
 		}
 		if motivo != "" {
 			return problema.NoProcesable("cupon_invalido", motivo+".")

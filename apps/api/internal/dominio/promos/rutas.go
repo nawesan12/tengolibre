@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/catalogo"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
@@ -77,6 +76,26 @@ type EntradaCupon struct {
 	Desde   *time.Time `json:"desde"`
 	Hasta   *time.Time `json:"hasta"`
 	Activo  *bool      `json:"activo"`
+	// Restricciones (franja.go). En PATCH, [] / "" / 0 las sacan.
+	Dias           *[]int  `json:"dias"`
+	HoraDesde      *string `json:"horaDesde"`
+	HoraHasta      *string `json:"horaHasta"`
+	AntiguedadDias *int    `json:"antiguedadDias"`
+}
+
+func (in EntradaCupon) restricciones(c *Cupon) {
+	if in.Dias != nil {
+		c.Dias = *in.Dias
+	}
+	if in.HoraDesde != nil {
+		c.HoraDesde = in.HoraDesde
+	}
+	if in.HoraHasta != nil {
+		c.HoraHasta = in.HoraHasta
+	}
+	if in.AntiguedadDias != nil {
+		c.AntiguedadDias = in.AntiguedadDias
+	}
 }
 
 func validarCupon(c *Cupon) error {
@@ -92,7 +111,7 @@ func validarCupon(c *Cupon) error {
 	case c.Hasta != nil && !c.Hasta.After(c.Desde):
 		return problema.Invalido("El cupón tiene que terminar después de empezar.", problema.Campo{Ruta: "hasta", Mensaje: "fuera de rango"})
 	}
-	return nil
+	return validarRestricciones(c)
 }
 
 func (s *Servicio) crearCupon(w http.ResponseWriter, r *http.Request) error {
@@ -102,10 +121,7 @@ func (s *Servicio) crearCupon(w http.ResponseWriter, r *http.Request) error {
 	}
 	c := Cupon{Desde: s.ahora(), Activo: true, Minimo: in.Minimo, MaxUsos: in.MaxUsos, Hasta: in.Hasta}
 	if in.Codigo != nil {
-		c.Codigo = Normalizar(*in.Codigo)
-	}
-	if !reCodigo.MatchString(c.Codigo) {
-		return problema.Invalido("El código va con letras, números, - o _ (de 3 a 40).", problema.Campo{Ruta: "codigo", Mensaje: "formato inválido"})
+		c.Codigo = *in.Codigo
 	}
 	if in.Tipo != nil {
 		c.Tipo = *in.Tipo
@@ -119,18 +135,8 @@ func (s *Servicio) crearCupon(w http.ResponseWriter, r *http.Request) error {
 	if in.Activo != nil {
 		c.Activo = *in.Activo
 	}
-	if err := validarCupon(&c); err != nil {
-		return err
-	}
-	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
-		return escanearCupon(tx.QueryRow(ctx, `INSERT INTO cupones (negocio_id, codigo, tipo, valor, minimo, max_usos, desde, hasta, activo)
-			VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8) RETURNING `+columnasCupon,
-			c.Codigo, c.Tipo, c.Valor, c.Minimo, c.MaxUsos, c.Desde, c.Hasta, c.Activo), &c)
-	})
-	var pg *pgconn.PgError
-	if errors.As(err, &pg) && pg.Code == "23505" {
-		return problema.Conflicto("duplicado", "Ya hay un cupón con ese código.")
-	}
+	in.restricciones(&c)
+	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error { return Crear(ctx, tx, &c) })
 	if err != nil {
 		return err
 	}
@@ -172,11 +178,13 @@ func (s *Servicio) editarCupon(w http.ResponseWriter, r *http.Request) error {
 		if in.Activo != nil {
 			c.Activo = *in.Activo
 		}
+		in.restricciones(&c)
 		if err := validarCupon(&c); err != nil {
 			return err
 		}
 		return escanearCupon(tx.QueryRow(ctx, `UPDATE cupones SET tipo = $2, valor = $3, minimo = $4, max_usos = $5, desde = $6, hasta = $7,
-			activo = $8 WHERE id = $1 RETURNING `+columnasCupon, c.ID, c.Tipo, c.Valor, c.Minimo, c.MaxUsos, c.Desde, c.Hasta, c.Activo), &c)
+			activo = $8, dias = $9, hora_desde = $10::time, hora_hasta = $11::time, antiguedad_dias = $12 WHERE id = $1 RETURNING `+columnasCupon,
+			c.ID, c.Tipo, c.Valor, c.Minimo, c.MaxUsos, c.Desde, c.Hasta, c.Activo, c.Dias, c.HoraDesde, c.HoraHasta, c.AntiguedadDias), &c)
 	})
 	if err != nil {
 		return err
@@ -297,6 +305,8 @@ type Validacion struct {
 	Valor  int64  `json:"valor,omitempty"`
 	// Descuento sobre el servicio pedido, si vino.
 	Descuento int64 `json:"descuento,omitempty"`
+	// Condiciones del cupón en palabras (franja, antigüedad). La antigüedad se chequea al reservar.
+	Condiciones string `json:"condiciones,omitempty"`
 }
 
 func (s *Servicio) validarCupon(w http.ResponseWriter, r *http.Request) error {
@@ -308,6 +318,8 @@ func (s *Servicio) validarCupon(w http.ResponseWriter, r *http.Request) error {
 	var in struct {
 		Codigo     string `json:"codigo"`
 		ServicioID string `json:"servicioId"`
+		// Inicio (opcional): el horario elegido, para chequear la franja del cupón.
+		Inicio *time.Time `json:"inicio"`
 	}
 	if err := web.Leer(w, r, &in); err != nil {
 		return err
@@ -330,7 +342,16 @@ func (s *Servicio) validarCupon(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return err
 		}
-		out = Validacion{Valido: motivo == "", Motivo: motivo}
+		if motivo == "" && in.Inicio != nil && (len(c.Dias) > 0 || c.HoraDesde != nil) {
+			z, err := zona(ctx, tx)
+			if err != nil {
+				return err
+			}
+			if !EnFranja(c, in.Inicio.In(z)) {
+				motivo = "Este cupón vale sólo " + Franja(c.Dias, c.HoraDesde, c.HoraHasta)
+			}
+		}
+		out = Validacion{Valido: motivo == "", Motivo: motivo, Condiciones: c.Condiciones}
 		if out.Valido {
 			out.Codigo, out.Tipo, out.Valor = c.Codigo, c.Tipo, c.Valor
 			if precio != nil {

@@ -33,7 +33,22 @@ type Enviador struct {
 	Ahora func() time.Time
 	Lote  int
 	Log   *slog.Logger
+	// Armadores de los tipos de aviso de otros dominios (recordatorios automáticos, reporte mensual):
+	// así avisos no los importa (ellos importan avisos).
+	Armadores map[string]Armador
 }
+
+// EnCola: el aviso que hay que armar, para un Armador.
+type EnCola struct {
+	Tipo, Para string
+	Datos      map[string]string
+	// Sitio público, para los links.
+	Sitio string
+}
+
+// Armador arma el mail de un aviso con los datos de ahora, en la transacción del negocio. descarte
+// no vacío: no se manda, por ese motivo.
+type Armador func(ctx context.Context, tx pgx.Tx, a EnCola, ahora time.Time) (m correo.Mensaje, descarte string, err error)
 
 // ResultadoEnvio de una pasada.
 type ResultadoEnvio struct {
@@ -186,11 +201,18 @@ func (e *Enviador) armar(ctx context.Context, tx pgx.Tx, f fila, ahora time.Time
 	case Reservado, Recordatorio, Cancelado, Reprogramado, Resena:
 		return e.armarTurno(ctx, tx, f, n, ahora)
 	case Espera:
+		// Con intento: el hueco ofrecido a una sola persona, con su link y su tiempo.
+		if f.Datos["intento"] != "" {
+			return e.armarOferta(ctx, tx, f, n, ahora)
+		}
 		return e.armarEspera(ctx, tx, f, n)
 	case Invitacion:
 		return e.armarInvitacion(ctx, tx, f, n, ahora)
 	case Resumen:
 		return e.armarResumen(ctx, tx, f, n)
+	}
+	if a, ok := e.Armadores[f.Tipo]; ok {
+		return a(ctx, tx, EnCola{Tipo: f.Tipo, Para: f.Para, Datos: f.Datos, Sitio: e.Sitio}, ahora)
 	}
 	return correo.Mensaje{}, "tipo desconocido: " + f.Tipo, nil
 }
@@ -332,6 +354,39 @@ func (e *Enviador) armarEspera(ctx context.Context, tx pgx.Tx, f fila, n negocio
 		c.Parrafos = append(c.Parrafos, nota)
 	}
 	return c.Mensaje(email), "", nil
+}
+
+// armarOferta: «Se liberó lo que esperabas», el link para tomarlo o pasarlo. Si cuando sale ya no
+// está vigente (lo tomó, lo pasó, se venció o se cayó), no se manda.
+func (e *Enviador) armarOferta(ctx context.Context, tx pgx.Tx, f fila, n negocio, ahora time.Time) (correo.Mensaje, string, error) {
+	sin := correo.Mensaje{Para: f.Para}
+	var nombre, token, estado, servicio, profesional string
+	var vence *time.Time
+	var inicio time.Time
+	var precio int64
+	err := tx.QueryRow(ctx, `SELECT i.nombre, i.token, i.estado, i.vence_en, o.servicio, o.profesional, o.inicio, o.precio
+		FROM oferta_intentos i JOIN ofertas o ON o.id = i.oferta_id WHERE i.id = $1`, f.Datos["intento"]).
+		Scan(&nombre, &token, &estado, &vence, &servicio, &profesional, &inicio, &precio)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return sin, "la oferta ya no existe", nil
+	}
+	if err != nil {
+		return sin, "", err
+	}
+	if estado != "ofrecida" || vence == nil || !vence.After(ahora) {
+		return sin, "la oferta ya no está vigente", nil
+	}
+	i, v := inicio.In(n.zona), vence.In(n.zona)
+	filas := []Fila{{"Servicio", servicio}, {"Profesional", profesional}, {"Fecha", Fecha(i)}, {"Hora", Hora(i)}, {"Precio", Pesos(precio)}}
+	if l := n.lugar(); l != "" {
+		filas = append(filas, Fila{"Dónde", l})
+	}
+	c := Carta{Encabezado: n.Nombre, Asunto: "Se liberó lo que esperabas — " + n.Nombre, Titulo: "Se liberó lo que esperabas",
+		Saludo:   "Hola " + primerNombre(nombre) + ",",
+		Parrafos: []string{"Es tuyo si lo tomás antes de las " + Hora(v) + ". Después pasa a la siguiente persona de la lista."},
+		Filas:    filas, Boton: "Tomar el lugar", Link: LinkOferta(e.Sitio, token),
+		Notas: []string{"¿No te sirve? Entrá igual y tocá «No me sirve, que pase»: así le llega enseguida a quien sigue."}}
+	return c.Mensaje(f.Para), "", nil
 }
 
 var nombresRol = map[string]string{"encargado": "encargado/a", "recepcion": "recepción", "profesional": "profesional"}

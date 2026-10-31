@@ -43,6 +43,14 @@ type Config struct {
 	// app. FCM: la ruta del JSON de la cuenta de servicio. Sin eso, esa plataforma queda apagada.
 	APNsKeyID, APNsTeamID, APNsClave, APNsTopic string
 	FCMCuenta                                   string
+	// WhatsApp Cloud API (Meta): el token permanente del usuario del sistema, el id del número de la
+	// plataforma, el secreto de la app (firma X-Hub-Signature-256 de los webhooks), el token de
+	// verificación que se carga al suscribir el webhook y la versión de la Graph API. Sin token o sin
+	// número, la confirmación por WhatsApp queda apagada.
+	WhatsAppToken, WhatsAppTelefonoID, WhatsAppSecretoApp, WhatsAppVerificacion, WhatsAppVersion string
+	// Push web del panel (VAPID): las claves en base64url (`go run ./cmd/vapid`) y el contacto
+	// (mailto: o https:) para los servicios de push. Sin claves, apagado.
+	VAPIDPublica, VAPIDPrivada, VAPIDSujeto string
 }
 
 // Desarrollo dice si se está corriendo en local.
@@ -82,6 +90,16 @@ func Leer() (Config, error) {
 		APNsClave:  os.Getenv("TENGOLIBRE_APNS_CLAVE"),
 		APNsTopic:  valor("TENGOLIBRE_APNS_TOPIC", "ar.com.tengolibre.app"),
 		FCMCuenta:  os.Getenv("TENGOLIBRE_FCM_CUENTA"),
+
+		WhatsAppToken:        os.Getenv("TENGOLIBRE_WHATSAPP_TOKEN"),
+		WhatsAppTelefonoID:   os.Getenv("TENGOLIBRE_WHATSAPP_TELEFONO_ID"),
+		WhatsAppSecretoApp:   os.Getenv("TENGOLIBRE_WHATSAPP_SECRETO_APP"),
+		WhatsAppVerificacion: os.Getenv("TENGOLIBRE_WHATSAPP_VERIFICACION"),
+		WhatsAppVersion:      os.Getenv("TENGOLIBRE_WHATSAPP_VERSION"),
+
+		VAPIDPublica: os.Getenv("TENGOLIBRE_VAPID_PUBLICA"),
+		VAPIDPrivada: os.Getenv("TENGOLIBRE_VAPID_PRIVADA"),
+		VAPIDSujeto:  valor("TENGOLIBRE_VAPID_SUJETO", "mailto:hola@tengolibre.com.ar"),
 	}
 	switch c.Entorno {
 	case "desarrollo", "staging", "produccion":
