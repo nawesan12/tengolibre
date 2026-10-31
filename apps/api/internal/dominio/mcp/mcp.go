@@ -44,6 +44,9 @@ type Servicio struct {
 	Turnos *turnos.Servicio
 	// URL pública del servidor (la que muestra el panel). Vacía: URLPorDefecto.
 	URL string
+	// Sitio: el front, donde vive la pantalla de consentimiento del OAuth (/conectar). Vacío:
+	// https://tengolibre.com.ar.
+	Sitio string
 	// Origenes: si el pedido trae Origin (un navegador), tiene que ser uno de estos (la spec pide
 	// validarlo contra el DNS rebinding). Los clientes MCP de servidor no mandan Origin.
 	Origenes []string
@@ -75,6 +78,10 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /v1/panel/mcp/tokens/{id}", g(s.editarToken))
 	mux.HandleFunc("DELETE /v1/panel/mcp/tokens/{id}", g(s.revocarToken))
 	mux.HandleFunc("GET /v1/panel/mcp/registro", g(s.registro))
+	mux.HandleFunc("PATCH /v1/panel/mcp/conexiones/{id}", g(s.editarConexion))
+	mux.HandleFunc("DELETE /v1/panel/mcp/conexiones/{id}", g(s.desconectar))
+	// OAuth 2.1 (claude.ai, ChatGPT): metadatos, registro, autorización, tokens y consentimiento.
+	rutasOAuth(s, mux)
 }
 
 // sinFlujo: no ofrecemos el stream SSE del GET ni sesiones para cerrar (la spec permite el 405).
@@ -140,10 +147,15 @@ func hashDe(clave string) []byte {
 	return h[:]
 }
 
-func sinClave(w http.ResponseWriter) {
-	w.Header().Set("WWW-Authenticate", `Bearer realm="TengoLibre", error="invalid_token"`)
+// sinClave: 401 con el Protected Resource Metadata (RFC 9728), así el cliente encuentra el OAuth.
+func (s *Servicio) sinClave(w http.ResponseWriter, conClave bool) {
+	v := `Bearer realm="TengoLibre", resource_metadata="` + s.metadatosDelRecurso() + `"`
+	if conClave {
+		v += `, error="invalid_token"`
+	}
+	w.Header().Set("WWW-Authenticate", v)
 	problema.Escribir(w, &problema.Problema{Estado: http.StatusUnauthorized, Codigo: "sin_clave", Titulo: "Falta la clave",
-		Detalle: "Mandá la clave del asistente (la del panel, en Integraciones e IA) como Authorization: Bearer <clave>."})
+		Detalle: "Conectate por OAuth o mandá la clave del asistente (la del panel, en Integraciones e IA) como Authorization: Bearer <clave>."})
 }
 
 // conectar resuelve la clave al negocio, carga sus permisos y anota que se usó.
@@ -166,7 +178,8 @@ func (s *Servicio) conectar(ctx context.Context, clave string) (*conexion, error
 		var activo bool
 		var zona string
 		err := tx.QueryRow(ctx, `SELECT k.id::text, k.nombre, k.permisos, n.activo, n.zona_horaria FROM mcp_tokens k
-			JOIN negocios n ON n.id = k.negocio_id WHERE k.hash = $1 AND k.revocado_en IS NULL`, h).
+			JOIN negocios n ON n.id = k.negocio_id WHERE k.hash = $1 AND k.revocado_en IS NULL
+			AND (k.acceso_vence IS NULL OR k.acceso_vence > now())`, h).
 			Scan(&c.tokenID, &c.nombre, &c.permisos, &activo, &zona)
 		if err != nil {
 			return err
@@ -210,7 +223,7 @@ func (s *Servicio) servir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if c == nil {
-		sinClave(w)
+		s.sinClave(w, claveDe(r) != "")
 		return
 	}
 	cuerpo, err := io.ReadAll(http.MaxBytesReader(w, r.Body, web.MaxCuerpo))

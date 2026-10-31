@@ -126,7 +126,7 @@ func correr() error {
 				&calendario.Servicio{Pool: app, Sesion: ses, Sitio: cfg.Sitio},
 				&push.Servicio{Pool: app, Sesion: ses},
 				// El asistente de IA del negocio (MCP): opera la agenda con los mismos turnos.
-				&mcp.Servicio{Pool: app, Sesion: ses, Turnos: tur, Origenes: cfg.Origenes},
+				&mcp.Servicio{Pool: app, Sesion: ses, Turnos: tur, Origenes: cfg.Origenes, URL: cfg.MCPURL, Sitio: cfg.Sitio},
 				&admin.Servicio{Pool: app, Sesion: ses, Admins: cfg.Admins, AdminsEmails: cfg.AdminsEmails},
 			}}),
 		ReadHeaderTimeout: 5 * time.Second,

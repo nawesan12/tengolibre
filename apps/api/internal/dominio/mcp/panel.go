@@ -43,26 +43,60 @@ func escanearToken(f pgx.Row, t *Token) error {
 	return f.Scan(&t.ID, &t.Nombre, &t.Pista, &t.Permisos, &t.Cliente, &t.CreadoEn, &t.UsadoEn)
 }
 
+// Conexion: un asistente conectado por OAuth (claude.ai, ChatGPT), como la ve el panel.
+type Conexion struct {
+	ID string `json:"id"`
+	// Nombre: el de la app que se registró («Claude»); el registro y la campanita dicen ese.
+	Nombre   string     `json:"nombre"`
+	Permisos []string   `json:"permisos"`
+	Cliente  string     `json:"cliente"`
+	CreadoEn time.Time  `json:"creadoEn"`
+	UsadoEn  *time.Time `json:"usadoEn"`
+	// AutorizadoPor: el Clerk ID de quien dio el permiso.
+	AutorizadoPor string `json:"autorizadoPor"`
+}
+
+const columnasConexion = "id::text, nombre, permisos, cliente, creado_en, usado_en, creado_por"
+
+func escanearConexion(f pgx.Row, c *Conexion) error {
+	return f.Scan(&c.ID, &c.Nombre, &c.Permisos, &c.Cliente, &c.CreadoEn, &c.UsadoEn, &c.AutorizadoPor)
+}
+
+// Una conexión vigente: sin revocar y con el refresco al día.
+const conexionVigente = "oauth_cliente IS NOT NULL AND revocado_en IS NULL AND refresco_vence > now()"
+
 func (s *Servicio) enNegocio(r *http.Request, fn func(context.Context, pgx.Tx) error) error {
 	ctx := r.Context()
 	return s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error { return fn(ctx, tx) })
 }
 
-// leer: la URL del servidor, las claves vigentes y los permisos que existen.
+// leer: la URL del servidor, las claves y las conexiones OAuth vigentes y los permisos que existen.
 func (s *Servicio) leer(w http.ResponseWriter, r *http.Request) error {
 	out := struct {
-		URL      string    `json:"url"`
-		Tokens   []Token   `json:"tokens"`
-		Permisos []Permiso `json:"permisos"`
-	}{URL: s.url(), Tokens: []Token{}, Permisos: Permisos()}
+		URL        string     `json:"url"`
+		Tokens     []Token    `json:"tokens"`
+		Conexiones []Conexion `json:"conexiones"`
+		Permisos   []Permiso  `json:"permisos"`
+	}{URL: s.url(), Tokens: []Token{}, Conexiones: []Conexion{}, Permisos: Permisos()}
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
-		filas, err := tx.Query(ctx, "SELECT "+columnasToken+" FROM mcp_tokens WHERE revocado_en IS NULL ORDER BY creado_en, id")
+		filas, err := tx.Query(ctx, "SELECT "+columnasToken+" FROM mcp_tokens WHERE revocado_en IS NULL AND oauth_cliente IS NULL ORDER BY creado_en, id")
 		if err != nil {
 			return err
 		}
 		out.Tokens, err = pgx.CollectRows(filas, func(f pgx.CollectableRow) (Token, error) {
 			var t Token
 			return t, escanearToken(f, &t)
+		})
+		if err != nil {
+			return err
+		}
+		filas, err = tx.Query(ctx, "SELECT "+columnasConexion+" FROM mcp_tokens WHERE "+conexionVigente+" ORDER BY creado_en, id")
+		if err != nil {
+			return err
+		}
+		out.Conexiones, err = pgx.CollectRows(filas, func(f pgx.CollectableRow) (Conexion, error) {
+			var c Conexion
+			return c, escanearConexion(f, &c)
 		})
 		return err
 	})
@@ -123,7 +157,7 @@ func (s *Servicio) crearToken(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 		var n int
-		if err := tx.QueryRow(ctx, "SELECT count(*) FROM mcp_tokens WHERE revocado_en IS NULL").Scan(&n); err != nil {
+		if err := tx.QueryRow(ctx, "SELECT count(*) FROM mcp_tokens WHERE revocado_en IS NULL AND oauth_cliente IS NULL").Scan(&n); err != nil {
 			return err
 		}
 		if n >= MaxTokens {
@@ -171,7 +205,7 @@ func (s *Servicio) editarToken(w http.ResponseWriter, r *http.Request) error {
 	var t Token
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
 		err := escanearToken(tx.QueryRow(ctx, `UPDATE mcp_tokens SET nombre = coalesce($2, nombre), permisos = coalesce($3, permisos)
-			WHERE id::text = $1 AND revocado_en IS NULL RETURNING `+columnasToken, r.PathValue("id"), nombre, ps), &t)
+			WHERE id::text = $1 AND revocado_en IS NULL AND oauth_cliente IS NULL RETURNING `+columnasToken, r.PathValue("id"), nombre, ps), &t)
 		if err != nil {
 			return err
 		}
@@ -189,7 +223,7 @@ func (s *Servicio) editarToken(w http.ResponseWriter, r *http.Request) error {
 func (s *Servicio) revocarToken(w http.ResponseWriter, r *http.Request) error {
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
 		var nombre string
-		err := tx.QueryRow(ctx, "UPDATE mcp_tokens SET revocado_en = now() WHERE id::text = $1 AND revocado_en IS NULL RETURNING nombre",
+		err := tx.QueryRow(ctx, "UPDATE mcp_tokens SET revocado_en = now() WHERE id::text = $1 AND revocado_en IS NULL AND oauth_cliente IS NULL RETURNING nombre",
 			r.PathValue("id")).Scan(&nombre)
 		if err != nil {
 			return err
@@ -204,12 +238,65 @@ func (s *Servicio) revocarToken(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// editarConexion: cambiar los permisos de un asistente conectado (la lista entera de los encendidos).
+// Valen al instante, también con el token de acceso que ya tiene.
+func (s *Servicio) editarConexion(w http.ResponseWriter, r *http.Request) error {
+	var in struct {
+		Permisos []string `json:"permisos"`
+	}
+	if err := web.Leer(w, r, &in); err != nil {
+		return err
+	}
+	if in.Permisos == nil {
+		return problema.Invalido("Mandá permisos (la lista de los encendidos).", problema.Campo{Ruta: "permisos", Mensaje: "falta"})
+	}
+	ps, err := validarPermisos(in.Permisos)
+	if err != nil {
+		return err
+	}
+	var c Conexion
+	err = s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
+		if err := escanearConexion(tx.QueryRow(ctx, "UPDATE mcp_tokens SET permisos = $2 WHERE id::text = $1 AND "+conexionVigente+
+			" RETURNING "+columnasConexion, r.PathValue("id"), ps), &c); err != nil {
+			return err
+		}
+		return auditoria.Anotar(ctx, tx, auditoria.Registro{Accion: "mcp.conexion_editada", Entidad: "mcp_token", EntidadID: c.ID,
+			Detalle: map[string]any{"nombre": c.Nombre, "permisos": c.Permisos}})
+	})
+	if err != nil {
+		return err
+	}
+	web.JSON(w, http.StatusOK, c)
+	return nil
+}
+
+// desconectar: la conexión OAuth deja de andar al instante (acceso y refresco). Su registro queda.
+func (s *Servicio) desconectar(w http.ResponseWriter, r *http.Request) error {
+	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
+		var nombre string
+		err := tx.QueryRow(ctx, "UPDATE mcp_tokens SET revocado_en = now() WHERE id::text = $1 AND "+conexionVigente+" RETURNING nombre",
+			r.PathValue("id")).Scan(&nombre)
+		if err != nil {
+			return err
+		}
+		return auditoria.Anotar(ctx, tx, auditoria.Registro{Accion: "mcp.conexion_revocada", Entidad: "mcp_token", EntidadID: r.PathValue("id"),
+			Detalle: map[string]any{"nombre": nombre, "por": "panel"}})
+	})
+	if err != nil {
+		return err
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
 // Accion del registro, como la ve el panel («Lo último que hizo la IA»).
 type Accion struct {
-	ID          string          `json:"id"`
-	TokenID     string          `json:"tokenId"`
-	Token       string          `json:"token"`
-	Cliente     string          `json:"cliente"`
+	ID      string `json:"id"`
+	TokenID string `json:"tokenId"`
+	Token   string `json:"token"`
+	Cliente string `json:"cliente"`
+	// Tipo: «clave» (una clave del panel) u «oauth» (un asistente conectado, p. ej. Claude).
+	Tipo        string          `json:"tipo"`
 	Herramienta string          `json:"herramienta"`
 	Titulo      string          `json:"titulo"`
 	Argumentos  json.RawMessage `json:"argumentos"`
@@ -238,7 +325,8 @@ func (s *Servicio) registro(w http.ResponseWriter, r *http.Request) error {
 	}
 	out := []Accion{}
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
-		filas, err := tx.Query(ctx, `SELECT g.id::text, g.token_id::text, k.nombre, k.cliente, g.herramienta,
+		filas, err := tx.Query(ctx, `SELECT g.id::text, g.token_id::text, k.nombre, k.cliente,
+				CASE WHEN k.oauth_cliente IS NULL THEN 'clave' ELSE 'oauth' END, g.herramienta,
 				coalesce(g.argumentos, 'null'::jsonb), g.ok, g.escribe, g.resumen, g.error, g.creado_en
 			FROM mcp_registro g JOIN mcp_tokens k ON k.id = g.token_id
 			WHERE g.creado_en < $1 AND ($2 = '' OR g.token_id::text = $2) AND (NOT $3 OR g.escribe)
@@ -249,7 +337,7 @@ func (s *Servicio) registro(w http.ResponseWriter, r *http.Request) error {
 		out, err = pgx.CollectRows(filas, func(f pgx.CollectableRow) (Accion, error) {
 			var a Accion
 			var args []byte
-			err := f.Scan(&a.ID, &a.TokenID, &a.Token, &a.Cliente, &a.Herramienta, &args, &a.Ok, &a.Escribe, &a.Resumen, &a.Error, &a.CreadoEn)
+			err := f.Scan(&a.ID, &a.TokenID, &a.Token, &a.Cliente, &a.Tipo, &a.Herramienta, &args, &a.Ok, &a.Escribe, &a.Resumen, &a.Error, &a.CreadoEn)
 			a.Argumentos = args
 			if h := buscarHerramienta(a.Herramienta); h != nil {
 				a.Titulo = h.titulo

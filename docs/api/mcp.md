@@ -3,12 +3,17 @@
 Cada negocio puede conectar su asistente de IA (Claude, ChatGPT, Gemini u otro cliente MCP) a Tengo
 Libre para consultar y operar la agenda en lenguaje natural. El modelo lo pone el cliente MCP del
 negocio: a nosotros no nos cuesta IA. Código: `apps/api/internal/dominio/mcp`, migración `00016_mcp.sql`.
-Es lo que usa la sección **Integraciones e IA** del panel («Tu asistente de IA»).
+Es lo que usa la sección **Integraciones e IA** del panel («Tu asistente de IA»). El OAuth (para
+claude.ai y ChatGPT) está en `oauth.go`, migración `00018_mcp_oauth.sql`, y la pantalla de permiso en
+`apps/web/src/routes/conectar`.
 
 ## Cómo se conecta
 
 - URL del servidor: `https://api.tengolibre.com.ar/v1/mcp` (la devuelve también `GET /v1/panel/mcp`).
-- Autenticación: la clave del panel como encabezado `Authorization: Bearer tlmcp_…`.
+- Autenticación, de dos maneras:
+  - **OAuth 2.1** (claude.ai, ChatGPT y cualquier cliente que no deje cargar encabezados): se carga
+    sólo la URL y el asistente pide permiso. Ver [Conectar con OAuth](#conectar-con-oauth-claudeai-chatgpt).
+  - **Clave del panel** como encabezado `Authorization: Bearer tlmcp_…` (Claude Code, Claude Desktop).
 - Transporte: Streamable HTTP (spec MCP 2025-06-18; acepta también 2025-11-25 y 2025-03-26).
 
 **Claude Code**
@@ -35,6 +40,67 @@ claude mcp add --transport http tengolibre https://api.tengolibre.com.ar/v1/mcp 
 En el panel conviene mostrar las dos cosas por separado: la URL (copiable) y la clave, que se ve una
 sola vez al crearla («La clave va aparte y sólo se muestra una vez»).
 
+**claude.ai** (web, escritorio y teléfono): Configuración → Conectores → «Agregar conector
+personalizado», nombre «Tengo Libre» y URL `https://api.tengolibre.com.ar/v1/mcp`, sin nada más.
+Al conectar, claude.ai abre Tengo Libre para dar permiso. **ChatGPT**: lo mismo en Conectores (modo
+desarrollador) con esa URL y autenticación OAuth.
+
+## Conectar con OAuth (claude.ai, ChatGPT)
+
+Según la spec de autorización de MCP (2025-06-18). El authorization server es la misma API
+(`https://api.tengolibre.com.ar`, el origen de `TENGOLIBRE_MCP_URL`); la pantalla de permiso vive
+en el front (`TENGOLIBRE_SITIO` + `/conectar`).
+
+1. El cliente llama a `/v1/mcp` sin token → `401` con
+   `WWW-Authenticate: Bearer realm="TengoLibre", resource_metadata="https://api.tengolibre.com.ar/.well-known/oauth-protected-resource/v1/mcp"`
+   (con un token vencido o inventado, además `error="invalid_token"`).
+2. **Protected Resource Metadata** (RFC 9728), en `/.well-known/oauth-protected-resource/v1/mcp` y en
+   `/.well-known/oauth-protected-resource`: `resource` = la URL del MCP, `authorization_servers` =
+   `["https://api.tengolibre.com.ar"]`.
+3. **Authorization Server Metadata** (RFC 8414) en `/.well-known/oauth-authorization-server`:
+   `authorization_endpoint` `/v1/oauth/authorize`, `token_endpoint` `/v1/oauth/token`,
+   `registration_endpoint` `/v1/oauth/register`, `revocation_endpoint` `/v1/oauth/revoke`, PKCE `S256`,
+   grants `authorization_code` y `refresh_token`, `token_endpoint_auth_methods_supported: ["none"]`
+   (clientes públicos) y `authorization_response_iss_parameter_supported`.
+4. **Registro dinámico** (RFC 7591) `POST /v1/oauth/register` (JSON): `redirect_uris` (1 a 10, `https`
+   o `http` a `localhost`/`127.0.0.1`/`[::1]`; sin fragmento), `client_name` (hasta 60; es el nombre que
+   ve la persona y el que queda en el registro, p. ej. «Claude»). Responde `201` con `client_id`
+   (`tlcli_…`) y `token_endpoint_auth_method: "none"`. Tope global: 300 registros por hora (`429`). Un
+   cliente que nunca canjeó un código se borra a la semana.
+5. **Autorización** `GET /v1/oauth/authorize` (el navegador): `response_type=code`, `client_id`,
+   `redirect_uri` (exacto, de los registrados), `code_challenge` + `code_challenge_method=S256`
+   (obligatorio), `state`, `resource` (RFC 8707: tiene que ser la URL del MCP; si falta, se asume).
+   - Cliente desconocido o `redirect_uri` no registrado: no se vuelve al cliente; va a
+     `/conectar?error=cliente_desconocido|redirect_invalido`.
+   - Otro error (sin PKCE, `plain`, `response_type` ajeno, `resource` ajeno): vuelve al `redirect_uri`
+     con `error` (`invalid_request`, `unsupported_response_type`, `invalid_target`), `state` e `iss`.
+   - Bien: el pedido se guarda 30 minutos y el navegador va a `<sitio>/conectar?solicitud=<id>`.
+6. **/conectar** (front): sin sesión pasa por `/ingresar` y vuelve. Muestra la app («Claude»), a dónde
+   vuelve (`claude.ai`), los negocios de los que la persona es dueña o encargada y los interruptores de
+   permisos (encendidos los de siempre). «Permitir» / «Cancelar» redirigen al `redirect_uri` con
+   `code`, `state` e `iss` (o `error=access_denied`). La página no se deja enmarcar (`frame-ancestors 'none'`).
+7. **Token** `POST /v1/oauth/token` (`application/x-www-form-urlencoded`):
+   - `grant_type=authorization_code`, `code`, `client_id`, `code_verifier`, `redirect_uri` (si va,
+     igual al del pedido), `resource` (si va, la URL del MCP). El código vive 2 minutos y se usa una
+     vez: **reusarlo revoca la conexión** que salió de él.
+   - `grant_type=refresh_token`, `refresh_token`, `client_id`. **Rota**: el refresco viejo y el acceso
+     anterior dejan de servir.
+   - Respuesta: `access_token` (`tlmcp_…`, 1 hora), `token_type: "Bearer"`, `expires_in: 3600`,
+     `refresh_token` (`tlmcpr_…`, 60 días desde el último uso), `scope` (los permisos, separados por
+     espacio). Errores RFC 6749: `invalid_request`, `invalid_client` (401, sin `client_id`),
+     `invalid_grant` (código vencido/usado/de otro cliente, PKCE que no cierra, refresco usado),
+     `invalid_target`, `unsupported_grant_type`.
+8. **Revocación** (RFC 7009) `POST /v1/oauth/revoke` con `token` (acceso o refresco) y `client_id`:
+   siempre `200`; se cae la conexión entera. Sólo conexiones OAuth (una clave del panel se revoca
+   desde el panel).
+
+Lo de OAuth (metadatos, registro, token, revocación) responde CORS `*`: no usa cookies.
+
+Con el token de acceso, `/v1/mcp` funciona igual que con una clave: mismo negocio, mismos permisos
+(los elegidos en /conectar, editables desde el panel), mismo registro, campanita («Lo pidió
+«Claude»») y auditoría (`mcp.conexion_creada` con quien dio el permiso, `mcp.conexion_editada`,
+`mcp.conexion_revocada`). Hasta 10 conexiones vigentes por negocio, aparte de las 10 claves.
+
 ## Protocolo
 
 `POST /v1/mcp` con un mensaje JSON-RPC 2.0 (o un lote). Respuestas `application/json`, sin SSE ni
@@ -49,7 +115,7 @@ sola vez al crearla («La clave va aparte y sólo se muestra una vez»).
 | `tools/call` | `{content: [{type: "text", text: <JSON>}], structuredContent: {...}, isError}`. Un error del negocio (horario ocupado, sólo lectura…) vuelve con `isError: true` y `{error: "<frase>"}`. |
 | otro | error `-32601`. |
 
-- Sin clave, clave inventada o revocada: `401` con `WWW-Authenticate: Bearer`.
+- Sin clave, clave inventada, revocada o token vencido: `401` con `WWW-Authenticate: Bearer … resource_metadata="…"`.
 - Herramienta desconocida o sin permiso: error JSON-RPC `-32602` (y queda en el registro).
 - `MCP-Protocol-Version` desconocida: `400`. `Origin` presente y ajeno: `403`. `GET`/`DELETE /v1/mcp`: `405`.
 - El asistente opera como un encargado: mismas reglas que el panel (disponibilidad, extras, mails al
@@ -115,7 +181,10 @@ escriben respetan el sólo lectura de la prueba vencida (`402 suscripcion_requer
 }
 ```
 
-`tokens`: las claves vigentes (las revocadas no). `pista`: los últimos 4 caracteres de la clave.
+Además trae `conexiones`: los asistentes conectados por OAuth (vigentes), como
+`{ "id", "nombre": "Claude", "permisos": [...], "cliente": "claude-ai 0.1.0", "creadoEn", "usadoEn", "autorizadoPor": "user_…" }`.
+
+`tokens`: las claves vigentes (las revocadas no; las conexiones OAuth tampoco, van en `conexiones`). `pista`: los últimos 4 caracteres de la clave.
 `cliente`: el `clientInfo` del último `initialize` (vacío si nunca se conectó; sirve para «Conectado»).
 `usadoEn`: el último pedido (se actualiza a lo sumo una vez por minuto).
 
@@ -138,6 +207,16 @@ está revocada. Un permiso desconocido: `400`.
 
 Revoca la clave: deja de andar al instante (`401` en el servidor MCP). `204`. Su registro queda.
 
+### `PATCH /v1/panel/mcp/conexiones/{id}`
+
+Cuerpo: `{"permisos": [...]}` (la lista entera de los encendidos). Valen al instante, también con el
+token de acceso que ya tiene el asistente. Respuesta `200`: la `Conexion`. `404` si no existe o ya no está.
+
+### `DELETE /v1/panel/mcp/conexiones/{id}`
+
+Desconecta el asistente: el token de acceso y el de refresco dejan de andar al instante. `204`. Su
+registro queda. (Para volver a conectarlo, la persona repite el permiso desde el asistente.)
+
 ### `GET /v1/panel/mcp/registro`
 
 «Lo último que hizo la IA». Query: `token` (id), `soloCambios=1` (sólo lo que cambió algo), `antes`
@@ -145,7 +224,7 @@ Revoca la clave: deja de andar al instante (`401` en el servidor MCP). `204`. Su
 
 ```json
 { "acciones": [{
-  "id": "…", "tokenId": "…", "token": "Claude de Carla", "cliente": "claude-ai 0.1.0",
+  "id": "…", "tokenId": "…", "token": "Claude de Carla", "cliente": "claude-ai 0.1.0", "tipo": "clave",
   "herramienta": "crear_turno", "titulo": "Crear un turno",
   "argumentos": { "servicioId": "…", "fecha": "2026-11-02", "hora": "09:00", "cliente": { "nombre": "María Gómez", "telefono": "(dado)" } },
   "ok": true, "escribe": true,
@@ -165,4 +244,11 @@ cada acción nueva avisa por el SSE del panel con tipo `mcp_registro`.
   `usado_en`, `revocado_en`. La clave se resuelve antes de fijar el negocio con
   `app.negocio_del_mcp(hash_hex)` (SECURITY DEFINER, política `por_hash` acotada por el setting
   `app.mcp_hash`, como `app.negocio_del_calendario`).
-- `mcp_registro` (RLS por negocio): una fila por `tools/call`.
+- `mcp_registro` (RLS por negocio): una fila por `tools/call`. `tipo` en la respuesta: `clave` u
+  `oauth` (en ese caso `token` es el nombre de la app, p. ej. «Claude»).
+- Conexiones OAuth (`00018`): son filas de `mcp_tokens` con `oauth_cliente`; `hash` es el del token de
+  acceso vigente (`acceso_vence`), y `refresco_hash`/`refresco_vence` el de refresco, que rota. El
+  refresco se resuelve con `app.negocio_del_refresco(hash_hex)` (política `por_refresco`).
+  `app.negocio_del_mcp` ya no resuelve un acceso vencido.
+- `auth.oauth_clientes` (registro dinámico) y `auth.oauth_autorizaciones` (pedido → decisión → código,
+  sólo hashes), globales como las sesiones.
