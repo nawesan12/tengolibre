@@ -39,6 +39,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/servidor"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/tiemporeal"
 )
 
 // version la pone el build: -ldflags "-X main.version=<commit>".
@@ -89,11 +90,15 @@ func correr() error {
 	pro := &promos.Servicio{Pool: app, Sesion: ses, Escritura: sus.Escritura}
 	mem := &membresias.Servicio{Pool: app, Sesion: ses, Escritura: sus.Escritura}
 	go cob.RenovarCada(ctx, 6*time.Hour)
+	// Tiempo real: los cambios que avisa Postgres van por SSE a los paneles abiertos.
+	tr := &tiemporeal.Servicio{Pool: app, Sesion: ses}
+	go tr.Escuchar(ctx)
 	srv := &http.Server{
 		Addr: cfg.Direccion,
 		Handler: servidor.Nuevo(servidor.Dependencias{App: app, Version: version, Origenes: cfg.Origenes,
 			Dominios: []servidor.Dominio{
 				ses, // ingreso con Clerk y sesiones propias
+				tr,
 				&negocios.Servicio{Pool: app, Sesion: ses},
 				&catalogo.Servicio{Pool: app, Sesion: ses},
 				// El orden de Extras importa: membresía, después cupón, y el cobro último (sobre el precio final).
