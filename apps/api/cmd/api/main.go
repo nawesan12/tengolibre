@@ -32,6 +32,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/promos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/push"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/recordatorios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/reportes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/resenas"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/suscripcion"
@@ -124,6 +125,7 @@ func correr() error {
 				&clientes.Servicio{Pool: app, Sesion: ses},
 				&reportes.Servicio{Pool: app, Sesion: ses},
 				&caja.Servicio{Pool: app, Sesion: ses},
+				&recordatorios.Servicio{Pool: app, Sesion: ses, Sitio: cfg.Sitio},
 				av,
 				cob, pro, mem, sus,
 				&resenas.Servicio{Pool: app, Sesion: ses},
