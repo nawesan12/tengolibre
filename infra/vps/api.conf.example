@@ -7,3 +7,11 @@ TENGOLIBRE_BASE_DE_DATOS_MIGRADOR=postgres://tengolibre_migrador:CLAVE_MIGRADOR@
 TENGOLIBRE_BASE_DE_DATOS_ADMIN=postgres://postgres:CLAVE_POSTGRES@postgres:5432/postgres?sslmode=disable
 TENGOLIBRE_CLAVE_APP=CLAVE_APP
 TENGOLIBRE_CLAVE_MIGRADOR=CLAVE_MIGRADOR
+# Imágenes subidas (carpeta dentro del contenedor, montada desde /opt/tengolibre/archivos).
+TENGOLIBRE_ARCHIVOS=/datos/archivos
+TENGOLIBRE_ARCHIVOS_URL=https://api.tengolibre.com.ar/archivos
+# Equipo de TengoLibre (admin de la plataforma): Clerk IDs separados por coma.
+TENGOLIBRE_ADMINS=
+# Dominios propios: destino del CNAME (registro DNS-only, sin proxy de Cloudflare) e IP del VPS.
+TENGOLIBRE_DOMINIOS_DESTINO=dominios.tengolibre.com.ar
+TENGOLIBRE_VPS_IP=187.41.102.190

@@ -2,6 +2,9 @@
 //
 //	tengolibrectl bootstrap   crea roles y base (superusuario: TENGOLIBRE_BASE_DE_DATOS_ADMIN)
 //	tengolibrectl migrar      aplica las migraciones (TENGOLIBRE_BASE_DE_DATOS_MIGRADOR)
+//	tengolibrectl dominios-caddy
+//	                          escribe en stdout los bloques de Caddy de los dominios propios
+//	                          verificados (los instala infra/vps/dominios.sh, que valida y vuelve atrás)
 //
 // Las claves de los roles salen de TENGOLIBRE_CLAVE_<ROL> (vacías en desarrollo).
 package main
@@ -19,7 +22,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "uso: tengolibrectl bootstrap|migrar")
+		fmt.Fprintln(os.Stderr, "uso: tengolibrectl bootstrap|migrar|dominios-caddy")
 		os.Exit(2)
 	}
 	if err := correr(os.Args[1]); err != nil {
@@ -59,6 +62,15 @@ func correr(cmd string) error {
 			return err
 		}
 		fmt.Println("migraciones aplicadas")
+	case "dominios-caddy":
+		if err := cfg.Exigir("BaseMigrador"); err != nil {
+			return err
+		}
+		ds, err := dominiosVerificados(ctx, cfg.BaseMigrador)
+		if err != nil {
+			return err
+		}
+		fmt.Print(BloquesCaddy(ds))
 	default:
 		return fmt.Errorf("comando desconocido: %s", cmd)
 	}

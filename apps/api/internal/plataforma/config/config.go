@@ -20,6 +20,14 @@ type Config struct {
 	ClerkSecreto, ClerkPublicable string
 	// Orígenes del front (CORS y `azp` de Clerk). Vacío: el sitio.
 	Origenes []string
+	// Archivos: la carpeta donde se guardan las imágenes subidas y la base pública con que se sirven
+	// (<ArchivosURL>/<negocio>/<nombre>).
+	Archivos, ArchivosURL string
+	// Admins: los Clerk IDs del equipo de TengoLibre (la administración de la plataforma).
+	Admins []string
+	// Dominios propios: el host al que apunta el CNAME del cliente y la IP del VPS (para el A de un
+	// dominio raíz, que no admite CNAME).
+	DominiosDestino, VPSIP string
 }
 
 // Desarrollo dice si se está corriendo en local.
@@ -37,6 +45,11 @@ func Leer() (Config, error) {
 		ClerkSecreto:    os.Getenv("TENGOLIBRE_CLERK_SECRETO"),
 		ClerkPublicable: os.Getenv("TENGOLIBRE_CLERK_PUBLICABLE"),
 		Origenes:        lista(os.Getenv("TENGOLIBRE_ORIGENES")),
+		Archivos:        valor("TENGOLIBRE_ARCHIVOS", "/datos/archivos"),
+		ArchivosURL:     strings.TrimSuffix(valor("TENGOLIBRE_ARCHIVOS_URL", "https://api.tengolibre.com.ar/archivos"), "/"),
+		Admins:          lista(os.Getenv("TENGOLIBRE_ADMINS")),
+		DominiosDestino: valor("TENGOLIBRE_DOMINIOS_DESTINO", "dominios.tengolibre.com.ar"),
+		VPSIP:           valor("TENGOLIBRE_VPS_IP", "187.41.102.190"),
 	}
 	switch c.Entorno {
 	case "desarrollo", "staging", "produccion":
@@ -51,6 +64,9 @@ func Leer() (Config, error) {
 		c.BaseMigrador = conDefecto(c.BaseMigrador, fmt.Sprintf(local, "tengolibre_migrador", "tengolibre_dev"))
 		c.BaseAdmin = conDefecto(c.BaseAdmin, fmt.Sprintf(local, "tengolibre", "tengolibre"))
 		c.Sitio = conDefecto(os.Getenv("TENGOLIBRE_SITIO"), "http://localhost:5173")
+		// En local, los archivos van a una carpeta del repo (ignorada) y los sirve la propia API.
+		c.Archivos = conDefecto(os.Getenv("TENGOLIBRE_ARCHIVOS"), "archivos")
+		c.ArchivosURL = strings.TrimSuffix(conDefecto(os.Getenv("TENGOLIBRE_ARCHIVOS_URL"), "http://localhost:4200/archivos"), "/")
 	}
 	if len(c.Origenes) == 0 {
 		c.Origenes = []string{c.Sitio}
