@@ -39,7 +39,7 @@ export function elegirNegocio(cookies: Cookies, id: string) {
  */
 export const COOKIE_VOLVER = 'tl_volver';
 export const volverValido = (v: string | null | undefined): v is string =>
-	!!v && v.length < 2000 && !v.includes('\\') && /^\/(panel|admin|empezar|invitacion)(\/[^/]|\?|$)/.test(v);
+	!!v && v.length < 2000 && !v.includes('\\') && /^\/(panel|admin|empezar|invitacion|mi-cuenta)(\/[^/]|\?|$)/.test(v);
 
 export function destino(cookies: Cookies) {
 	const v = cookies.get(COOKIE_VOLVER);
