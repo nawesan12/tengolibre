@@ -93,6 +93,7 @@ func correr() error {
 		Addr: cfg.Direccion,
 		Handler: servidor.Nuevo(servidor.Dependencias{App: app, Version: version, Origenes: cfg.Origenes,
 			Dominios: []servidor.Dominio{
+				ses, // ingreso con Clerk y sesiones propias
 				&negocios.Servicio{Pool: app, Sesion: ses},
 				&catalogo.Servicio{Pool: app, Sesion: ses},
 				// El orden de Extras importa: membresía, después cupón, y el cobro último (sobre el precio final).

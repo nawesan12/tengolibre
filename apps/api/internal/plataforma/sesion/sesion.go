@@ -49,6 +49,8 @@ type Sesion struct {
 	ClerkID   string
 	NegocioID string
 	Rol       string
+	// Persona: con sesión propia viene de la base; con token de Clerk, vacía.
+	Persona Persona
 }
 
 type clave struct{}
@@ -100,7 +102,25 @@ func token(r *http.Request) string {
 func (s *Servicio) Persona(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		t := token(r)
-		if s.Verificador == nil || t == "" {
+		if t == "" {
+			problema.Escribir(w, problema.SinSesion())
+			return
+		}
+		// Sesión propia (la de todos los días) o, si no, un token de Clerk.
+		if strings.HasPrefix(t, Prefijo) {
+			p, err := s.propia(r.Context(), t)
+			if err != nil {
+				if !errors.Is(err, pgx.ErrNoRows) {
+					problema.Escribir(w, problema.Interno())
+					return
+				}
+				problema.Escribir(w, problema.SinSesion())
+				return
+			}
+			next(w, r.WithContext(ConSesion(r.Context(), Sesion{ClerkID: p.ClerkID, Persona: p})))
+			return
+		}
+		if s.Verificador == nil {
 			problema.Escribir(w, problema.SinSesion())
 			return
 		}
