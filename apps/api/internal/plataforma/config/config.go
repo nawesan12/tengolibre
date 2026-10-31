@@ -28,6 +28,8 @@ type Config struct {
 	Archivos, ArchivosURL string
 	// Admins: los Clerk IDs del equipo de TengoLibre (la administración de la plataforma).
 	Admins []string
+	// AdminsEmails: emails del equipo; vale el email verificado de la persona en Clerk.
+	AdminsEmails []string
 	// Dominios propios: el host al que apunta el CNAME del cliente y la IP del VPS (para el A de un
 	// dominio raíz, que no admite CNAME).
 	DominiosDestino, VPSIP string
@@ -61,6 +63,7 @@ func Leer() (Config, error) {
 		Archivos:        valor("TENGOLIBRE_ARCHIVOS", "/datos/archivos"),
 		ArchivosURL:     strings.TrimSuffix(valor("TENGOLIBRE_ARCHIVOS_URL", "https://api.tengolibre.com.ar/archivos"), "/"),
 		Admins:          lista(os.Getenv("TENGOLIBRE_ADMINS")),
+		AdminsEmails:    lista(os.Getenv("TENGOLIBRE_ADMINS_EMAILS")),
 		DominiosDestino: valor("TENGOLIBRE_DOMINIOS_DESTINO", "dominios.tengolibre.com.ar"),
 		VPSIP:           valor("TENGOLIBRE_VPS_IP", "187.41.102.190"),
 

@@ -8,12 +8,14 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -31,8 +33,50 @@ type Servicio struct {
 	Sesion *sesion.Servicio
 	// Admins: los Clerk IDs del equipo (TENGOLIBRE_ADMINS). Vacío: nadie.
 	Admins []string
+	// AdminsEmails: emails del equipo (TENGOLIBRE_ADMINS_EMAILS). Vale el email verificado de la
+	// persona en Clerk, así alguien es admin desde su primer ingreso, sin conocer antes su ID.
+	AdminsEmails []string
 	// Ahora: el reloj (nil: time.Now).
 	Ahora func() time.Time
+
+	mu     sync.Mutex
+	vistos map[string]visto
+}
+
+// visto: lo que dijo Clerk de una persona, para no preguntarle en cada pedido (limita por IP).
+type visto struct {
+	admin bool
+	hasta time.Time
+}
+
+// esAdmin: por ID, o por email verificado (consultado a Clerk y guardado 10 minutos).
+func (s *Servicio) esAdmin(ctx context.Context, clerkID string) bool {
+	if slices.Contains(s.Admins, clerkID) {
+		return true
+	}
+	if len(s.AdminsEmails) == 0 || s.Sesion.Verificador == nil {
+		return false
+	}
+	ahora := s.ahora()
+	s.mu.Lock()
+	v, ok := s.vistos[clerkID]
+	s.mu.Unlock()
+	if ok && ahora.Before(v.hasta) {
+		return v.admin
+	}
+	u, err := s.Sesion.Verificador.Usuario(ctx, clerkID)
+	if err != nil {
+		return false
+	}
+	// u.Email viene vacío si la persona no tiene ningún email verificado.
+	es := u.Email != "" && slices.ContainsFunc(s.AdminsEmails, func(e string) bool { return strings.EqualFold(e, u.Email) })
+	s.mu.Lock()
+	if s.vistos == nil {
+		s.vistos = map[string]visto{}
+	}
+	s.vistos[clerkID] = visto{admin: es, hasta: ahora.Add(10 * time.Minute)}
+	s.mu.Unlock()
+	return es
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -54,7 +98,7 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 // administración no se anuncia.
 func (s *Servicio) admin(h web.Manejador) http.HandlerFunc {
 	return s.Sesion.Persona(web.Envolver(func(w http.ResponseWriter, r *http.Request) error {
-		if !slices.Contains(s.Admins, sesion.De(r.Context()).ClerkID) {
+		if !s.esAdmin(r.Context(), sesion.De(r.Context()).ClerkID) {
 			return problema.NoEncontrado("Esa ruta no existe.")
 		}
 		return h(w, r)

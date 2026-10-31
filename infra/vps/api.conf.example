@@ -17,6 +17,8 @@ TENGOLIBRE_ARCHIVOS=/datos/archivos
 TENGOLIBRE_ARCHIVOS_URL=https://api.tengolibre.com.ar/archivos
 # Equipo de TengoLibre (admin de la plataforma): Clerk IDs separados por coma.
 TENGOLIBRE_ADMINS=
+# Emails del equipo: vale el email verificado de la persona en Clerk.
+TENGOLIBRE_ADMINS_EMAILS=
 # Dominios propios: destino del CNAME (registro DNS-only, sin proxy de Cloudflare) e IP del VPS.
 TENGOLIBRE_DOMINIOS_DESTINO=dominios.tengolibre.com.ar
 TENGOLIBRE_VPS_IP=187.41.102.190

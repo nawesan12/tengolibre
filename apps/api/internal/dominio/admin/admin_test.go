@@ -33,7 +33,7 @@ func armar(t *testing.T) *prueba.API {
 			&turnos.Servicio{Pool: app, Sesion: a.Sesion, Ahora: a.Reloj()},
 			&directorio.Servicio{Pool: app, Sesion: a.Sesion, Ahora: a.Reloj()},
 			&arranque.Servicio{Pool: app, Sesion: a.Sesion},
-			&admin.Servicio{Pool: app, Sesion: a.Sesion, Admins: []string{equipo}, Ahora: a.Reloj()},
+			&admin.Servicio{Pool: app, Sesion: a.Sesion, Admins: []string{equipo}, AdminsEmails: []string{"Socia0001@Prueba.TengoLibre.com.ar"}, Ahora: a.Reloj()},
 		}
 	})
 }
@@ -161,4 +161,11 @@ func TestArranque(t *testing.T) {
 	if e.Reservable {
 		t.Fatal("dos no tiene nada cargado")
 	}
+}
+
+// Por email verificado en Clerk (sin importar mayúsculas) también es admin; otro email, no.
+func TestAdminPorEmail(t *testing.T) {
+	a := armar(t)
+	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/admin/estadisticas", Quien: "user_socia0001"}, nil)
+	a.Esperar(404, P{Metodo: "GET", Ruta: "/v1/admin/estadisticas", Quien: "user_otrapersona"}, nil)
 }

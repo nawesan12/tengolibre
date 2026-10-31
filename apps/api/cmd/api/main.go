@@ -111,7 +111,7 @@ func correr() error {
 				&directorio.Servicio{Pool: app, Sesion: ses},
 				&grupos.Servicio{Pool: app, Sesion: ses},
 				&arranque.Servicio{Pool: app, Sesion: ses},
-				&admin.Servicio{Pool: app, Sesion: ses, Admins: cfg.Admins},
+				&admin.Servicio{Pool: app, Sesion: ses, Admins: cfg.Admins, AdminsEmails: cfg.AdminsEmails},
 			}}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
