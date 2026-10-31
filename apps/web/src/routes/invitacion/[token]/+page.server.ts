@@ -2,10 +2,13 @@ import { error, redirect, type RequestEvent } from '@sveltejs/kit';
 import { apiDe, apiPublica, ErrorApi } from '#lib/server/api.ts';
 import { intentar } from '#lib/server/acciones.ts';
 import { elegirNegocio } from '#lib/server/sesion.ts';
-import { codigoValido, o404 } from '#lib/publico/api.server.ts';
+import { codigoValido, o404, opcional } from '#lib/publico/api.server.ts';
+import type { Pagina } from '#lib/publico/tipos.ts';
+import type { Invitacion } from '#lib/cuenta/contratos.ts';
+import { colorValido } from '#lib/cuenta/presentacion.ts';
+import { linkWhatsapp } from '#lib/publico/textos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
-type Invitacion = { negocio: string; slug: string; email: string; rol: string; vencida: boolean; aceptada: boolean };
 type Aceptada = { negocio: { id: string; slug: string; nombre: string; rol: string } };
 
 const aceptar = (e: Pick<RequestEvent, 'locals' | 'fetch'>, token: string) => apiDe(e).post<Aceptada>(`/v1/invitaciones/${token}/aceptar`);
@@ -30,7 +33,15 @@ export const load: PageServerLoad = async (event) => {
 		}
 		if (!falla) redirect(303, '/panel');
 	}
-	return { invitacion, usable, falla };
+	// La página pública del negocio da su color y cómo escribirle (si no está publicada, sin eso).
+	const p = await opcional(apiPublica(fetch).get<Pagina>(`/v1/p/${invitacion.slug}`), null);
+	const negocio = {
+		color: colorValido(p?.web?.colorPrimario, '#3ccc90'),
+		logo: p?.negocio.logo ?? null,
+		whatsapp: p ? linkWhatsapp(p.negocio.whatsapp || '') : '',
+		publicada: !!p
+	};
+	return { invitacion, usable, falla, negocio };
 };
 
 export const actions: Actions = {

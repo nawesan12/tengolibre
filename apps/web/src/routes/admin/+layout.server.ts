@@ -1,6 +1,7 @@
 import type { Persona } from '#lib/server/api.ts';
 import { conSesion } from '#lib/cuenta/ingreso.server.ts';
 import type { Estadisticas } from '#lib/cuenta/tipos.ts';
+import type { EstadisticasExtra } from '#lib/cuenta/contratos.ts';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -13,7 +14,7 @@ export const load: LayoutServerLoad = (event) =>
 		event,
 		async (api) => {
 			const [estadisticas, persona] = await Promise.all([
-				api.get<Estadisticas>('/v1/admin/estadisticas'),
+				api.get<Estadisticas & EstadisticasExtra>('/v1/admin/estadisticas'),
 				api.get<Persona>('/v1/auth/persona')
 			]);
 			return { estadisticas, persona };
