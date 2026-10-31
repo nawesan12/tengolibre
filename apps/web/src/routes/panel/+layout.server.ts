@@ -3,6 +3,8 @@ import { apiDe, ErrorApi, type NegocioDeLaPersona, type Persona } from '#lib/ser
 import { borrarSesion, elegirNegocio } from '#lib/server/sesion.ts';
 import type { LayoutServerLoad } from './$types';
 
+export type Acceso = { bloqueado: boolean; pruebaHasta: string | null; diasDePrueba: number; conSuscripcion: boolean };
+
 /**
  * El panel exige sesión y un negocio. El negocio elegido vive en una cookie; si no es de la persona
  * (o no hay), se toma el primero. Sin negocios, a darse de alta.
@@ -34,9 +36,15 @@ export const load: LayoutServerLoad = async (event) => {
 	}
 	// El contador de la campanita: se recarga con el tiempo real; si falla, la barra sigue sin número.
 	event.depends('panel:notificaciones');
-	const sinLeer = await apiDe(event)
-		.get<{ sinLeer: number }>('/v1/panel/campanita/sin-leer')
-		.then((r) => r.sinLeer)
-		.catch(() => 0);
-	return { persona, negocios, negocio, sinLeer };
+	// Y el acceso: con la prueba vencida el panel avisa arriba que está en sólo lectura.
+	const [sinLeer, acceso] = await Promise.all([
+		apiDe(event)
+			.get<{ sinLeer: number }>('/v1/panel/campanita/sin-leer')
+			.then((r) => r.sinLeer)
+			.catch(() => 0),
+		apiDe(event)
+			.get<Acceso>('/v1/panel/acceso')
+			.catch(() => null)
+	]);
+	return { persona, negocios, negocio, sinLeer, acceso };
 };

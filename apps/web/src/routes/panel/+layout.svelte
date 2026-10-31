@@ -54,6 +54,22 @@
 	</nav>
 
 	<main class="contenido">
+		{#if data.acceso?.bloqueado}
+			<div class="aviso-lectura" role="status">
+				<strong>Tu prueba gratis terminó.</strong>
+				{#if data.negocio.rol === 'duenio'}
+					Podés ver todo, pero para hacer cambios <a href="/panel/suscripcion">elegí un plan</a>.
+				{:else}
+					Podés ver todo; para hacer cambios, el dueño tiene que elegir un plan.
+				{/if}
+				Tu página sigue tomando reservas.
+			</div>
+		{:else if data.acceso && !data.acceso.conSuscripcion && data.acceso.pruebaHasta && data.acceso.diasDePrueba <= 3 && data.negocio.rol === 'duenio'}
+			<div class="aviso-lectura suave" role="status">
+				{data.acceso.diasDePrueba === 1 ? 'Te queda 1 día' : `Te quedan ${data.acceso.diasDePrueba} días`} de prueba.
+				<a href="/panel/suscripcion">Elegí un plan</a> para no perder los cambios.
+			</div>
+		{/if}
 		{@render children()}
 	</main>
 </div>
@@ -77,6 +93,14 @@
 	}
 	.menu {
 		display: none;
+	}
+	.aviso-lectura {
+		margin-bottom: 16px;
+		padding: 10px 14px;
+		border: 1px solid var(--borde);
+		border-radius: 8px;
+		background: var(--superficie);
+		text-wrap: pretty;
 	}
 	.barra > strong {
 		margin-right: auto;

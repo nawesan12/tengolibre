@@ -22,6 +22,7 @@ import (
 func (s *Servicio) Rutas(mux *http.ServeMux) {
 	ses := s.Sesion
 	mux.HandleFunc("GET /v1/panel/suscripcion", ses.Panel(sesion.Gestion, web.Envolver(s.leer)))
+	mux.HandleFunc("GET /v1/panel/acceso", ses.Panel(sesion.Agenda, web.Envolver(s.acceso)))
 	mux.HandleFunc("POST /v1/panel/suscripcion", ses.Panel([]string{sesion.Duenio}, web.Envolver(s.suscribir)))
 	mux.HandleFunc("POST /v1/panel/suscripcion/cancelar", ses.Panel([]string{sesion.Duenio}, web.Envolver(s.cancelar)))
 }
@@ -51,6 +52,21 @@ func (s *Servicio) leer(w http.ResponseWriter, r *http.Request) error {
 	}
 	out.Catalogo = Planes
 	web.JSON(w, http.StatusOK, out)
+	return nil
+}
+
+// acceso es lo mínimo que necesita cualquier rol del panel para avisar que está en sólo lectura.
+func (s *Servicio) acceso(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	var a Acceso
+	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) (err error) {
+		a, err = LeerAcceso(ctx, tx, s.ahora())
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	web.JSON(w, http.StatusOK, a)
 	return nil
 }
 

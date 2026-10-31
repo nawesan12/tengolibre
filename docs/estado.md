@@ -9,6 +9,8 @@ horarios, mi web, pagos, membresías, cupones, referidos, reportes, configuraci�
 sucursales, mi cuenta y admin. Estilo neutro provisorio: la UI final sale del handoff.
 Ingreso: Google y Apple por Clerk producción, canjeado por una sesión propia de la API (30 días).
 Tiempo real: SSE de la API (`/v1/panel/eventos`, LISTEN/NOTIFY) reenviado por `/panel/eventos`.
+Con la prueba vencida, todo el panel muestra arriba que está en sólo lectura (`GET /v1/panel/acceso`,
+que puede leer cualquier rol); al dueño, además, los últimos 3 días de prueba.
 
 Desplegar el front: `cd apps/web && bun run build`, `rsync -az --delete build/ root@187.41.102.190:/opt/tengolibre/web/build/`
 y `docker compose restart web` en /opt/tengolibre. Config en `/opt/tengolibre/web.conf`.
@@ -65,8 +67,7 @@ sólo lectura), `web`, `problema`, `archivos`, `correo`, `auditoria`, `trabajos`
 4. Dominios propios: el DNS `dominios.tengolibre.com.ar` ya existe (sin proxy). Falta correr
    `infra/vps/dominios.sh` después de la primera verificación (coordinar con las otras apps, que
    comparten Caddy) y ponerle un timer.
-5. Banner de sólo lectura en todo el panel cuando vence la prueba (hoy lo muestran las páginas de plata).
-6. Membresías en la reserva pública: requiere identificar al cliente (hoy sólo desde el panel).
+5. Membresías en la reserva pública: requiere identificar al cliente (hoy sólo desde el panel).
 
 ## Desplegar
 ```bash

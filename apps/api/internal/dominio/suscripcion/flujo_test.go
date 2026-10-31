@@ -66,6 +66,11 @@ func TestPanelEnSoloLecturaConLaPruebaVencida(t *testing.T) {
 	e.Panel(402, "PATCH", "/v1/panel/negocio", map[string]any{"nombre": "Otro"}, nil)
 	e.Panel(200, "GET", "/v1/panel/servicios", nil, nil)
 	e.Reservar(201, "09:00", "1111", nil)
+	// El aviso de sólo lectura que muestra el panel a cualquier rol.
+	var a suscripcion.Acceso
+	if e.Panel(200, "GET", "/v1/panel/acceso", nil, &a); !a.Bloqueado || a.Plan != "sin_plan" {
+		t.Fatalf("acceso: %+v", a)
+	}
 
 	// Suscribirse sí se puede (es lo que destraba). El link es de la cuenta de la plataforma.
 	e.Panel(400, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "oro"}, nil)

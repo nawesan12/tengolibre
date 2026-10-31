@@ -1,5 +1,6 @@
 import { expect, test, type Page } from './base.ts';
 import { negocioNuevo, unico } from './ayuda.ts';
+import { sql } from './publico-ayuda.ts';
 
 /** La API de las pruebas (la misma que levanta playwright.config.ts). */
 const API = `http://127.0.0.1:${process.env.E2E_API_PUERTO ?? '4290'}`;
@@ -196,6 +197,19 @@ test('suscripción en prueba y Mercado Pago sin configurar', async ({ page }) =>
 	await expect(page.getByRole('alert')).toBeVisible();
 	await abrir(page, '/panel/mercadopago/vuelta?error=access_denied');
 	await expect(page.getByRole('alert')).toContainText('No se autorizó');
+});
+
+test('con la prueba vencida, todo el panel avisa que está en sólo lectura', async ({ page }) => {
+	const slug = await negocioNuevo(page);
+	await expect(page.getByText('Tu prueba gratis terminó')).toHaveCount(0);
+
+	sql(`UPDATE negocios SET prueba_hasta = now() - interval '1 hour' WHERE slug = :'p1'`, slug);
+	for (const ruta of ['/panel', '/panel/servicios', '/panel/clientes']) {
+		await abrir(page, ruta);
+		await expect(page.getByText('Tu prueba gratis terminó')).toBeVisible();
+	}
+	await page.getByRole('link', { name: 'elegí un plan' }).click();
+	await expect(page).toHaveURL(/\/panel\/suscripcion$/);
 });
 
 test('membresías, referidos y dominio, sin desbordar en el teléfono', async ({ page }) => {
