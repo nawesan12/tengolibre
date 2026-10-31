@@ -1,4 +1,4 @@
-import { expect, test, type Page } from './base.ts';
+import { expect, hidratada, test, type Page } from './base.ts';
 import { unico } from './ayuda.ts';
 import { hoy, idPersona, invitar, negocioConAgenda, socio, sql } from './publico-ayuda.ts';
 
@@ -107,13 +107,14 @@ test('reserva completa, reprogramar, cancelar y reseña', async ({ page }) => {
 	sql(`INSERT INTO preferencias (cliente_id, negocio_id, token)
 		SELECT cliente_id, negocio_id, :'p1' FROM turnos WHERE codigo = :'p2' ON CONFLICT (cliente_id) DO UPDATE SET token = excluded.token`, pref, codigo);
 	await page.goto(`/mi-cuenta/avisos/${pref}`);
-	await expect(page.getByRole('heading', { name: /Tus avisos/ })).toBeVisible();
-	await page.getByLabel(/Recordatorios/).uncheck();
-	await page.getByRole('button', { name: 'Guardar' }).click();
+	await expect(page.getByRole('heading', { name: '¿Qué mails querés recibir?' })).toBeVisible();
+	await hidratada(page);
+	// Cada llave guarda sola al tocarla.
+	await page.getByLabel(/Recordatorio del turno/).uncheck();
 	await expect(page.getByText('Guardamos tus preferencias.')).toBeVisible();
 	await page.reload();
-	await expect(page.getByLabel(/Recordatorios/)).not.toBeChecked();
-	await expect(page.getByLabel(/Avisos de mis turnos/)).toBeChecked();
+	await expect(page.getByLabel(/Recordatorio del turno/)).not.toBeChecked();
+	await expect(page.getByLabel(/Cambios en tus turnos/)).toBeChecked();
 });
 
 test('reservar funciona sin JavaScript', async ({ browser }) => {
@@ -152,7 +153,7 @@ test('explorar encuentra el negocio por ciudad y texto', async ({ page }) => {
 	const ciudad = `Ciudad${unico()}`;
 	const a = await negocioConAgenda({ ciudad });
 	await page.goto('/explorar');
-	await expect(page.getByRole('heading', { name: /Encontrá dónde sacar/ })).toBeVisible();
+	await expect(page.getByRole('heading', { name: /Buscá dónde sacar/ })).toBeVisible();
 	await page.getByLabel('Ciudad', { exact: true }).fill(ciudad);
 	await page.getByLabel('Buscar', { exact: true }).fill('lavado');
 	await page.getByRole('button', { name: 'Buscar' }).click();
@@ -170,7 +171,7 @@ test('un negocio que no existe y un link roto dan 404', async ({ page }) => {
 	expect((await page.goto(`/turno/codigoquenoexiste123`))?.status()).toBe(404);
 	// Las rutas fijas ganan al comodín del slug.
 	await page.goto('/explorar');
-	await expect(page.getByRole('heading', { name: /Encontrá dónde sacar/ })).toBeVisible();
+	await expect(page.getByRole('heading', { name: /Buscá dónde sacar/ })).toBeVisible();
 });
 
 test('el socio ingresa desde la reserva y usa su membresía', async ({ page }) => {
@@ -207,7 +208,7 @@ test('invitación: sin sesión pide ingresar y al volver la acepta', async ({ pa
 	await expect(page).toHaveURL(/\/panel/);
 	await expect(page.getByText(a.nombre).first()).toBeVisible();
 	await page.goto(`/invitacion/${tk}`);
-	await expect(page.getByText('Esta invitación ya se usó.')).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Ya la usaste' })).toBeVisible();
 });
 
 test('dominio propio: /_host traduce el host al slug', async ({ request }) => {
