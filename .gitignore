@@ -3,3 +3,4 @@ CREDENCIALES.md
 *.local
 /apps/api/bin/
 .DS_Store
+.claude/
