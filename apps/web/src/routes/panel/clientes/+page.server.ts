@@ -1,14 +1,15 @@
 import { redirect } from '@sveltejs/kit';
 import { apiDe } from '#lib/server/api.ts';
 import { intentar } from '#lib/server/acciones.ts';
-import { param } from '#lib/operacion/servidor.ts';
+import { param, siExiste } from '#lib/operacion/servidor.ts';
+import type { Recordatorio } from '#lib/operacion/contrato.ts';
 import type { Cliente, EtiquetaConUso } from '#lib/operacion/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 const ORDENES = ['nombre', 'reciente', 'ultima', 'gastado', 'visitas'];
 
 export const load: PageServerLoad = async (event) => {
-	event.depends('panel:clientes', 'panel:turnos');
+	event.depends('panel:clientes', 'panel:turnos', 'panel:recordatorios');
 	const { url } = event;
 	const filtros = {
 		q: param(url, 'q'),
@@ -22,14 +23,22 @@ export const load: PageServerLoad = async (event) => {
 	if (filtros.etiqueta) q.set('etiqueta', filtros.etiqueta);
 	if (filtros.penalizados) q.set('penalizados', '1');
 	const api = apiDe(event);
-	const [lista, { etiquetas }] = await Promise.all([
+	const { negocio } = await event.parent();
+	const [lista, { etiquetas }, recordatorios] = await Promise.all([
 		api.get<{ clientes: Cliente[]; total: number; pagina: number; porPagina: number }>(`/v1/panel/clientes?${q}`),
-		api.get<{ etiquetas: EtiquetaConUso[] }>('/v1/panel/etiquetas')
+		api.get<{ etiquetas: EtiquetaConUso[] }>('/v1/panel/etiquetas'),
+		negocio.rol === 'profesional' ? null : siExiste(api.get<{ recordatorios: Recordatorio[] }>('/v1/panel/recordatorios')).catch(() => null)
 	]);
-	return { ...lista, etiquetas, filtros };
+	return { ...lista, etiquetas, filtros, recordatorios: recordatorios?.recordatorios ?? [] };
 };
 
 export const actions: Actions = {
+	/** Prender o apagar un recordatorio automático (recordatorios.md). */
+	recordatorio: async (event) => {
+		const f = await event.request.formData();
+		const tipo = String(f.get('tipo') ?? '');
+		return intentar(() => apiDe(event).put<Recordatorio>(`/v1/panel/recordatorios/${encodeURIComponent(tipo)}`, { activo: f.get('activo') === '1' }));
+	},
 	crear: async (event) => {
 		const f = await event.request.formData();
 		const r = await intentar(() =>

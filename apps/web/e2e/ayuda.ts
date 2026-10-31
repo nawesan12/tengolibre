@@ -20,6 +20,6 @@ export async function negocioNuevo(page: Page) {
 	await expect(page.getByRole('heading', { name: 'Creá tu negocio' })).toBeVisible();
 	await page.getByLabel('Nombre del negocio').fill(`Barbería ${u}`);
 	await page.getByRole('button', { name: 'Crear' }).click();
-	await expect(page.getByRole('heading', { name: /Hola/ })).toBeVisible();
+	await expect(page.getByRole('heading', { name: /Buen día|Buenas tardes|Buenas noches/ })).toBeVisible();
 	return `barberia-${u}`;
 }

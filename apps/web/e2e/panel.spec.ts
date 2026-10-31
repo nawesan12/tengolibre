@@ -3,7 +3,7 @@ import { negocioNuevo } from './ayuda.ts';
 
 test('alta del negocio y un servicio desde el panel', async ({ page }) => {
 	await negocioNuevo(page);
-	await expect(page.getByText('Para empezar a recibir turnos')).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Para recibir turnos' })).toBeVisible();
 
 	await page.goto('/panel/servicios');
 	await page.getByLabel('Nombre', { exact: true }).fill('Corte clásico');

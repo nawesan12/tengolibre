@@ -15,6 +15,7 @@
 	let alta = $state(false);
 	const paginas = $derived(Math.max(1, Math.ceil(data.total / data.porPagina)));
 	const puedeEditar = $derived(ATENCION.includes(data.negocio.rol));
+	const gestiona = $derived(['duenio', 'encargado'].includes(data.negocio.rol));
 
 	const enlace = (cambios: Record<string, string | number | boolean>) => {
 		const v = { q: data.filtros.q, etiqueta: data.filtros.etiqueta, penalizados: data.filtros.penalizados, orden: data.filtros.orden, pagina: 1, ...cambios };
@@ -127,7 +128,147 @@
 	</nav>
 {/if}
 
+{#if data.recordatorios.length}
+	<section class="recs" aria-labelledby="t-recs">
+		<h2 id="t-recs">Recordatorios automáticos</h2>
+		<div class="recs-g">
+			{#each data.recordatorios as r (r.tipo)}
+				<article class="rec">
+					<div class="rec-cab">
+						<Icono nombre={r.tipo === 'cumpleanios' ? 'cake' : 'history'} tam={24} />
+						<h3>{r.titulo}</h3>
+						{#if gestiona}
+							<form method="POST" action="?/recordatorio" use:enhance>
+								<input type="hidden" name="tipo" value={r.tipo} />
+								<input type="hidden" name="activo" value={r.activo ? '0' : '1'} />
+								<button class="interruptor" role="switch" aria-checked={r.activo} aria-label={`${r.titulo}: ${r.activo ? 'prendido' : 'apagado'}`}>
+									<span></span>
+								</button>
+							</form>
+						{:else}
+							<span class="estado-r">{r.activo ? 'Prendido' : 'Apagado'}</span>
+						{/if}
+					</div>
+					<p class="regla">{r.regla}</p>
+					<div class="mail">
+						<span class="tl-rotulo asunto">Asunto · {r.vistaPrevia.asunto}</span>
+						<p>{r.texto}</p>
+						{#if r.cupon}<span class="cupon tl-num">{r.cupon.codigo}</span>{/if}
+					</div>
+					<span class="tl-rotulo semana">{r.semanaTexto}</span>
+				</article>
+			{/each}
+		</div>
+	</section>
+{/if}
+
 <style>
+	.recs {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		margin-top: 12px;
+	}
+	.recs h2 {
+		margin: 0;
+		font-size: 18px;
+	}
+	.recs-g {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+		gap: 14px;
+		padding: 20px;
+		border-radius: 24px;
+		background: var(--tl-crema);
+		background-image: var(--tl-grano-osc);
+	}
+	.rec {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		padding: 18px;
+		border-radius: 20px;
+		background: var(--tl-papel);
+	}
+	.rec-cab {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.rec-cab :global(.icono) {
+		color: var(--tl-menta-texto);
+	}
+	.rec-cab h3 {
+		flex: 1;
+		margin: 0;
+		font-size: 16px;
+	}
+	.interruptor {
+		width: 52px;
+		height: 32px;
+		padding: 3px;
+		border: 0;
+		border-radius: 999px;
+		background: #c9bda4;
+		cursor: pointer;
+		display: flex;
+	}
+	.interruptor span {
+		width: 26px;
+		height: 26px;
+		border-radius: 50%;
+		background: #fff;
+		transition: transform var(--tl-tocar) var(--tl-ease);
+	}
+	.interruptor[aria-checked='true'] {
+		background: var(--tl-menta-texto);
+	}
+	.interruptor[aria-checked='true'] span {
+		transform: translateX(20px);
+	}
+	.estado-r {
+		font-size: 13px;
+		font-weight: 700;
+		color: var(--tl-sub);
+	}
+	.regla {
+		margin: 0;
+		font-size: 13px;
+		color: var(--tl-sub-2);
+	}
+	.mail {
+		padding: 12px 14px;
+		border-radius: 14px;
+		background: #f8f3ea;
+		box-shadow: inset 0 0 0 1px var(--tl-linea);
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.asunto {
+		font-size: 11px;
+		color: var(--tl-sub);
+		letter-spacing: 0.04em;
+	}
+	.mail p {
+		margin: 0;
+		font-size: 14px;
+		line-height: 1.5;
+	}
+	.cupon {
+		align-self: flex-start;
+		padding: 4px 10px;
+		border-radius: 6px;
+		background: repeating-linear-gradient(-45deg, rgba(60, 204, 144, 0.22) 0 2px, transparent 2px 9px), #f3fbf7;
+		font-size: 13px;
+		font-weight: 900;
+		letter-spacing: 0.08em;
+		color: var(--tl-menta-texto);
+	}
+	.semana {
+		font-size: 11px;
+		color: var(--tl-menta-texto);
+	}
 	.cabeza {
 		display: flex;
 		align-items: flex-end;

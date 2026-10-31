@@ -32,7 +32,7 @@ async function armar(page: Page, request: APIRequestContext): Promise<Armado> {
 	const crear = page.getByRole('button', { name: 'Crear' });
 	await expect(async () => {
 		if (await crear.isVisible()) await crear.click();
-		await expect(page.getByRole('heading', { name: /Hola/ })).toBeVisible({ timeout: 4000 });
+		await expect(page.getByRole('heading', { name: /Buen día|Buenas tardes|Buenas noches/ })).toBeVisible({ timeout: 4000 });
 	}).toPass({ timeout: 40_000 });
 
 	const auth = { authorization: `Bearer dev:${quien}` };
@@ -83,11 +83,17 @@ test('turno manual, sobreturno, nota y cambios de estado', async ({ page, reques
 	await expect(page.getByRole('heading', { name: 'Reprogramar' })).toBeHidden();
 
 	// En el listado, los dos; atendido desde la acción rápida.
+	// (Los cancelados se ven con «Mostrar 1 cancelado».)
 	await irA(page, `/panel/turnos?desde=${d}&hasta=${d}`);
 	const lucia = page.locator('li.turno', { hasText: 'Lucía Pérez' });
 	await expect(lucia.getByText('Trae a su hijo')).toBeVisible();
+	await expect(page.locator('li.turno', { hasText: 'Marcos Gil' })).toHaveCount(0);
+	await page.getByRole('link', { name: 'Mostrar 1 cancelado' }).click();
 	await expect(page.locator('li.turno', { hasText: 'Marcos Gil' }).getByText('Cancelado', { exact: true })).toBeVisible();
-	await lucia.getByRole('button', { name: 'Atendido: Lucía Pérez' }).click();
+	// Atendido desde el menú «⋯»: abre la caja; «Cobrar después» lo deja atendido.
+	await lucia.getByRole('button', { name: /Más acciones para Lucía Pérez/ }).click();
+	await lucia.getByRole('menuitem', { name: 'Atendido: Lucía Pérez' }).click();
+	await page.getByRole('complementary', { name: 'Cobrar' }).getByRole('button', { name: 'Cobrar después' }).click();
 	await expect(lucia.getByText('Atendido', { exact: true })).toBeVisible();
 
 	// Filtrado por estado.
@@ -110,9 +116,9 @@ test('ficha del cliente con nota y etiqueta', async ({ page, request }) => {
 	await expect(page.locator('.lista').getByText('VIP')).toBeVisible();
 
 	await irA(page, '/panel/clientes');
-	await page.getByLabel('Buscar', { exact: true }).fill('Rocío');
-	await page.getByRole('button', { name: 'Buscar' }).click();
-	await page.getByRole('link', { name: 'Rocío Díaz' }).click();
+	await page.getByLabel('Buscar clientes').fill('Rocío');
+	await page.getByLabel('Buscar clientes').press('Enter');
+	await page.getByRole('link', { name: /Rocío Díaz/ }).click();
 	await expect(page.getByRole('heading', { name: 'Rocío Díaz' })).toBeVisible();
 	await expect(page.getByText('Historial de turnos')).toBeVisible();
 	await expect(page.locator('.historial li')).toHaveCount(1);
@@ -121,25 +127,26 @@ test('ficha del cliente con nota y etiqueta', async ({ page, request }) => {
 	await page.getByRole('button', { name: 'Agregar nota' }).click();
 	await expect(page.locator('.notas').getByText('Prefiere a la tarde')).toBeVisible();
 
+	await page.getByRole('button', { name: '+ Etiqueta' }).click();
 	await page.getByLabel('Etiqueta para agregar').selectOption({ label: 'VIP' });
 	await page.getByRole('button', { name: 'Poner etiqueta' }).click();
 	await expect(page.getByRole('button', { name: 'Quitar VIP' })).toBeVisible();
 
 	// Penalidad a mano y levantarla.
-	await page.getByRole('button', { name: 'Penalizar' }).click();
+	await page.getByRole('button', { name: 'Penalizar a mano' }).click();
+	await page.getByRole('button', { name: 'Penalizar', exact: true }).click();
 	await expect(page.getByText(/No puede reservar online/)).toBeVisible();
-	await page.getByRole('button', { name: 'Levantar penalidad' }).click();
+	await page.getByRole('button', { name: 'Levantar la penalidad' }).click();
 	await expect(page.getByText('Sin penalidad vigente.')).toBeVisible();
 
 	// El listado la encuentra por la etiqueta; la búsqueda de la barra, por el teléfono.
 	await irA(page, '/panel/clientes');
-	await page.locator('select[name=etiqueta]').selectOption({ label: 'VIP' });
-	await page.getByRole('button', { name: 'Buscar' }).click();
-	await expect(page.getByRole('link', { name: 'Rocío Díaz' })).toBeVisible();
-	await expect(page.getByText('1 cliente', { exact: true })).toBeVisible();
+	await page.getByRole('link', { name: /^VIP/ }).click();
+	await expect(page.getByRole('link', { name: /Rocío Díaz/ })).toBeVisible();
+	await expect(page.getByText('1 en total', { exact: true })).toBeVisible();
 
 	await irA(page, '/panel/buscar?q=55550003');
-	await expect(page.getByRole('link', { name: 'Rocío Díaz' })).toBeVisible();
+	await expect(page.getByRole('link', { name: /Rocío Díaz/ })).toBeVisible();
 });
 
 test('el calendario y la campanita se actualizan solos con una reserva online', async ({ page, request }) => {
@@ -159,18 +166,18 @@ test('el calendario y la campanita se actualizan solos con una reserva online', 
 	const bloque = page.locator('.bloque', { hasText: 'Cliente Web' });
 	await expect(bloque).toBeVisible({ timeout: 15_000 });
 	await expect(bloque).toContainText('11:00');
-	await expect(page.getByRole('link', { name: /Notificaciones, \d+ sin ver/ })).toBeVisible({ timeout: 15_000 });
+	await expect(page.getByRole('button', { name: /Notificaciones, \d+ sin ver/ })).toBeVisible({ timeout: 15_000 });
 
-	// Vista de semana con el mismo turno; y la campanita lo lista y se marca vista.
+	// Vista de semana con el mismo turno (la celda de esa hora lo nombra); y la campanita lo lista y se marca vista.
 	await irA(page, `/panel/calendario?vista=semana&fecha=${d}`);
-	await expect(page.locator('.bloque', { hasText: 'Cliente Web' })).toBeVisible();
+	await expect(page.getByRole('link', { name: /11 h: .*Cliente Web/ })).toBeVisible();
 	await irA(page, '/panel/notificaciones');
 	await expect(page.locator('li.nueva').first()).toBeVisible();
 	const vista = page.waitForResponse((r) => r.request().method() === 'POST' && r.url().includes('/panel/notificaciones'));
-	await page.getByRole('button', { name: 'Marcar todas como vistas' }).click();
+	await page.getByRole('button', { name: 'Marcar todo como leído' }).click();
 	expect((await vista).ok()).toBeTruthy();
 	await expect(page.getByText('Estás al día.')).toBeVisible({ timeout: 15_000 });
-	await expect(page.getByRole('link', { name: 'Notificaciones', exact: true })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Notificaciones', exact: true })).toBeVisible();
 });
 
 test('reportes con descarga CSV, lista de espera y reseñas', async ({ page, request }) => {
@@ -184,7 +191,7 @@ test('reportes con descarga CSV, lista de espera y reseñas', async ({ page, req
 	expect((await page.request.get('/panel/reportes/csv/otra')).status()).toBe(404);
 
 	await irA(page, '/panel/lista-espera');
-	await expect(page.getByText('No hay nadie esperando.')).toBeVisible();
+	await expect(page.getByText('Nadie esperando acá')).toBeVisible();
 	const d = manana();
 	const r = await request.post(`${API}/v1/p/${a.slug}/espera`, {
 		data: { servicioId: a.servicio, nombre: 'Juana Ríos', email: 'juana@example.com', desde: d, hasta: d }
@@ -194,8 +201,8 @@ test('reportes con descarga CSV, lista de espera y reseñas', async ({ page, req
 	const anotado = page.locator('[data-anotado]', { hasText: 'Juana Ríos' });
 	await expect(anotado.getByLabel('Horario sugerido')).toContainText('09:00');
 	await anotado.getByRole('button', { name: 'Avisar' }).click();
-	await expect(page.getByText('No hay nadie esperando.')).toBeVisible();
-	await irA(page, '/panel/lista-espera?todos=1');
+	await expect(page.getByText('Nadie esperando acá')).toBeVisible();
+	await irA(page, '/panel/lista-espera?tab=avisados');
 	await expect(page.locator('[data-anotado]', { hasText: 'Juana Ríos' }).getByText(/Avisado/)).toBeVisible();
 	await irA(page, '/panel/resenas');
 	await expect(page.getByRole('heading', { name: 'Reseñas' })).toBeVisible();
@@ -220,14 +227,14 @@ test('los turnos en Google Calendar: link para suscribirse y regenerarlo', async
 		cliente: { nombre: 'Lucía Calendario', telefono: '1155550009' }
 	});
 	await irA(page, '/panel/calendario');
-	await page.getByRole('link', { name: 'Verlo en Google Calendar' }).click();
+	await page.getByRole('link', { name: 'Verlo en tu calendario' }).click();
 	await expect(page.getByRole('heading', { name: 'Verlo en tu calendario' })).toBeVisible();
 	const negocio = page.getByRole('region', { name: 'Todo el negocio' });
 	await negocio.getByRole('button', { name: 'Crear link' }).click();
 	const link = negocio.getByLabel(/Link del calendario/);
 	await expect(link).toHaveValue(/\/cal\/[\w-]+\.ics$/);
 	const viejo = await link.inputValue();
-	await expect(negocio.getByRole('link', { name: 'Agregar a Google Calendar' })).toHaveAttribute('href', /calendar\.google\.com.*cid=webcal/);
+	await expect(negocio.getByRole('link', { name: 'Agregar a Google' })).toHaveAttribute('href', /calendar\.google\.com.*cid=webcal/);
 
 	const ics = await request.get(viejo);
 	expect(ics.headers()['content-type']).toContain('text/calendar');
@@ -239,7 +246,7 @@ test('los turnos en Google Calendar: link para suscribirse y regenerarlo', async
 	const [ancho, vista] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
 	expect(ancho).toBeLessThanOrEqual(vista);
 
-	await negocio.getByRole('button', { name: 'Generar link nuevo' }).click();
+	await negocio.getByRole('button', { name: 'Generar uno nuevo' }).click();
 	await expect(negocio.getByRole('status')).toContainText('el link anterior dejó de andar');
 	await expect(link).not.toHaveValue(viejo);
 	expect((await request.get(viejo)).status()).toBe(404);

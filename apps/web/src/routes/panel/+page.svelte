@@ -11,7 +11,9 @@
 	import LineaAhora from '#lib/operacion/LineaAhora.svelte';
 	import { estadoVisible } from '#lib/operacion/estados.ts';
 	import { minutosDelDia } from '#lib/operacion/fechas.ts';
-	import { armarDia, cargarEn, duracion, hhmm, libresTexto, minutosAhora, primerNombre, profesionalesDelDia, rangoDelDia } from '#lib/panel/dia.ts';
+	import { MOTIVO_DIAS, MOTIVO_LLAMAR } from '#lib/operacion/contrato.ts';
+	import { armarDia, cargarEn, duracion, hhmm, iniciales, libresTexto, minutosAhora, primerNombre, profesionalesDelDia, rangoDelDia } from '#lib/panel/dia.ts';
+	import { activarAvisos } from '#lib/panel/push.ts';
 
 	let { data, form } = $props();
 
@@ -54,7 +56,7 @@
 	});
 
 	// Lo que necesita atención (sólo con datos reales; si no hay nada, no se muestra).
-	type Atencion = { num: string; color: string; titulo: string; sub: string; boton: string; href?: string; recordar?: string; hueco?: boolean };
+	type Atencion = { num: string; color: string; titulo: string; sub: string; boton: string; href?: string; hueco?: boolean };
 	const atencion = $derived.by<Atencion[]>(() => {
 		if (esProfesional) return [];
 		const out: Atencion[] = [];
@@ -68,8 +70,8 @@
 				color: '#7a4a00',
 				titulo: `para que se libere el turno de ${primerNombre(pago.cliente.nombre)}`,
 				sub: `No pagó la seña de las ${hora(pago.inicio)}`,
-				boton: 'Recordarle',
-				recordar: pago.id
+				boton: 'Ver el turno',
+				href: `/panel/turnos/${pago.id}`
 			});
 		}
 		const liberado = turnos.find((t) => {
@@ -90,6 +92,17 @@
 				boton: 'Ver el hueco',
 				href: `/panel/turnos?profesional=${liberado.profesionalId}`,
 				hueco: true
+			});
+		}
+		if (data.paraLlamar.length) {
+			const p = data.paraLlamar[0];
+			out.push({
+				num: String(data.paraLlamar.length),
+				color: '#7a4a00',
+				titulo: data.paraLlamar.length === 1 ? 'turno para llamar' : 'turnos para llamar',
+				sub: `${p.cliente}: ${MOTIVO_LLAMAR[p.motivo] ?? 'llamar'}`,
+				boton: 'Ver',
+				href: `/panel/turnos/${p.turnoId}`
 			});
 		}
 		const sinConf = vivos.filter((t) => t.estado === 'pendiente' || t.estado === 'pendiente_pago').length;
@@ -166,6 +179,19 @@
 	};
 	const faltan = $derived(pasos.filter((p) => !p.listo).slice(0, 3));
 	const verChecklist = $derived(data.gestiona && (!data.arranque.completo || data.mpConectado === false) && !data.acceso?.bloqueado);
+	const diaCorto = (d: string) =>
+		new Intl.DateTimeFormat('es-AR', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' })
+			.format(new Date(`${d}T12:00:00Z`))
+			.replace(/\./g, '')
+			.replace(' de ', ' ')
+			.toUpperCase();
+	let pushEstado = $state<'' | 'pidiendo' | 'listo' | 'negado' | 'error'>('');
+	const pushListo = $derived(pushEstado === 'listo');
+	async function activarPush() {
+		if (!data.push) return;
+		pushEstado = 'pidiendo';
+		pushEstado = await activarAvisos(data.push.clave);
+	}
 	let copiado = $state(false);
 	async function copiarLink() {
 		try {
@@ -181,7 +207,6 @@
 <svelte:head><title>Inicio · Panel</title></svelte:head>
 
 {#if form?.error}<p class="aviso error" role="alert">{form.error}</p>{/if}
-{#if form && 'ok' in form && form.ok}<p class="aviso" role="status">Listo, le mandamos el recordatorio de la&nbsp;seña.</p>{/if}
 
 {#if conHorario.length}
 	<div class="anillo-tel tl-petroleo">
@@ -214,26 +239,37 @@
 {#if atencion.length}
 	<div class="atencion">
 		{#each atencion as a (a.titulo)}
-			{#if a.recordar}
-				<form method="POST" action="?/recordar" use:enhance class="tarjeta-a">
-					<input type="hidden" name="id" value={a.recordar} />
-					<button class="card">
-						<span class="num tl-num" style:color={a.color}>{a.num}</span>
-						<b>{a.titulo}</b>
-						<span class="sub">{a.sub}</span>
-						<span class="ir">{a.boton} →</span>
-					</button>
-				</form>
-			{:else}
-				<a class="card" class:rayada={a.hueco} href={a.href}>
-					<span class="num tl-num" style:color={a.color}>{a.num}</span>
-					<b>{a.titulo}</b>
-					<span class="sub">{a.sub}</span>
-					<span class="ir">{a.boton} →</span>
-				</a>
-			{/if}
+			<a class="card" class:rayada={a.hueco} href={a.href}>
+				<span class="num tl-num" style:color={a.color}>{a.num}</span>
+				<b>{a.titulo}</b>
+				<span class="sub">{a.sub}</span>
+				<span class="ir">{a.boton} →</span>
+			</a>
 		{/each}
 	</div>
+{/if}
+
+{#each data.pedidos as p (p.id)}
+	<section class="pedido" aria-label={`${p.profesional} pide días libres`}>
+		<span class="av-p">{iniciales(p.profesional)}</span>
+		<span class="ped-txt">
+			<b>{primerNombre(p.profesional)} pide días libres</b>
+			<span class="tl-num">{diaCorto(p.desde)}{p.hasta !== p.desde ? ` → ${diaCorto(p.hasta)}` : ''} · {MOTIVO_DIAS[p.motivo] ?? p.motivo}</span>
+			{#if p.afectados}<span class="mover">{p.afectados}&nbsp;{p.afectados === 1 ? 'turno para mover' : 'turnos para mover'}</span>{/if}
+		</span>
+		<form method="POST" action="?/aprobar" use:enhance><input type="hidden" name="id" value={p.id} /><button class="aprobar">Aprobar y ver turnos</button></form>
+		<form method="POST" action="?/rechazar" use:enhance><input type="hidden" name="id" value={p.id} /><button class="rechazar">Rechazar</button></form>
+	</section>
+{/each}
+
+{#if data.push && !pushListo}
+	<section class="push">
+		<Icono nombre="notifications_active" lleno tam={26} />
+		<span class="ped-txt"><b>Enterate en el momento</b><span>Reservas, cancelaciones y huecos que se llenan, en este&nbsp;aparato.</span></span>
+		<button class="aprobar" onclick={activarPush} disabled={pushEstado === 'pidiendo'}>{pushEstado === 'pidiendo' ? 'Activando…' : 'Activar'}</button>
+		{#if pushEstado === 'negado'}<span class="push-nota">El navegador no dejó mandar avisos. Podés habilitarlos en la configuración del&nbsp;sitio.</span>{/if}
+		{#if pushEstado === 'error'}<span class="push-nota">No pudimos activarlos. Probá de nuevo en un&nbsp;rato.</span>{/if}
+	</section>
 {/if}
 
 <div class="dos">
@@ -349,9 +385,6 @@
 		grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
 		gap: 12px;
 	}
-	.tarjeta-a {
-		display: contents;
-	}
 	.card {
 		display: flex;
 		flex-direction: column;
@@ -396,6 +429,70 @@
 		font-size: 13px;
 		font-weight: 700;
 		color: var(--tl-menta-texto);
+	}
+	.pedido,
+	.push {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 10px 14px;
+		padding: 16px;
+		border-radius: 18px;
+		background: var(--tl-papel);
+		box-shadow: 0 10px 20px -16px rgba(15, 35, 40, 0.45);
+	}
+	.push :global(.icono) {
+		color: var(--tl-menta-texto);
+	}
+	.av-p {
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+		background: var(--tl-menta-suave);
+		display: grid;
+		place-items: center;
+		font-size: 13px;
+		font-weight: 700;
+		flex: none;
+	}
+	.ped-txt {
+		flex: 1 1 220px;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		min-width: 0;
+	}
+	.ped-txt b {
+		font-size: 15px;
+	}
+	.ped-txt span {
+		font-size: 13px;
+		color: var(--tl-sub);
+	}
+	.ped-txt .mover {
+		color: #7a4a00;
+	}
+	.aprobar,
+	.rechazar {
+		min-height: 44px;
+		padding: 0 18px;
+		border: 0;
+		border-radius: 999px;
+		font: 700 14px var(--tl-font);
+		cursor: pointer;
+	}
+	.aprobar {
+		background: var(--tl-petroleo);
+		color: #fff;
+	}
+	.rechazar {
+		background: transparent;
+		color: #a3241a;
+	}
+	.push-nota {
+		flex-basis: 100%;
+		font-size: 13px;
+		color: #7a4a00;
 	}
 	/* Dos columnas */
 	.dos {
