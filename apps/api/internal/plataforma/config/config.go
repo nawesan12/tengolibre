@@ -39,6 +39,10 @@ type Config struct {
 	MPAppID, MPSecreto, MPSecretoWebhook, MPTokenPlataforma string
 	// ClaveCifrado: 32 bytes en base64 para cifrar los tokens de los negocios en la base.
 	ClaveCifrado string
+	// Push (lo usa el worker). APNs: Key ID y Team ID de Apple, la ruta del .p8 y el bundle de la
+	// app. FCM: la ruta del JSON de la cuenta de servicio. Sin eso, esa plataforma queda apagada.
+	APNsKeyID, APNsTeamID, APNsClave, APNsTopic string
+	FCMCuenta                                   string
 }
 
 // Desarrollo dice si se está corriendo en local.
@@ -72,6 +76,12 @@ func Leer() (Config, error) {
 		MPSecretoWebhook:  os.Getenv("TENGOLIBRE_MP_SECRETO_WEBHOOK"),
 		MPTokenPlataforma: os.Getenv("TENGOLIBRE_MP_TOKEN_PLATAFORMA"),
 		ClaveCifrado:      os.Getenv("TENGOLIBRE_CLAVE_CIFRADO"),
+
+		APNsKeyID:  os.Getenv("TENGOLIBRE_APNS_KEY_ID"),
+		APNsTeamID: os.Getenv("TENGOLIBRE_APNS_TEAM_ID"),
+		APNsClave:  os.Getenv("TENGOLIBRE_APNS_CLAVE"),
+		APNsTopic:  valor("TENGOLIBRE_APNS_TOPIC", "ar.com.tengolibre.app"),
+		FCMCuenta:  os.Getenv("TENGOLIBRE_FCM_CUENTA"),
 	}
 	switch c.Entorno {
 	case "desarrollo", "staging", "produccion":

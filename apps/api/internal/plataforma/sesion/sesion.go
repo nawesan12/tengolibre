@@ -51,6 +51,8 @@ type Sesion struct {
 	Rol       string
 	// Persona: con sesión propia viene de la base; con token de Clerk, vacía.
 	Persona Persona
+	// Hash del token de la sesión propia (los dispositivos se atan a ella); con token de Clerk, nil.
+	Hash []byte
 }
 
 type clave struct{}
@@ -117,7 +119,7 @@ func (s *Servicio) Persona(next http.HandlerFunc) http.HandlerFunc {
 				problema.Escribir(w, problema.SinSesion())
 				return
 			}
-			next(w, r.WithContext(ConSesion(r.Context(), Sesion{ClerkID: p.ClerkID, Persona: p})))
+			next(w, r.WithContext(ConSesion(r.Context(), Sesion{ClerkID: p.ClerkID, Persona: p, Hash: hashDe(t)})))
 			return
 		}
 		if s.Verificador == nil {

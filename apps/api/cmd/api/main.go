@@ -27,6 +27,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/miweb"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/promos"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/push"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/reportes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/resenas"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/suscripcion"
@@ -119,6 +120,7 @@ func correr() error {
 				&grupos.Servicio{Pool: app, Sesion: ses},
 				&arranque.Servicio{Pool: app, Sesion: ses},
 				&calendario.Servicio{Pool: app, Sesion: ses, Sitio: cfg.Sitio},
+				&push.Servicio{Pool: app, Sesion: ses},
 				&admin.Servicio{Pool: app, Sesion: ses, Admins: cfg.Admins, AdminsEmails: cfg.AdminsEmails},
 			}}),
 		ReadHeaderTimeout: 5 * time.Second,
