@@ -11,11 +11,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/avisos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/catalogo"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/clientes"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/espera"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/invitaciones"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/reportes"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/resenas"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/turnos"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/config"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
@@ -51,15 +56,23 @@ func correr() error {
 	defer app.Close()
 
 	ses := &sesion.Servicio{Pool: app, Verificador: verificador(cfg)}
+	// Avisos: cada cambio de un turno encola sus mails y campanitas, y un horario liberado avisa a la
+	// lista de espera.
+	av := &avisos.Servicio{Pool: app, Sesion: ses, AlLiberarse: espera.Liberado}
 	srv := &http.Server{
 		Addr: cfg.Direccion,
 		Handler: servidor.Nuevo(servidor.Dependencias{App: app, Version: version, Origenes: cfg.Origenes,
 			Dominios: []servidor.Dominio{
 				&negocios.Servicio{Pool: app, Sesion: ses},
 				&catalogo.Servicio{Pool: app, Sesion: ses},
-				&turnos.Servicio{Pool: app, Sesion: ses},
+				&turnos.Servicio{Pool: app, Sesion: ses, Avisar: av.Avisar},
 				&clientes.Servicio{Pool: app, Sesion: ses},
 				&reportes.Servicio{Pool: app, Sesion: ses},
+				av,
+				&resenas.Servicio{Pool: app, Sesion: ses},
+				&espera.Servicio{Pool: app, Sesion: ses},
+				&invitaciones.Servicio{Pool: app, Sesion: ses},
+				&auditoria.Servicio{Pool: app, Sesion: ses},
 			}}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

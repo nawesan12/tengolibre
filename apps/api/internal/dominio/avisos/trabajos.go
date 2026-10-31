@@ -48,14 +48,14 @@ func (s *Trabajos) Recordatorios(ctx context.Context, ahora time.Time) (any, err
 // cliente (GRACE_MINUTES de Jiku).
 const graciaAusente = 2 * time.Hour
 
-// Ausentes marca ausente, en los negocios que lo pidieron (ajustes.ausente_automatico), los turnos
+// Ausentes marca ausente, en los negocios que lo pidieron (ajustes.marcar_ausentes, que se cambia desde el panel de ausencias), los turnos
 // pendientes o confirmados que terminaron hace más de dos horas sin que nadie los cierre.
 func (s *Trabajos) Ausentes(ctx context.Context, ahora time.Time) (any, error) {
 	type marcado struct{ negocio, turno string }
 	var marcados []marcado
 	err := trabajos.PorNegocio(ctx, s.Pool, func(negocio string, tx pgx.Tx) error {
 		var activo bool
-		if err := tx.QueryRow(ctx, "SELECT ausente_automatico FROM ajustes WHERE negocio_id = app.negocio_actual()").Scan(&activo); err != nil || !activo {
+		if err := tx.QueryRow(ctx, "SELECT marcar_ausentes FROM ajustes WHERE negocio_id = app.negocio_actual()").Scan(&activo); err != nil || !activo {
 			return err
 		}
 		filas, err := tx.Query(ctx, `UPDATE turnos t SET estado = 'ausente', actualizado_en = $2

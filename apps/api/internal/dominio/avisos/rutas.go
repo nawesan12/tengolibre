@@ -232,16 +232,14 @@ func (s *Servicio) marcarVista(w http.ResponseWriter, r *http.Request) error {
 type AjustesAvisos struct {
 	// Cuántas horas después de un turno atendido sale el pedido de reseña.
 	ResenaDemoraHoras int `json:"resenaDemoraHoras"`
-	// Marcar ausentes solos los turnos que nadie cerró.
-	AusenteAutomatico bool `json:"ausenteAutomatico"`
 	// Mandarle a la dueña el resumen de mañana a la tarde.
 	ResumenDiario bool `json:"resumenDiario"`
 }
 
 func leerAjustes(ctx context.Context, tx pgx.Tx) (AjustesAvisos, error) {
 	var a AjustesAvisos
-	err := tx.QueryRow(ctx, `SELECT resena_demora_horas, ausente_automatico, resumen_diario FROM ajustes WHERE negocio_id = app.negocio_actual()`).
-		Scan(&a.ResenaDemoraHoras, &a.AusenteAutomatico, &a.ResumenDiario)
+	err := tx.QueryRow(ctx, `SELECT resena_demora_horas, resumen_diario FROM ajustes WHERE negocio_id = app.negocio_actual()`).
+		Scan(&a.ResenaDemoraHoras, &a.ResumenDiario)
 	return a, err
 }
 
@@ -272,8 +270,8 @@ func (s *Servicio) guardarAjustes(w http.ResponseWriter, r *http.Request) error 
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE ajustes SET resena_demora_horas = $1, ausente_automatico = $2, resumen_diario = $3, actualizado_en = now()
-			WHERE negocio_id = app.negocio_actual()`, a.ResenaDemoraHoras, a.AusenteAutomatico, a.ResumenDiario); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE ajustes SET resena_demora_horas = $1, resumen_diario = $2, actualizado_en = now()
+			WHERE negocio_id = app.negocio_actual()`, a.ResenaDemoraHoras, a.ResumenDiario); err != nil {
 			return err
 		}
 		return auditoria.Anotar(ctx, tx, auditoria.Registro{Accion: "ajustes.avisos", Entidad: "ajustes",

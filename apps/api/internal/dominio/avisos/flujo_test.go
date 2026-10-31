@@ -3,6 +3,7 @@ package avisos_test
 import (
 	"context"
 	"errors"
+	"github.com/jackc/pgx/v5"
 	"net/http"
 	"regexp"
 	"strings"
@@ -402,7 +403,14 @@ func TestResenas(t *testing.T) {
 func TestTrabajosDelWorker(t *testing.T) {
 	e := armar(t)
 	ctx := context.Background()
-	e.panel(200, "PUT", "/v1/panel/ajustes/avisos", map[string]any{"resenaDemoraHoras": 3, "ausenteAutomatico": true, "resumenDiario": true}, nil)
+	e.panel(200, "PUT", "/v1/panel/ajustes/avisos", map[string]any{"resenaDemoraHoras": 3, "resumenDiario": true}, nil)
+	// Marcar ausentes solos se prende desde el panel de ausencias (dominio clientes, no montado acá).
+	if err := e.Bases.App.EnNegocio(ctx, e.negocio, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, "UPDATE ajustes SET marcar_ausentes = true WHERE negocio_id = app.negocio_actual()")
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
 	t1 := e.reservar("2026-11-02 09:00", "1111", "lucia@ejemplo.com")
 	t2 := e.reservar("2026-11-02 10:00", "2222", "")
 	e.panel(200, "PATCH", "/v1/panel/turnos/"+t2.ID, map[string]string{"estado": "atendido"}, nil)

@@ -15,13 +15,12 @@ LANGUAGE sql STABLE AS $$
 $$;
 -- +goose StatementEnd
 
--- Ajustes de avisos (reviewRequestDelayHours, noShowAutoMark, dailyDigestEnabled). Nombres propios
--- para no pisar las columnas de penalidades por ausencia que suma otra tanda.
+-- Ajustes de avisos (reviewRequestDelayHours, dailyDigestEnabled). Marcar ausentes solos
+-- (noShowAutoMark) es `marcar_ausentes`, de 00003: lo cambia el panel de ausencias y lo usa el worker.
 ALTER TABLE ajustes
 	ADD COLUMN resena_demora_horas int NOT NULL DEFAULT 2 CHECK (resena_demora_horas BETWEEN 0 AND 168),
-	ADD COLUMN ausente_automatico boolean NOT NULL DEFAULT false,
 	ADD COLUMN resumen_diario boolean NOT NULL DEFAULT true;
-GRANT UPDATE (resena_demora_horas, ausente_automatico, resumen_diario) ON ajustes TO tengolibre_app;
+GRANT UPDATE (resena_demora_horas, resumen_diario) ON ajustes TO tengolibre_app;
 
 -- Los negocios activos, para los trabajos que recorren todos (después cada uno corre con su negocio
 -- fijado).
@@ -335,5 +334,5 @@ DROP FUNCTION app.avisos_pendientes(timestamptz, int);
 DROP TABLE avisos;
 DROP FUNCTION app.negocios_activos();
 DROP POLICY barrido ON negocios;
-ALTER TABLE ajustes DROP COLUMN resena_demora_horas, DROP COLUMN ausente_automatico, DROP COLUMN resumen_diario;
+ALTER TABLE ajustes DROP COLUMN resena_demora_horas, DROP COLUMN resumen_diario;
 DROP FUNCTION app.barrido();
