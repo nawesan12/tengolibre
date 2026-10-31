@@ -14,13 +14,26 @@ api.tengolibre.com.ar {
 	reverse_proxy 127.0.0.1:4200
 }
 
-# Hasta que esté el front (SvelteKit en 127.0.0.1:3400), una página de "próximamente".
+# El front (SvelteKit en 127.0.0.1:3400). Si el contenedor no responde, la página de "próximamente".
 tengolibre.com.ar, www.tengolibre.com.ar {
 	tls /etc/caddy/certs/tengolibre.pem /etc/caddy/certs/tengolibre.key
 	import solo_cloudflare
 	@www host www.tengolibre.com.ar
 	redir @www https://tengolibre.com.ar{uri} permanent
 	encode zstd gzip
-	root * /opt/tengolibre/proximamente
-	file_server
+	request_body {
+		max_size 12MB
+	}
+	reverse_proxy 127.0.0.1:3400 {
+		# El SSE del panel (/panel/eventos) va sin buffer.
+		flush_interval -1
+	}
+	handle_errors {
+		@caido expression {err.status_code} in [502, 503, 504]
+		handle @caido {
+			root * /opt/tengolibre/proximamente
+			rewrite * /index.html
+			file_server
+		}
+	}
 }

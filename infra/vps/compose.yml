@@ -44,3 +44,17 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+  # El front (SvelteKit + adapter-node). Se despliega subiendo web/build (rsync) y reiniciando. Le
+  # habla a la api por la red del compose; Caddy le manda tengolibre.com.ar y los dominios propios.
+  web:
+    image: node:24-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: ['node', 'build/index.js']
+    env_file: ./web.conf
+    volumes:
+      - ./web/build:/app/build:ro
+      - ./web/package.json:/app/package.json:ro
+    ports: ['127.0.0.1:3400:3400']
+    mem_limit: 160m
+    depends_on: [api]
