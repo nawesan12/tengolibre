@@ -1,26 +1,67 @@
 # Estado
 
-## 31/10/2026 — boilerplate
-- API en Go con `/salud/vivo`, `/salud/listo` y `/v1/version`; migración base con `negocios` y RLS.
-- En el VPS: `/opt/tengolibre` (compose `tengolibre`: postgres + api en 127.0.0.1:4200),
-  `/etc/caddy/sitios/tengolibre.caddy`, certificado de origen en `/etc/caddy/certs/tengolibre.*`.
-  `tengolibre.com.ar` sirve una página de "próximamente" (`/opt/tengolibre/proximamente`).
-- Puertos reservados: 4200 api, 3400 web.
-- Copia diaria: la suma `vimo-copia` (la lleva la sesión de Tu Local Web).
+## 31/10/2026: backend de Jiku completo en Go, en producción
 
-## Desplegar la API
+La API (`apps/api`) cubre todo lo de Jiku y está desplegada en https://api.tengolibre.com.ar
+(versión en `/v1/version`). Falta el front: se arma con el handoff del rediseño.
+
+### Dominios (`internal/dominio`)
+| Paquete | Qué hace |
+|---|---|
+| `negocios` | Alta (con Clerk), datos, ajustes de reserva, equipo con roles |
+| `catalogo` | Categorías, servicios, profesionales, horario semanal, bloqueos, excepciones |
+| `disponibilidad` | Motor puro de horarios libres (availability-engine.ts) |
+| `turnos` | Página pública, reserva, link del cliente (ver/cancelar/reprogramar), agenda del panel |
+| `clientes`, `reportes` | CRM, etiquetas, notas, penalidades por ausencias, búsqueda, estadísticas, CSV |
+| `cobros`, `promos`, `membresias`, `suscripcion` | Mercado Pago (señas, webhook, devoluciones), cupones, referidos, membresías, suscripción a TengoLibre y panel en sólo lectura con la prueba vencida |
+| `avisos`, `resenas`, `espera`, `invitaciones` | Cola de mails y campanita, reseñas, lista de espera, invitaciones al equipo |
+| `miweb`, `dominios`, `directorio`, `grupos`, `arranque`, `admin` | Web del negocio y galería, dominio propio, explorar, sucursales, onboarding, admin de la plataforma |
+
+Plataforma (`internal/plataforma`): `db` (RLS por negocio), `sesion` (Clerk + X-Negocio + roles +
+sólo lectura), `web`, `problema`, `archivos`, `correo`, `auditoria`, `trabajos`, `cifrado`, `clerk`.
+
+### Para el front
+- Sesión: `Authorization: Bearer <token de Clerk>`. En el panel, además `X-Negocio: <id>` (los negocios
+  de la persona salen de `GET /v1/yo`). En desarrollo sin Clerk vale `Bearer dev:user_xxxxxxxxxx`.
+- Errores: `application/problem+json` con `code` estable (p. ej. `horario_ocupado`,
+  `cliente_penalizado`, `suscripcion_requerida` = 402).
+- Rutas: públicas en `/v1/p/{slug}/…`, `/v1/t/{codigo}/…` (link del cliente), `/v1/explorar`,
+  `/v1/resenas/{token}`, `/v1/invitaciones/{token}`, `/v1/preferencias/{token}`, `/v1/host/{host}`;
+  panel en `/v1/panel/…`; sucursales en `/v1/grupos`; admin en `/v1/admin/…`. El detalle de cada una
+  está en el `Rutas` de cada paquete y en sus tests de punta a punta.
+- Links que mandan los mails: `/turno/{codigo}`, `/{slug}`, `/resena/{token}`,
+  `/invitacion/{token}`, `/mi-cuenta/avisos/{token}`, `/panel?fecha=`.
+- Vuelta de Clerk: `https://tengolibre.com.ar/ingresar/clerk` (y `ar.com.tengolibre.app://callback`
+  en la app nativa), ya cargadas en Clerk producción. Vuelta de Mercado Pago:
+  `/panel/mercadopago/vuelta`, que manda `code` y `state` a `POST /v1/panel/mercadopago/vuelta`.
+
+### En el VPS
+- `/opt/tengolibre`: compose `tengolibre` (postgres 256m, api 128m en 127.0.0.1:4200, worker 64m),
+  `api.conf` (600), `pg.secret`, `archivos/`, `proximamente/`. Web reservada en 3400.
+- Caddy: `/etc/caddy/sitios/tengolibre.caddy`; certificado de origen `/etc/caddy/certs/tengolibre.*`.
+- Correo: `sistema@tengolibre.com.ar` (manda como hola@) por mail.tulocalweb.com.ar:465.
+- Copia diaria: `vimo-copia` (la lleva la sesión de Tu Local Web) guarda base, conf y archivos.
+- Registro común de todas las apps: `/opt/VPS.md`.
+
+### Pendiente
+1. Front en SvelteKit (127.0.0.1:3400) con el handoff.
+2. Credenciales de Mercado Pago de TengoLibre: App ID y secreto (marketplace con PKCE), clave de
+   webhooks y token de la cuenta de la plataforma (`TENGOLIBRE_MP_*`). Sin eso, cobrar y suscribirse
+   responden que falta configurarlo.
+3. `TENGOLIBRE_ADMINS`: el Clerk ID de Nahuel para el admin de la plataforma.
+4. Dominios propios: el DNS `dominios.tengolibre.com.ar` ya existe (sin proxy). Falta correr
+   `infra/vps/dominios.sh` después de la primera verificación (coordinar con las otras apps, que
+   comparten Caddy) y ponerle un timer.
+5. Pasar el ingreso al esquema recomendado para Grupo Vimo: Clerk sólo como identidad y sesión
+   propia de la API (hoy se verifica el JWT de Clerk en cada pedido).
+6. Membresías en la reserva pública: requiere identificar al cliente (hoy sólo desde el panel).
+
+## Desplegar
 ```bash
-cd apps/api
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$(git rev-parse --short HEAD)" -o bin/api ./cmd/api
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/tengolibrectl ./cmd/tengolibrectl
-scp bin/api deploy@187.41.102.190:/opt/tengolibre/bin/api.nuevo   # ídem tengolibrectl
-ssh deploy@187.41.102.190 'cd /opt/tengolibre && mv bin/api.nuevo bin/api && docker compose restart api'
-# migraciones:
-ssh deploy@187.41.102.190 'cd /opt/tengolibre && docker compose run --rm --no-deps -T api /app/tengolibrectl migrar'
+cd apps/api && V=$(git rev-parse --short HEAD)
+for c in api worker tengolibrectl; do CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$V" -o bin/$c ./cmd/$c; done
+ssh root@187.41.102.190 'docker exec tengolibre-postgres-1 pg_dumpall -U postgres | gzip > /var/backups/tengolibre/antes-$(date +%Y%m%d%H%M).sql.gz'
+for c in api worker tengolibrectl; do scp bin/$c root@187.41.102.190:/opt/tengolibre/bin/$c.nuevo; done
+ssh root@187.41.102.190 'cd /opt/tengolibre && for c in api worker tengolibrectl; do mv bin/$c.nuevo bin/$c; done &&
+  docker compose run --rm --no-deps -T api /app/tengolibrectl migrar && docker compose restart api worker'
 ```
-
-## Lo que sigue
-1. Portar el modelo de Jiku por tandas (negocios y equipo → servicios y horarios → turnos →
-   clientes → cobros con Mercado Pago → membresías, cupones, reseñas, notificaciones).
-2. Ingreso con Clerk.
-3. Front en SvelteKit con el handoff del rediseño (en 127.0.0.1:3400).
