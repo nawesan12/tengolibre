@@ -1,14 +1,15 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { apiPublica } from '#lib/server/api.ts';
+import { apiDe, apiPublica } from '#lib/server/api.ts';
 import { campos, intentar } from '#lib/server/acciones.ts';
 import { cobro, opcional, pagina } from '#lib/publico/api.server.ts';
 import { esFecha } from '#lib/publico/calendario.ts';
 import { CUALQUIERA, type Paso } from '#lib/publico/reserva.ts';
-import type { Dia, Horario, Turno, Validacion } from '#lib/publico/tipos.ts';
+import type { Dia, Horario, MiMembresia, Turno, Validacion } from '#lib/publico/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 
-export const load: PageServerLoad = async ({ params, url, fetch }) => {
+export const load: PageServerLoad = async (event) => {
+	const { params, url, fetch, locals } = event;
 	const api = apiPublica(fetch);
 	const slug = params.slug;
 	const p = await pagina(fetch, slug);
@@ -52,6 +53,20 @@ export const load: PageServerLoad = async ({ params, url, fetch }) => {
 	}
 
 	const c = paso === 'datos' ? await cobro(fetch, slug) : null;
+	// Socios: con sesión, su membresía (si cubre el servicio, la puede usar); sin sesión, si el negocio
+	// tiene planes, la invitación a ingresar.
+	let membresia: MiMembresia | null = null;
+	let conPlanes = false;
+	if (paso === 'datos' && servicio) {
+		if (locals.token) {
+			const m = await opcional(apiDe(event).get<{ membresia: MiMembresia | null }>(`/v1/p/${slug}/mi-membresia`), { membresia: null });
+			if (m.membresia && m.membresia.saldo > 0 && (m.membresia.servicios.length === 0 || m.membresia.servicios.includes(servicio.id)))
+				membresia = m.membresia;
+		} else {
+			const pl = await opcional(api.get<{ planes: unknown[] }>(`/v1/p/${slug}/membresias`), { planes: [] });
+			conPlanes = pl.planes.length > 0;
+		}
+	}
 	return {
 		negocio: p.negocio,
 		categorias: p.categorias,
@@ -68,6 +83,9 @@ export const load: PageServerLoad = async ({ params, url, fetch }) => {
 		horario,
 		aviso,
 		cobro: c,
+		membresia,
+		conPlanes,
+		ingresado: !!locals.token,
 		referido: (q.get('ref') ?? '').slice(0, 40)
 	};
 };
@@ -75,19 +93,22 @@ export const load: PageServerLoad = async ({ params, url, fetch }) => {
 const texto = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
 
 export const actions: Actions = {
-	reservar: async ({ request, params, fetch }) => {
+	reservar: async (event) => {
+		const { request, params } = event;
 		const f = await request.formData();
 		const valores = campos(f);
 		const profesionalId = texto(f, 'profesionalId');
 		const r = await intentar(() =>
-			apiPublica(fetch).post<Turno>(`/v1/p/${params.slug}/turnos`, {
+			// Con la sesión, si la hay: la API la usa sólo si se pide usar la membresía.
+			apiDe(event).post<Turno>(`/v1/p/${params.slug}/turnos`, {
 				servicioId: texto(f, 'servicioId'),
 				profesionalId: profesionalId === CUALQUIERA ? '' : profesionalId,
 				inicio: texto(f, 'inicio'),
 				cliente: { nombre: texto(f, 'nombre'), telefono: texto(f, 'telefono'), email: texto(f, 'email') },
 				nota: texto(f, 'nota'),
 				cupon: texto(f, 'cupon') || undefined,
-				referido: texto(f, 'referido') || undefined
+				referido: texto(f, 'referido') || undefined,
+				usarMembresia: f.get('usarMembresia') === '1' || undefined
 			})
 		);
 		if (!('ok' in r)) return fail(r.status, { ...r.data, valores });

@@ -11,6 +11,10 @@ Ingreso: Google y Apple por Clerk producción, canjeado por una sesión propia d
 Tiempo real: SSE de la API (`/v1/panel/eventos`, LISTEN/NOTIFY) reenviado por `/panel/eventos`.
 Con la prueba vencida, todo el panel muestra arriba que está en sólo lectura (`GET /v1/panel/acceso`,
 que puede leer cualquier rol); al dueño, además, los últimos 3 días de prueba.
+Membresías en la reserva pública: el socio ingresa (Clerk) desde «Tus datos» y tilda «Usar mi
+membresía». La API lo identifica por su email verificado contra el email «de confianza» del cliente
+(`clientes.email_confiable`: lo cargó el negocio, nunca lo tipeado en la web; ver
+`app.cuidar_email`, migración 00009), así nadie usa una membresía ajena escribiendo un teléfono.
 
 Desplegar el front: `cd apps/web && bun run build`, `rsync -az --delete build/ root@187.41.102.190:/opt/tengolibre/web/build/`
 y `docker compose restart web` en /opt/tengolibre. Config en `/opt/tengolibre/web.conf`.
@@ -67,7 +71,6 @@ sólo lectura), `web`, `problema`, `archivos`, `correo`, `auditoria`, `trabajos`
 4. Dominios propios: el DNS `dominios.tengolibre.com.ar` ya existe (sin proxy). Falta correr
    `infra/vps/dominios.sh` después de la primera verificación (coordinar con las otras apps, que
    comparten Caddy) y ponerle un timer.
-5. Membresías en la reserva pública: requiere identificar al cliente (hoy sólo desde el panel).
 
 ## Desplegar
 ```bash

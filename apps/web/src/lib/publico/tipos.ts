@@ -144,3 +144,6 @@ export type Ficha = {
 
 export type Directorio = { negocios: Ficha[]; total: number; pagina: number; limite: number; paginas: number };
 export type Ciudad = { ciudad: string; provincia: string; cantidad: number };
+
+/** La membresía vigente de quien ingresó (GET /v1/p/{slug}/mi-membresia). */
+export type MiMembresia = { plan: string; hasta: string; saldo: number; servicios: string[] };

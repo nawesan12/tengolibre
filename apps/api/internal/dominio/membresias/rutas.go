@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/catalogo"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/turnos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/web"
@@ -36,6 +37,7 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /v1/panel/membresias/socios/{id}", escribir(Mostrador, s.cambiar))
 	// La página pública muestra los planes activos.
 	mux.HandleFunc("GET /v1/p/{slug}/membresias", web.Envolver(s.planesPublicos))
+	mux.HandleFunc("GET /v1/p/{slug}/mi-membresia", ses.Opcional(web.Envolver(s.miMembresia)))
 }
 
 func (s *Servicio) enNegocio(r *http.Request, fn func(context.Context, pgx.Tx) error) error {
@@ -507,5 +509,59 @@ func (s *Servicio) planesPublicos(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 	web.JSON(w, http.StatusOK, map[string]any{"planes": out})
+	return nil
+}
+
+// MiMembresia: lo que ve en la reserva el socio que ingresó.
+type MiMembresia struct {
+	Plan      string    `json:"plan"`
+	Hasta     time.Time `json:"hasta"`
+	Saldo     int       `json:"saldo"`
+	Servicios []string  `json:"servicios"`
+}
+
+// miMembresia responde la membresía vigente de quien ingresó (por su email verificado y el email de
+// confianza del cliente), o null: sin sesión, sin membresía o en otro negocio.
+func (s *Servicio) miMembresia(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	email := sesion.De(ctx).Persona.Email
+	var out *MiMembresia
+	if email != "" {
+		var id *string
+		if err := s.Pool.EnTx(ctx, func(tx pgx.Tx) error {
+			return tx.QueryRow(ctx, "SELECT app.negocio_publico($1)::text", r.PathValue("slug")).Scan(&id)
+		}); err != nil {
+			return err
+		}
+		if id == nil {
+			return problema.NoEncontrado("No encontramos ese negocio.")
+		}
+		err := s.Pool.EnNegocio(ctx, *id, func(tx pgx.Tx) error {
+			cliente, err := turnos.SocioDe(ctx, tx, email, s.ahora())
+			if err != nil {
+				if p, ok := errors.AsType[*problema.Problema](err); ok && p.Codigo == "sin_membresia" {
+					return nil
+				}
+				return err
+			}
+			var m MiMembresia
+			var mid string
+			if err := tx.QueryRow(ctx, `SELECT m.id::text, p.nombre, m.hasta, p.servicios::text[] FROM membresias m
+				JOIN membresia_planes p ON p.id = m.plan_id
+				WHERE m.cliente_id = $1 AND m.estado = 'activa' AND m.desde <= $2 AND m.hasta > $2
+				ORDER BY m.hasta DESC LIMIT 1`, cliente, s.ahora()).Scan(&mid, &m.Plan, &m.Hasta, &m.Servicios); err != nil {
+				return err
+			}
+			if m.Saldo, err = Saldo(ctx, tx, mid); err != nil {
+				return err
+			}
+			out = &m
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	web.JSON(w, http.StatusOK, map[string]any{"membresia": out})
 	return nil
 }

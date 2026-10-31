@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './base.ts';
 import { unico } from './ayuda.ts';
-import { hoy, idPersona, invitar, negocioConAgenda, sql } from './publico-ayuda.ts';
+import { hoy, idPersona, invitar, negocioConAgenda, socio, sql } from './publico-ayuda.ts';
 
 /** Elige en el calendario el primer día con lugar que no sea hoy (así hay plazo para cancelar). */
 async function elegirDia(page: Page, distintoDe = '') {
@@ -171,6 +171,27 @@ test('un negocio que no existe y un link roto dan 404', async ({ page }) => {
 	// Las rutas fijas ganan al comodín del slug.
 	await page.goto('/explorar');
 	await expect(page.getByRole('heading', { name: /Encontrá dónde sacar/ })).toBeVisible();
+});
+
+test('el socio ingresa desde la reserva y usa su membresía', async ({ page }) => {
+	const a = await negocioConAgenda();
+	const persona = idPersona();
+	await socio(a, `${persona.slice(5)}@prueba.tengolibre.com.ar`);
+	await page.goto(`/${a.slug}/reservar?servicio=${a.servicio}`);
+	await page.getByRole('link', { name: /^Ana/ }).click();
+	await elegirDia(page);
+	await page.getByRole('link', { name: '10:30' }).click();
+	await page.getByRole('link', { name: 'Ingresá' }).click();
+	await page.getByLabel('Id de la persona').fill(persona);
+	await page.getByRole('button', { name: 'Entrar' }).click();
+	await expect(page).toHaveURL(/\/reservar\?/);
+	await expect(page.getByLabel(/Usar mi membresía/)).toBeChecked();
+	await expect(page.getByText('te queda 1 visita')).toBeVisible();
+	await expect(page.getByLabel('Nombre y apellido')).toHaveCount(0);
+	await sinDesborde(page);
+	await page.getByRole('button', { name: 'Confirmar turno' }).click();
+	await expect(page).toHaveURL(/\/turno\/[\w-]+\?nuevo=1/);
+	expect(sql(`SELECT count(*) FROM membresia_creditos WHERE negocio_id = :'p1' AND cantidad < 0`, a.negocio)).toBe('1');
 });
 
 test('invitación: sin sesión pide ingresar y al volver la acepta', async ({ page }) => {

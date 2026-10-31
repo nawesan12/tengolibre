@@ -56,3 +56,10 @@ export const invitar = (a: Armado, email: string) =>
 /** Hoy en Argentina, AAAA-MM-DD. */
 export const hoy = () =>
 	new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+
+/** Un plan de una visita para el servicio y un socio con ese email (cargado por el negocio). */
+export async function socio(a: Armado, email: string) {
+	const p = <T>(metodo: string, ruta: string, cuerpo?: unknown) => pedir<T>(metodo, ruta, cuerpo, a.tk, a.negocio);
+	const plan = await p<{ id: string }>('POST', '/v1/panel/membresias/planes', { nombre: 'Un corte', precio: 9000, visitas: 1, duracionDias: 30 });
+	await p('POST', '/v1/panel/membresias/socios', { planId: plan.id, nombre: 'Socia', telefono: '11 5555 0000', email });
+}

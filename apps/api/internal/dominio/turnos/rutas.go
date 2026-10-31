@@ -2,6 +2,7 @@ package turnos
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -25,7 +26,7 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/p/{slug}", web.Envolver(s.pagina))
 	mux.HandleFunc("GET /v1/p/{slug}/libres", web.Envolver(s.libresPublico))
 	mux.HandleFunc("GET /v1/p/{slug}/dias", web.Envolver(s.diasPublico))
-	mux.HandleFunc("POST /v1/p/{slug}/turnos", web.Envolver(s.reservarPublico))
+	mux.HandleFunc("POST /v1/p/{slug}/turnos", s.Sesion.Opcional(web.Envolver(s.reservarPublico)))
 	// Link del cliente (el código es el secreto).
 	mux.HandleFunc("GET /v1/t/{codigo}", web.Envolver(s.verTurno))
 	mux.HandleFunc("POST /v1/t/{codigo}/cancelar", web.Envolver(s.cancelarCliente))
@@ -209,8 +210,22 @@ func (s *Servicio) reservarPublico(w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 	in.Forzar = false
+	in.ClienteID = ""
+	email := sesion.De(ctx).Persona.Email
+	if in.UsarMembresia && email == "" {
+		return problema.SinSesion()
+	}
 	var t Turno
 	err = s.Pool.EnNegocio(ctx, id, func(tx pgx.Tx) (err error) {
+		// Lo que se cargue desde acá no es de confianza (ver app.cuidar_email).
+		if _, err := tx.Exec(ctx, "SELECT set_config('app.origen', 'web', true)"); err != nil {
+			return err
+		}
+		if in.UsarMembresia {
+			if in.ClienteID, err = SocioDe(ctx, tx, email, s.ahora()); err != nil {
+				return err
+			}
+		}
 		if t, err = reservar(ctx, tx, in, "web", s.ahora()); err != nil {
 			return err
 		}
@@ -223,6 +238,18 @@ func (s *Servicio) reservarPublico(w http.ResponseWriter, r *http.Request) error
 	s.avisar(ctx, id, t.ID, "reservado")
 	web.JSON(w, http.StatusCreated, t)
 	return nil
+}
+
+// SocioDe es el cliente del negocio fijado con ese email (de confianza) y una membresía vigente.
+func SocioDe(ctx context.Context, tx pgx.Tx, email string, ahora time.Time) (string, error) {
+	var id string
+	err := tx.QueryRow(ctx, `SELECT c.id::text FROM clientes c JOIN membresias m ON m.cliente_id = c.id
+		WHERE c.email_confiable AND lower(c.email) = lower($1) AND m.estado = 'activa' AND m.desde <= $2 AND m.hasta > $2
+		ORDER BY m.hasta DESC LIMIT 1`, email, ahora).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", problema.Conflicto("sin_membresia", "No encontramos una membresía vigente con tu email en este negocio.")
+	}
+	return id, err
 }
 
 func (s *Servicio) reservarPanel(w http.ResponseWriter, r *http.Request) error {

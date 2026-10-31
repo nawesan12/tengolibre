@@ -50,6 +50,10 @@
 	const sinDias = $derived(data.paso === 'dia' && data.dias.every((d) => d.libres === 0));
 	const hoy = $derived(diaDe(new Date(), n.zonaHoraria));
 	let enviando = $state(false);
+	// El socio que ingresó reserva con su membresía (sus datos ya los tiene el negocio).
+	let usar = $state(true);
+	const conMembresia = $derived(!!data.membresia && usar);
+	const volver = $derived(encodeURIComponent(page.url.pathname + page.url.search));
 	const abierto = (si: boolean | undefined) => (si ? { open: true } : {});
 </script>
 
@@ -229,6 +233,18 @@
 						{#if form.codigo === 'horario_ocupado'}<a href={ir('horario')}>Elegí otro horario</a>{/if}
 					</p>
 				{/if}
+				{#if data.membresia}
+					<label class="tarjeta fila membresia">
+						<input type="checkbox" name="usarMembresia" value="1" bind:checked={usar} />
+						<span>
+							Usar mi membresía <strong>{data.membresia.plan}</strong>
+							<span class="suave chico">· {data.membresia.saldo === 1 ? 'te queda 1 visita' : `te quedan ${data.membresia.saldo} visitas`}</span>
+						</span>
+					</label>
+				{:else if data.conPlanes && !data.ingresado}
+					<p class="suave chico" style="margin: 0">¿Sos socio? <a href={`/ingresar?volver=${volver}`}>Ingresá</a> para usar tu&nbsp;membresía.</p>
+				{/if}
+				{#if !conMembresia}
 				<label class="campo">
 					Nombre y apellido
 					<input name="nombre" required maxlength="80" autocomplete="name" value={v.nombre ?? ''} aria-invalid={!!form?.campos?.['cliente.nombre']} />
@@ -242,6 +258,7 @@
 					<input name="email" type="email" maxlength="120" autocomplete="email" value={v.email ?? ''} aria-invalid={!!form?.campos?.['cliente.email']} aria-describedby="ayuda-contacto" />
 				</label>
 				<p id="ayuda-contacto" class="suave chico" style="margin: -6px 0 0">Dejá teléfono o email: ahí te llega la confirmación y el&nbsp;recordatorio.</p>
+				{/if}
 				<label class="campo">
 					Algo que el negocio tenga que saber (opcional)
 					<textarea name="nota" maxlength="500" rows="2">{v.nota ?? ''}</textarea>
@@ -278,15 +295,21 @@
 							<span>Descuento</span><span>−{pesos(descuento)}</span>
 						</div>
 					{/if}
-					<div class="fila" style="justify-content: space-between">
-						<strong>Total</strong><strong>{pesos(precio - descuento)}</strong>
-					</div>
-					{#if cobroTexto}<p class="chico" style="margin: 0">{cobroTexto}</p>{/if}
+					{#if conMembresia}
+						<div class="fila" style="justify-content: space-between">
+							<strong>Total</strong><strong>Con tu membresía</strong>
+						</div>
+					{:else}
+						<div class="fila" style="justify-content: space-between">
+							<strong>Total</strong><strong>{pesos(precio - descuento)}</strong>
+						</div>
+						{#if cobroTexto}<p class="chico" style="margin: 0">{cobroTexto}</p>{/if}
+					{/if}
 					{#if data.politicaCancelacion}<p class="suave chico" style="margin: 0; white-space: pre-line">{data.politicaCancelacion}</p>{/if}
 				</div>
 
 				<button class="boton primario grande" disabled={enviando}>
-					{enviando ? 'Reservando…' : cobroTexto ? 'Confirmar e ir a pagar' : 'Confirmar turno'}
+					{enviando ? 'Reservando…' : cobroTexto && !conMembresia ? 'Confirmar e ir a pagar' : 'Confirmar turno'}
 				</button>
 			</form>
 		</section>
@@ -296,6 +319,12 @@
 <style>
 	.reserva {
 		max-width: 640px;
+	}
+	.membresia {
+		align-items: center;
+		gap: 10px;
+		cursor: pointer;
+		text-wrap: pretty;
 	}
 	.pasos {
 		display: flex;

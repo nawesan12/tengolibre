@@ -133,6 +133,20 @@ func (s *Servicio) Persona(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// Opcional deja la sesión si viene una propia válida (la del front) y si no, sigue sin sesión: es
+// para las rutas públicas que hacen algo de más con quien ingresó (usar su membresía al reservar).
+// Un token de Clerk suelto no alcanza, porque no trae el email verificado.
+func (s *Servicio) Opcional(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if t := token(r); strings.HasPrefix(t, Prefijo) {
+			if p, err := s.propia(r.Context(), t); err == nil {
+				r = r.WithContext(ConSesion(r.Context(), Sesion{ClerkID: p.ClerkID, Persona: p}))
+			}
+		}
+		next(w, r)
+	}
+}
+
 // Panel exige persona, un X-Negocio del que sea miembro activo y uno de los roles.
 func (s *Servicio) Panel(roles []string, next http.HandlerFunc) http.HandlerFunc {
 	return s.Persona(func(w http.ResponseWriter, r *http.Request) {

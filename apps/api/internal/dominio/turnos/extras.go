@@ -28,7 +28,9 @@ type Reserva struct {
 	Pedido Pedido
 	// Origen: web o panel.
 	Origen string
-	Ahora  time.Time
+	// Identificado: la reserva web la hizo el socio con sesión y pidió usar su membresía.
+	Identificado bool
+	Ahora        time.Time
 }
 
 // Pago que pide la reserva, cuando el negocio cobra seña o total.
@@ -40,7 +42,7 @@ type Pago struct {
 }
 
 func (s *Servicio) alReservar(ctx context.Context, tx pgx.Tx, t *Turno, in Pedido, origen string) error {
-	r := &Reserva{Turno: t, Pedido: in, Origen: origen, Ahora: s.ahora()}
+	r := &Reserva{Turno: t, Pedido: in, Origen: origen, Identificado: in.ClienteID != "" && origen == "web", Ahora: s.ahora()}
 	for _, e := range s.Extras {
 		if err := e.AlReservar(ctx, tx, r); err != nil {
 			return err

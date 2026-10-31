@@ -272,6 +272,10 @@ type Pedido struct {
 	// Cupon y Referido: los códigos que trae quien reserva (los aplica el extra de promos).
 	Cupon    string `json:"cupon,omitempty"`
 	Referido string `json:"referido,omitempty"`
+	// UsarMembresia (sólo web, con sesión): el turno va a nombre del socio que ingresó y gasta una
+	// visita de su membresía. Lo resuelve reservarPublico, que deja ClienteID.
+	UsarMembresia bool   `json:"usarMembresia,omitempty"`
+	ClienteID     string `json:"-"`
 }
 
 // elegir el profesional para el horario: el pedido, o el primero libre en el orden del negocio.
@@ -321,7 +325,8 @@ func elegir(ctx context.Context, tx pgx.Tx, c contexto, srv catalogo.Prestacion,
 
 // reservar crea el turno en el negocio fijado.
 func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora time.Time) (Turno, error) {
-	if err := validarCliente(&in.Cliente); err != nil {
+	// Con ClienteID (el socio que ingresó) los datos de contacto son los suyos: no se piden.
+	if err := validarCliente(&in.Cliente); err != nil && in.ClienteID == "" {
 		return Turno{}, err
 	}
 	if utf8.RuneCountInString(in.Nota) > 500 {
@@ -339,9 +344,11 @@ func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora ti
 	if err != nil {
 		return Turno{}, err
 	}
-	clienteID, err := clienteDe(ctx, tx, in.Cliente)
-	if err != nil {
-		return Turno{}, err
+	clienteID := in.ClienteID
+	if clienteID == "" {
+		if clienteID, err = clienteDe(ctx, tx, in.Cliente); err != nil {
+			return Turno{}, err
+		}
 	}
 	// Con una penalidad vigente (por ausencias, o puesta a mano) no se reserva desde la web; desde el
 	// panel sí, porque ahí decide el negocio.

@@ -16,6 +16,7 @@ import (
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/turnos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
 )
 
@@ -80,15 +81,22 @@ func Saldo(ctx context.Context, tx pgx.Tx, membresiaID string) (int, error) {
 }
 
 // AlReservar (turnos.Extra): si el cliente tiene una membresía vigente que cubre el servicio y le
-// quedan visitas, gasta una y el turno queda cubierto. Como en Jiku, sólo en las reservas del panel:
-// la página pública todavía no identifica al cliente (cualquiera puede escribir un teléfono), y
-// gastarle una visita a otro sería peor que cobrarle la seña.
+// quedan visitas, gasta una y el turno queda cubierto. En el panel, siempre. En la página pública,
+// sólo si el socio ingresó y pidió usarla (Identificado): ahí cualquiera puede escribir un
+// teléfono, y gastarle una visita a otro sería peor que cobrarle la seña.
 //
 // La membresía se bloquea y el saldo se relee acá adentro: dos reservas a la vez no se llevan la
-// misma última visita. Sin visitas, la reserva sigue normal (no falla).
+// misma última visita. Sin visitas, la reserva del panel sigue normal; la del socio que pidió usar
+// la membresía falla, para que no termine pagando sin darse cuenta.
 func (s *Servicio) AlReservar(ctx context.Context, tx pgx.Tx, r *turnos.Reserva) error {
 	t := r.Turno
-	if r.Origen != "panel" || t.ServicioID == nil {
+	if (r.Origen != "panel" && !r.Identificado) || t.ServicioID == nil {
+		return nil
+	}
+	falta := func(detalle string) error {
+		if r.Identificado {
+			return problema.Conflicto("membresia_no_cubre", detalle)
+		}
 		return nil
 	}
 	var id string
@@ -97,17 +105,20 @@ func (s *Servicio) AlReservar(ctx context.Context, tx pgx.Tx, r *turnos.Reserva)
 		WHERE m.cliente_id = $1 AND m.estado = 'activa' AND m.desde <= $2 AND m.hasta > $2
 		ORDER BY m.hasta DESC LIMIT 1 FOR UPDATE OF m`, t.Cliente.ID, r.Ahora).Scan(&id, &p.Servicios)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
+		return falta("No encontramos una membresía vigente.")
 	}
 	if err != nil {
 		return err
 	}
 	if !p.Cubre(*t.ServicioID) {
-		return nil
+		return falta("Tu membresía no cubre este servicio.")
 	}
 	saldo, err := Saldo(ctx, tx, id)
-	if err != nil || saldo < 1 {
+	if err != nil {
 		return err
+	}
+	if saldo < 1 {
+		return falta("No te quedan visitas en tu membresía.")
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO membresia_creditos (negocio_id, membresia_id, cantidad, motivo, turno_id)
 		VALUES (app.negocio_actual(), $1, -1, 'Turno reservado', $2)`, id, t.ID); err != nil {
