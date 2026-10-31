@@ -252,3 +252,30 @@ test('membresías, referidos y dominio, sin desbordar en el teléfono', async ({
 		await sinDesborde();
 	}
 });
+
+test('plantillas: el borrador se prueba en la vista previa y se publica', async ({ page }) => {
+	const slug = await negocioNuevo(page);
+
+	await abrir(page, '/panel/plantillas');
+	await expect(page.getByRole('button', { name: /Carta/ })).toHaveAttribute('aria-pressed', 'true');
+	await page.getByRole('button', { name: /Vidriera/ }).click();
+	await page.getByRole('group', { name: 'Fondo' }).getByRole('button', { name: 'Noche' }).click();
+	await expect(page.getByText('Cambios sin publicar')).toBeVisible();
+	await expect(page.locator('iframe')).toHaveAttribute('src', new RegExp(`^/${slug}\\?vista=1&plantilla=vidriera.*fondo=noche`));
+
+	// Descartar vuelve a lo publicado; publicar lo deja guardado.
+	await page.getByRole('button', { name: 'Descartar' }).click();
+	await expect(page.getByText('Cambios sin publicar')).toHaveCount(0);
+	await page.getByRole('button', { name: /Vidriera/ }).click();
+	await page.getByRole('button', { name: 'Publicar' }).click();
+	await expect(page.getByRole('status')).toContainText('Publicada. Tus clientes ya la');
+	await page.reload();
+	await expect(page.getByRole('button', { name: /Vidriera/ })).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByText('Cambios sin publicar')).toHaveCount(0);
+
+	await abrir(page, '/panel/integraciones');
+	await expect(page.getByRole('heading', { name: /Integraciones e/ })).toBeVisible();
+	await expect(page.getByRole('link', { name: /Mercado Pago/ })).toHaveAttribute('href', '/panel/pagos');
+	await expect(page.getByRole('link', { name: /Google Calendar/ })).toHaveAttribute('href', '/panel/calendario/suscribirse');
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
