@@ -1,54 +1,193 @@
 /*
- * Base provisoria: neutra y prolija, para que el esqueleto se use mientras llega el handoff del
- * rediseño. Todo pasa por variables, así el handoff reemplaza tokens y componentes sin tocar la
- * lógica de las páginas.
+ * Tengo Libre · diseño v2 (docs/handoff/design_handoff_tengolibre_v2). Los tokens y las firmas
+ * (talón, hueco, pestaña) vienen tal cual de tokens.css del handoff; abajo, las clases de uso común
+ * de las páginas, con esos tokens. Lato y Material Symbols Rounded se cargan en app.html.
  */
+
 :root {
-	--fondo: #f7f8f7;
-	--superficie: #ffffff;
-	--tinta: #16181a;
-	--suave: #5b6168;
-	--borde: #e2e5e3;
-	--marca: #0f9d58;
-	--marca-tinta: #ffffff;
-	--marca-suave: #e6f5ec;
-	--peligro: #c62828;
-	--aviso: #b26a00;
-	--radio: 10px;
-	--sombra: 0 1px 2px rgb(0 0 0 / 0.06), 0 1px 1px rgb(0 0 0 / 0.04);
-	--fuente: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Paleta (no inventar colores fuera de esta lista) */
+  --tl-petroleo: #183c44;       /* marca, superficies oscuras */
+  --tl-petroleo-hondo: #102b31; /* pie, bloques más oscuros, texto sobre menta */
+  --tl-menta: #3ccc90;          /* acción principal, huecos. Sin texto encima salvo petróleo hondo */
+  --tl-menta-texto: #17805a;    /* menta para texto/íconos sobre claro (≥4,5:1) */
+  --tl-menta-suave: #e3f6ec;    /* fondos de estado «ok» */
+  --tl-crema: #f4eee2;          /* fondo de tarjetas con puntos */
+  --tl-crema-pagina: #faf6ee;   /* fondo de la web pública (Crema) */
+  --tl-papel: #fffdf9;          /* superficies claras */
+  --tl-tinta: #0f2328;          /* texto principal */
+  --tl-sub: #4a5d61;            /* texto secundario */
+  --tl-sub-2: #33474b;          /* párrafos sobre crema */
+  --tl-linea: #ece3d1;
+  --tl-linea-2: #e2d6bf;        /* troqueles punteados sobre claro */
+  --tl-noche: #14221f;          /* fondo «Noche» de la web pública */
+
+  /* Tipografía: Lato sola, nunca monoespaciada */
+  --tl-font: Lato, system-ui, sans-serif;
+  --tl-w-regular: 400; --tl-w-bold: 700; --tl-w-black: 900;
+  --tl-rotulo: 900 12px/1 var(--tl-font);      /* + letter-spacing .08em, MAYÚSCULAS */
+  --tl-rotulo-ls: .08em;
+  --tl-h1: clamp(58px, 11vw, 176px);           /* hero landing, lh .86, ls -0.06em */
+  --tl-h2: clamp(38px, 5.4vw, 72px);           /* lh .95, ls -0.045em */
+  --tl-h3: 28px;                               /* lh 1.05, ls -0.025em */
+  --tl-body: 16px;                             /* lh 1.5 */
+  --tl-small: 13px;                            /* mínimo para texto corrido */
+  --tl-min-rotulo: 11px;
+
+  /* Espaciado: múltiplos de 4 */
+  --tl-s1: 4px; --tl-s2: 8px; --tl-s3: 12px; --tl-s4: 16px; --tl-s6: 24px; --tl-s8: 32px; --tl-s12: 48px;
+
+  /* Formas */
+  --tl-r-pastilla: 999px;
+  --tl-r-xl: 36px;   /* tarjetas grandes de la landing */
+  --tl-r-l: 24px;    /* tarjetas del panel */
+  --tl-r-m: 18px;    /* filas, avisos */
+  --tl-r-s: 12px;
+
+  /* Sombras */
+  --tl-sh-tarjeta: 0 14px 28px -22px rgba(15,35,40,.45);
+  --tl-sh-alta: 0 30px 50px -36px rgba(15,35,40,.8);
+  --tl-luz-arriba: inset 0 2px 0 rgba(255,255,255,.7);   /* sobre crema/menta */
+  --tl-luz-arriba-osc: inset 0 1px 0 rgba(255,255,255,.12); /* sobre petróleo */
+
+  /* Movimiento */
+  --tl-ease: cubic-bezier(.2,.7,.2,1);
+  --tl-entrar: 450ms; --tl-tocar: 150ms;
+
+  /* Texturas */
+  --tl-grano: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .11 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --tl-grano-osc: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .06  0 0 0 0 .14  0 0 0 0 .16  0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --tl-puntos: radial-gradient(rgba(24,60,68,.12) 1.2px, transparent 1.5px) 0 0 / 20px 20px;
+}
+
+.tl-num { font-variant-numeric: tabular-nums; }
+.tl-rotulo { font: var(--tl-rotulo); letter-spacing: var(--tl-rotulo-ls); text-transform: uppercase; }
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
+
+/* Superficies con textura */
+.tl-petroleo { background-color: var(--tl-petroleo); background-image: var(--tl-grano); color: #fff; }
+.tl-crema { background-color: var(--tl-crema); background-image: var(--tl-grano-osc), radial-gradient(rgba(24,60,68,.1) 1.2px, transparent 1.4px); background-size: auto, 18px 18px; }
+
+/* Talón (turno): troquel vertical a --talon-x, dos medialunas del color del fondo */
+.tl-talon {
+  --talon-x: 88px; --talon-fondo: var(--tl-papel);
+  display: grid; grid-template-columns: var(--talon-x) minmax(0,1fr); min-height: 78px; border-radius: 20px;
+  background:
+    radial-gradient(circle at var(--talon-x) 0, var(--talon-fondo) 9px, transparent 9.5px),
+    radial-gradient(circle at var(--talon-x) 100%, var(--talon-fondo) 9px, transparent 9.5px),
+    var(--tl-papel);
+  box-shadow: 0 18px 30px -20px rgba(15,35,40,.55);
+}
+.tl-talon > :first-child { display: flex; align-items: center; justify-content: center; border-right: 2px dashed var(--tl-linea-2); font-weight: 900; font-variant-numeric: tabular-nums; }
+.tl-talon--nuevo { background-color: var(--tl-menta); color: var(--tl-petroleo-hondo); }   /* recién llegó */
+.tl-talon--encurso { box-shadow: inset 0 0 0 2px var(--tl-petroleo); }                       /* en curso */
+.tl-talon--pasado { opacity: .55; }                                                          /* atendido: «picado» */
+.tl-talon--cancelado { text-decoration: line-through; opacity: .6; }
+
+/* Hueco (tiempo libre): rayado menta que corre despacio */
+.tl-hueco {
+  background: repeating-linear-gradient(-45deg, rgba(60,204,144,.4) 0 2px, rgba(255,253,249,.9) 2px 10px);
+  background-size: 34px 34px; box-shadow: inset 0 0 0 1.5px rgba(23,128,90,.45); color: #0f3d2b;
+  animation: tl-raya 2.4s linear infinite;
+}
+@keyframes tl-raya { to { background-position: 34px 0; } }
+@keyframes tl-gin { from { opacity: 0; transform: translateY(12px); } }
+@keyframes tl-pulse { 50% { opacity: .35; } }
+
+/* Pastilla de acción */
+.tl-cta { display: inline-flex; align-items: center; gap: 10px; height: 56px; padding: 0 28px; border: 0; border-radius: 999px;
+  background: var(--tl-menta); color: var(--tl-petroleo-hondo); font: 900 17px var(--tl-font); cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 16px 32px -14px rgba(60,204,144,.9);
+  transition: transform var(--tl-tocar) var(--tl-ease); }
+.tl-cta:hover { transform: translateY(-2px); }
+.tl-cta:active { transform: scale(.96); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+
+/* Equivalencias con las variables de antes (las usan los estilos de cada página). */
+:root {
+	--fondo: var(--tl-crema-pagina);
+	--superficie: var(--tl-papel);
+	--tinta: var(--tl-tinta);
+	--suave: var(--tl-sub);
+	--borde: var(--tl-linea);
+	--marca: var(--tl-menta);
+	--marca-tinta: var(--tl-petroleo-hondo);
+	--marca-suave: var(--tl-menta-suave);
+	--marca-texto: var(--tl-menta-texto);
+	--peligro: #b3261e;
+	--peligro-suave: #fbe9e7;
+	--aviso: #8a5300;
+	--aviso-suave: #fdf0d5;
+	--radio: var(--tl-r-m);
+	--sombra: var(--tl-sh-tarjeta);
+	--fuente: var(--tl-font);
 	color-scheme: light;
 }
+
 * {
 	box-sizing: border-box;
 }
 html,
 body {
 	margin: 0;
-	background: var(--fondo);
-	color: var(--tinta);
-	font: 15px/1.5 var(--fuente);
+	background: var(--tl-crema-pagina);
+	color: var(--tl-tinta);
+	font: 400 16px/1.5 var(--tl-font);
 	-webkit-font-smoothing: antialiased;
+	-webkit-tap-highlight-color: transparent;
 }
 a {
 	color: inherit;
 }
+:focus-visible {
+	outline: 3px solid var(--tl-menta);
+	outline-offset: 2px;
+}
 h1,
 h2,
 h3 {
-	line-height: 1.15;
-	letter-spacing: -0.02em;
-	text-wrap: balance;
 	margin: 0 0 0.5em;
+	font-weight: 900;
 }
 h1 {
-	font-size: clamp(24px, 4vw, 32px);
+	font-size: clamp(32px, 5vw, 48px);
+	line-height: 1;
+	letter-spacing: -0.035em;
 }
 h2 {
-	font-size: 19px;
+	font-size: 22px;
+	line-height: 1.1;
+	letter-spacing: -0.02em;
 }
-p {
-	text-wrap: pretty;
+h3 {
+	font-size: 17px;
+	line-height: 1.2;
+}
+.num {
+	font-variant-numeric: tabular-nums;
+}
+.icono {
+	font-family: 'Material Symbols Rounded';
+	font-weight: normal;
+	font-style: normal;
+	font-size: 22px;
+	line-height: 1;
+	letter-spacing: normal;
+	text-transform: none;
+	display: inline-block;
+	white-space: nowrap;
+	direction: ltr;
+	-webkit-font-smoothing: antialiased;
+	font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+	user-select: none;
+	flex: none;
+}
+.icono.lleno {
+	font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
 }
 .contenedor {
 	width: min(1100px, 100%);
@@ -56,11 +195,11 @@ p {
 	padding: 24px 16px;
 }
 .tarjeta {
-	background: var(--superficie);
-	border: 1px solid var(--borde);
-	border-radius: var(--radio);
-	box-shadow: var(--sombra);
-	padding: 16px;
+	background: var(--tl-papel);
+	border: 1px solid var(--tl-linea);
+	border-radius: var(--tl-r-l);
+	box-shadow: var(--tl-sh-tarjeta), var(--tl-luz-arriba);
+	padding: 20px;
 }
 .pila {
 	display: flex;
@@ -75,71 +214,102 @@ p {
 }
 .grilla {
 	display: grid;
-	gap: 12px;
+	gap: 16px;
 	grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
 }
 .suave {
-	color: var(--suave);
+	color: var(--tl-sub);
 }
 .chico {
 	font-size: 13px;
 }
+/* Botones: la pastilla menta es la acción principal (una por pantalla); el resto, papel o petróleo. */
 .boton {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	gap: 6px;
-	min-height: 40px;
-	padding: 0 14px;
-	border-radius: 8px;
-	border: 1px solid var(--borde);
-	background: var(--superficie);
-	color: var(--tinta);
-	font: inherit;
-	font-weight: 550;
+	gap: 8px;
+	min-height: 44px;
+	padding: 0 20px;
+	border-radius: var(--tl-r-pastilla);
+	border: 1.5px solid var(--tl-linea-2);
+	background: var(--tl-papel);
+	color: var(--tl-tinta);
+	font: 700 15px var(--tl-font);
 	text-decoration: none;
 	cursor: pointer;
+	transition: transform var(--tl-tocar) var(--tl-ease), background var(--tl-tocar) var(--tl-ease);
+}
+.boton:hover {
+	background: #fff;
+}
+.boton:active {
+	transform: scale(0.97);
 }
 .boton.primario {
-	background: var(--marca);
-	border-color: var(--marca);
-	color: var(--marca-tinta);
+	background: var(--tl-menta);
+	border-color: transparent;
+	color: var(--tl-petroleo-hondo);
+	font-weight: 900;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 12px 24px -14px rgba(60, 204, 144, 0.9);
+}
+.boton.oscuro {
+	background: var(--tl-petroleo);
+	border-color: transparent;
+	color: #fff;
+	box-shadow: var(--tl-luz-arriba-osc);
 }
 .boton.peligro {
 	color: var(--peligro);
+	border-color: #f0c9c4;
 }
 .boton:disabled {
 	opacity: 0.55;
 	cursor: not-allowed;
+	transform: none;
 }
 .campo {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 6px;
 	font-size: 14px;
+	font-weight: 700;
 }
 .campo input,
 .campo select,
 .campo textarea {
-	font: inherit;
-	min-height: 40px;
-	padding: 8px 10px;
-	border: 1px solid var(--borde);
-	border-radius: 8px;
-	background: var(--superficie);
-	color: var(--tinta);
+	font: 400 16px var(--tl-font);
+	min-height: 48px;
+	padding: 10px 14px;
+	border: 1.5px solid var(--tl-linea-2);
+	border-radius: var(--tl-r-s);
+	background: var(--tl-papel);
+	color: var(--tl-tinta);
+}
+.campo input:focus,
+.campo select:focus,
+.campo textarea:focus {
+	outline: none;
+	border-color: var(--tl-petroleo);
+	box-shadow: 0 0 0 3px rgba(60, 204, 144, 0.35);
 }
 .campo .error {
 	color: var(--peligro);
 	font-size: 13px;
+	font-weight: 700;
 }
 .aviso {
-	padding: 10px 12px;
-	border-radius: 8px;
-	background: var(--marca-suave);
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	padding: 12px 16px;
+	border-radius: var(--tl-r-m);
+	background: var(--tl-menta-suave);
+	color: var(--tl-tinta);
+	font-size: 14px;
 }
 .aviso.error {
-	background: #fdecea;
+	background: var(--peligro-suave);
 	color: var(--peligro);
 }
 .tabla {
@@ -150,23 +320,30 @@ p {
 .tabla th,
 .tabla td {
 	text-align: left;
-	padding: 10px 8px;
-	border-bottom: 1px solid var(--borde);
+	padding: 12px 10px;
+	border-bottom: 1px solid var(--tl-linea);
 	vertical-align: top;
 }
 .tabla th {
-	color: var(--suave);
-	font-weight: 550;
+	font: var(--tl-rotulo);
+	font-size: 11px;
+	letter-spacing: var(--tl-rotulo-ls);
+	text-transform: uppercase;
+	color: var(--tl-sub);
 }
 .desplazable {
 	overflow-x: auto;
 }
 .etiqueta {
-	display: inline-block;
-	padding: 2px 8px;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 10px;
 	border-radius: 999px;
 	font-size: 12px;
-	background: var(--marca-suave);
+	font-weight: 700;
+	background: var(--tl-menta-suave);
+	color: var(--tl-menta-texto);
 }
 .visualmente-oculto {
 	position: absolute;
@@ -174,4 +351,5 @@ p {
 	height: 1px;
 	overflow: hidden;
 	clip: rect(0 0 0 0);
+	white-space: nowrap;
 }
