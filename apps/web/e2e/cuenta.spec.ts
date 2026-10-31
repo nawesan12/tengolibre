@@ -1,15 +1,12 @@
 import { expect, test, type Page } from './base.ts';
-import { entrar, negocioNuevo, unico } from './ayuda.ts';
+import { crearNegocio, entrar, negocioNuevo, unico } from './ayuda.ts';
 
 /** La persona de prueba del equipo (TENGOLIBRE_ADMINS en playwright.config.ts). */
 const ADMIN = 'user_e2eadmin00000001';
 
 /** Con la sesión abierta, da de alta otro negocio; devuelve su nombre. */
 async function otroNegocio(page: Page, nombre: string) {
-	await page.goto('/empezar');
-	await page.getByLabel('Nombre del negocio').fill(nombre);
-	await page.getByRole('button', { name: 'Crear' }).click();
-	await expect(page.getByRole('heading', { name: /Hola/ })).toBeVisible();
+	await crearNegocio(page, nombre);
 	return nombre;
 }
 
