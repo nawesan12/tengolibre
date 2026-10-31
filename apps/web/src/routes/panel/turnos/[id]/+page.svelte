@@ -103,6 +103,7 @@
 					<div class="linea ambar"><span class="ic"><Icono nombre="pending" tam={18} />Quedó debiendo</span><b class="tl-num">{pesos(data.caja.total)}</b></div>
 				{:else}
 					<div class="linea suave-l"><span>Resta cobrar en el local</span><b class="tl-num">{pesos(data.caja.total)}</b></div>
+					{#if t.estado === 'atendido' && puedeActuar}<button class="cobrar-b" onclick={() => (caja = true)}><Icono nombre="point_of_sale" tam={18} />Cobrar</button>{/if}
 				{/if}
 			{:else}
 				<div class="linea"><span>Precio</span><b class="tl-num">{pesos(t.precio)}</b></div>
@@ -147,7 +148,7 @@
 					<li>
 						<span class="punto" style:background={COLOR_AVISO[a.estado] ?? '#183c44'}></span>
 						<span>
-							Mail «{a.tipo.replaceAll('_', ' ')}» a {a.para} · {ESTADO_AVISO[a.estado] ?? a.estado}
+							Mail «{a.tipo.replaceAll('_', ' ')}»{a.para ? ` a ${a.para}` : ''} · {ESTADO_AVISO[a.estado] ?? a.estado}
 							{#if a.ultimoError}<span class="error-a">· {a.ultimoError}</span>{/if}
 							{#if a.estado !== 'pendiente'}
 								<form method="POST" action="?/reenviar" use:enhance class="reenviar">
@@ -661,6 +662,20 @@
 	.sec.peligro {
 		background: transparent;
 		color: #a3241a;
+	}
+	.cobrar-b {
+		align-self: flex-start;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		min-height: 40px;
+		padding: 0 16px;
+		border: 0;
+		border-radius: 999px;
+		background: var(--tl-petroleo);
+		color: #fff;
+		font: 700 13px var(--tl-font);
+		cursor: pointer;
 	}
 	.llamar {
 		display: flex;
