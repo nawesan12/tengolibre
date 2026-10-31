@@ -17,7 +17,9 @@ export const load: PageServerLoad = ({ locals, url, cookies }) => {
 	return {
 		fapi: fapiDe(PUBLIC_CLERK_PUBLICABLE),
 		prueba: conPrueba(),
-		error: url.searchParams.get('error')
+		error: url.searchParams.get('error'),
+		// Viene de la reserva de un negocio: es un socio, no alguien que entra a su panel.
+		socio: volverValido(volver) && !/^\/(panel|admin|empezar|invitacion|mi-cuenta)/.test(volver)
 	};
 };
 

@@ -29,7 +29,12 @@
 <svelte:head><title>Ingresar · Tengo Libre</title></svelte:head>
 
 <main class="contenedor pila" style="max-width: 420px">
-	<h1>Entrá a tu panel</h1>
+	{#if data.socio}
+		<h1>Ingresá para usar tu membresía</h1>
+		<p class="suave">Con el mismo email que le diste al&nbsp;negocio.</p>
+	{:else}
+		<h1>Entrá a tu panel</h1>
+	{/if}
 	{#if data.error || error}
 		<p class="aviso error" role="alert">{error || mensajes[data.error ?? ''] || 'No pudimos completar el ingreso.'}</p>
 	{/if}
