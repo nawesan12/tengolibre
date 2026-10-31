@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base.ts';
 import { unico } from './ayuda.ts';
 import { hoy, idPersona, invitar, negocioConAgenda, sql } from './publico-ayuda.ts';
 

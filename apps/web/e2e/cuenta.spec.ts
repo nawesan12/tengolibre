@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base.ts';
 import { entrar, negocioNuevo, unico } from './ayuda.ts';
 
 /** La persona de prueba del equipo (TENGOLIBRE_ADMINS en playwright.config.ts). */

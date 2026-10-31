@@ -1,4 +1,5 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, hidratada } from './base.ts';
+import type { Page } from '@playwright/test';
 
 /** Un id de persona y un slug nuevos por prueba (la base local se reusa). */
 export const unico = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -8,6 +9,8 @@ export async function entrar(page: Page, id: string, volver = '/panel') {
 	await page.goto(`/ingresar?volver=${encodeURIComponent(volver)}`);
 	await page.getByLabel('Id de la persona').fill(id);
 	await page.getByRole('button', { name: 'Entrar' }).click();
+	await page.waitForURL((u) => !u.pathname.startsWith('/ingresar'));
+	await hidratada(page);
 }
 
 /** Entra y da de alta un negocio; devuelve su slug. */

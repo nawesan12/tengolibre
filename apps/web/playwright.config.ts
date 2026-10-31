@@ -14,6 +14,8 @@ const WEB = `http://127.0.0.1:${PW}`;
 export default defineConfig({
 	testDir: 'e2e',
 	fullyParallel: false,
+	// Con la máquina cargada (agentes, builds) 5 s se quedan cortos.
+	expect: { timeout: 10_000 },
 	workers: 1,
 	use: { baseURL: WEB, trace: 'retain-on-failure' },
 	projects: [

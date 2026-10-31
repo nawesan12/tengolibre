@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base.ts';
 import { negocioNuevo } from './ayuda.ts';
 
 test('alta del negocio y un servicio desde el panel', async ({ page }) => {

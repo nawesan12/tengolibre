@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base.ts';
 import { negocioNuevo, unico } from './ayuda.ts';
 
 /** La API de las pruebas (la misma que levanta playwright.config.ts). */
