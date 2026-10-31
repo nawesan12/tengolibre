@@ -210,3 +210,38 @@ test('reportes con descarga CSV, lista de espera y reseñas', async ({ page, req
 		expect(ancho, ruta).toBeLessThanOrEqual(0);
 	}
 });
+
+test('los turnos en Google Calendar: link para suscribirse y regenerarlo', async ({ page, request }) => {
+	const a = await armar(page, request);
+	await a.api('POST', '/v1/panel/turnos', {
+		servicioId: a.servicio,
+		profesionalId: a.profesional,
+		inicio: `${manana()}T10:00:00-03:00`,
+		cliente: { nombre: 'Lucía Calendario', telefono: '1155550009' }
+	});
+	await irA(page, '/panel/calendario');
+	await page.getByRole('link', { name: 'Verlo en Google Calendar' }).click();
+	await expect(page.getByRole('heading', { name: 'Verlo en tu calendario' })).toBeVisible();
+	const negocio = page.getByRole('region', { name: 'Todo el negocio' });
+	await negocio.getByRole('button', { name: 'Crear link' }).click();
+	const link = negocio.getByLabel(/Link del calendario/);
+	await expect(link).toHaveValue(/\/cal\/[\w-]+\.ics$/);
+	const viejo = await link.inputValue();
+	await expect(negocio.getByRole('link', { name: 'Agregar a Google Calendar' })).toHaveAttribute('href', /calendar\.google\.com.*cid=webcal/);
+
+	const ics = await request.get(viejo);
+	expect(ics.headers()['content-type']).toContain('text/calendar');
+	const cuerpo = await ics.text();
+	expect(cuerpo).toContain('BEGIN:VCALENDAR');
+	expect(cuerpo).toContain('Corte · Lucía Calendario');
+
+	// En el teléfono, sin scroll de costado.
+	const [ancho, vista] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+	expect(ancho).toBeLessThanOrEqual(vista);
+
+	await negocio.getByRole('button', { name: 'Generar link nuevo' }).click();
+	await expect(negocio.getByRole('status')).toContainText('el link anterior dejó de andar');
+	await expect(link).not.toHaveValue(viejo);
+	expect((await request.get(viejo)).status()).toBe(404);
+	await expect(page.getByRole('region', { name: 'Ana' }).getByRole('button', { name: 'Crear link' })).toBeVisible();
+});

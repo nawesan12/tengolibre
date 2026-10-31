@@ -15,6 +15,9 @@ Membresías en la reserva pública: el socio ingresa (Clerk) desde «Tus datos»
 membresía». La API lo identifica por su email verificado contra el email «de confianza» del cliente
 (`clientes.email_confiable`: lo cargó el negocio, nunca lo tipeado en la web; ver
 `app.cuidar_email`, migración 00009), así nadie usa una membresía ajena escribiendo un teléfono.
+Google Calendar (y Apple/Outlook): link iCal secreto por negocio o por profesional
+(`calendario`, `/panel/calendario/suscribirse`, migración 00010). El front sirve `/cal/{token}.ics`
+reenviando `GET /v1/cal/…`; un profesional con usuario vinculado maneja sólo el suyo.
 
 Desplegar el front: `cd apps/web && bun run build`, `rsync -az --delete build/ root@187.41.102.190:/opt/tengolibre/web/build/`
 y `docker compose restart web` en /opt/tengolibre. Config en `/opt/tengolibre/web.conf`.

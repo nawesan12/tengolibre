@@ -14,6 +14,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/admin"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/arranque"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/avisos"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/calendario"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/catalogo"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/clientes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/cobros"
@@ -117,6 +118,7 @@ func correr() error {
 				&directorio.Servicio{Pool: app, Sesion: ses},
 				&grupos.Servicio{Pool: app, Sesion: ses},
 				&arranque.Servicio{Pool: app, Sesion: ses},
+				&calendario.Servicio{Pool: app, Sesion: ses, Sitio: cfg.Sitio},
 				&admin.Servicio{Pool: app, Sesion: ses, Admins: cfg.Admins, AdminsEmails: cfg.AdminsEmails},
 			}}),
 		ReadHeaderTimeout: 5 * time.Second,

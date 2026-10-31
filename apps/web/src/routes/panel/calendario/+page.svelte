@@ -56,6 +56,7 @@
 <div class="pila">
 	<div class="fila" style="justify-content: space-between">
 		<h1>Calendario</h1>
+		<a class="boton" href="/panel/calendario/suscribirse">Verlo en Google Calendar</a>
 		<a class="boton primario" href={`/panel/turnos/nuevo?fecha=${data.vista === 'dia' ? data.fecha : dia()}`}>Nuevo turno</a>
 	</div>
 

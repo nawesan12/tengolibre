@@ -37,6 +37,7 @@
 		['mercadopago.svg', 'Mercado Pago'],
 		['whatsapp.svg', 'WhatsApp'],
 		['google.svg', 'Google'],
+		['googlecalendar.svg', 'Google Calendar'],
 		['apple.svg', 'Apple']
 	];
 
