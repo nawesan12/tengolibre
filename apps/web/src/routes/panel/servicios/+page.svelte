@@ -5,6 +5,7 @@
 	import { confirmar } from '#lib/configuracion/formularios.ts';
 	import type { SubmitFunction } from '$app/forms';
 	import type { Servicio } from './+page.server.ts';
+	import CartaProductos from '#lib/gestion/productos/CartaProductos.svelte';
 
 	let { data, form } = $props();
 
@@ -344,6 +345,8 @@
 			</form>
 		</section>
 	{/each}
+
+	{#if data.productos}<CartaProductos productos={data.productos} {guardar} />{/if}
 
 	<p class="g-nota">
 		La descripción, la foto y quién lo hace se abren desde la fila. Los inactivos no se ven en tu página, pero se pueden cargar desde el&nbsp;panel.

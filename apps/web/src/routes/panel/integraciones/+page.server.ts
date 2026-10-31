@@ -1,6 +1,7 @@
+import { fail } from '@sveltejs/kit';
 import { apiDe, apiPublica, ErrorApi } from '#lib/server/api.ts';
 import { accion } from '#lib/configuracion/acciones.server.ts';
-import { ASISTENTES, PERMISOS, RUTAS_IA, type AsistenteIA, type Permisos } from '#lib/gestion/api-integraciones.ts';
+import { RUTA_IA_PUBLICO, RUTAS_MCP, type AccionMcp, type IaPublica, type Mcp, type Token } from '#lib/gestion/api-integraciones.ts';
 import { ZONA } from '#lib/formato.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -58,45 +59,73 @@ async function huecosDeManana(fetch: typeof globalThis.fetch, slug: string, prof
 }
 
 export const load: PageServerLoad = async (event) => {
+	event.depends('panel:mcp_registro');
 	const api = apiDe(event);
-	const [negocio, mp, calendarios, profesionales, ia] = await Promise.all([
+	const [negocio, mp, calendarios, profesionales, mcp, registro, publico] = await Promise.all([
 		api.get<Negocio>('/v1/panel/negocio'),
 		opcional(api.get<Conexion>('/v1/panel/mercadopago')),
 		opcional(api.get<{ calendarios: Calendario[] }>('/v1/panel/calendarios').then((r) => r.calendarios)),
 		api.get<{ profesionales: Profesional[] }>('/v1/panel/profesionales').then((r) => r.profesionales.filter((p) => p.activo)),
-		opcional(api.get<AsistenteIA>(RUTAS_IA.leer))
+		opcional(api.get<Mcp>(RUTAS_MCP.leer)),
+		opcional(api.get<{ acciones: AccionMcp[] }>(`${RUTAS_MCP.registro}?limite=5`).then((r) => r.acciones)),
+		opcional(api.get<IaPublica>(RUTA_IA_PUBLICO))
 	]);
 	const ejemplo = await huecosDeManana(event.fetch, negocio.slug, profesionales);
+	// La clave que se mira: la de ?clave=<id>, o la primera.
+	const elegida = mcp?.tokens.find((t) => t.id === event.url.searchParams.get('clave')) ?? mcp?.tokens[0] ?? null;
 	return {
 		negocio: { slug: negocio.slug, nombre: negocio.nombre, whatsapp: negocio.whatsapp, instagram: negocio.instagram },
 		mp,
 		calendarios: (calendarios ?? []).filter((c) => c.url).length,
-		ia,
+		mcp,
+		elegida,
+		registro: registro ?? [],
+		publico,
 		ejemplo
 	};
 };
 
+const texto = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
+
 export const actions: Actions = {
-	activar: async (event) => accion('ia', 'Listo: tu asistente ya tiene su dirección.', () => apiDe(event).post(RUTAS_IA.activar)),
-	asistente: async (event) => {
+	/** Crea la clave de un asistente (con los permisos por defecto) y la muestra una sola vez. */
+	crear: async (event) => {
 		const f = await event.request.formData();
-		const asistente = String(f.get('asistente'));
-		return accion('ia', '', () =>
-			apiDe(event).put(RUTAS_IA.asistente, { asistente: (ASISTENTES as readonly string[]).includes(asistente) ? asistente : 'otro' })
+		const nombre = texto(f, 'nombre').slice(0, 60) || 'Mi asistente';
+		return accion('clave', 'Copiá la clave ahora: no se vuelve a mostrar.', () =>
+			apiDe(event).post<{ token: Token; clave: string; url: string }>(RUTAS_MCP.tokens, { nombre })
 		);
+	},
+	/** Una clave nueva para el mismo asistente (mismo nombre y permisos); la vieja deja de andar. */
+	regenerar: async (event) => {
+		const f = await event.request.formData();
+		const api = apiDe(event);
+		const id = texto(f, 'id');
+		const permisos = f.getAll('permiso').map(String);
+		return accion('clave', 'Copiá la clave nueva ahora: la anterior dejó de andar.', async () => {
+			const r = await api.post<{ token: Token; clave: string; url: string }>(RUTAS_MCP.tokens, { nombre: texto(f, 'nombre'), permisos });
+			await api.borrar(`${RUTAS_MCP.tokens}/${id}`);
+			return r;
+		});
 	},
 	permisos: async (event) => {
 		const f = await event.request.formData();
-		const permisos = Object.fromEntries(PERMISOS.map((p) => [p, f.get(p) === 'on'])) as Permisos;
-		return accion('permisos', 'Guardamos qué puede hacer.', () => apiDe(event).put(RUTAS_IA.permisos, { permisos }));
+		const id = texto(f, 'id');
+		if (!id) return fail(400, { que: 'permisos', error: 'Elegí un asistente.', codigo: 'invalido', campos: {} });
+		const permisos = f.getAll('permiso').map(String);
+		return accion('permisos', 'Guardamos qué puede hacer.', () => apiDe(event).patch(`${RUTAS_MCP.tokens}/${id}`, { permisos }));
+	},
+	revocar: async (event) => {
+		const f = await event.request.formData();
+		return accion('clave', 'Desconectamos ese asistente: su clave dejó de andar.', () =>
+			apiDe(event).borrar(`${RUTAS_MCP.tokens}/${texto(f, 'id')}`)
+		);
 	},
 	publico: async (event) => {
 		const f = await event.request.formData();
 		const activo = f.get('activo') === 'on';
 		return accion('publico', activo ? 'Los asistentes de tus clientes ya te encuentran.' : 'Apagamos la reserva por IA.', () =>
-			apiDe(event).put(RUTAS_IA.publico, { activo })
+			apiDe(event).put(RUTA_IA_PUBLICO, { activo })
 		);
-	},
-	clave: async (event) =>
-		accion('clave', 'Copiá la clave ahora: no se vuelve a mostrar.', () => apiDe(event).post<{ clave: string }>(RUTAS_IA.clave))
+	}
 };

@@ -1,61 +1,61 @@
 /**
- * Integraciones e IA: contrato SUPUESTO con la API (todavía no existe; lo arma Nahuel). Ajustar acá
- * al integrar; la página (`/panel/integraciones`) sólo usa estos tipos y rutas.
+ * Integraciones e IA. El asistente de IA usa el servidor MCP real (docs/api/mcp.md):
  *
- *   GET  /v1/panel/ia                 → AsistenteIA (404 = todavía sin activar)
- *   POST /v1/panel/ia/activar         → AsistenteIA            (crea la dirección MCP del negocio)
- *   PUT  /v1/panel/ia/asistente       { asistente }            → 204
- *   PUT  /v1/panel/ia/permisos        { permisos: Permisos }   → 204
- *   PUT  /v1/panel/ia/publico         { activo: boolean }      → 204   (la IA de los clientes)
- *   POST /v1/panel/ia/clave           → { clave: string }      (se muestra una sola vez; invalida la anterior)
+ *   GET    /v1/panel/mcp                 → Mcp (url, claves vigentes y el catálogo de permisos)
+ *   POST   /v1/panel/mcp/tokens          { nombre, permisos? } → { token, clave, url }  (la clave sólo viene acá)
+ *   PATCH  /v1/panel/mcp/tokens/{id}     { nombre?, permisos? } → Token  (permisos = lista entera)
+ *   DELETE /v1/panel/mcp/tokens/{id}     → 204 (revoca)
+ *   GET    /v1/panel/mcp/registro        ?token&soloCambios=1&limite → { acciones: AccionMcp[] }
  *
- * Lo demás que muestra la pantalla ya existe: Mercado Pago (`GET /v1/panel/mercadopago`), los links
- * iCal (`GET /v1/panel/calendarios`) y WhatsApp/Instagram del negocio (`GET /v1/panel/negocio`).
+ * «La IA de tus clientes» sigue con contrato SUPUESTO (la API todavía no lo tiene):
+ *
+ *   GET /v1/panel/ia/publico → { activo: boolean, reservasMes: number }   (404 = todavía no existe)
+ *   PUT /v1/panel/ia/publico   { activo: boolean } → 204
  */
-export const RUTAS_IA = {
-	leer: '/v1/panel/ia',
-	activar: '/v1/panel/ia/activar',
-	asistente: '/v1/panel/ia/asistente',
-	permisos: '/v1/panel/ia/permisos',
-	publico: '/v1/panel/ia/publico',
-	clave: '/v1/panel/ia/clave'
+export const RUTAS_MCP = {
+	leer: '/v1/panel/mcp',
+	tokens: '/v1/panel/mcp/tokens',
+	registro: '/v1/panel/mcp/registro'
 } as const;
+export const RUTA_IA_PUBLICO = '/v1/panel/ia/publico';
 
-export const ASISTENTES = ['claude', 'chatgpt', 'gemini', 'otro'] as const;
-export type Asistente = (typeof ASISTENTES)[number];
-export const NOMBRE_ASISTENTE: Record<Asistente, string> = { claude: 'Claude', chatgpt: 'ChatGPT', gemini: 'Gemini', otro: 'Otro (MCP)' };
-
-export const PERMISOS = ['agenda', 'turnos', 'clientes', 'cancelar', 'plata'] as const;
-export type Permiso = (typeof PERMISOS)[number];
-export type Permisos = Record<Permiso, boolean>;
-
-/** Qué puede hacer el asistente: el texto de cada interruptor. */
-export const TEXTO_PERMISO: Record<Permiso, { icono: string; t: string; s: string; apagado: string }> = {
-	agenda: { icono: 'view_agenda', t: 'Ver agenda y huecos', s: 'Turnos, horarios libres y lista de espera', apagado: 'Apagado' },
-	turnos: { icono: 'edit_calendar', t: 'Cargar y mover turnos', s: 'Siempre te pide confirmación', apagado: 'Apagado' },
-	clientes: { icono: 'group', t: 'Ver clientes', s: 'Nombre, contacto e historial', apagado: 'Apagado' },
-	cancelar: { icono: 'cancel', t: 'Cancelar turnos', s: 'Siempre te pide confirmación', apagado: 'Apagado: lo hacés vos' },
-	plata: { icono: 'payments', t: 'Ver plata y reportes', s: 'Cobros, señas y reportes', apagado: 'Apagado' }
+export type Token = {
+	id: string;
+	nombre: string;
+	/** Los últimos 4 caracteres de la clave. */
+	pista: string;
+	permisos: string[];
+	/** El clientInfo del último initialize: vacío si nunca se conectó. */
+	cliente: string;
+	creadoEn: string;
+	usadoEn: string | null;
 };
-
-export type AccionIA = {
-	/** Instante ISO. */
-	en: string;
-	/** Quién la hizo: «Claude», «Asistente de una clienta»… */
-	quien: string;
-	/** Qué hizo, en una línea. */
-	texto: string;
+export type PermisoMcp = { clave: string; nombre: string; descripcion: string; herramientas: string[] };
+export type Mcp = { url: string; tokens: Token[]; permisos: PermisoMcp[] };
+export type AccionMcp = {
+	id: string;
+	tokenId: string;
+	token: string;
+	cliente: string;
+	herramienta: string;
+	titulo: string;
+	ok: boolean;
+	escribe: boolean;
+	/** Frase lista para ir después del nombre de la clave. */
+	resumen: string;
+	error: string;
+	creadoEn: string;
 };
+export type IaPublica = { activo: boolean; reservasMes: number };
 
-export type AsistenteIA = {
-	/** Si ya se conectó un asistente al menos una vez. */
-	conectado: boolean;
-	asistente: Asistente;
-	/** La dirección del servidor MCP del negocio, p. ej. «mcp.tengolibre.com.ar/lumi». */
-	direccion: string;
-	permisos: Permisos;
-	/** La IA de los clientes: que sus asistentes encuentren el negocio y reserven. */
-	publico: { activo: boolean; reservasMes: number };
-	/** Lo último que hizo una IA (lo más nuevo primero). */
-	registro: AccionIA[];
+/** Los asistentes del diseño: cada uno es una clave con ese nombre. */
+export const ASISTENTES = ['Claude', 'ChatGPT', 'Gemini', 'Otro (MCP)'] as const;
+
+/** El ícono de cada permiso (el texto viene de la API). */
+export const ICONO_PERMISO: Record<string, string> = {
+	ver_agenda: 'view_agenda',
+	mover_turnos: 'edit_calendar',
+	cancelar_turnos: 'cancel',
+	ver_clientes: 'group',
+	ver_numeros: 'payments'
 };

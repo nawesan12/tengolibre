@@ -2,14 +2,24 @@
 	import '#lib/gestion/gestion.css';
 	import { enhance } from '$app/forms';
 	import Mensaje from '#lib/configuracion/Mensaje.svelte';
-	import { sinReset } from '#lib/configuracion/formularios.ts';
+	import { confirmar, sinReset } from '#lib/configuracion/formularios.ts';
 	import Copiar from '#lib/gestion/Copiar.svelte';
-	import { ASISTENTES, NOMBRE_ASISTENTE, PERMISOS, TEXTO_PERMISO } from '#lib/gestion/api-integraciones.ts';
+	import { ASISTENTES, ICONO_PERMISO } from '#lib/gestion/api-integraciones.ts';
 	import { ZONA } from '#lib/formato.ts';
 
 	let { data, form } = $props();
-	const ia = $derived(data.ia);
-	const clave = $derived(form && 'datos' in form && form.que === 'clave' ? (form.datos as { clave?: string } | undefined)?.clave : undefined);
+	const mcp = $derived(data.mcp);
+	const elegida = $derived(data.elegida);
+	const clave = $derived(
+		form && 'datos' in form && form.que === 'clave' ? (form.datos as { clave?: string } | undefined)?.clave : undefined
+	);
+	/** Cada asistente del diseño es una clave con ese nombre; las de otro nombre van al final. */
+	const chips = $derived([
+		...ASISTENTES.map((n) => ({ nombre: n, token: mcp?.tokens.find((t) => t.nombre.toLowerCase() === n.toLowerCase()) ?? null })),
+		...(mcp?.tokens ?? [])
+			.filter((t) => !ASISTENTES.some((n) => n.toLowerCase() === t.nombre.toLowerCase()))
+			.map((t) => ({ nombre: t.nombre, token: t }))
+	]);
 
 	/** Mandar el formulario apenas cambia algo (los interruptores se guardan solos). */
 	const mandar = (e: Event) => (e.currentTarget as HTMLInputElement).form?.requestSubmit();
@@ -88,66 +98,77 @@
 				<span class="fila-titulo">
 					<span class="icono lleno robot" aria-hidden="true">smart_toy</span>
 					<h2 id="t-asistente">Tu asistente de&nbsp;IA</h2>
-					{#if ia?.conectado}
+					{#if elegida?.cliente}
 						<span class="estado-oscuro"><span class="icono lleno" aria-hidden="true">check_circle</span>Conectado</span>
-					{:else if ia}
-						<span class="estado-oscuro espera"><span class="icono" aria-hidden="true">pending</span>Esperando</span>
+					{:else if elegida}
+						<span class="estado-oscuro espera"><span class="icono" aria-hidden="true">pending</span>Esperando conexión</span>
 					{:else}
 						<span class="estado-oscuro apagado"><span class="icono" aria-hidden="true">radio_button_unchecked</span>Sin activar</span>
 					{/if}
 				</span>
 				<p>Preguntale «¿qué huecos tengo mañana?» o pedile «pasá a Sofía al jueves» desde el asistente que&nbsp;uses.</p>
-				{#if ia}
-					<form method="POST" action="?/asistente" use:enhance={sinReset} class="asistentes" aria-label="Qué asistente usás">
-						{#each ASISTENTES as a (a)}
-							<label class="asist" class:on={ia.asistente === a}>
-								<input type="radio" name="asistente" value={a} checked={ia.asistente === a} onchange={mandar} />
-								{NOMBRE_ASISTENTE[a]}
-								{#if ia.asistente === a}<span class="icono" aria-hidden="true">check</span>{/if}
-							</label>
+				{#if mcp}
+					<nav class="asistentes" aria-label="Tus asistentes">
+						{#each chips as c (c.nombre)}
+							{#if c.token}
+								<a class="asist" class:on={elegida?.id === c.token.id} href="?clave={c.token.id}" aria-current={elegida?.id === c.token.id ? 'true' : undefined}>
+									{c.nombre}
+									{#if elegida?.id === c.token.id}<span class="icono" aria-hidden="true">check</span>{/if}
+								</a>
+							{:else}
+								<form method="POST" action="?/crear" use:enhance={sinReset}>
+									<input type="hidden" name="nombre" value={c.nombre} />
+									<button class="asist" aria-label="Sumar {c.nombre}">{#if elegida}<span class="icono" aria-hidden="true">add</span>{/if}{c.nombre}</button>
+								</form>
+							{/if}
 						{/each}
-						<noscript><button class="g-boton chico">Elegir</button></noscript>
-					</form>
-				{:else}
-					<form method="POST" action="?/activar" use:enhance>
-						<button class="g-boton menta">Activar mi asistente</button>
-					</form>
+					</nav>
 				{/if}
 				<Mensaje {form} que="ia" />
 			</div>
 
-			{#if ia}
+			{#if clave}
+				<div class="direccion">
+					<div class="g-aviso ambar" role="status">
+						<span class="icono" aria-hidden="true">key</span>
+						<span class="clave-nueva"><b>Copiá la clave ahora: no se vuelve a&nbsp;mostrar.</b><span class="url">{clave}</span></span>
+						<Copiar texto={clave} />
+					</div>
+				</div>
+			{:else}
+				<div class="mensaje-clave"><Mensaje {form} que="clave" /></div>
+			{/if}
+
+			{#if mcp && elegida}
 				<div class="direccion">
 					<span class="g-rotulo">Dirección del servidor MCP</span>
-					<span class="caja-direccion"><span class="url">{ia.direccion}</span><Copiar texto={ia.direccion} /></span>
-					<form method="POST" action="?/clave" use:enhance={sinReset} class="clave">
-						<span>La clave va aparte y sólo se muestra una&nbsp;vez.</span>
+					<span class="caja-direccion"><span class="url">{mcp.url}</span><Copiar texto={mcp.url} /></span>
+					<form method="POST" action="?/regenerar" use:enhance={confirmar('¿Generar una clave nueva? La anterior deja de andar al instante.')} class="clave">
+						<input type="hidden" name="id" value={elegida.id} />
+						<input type="hidden" name="nombre" value={elegida.nombre} />
+						{#each elegida.permisos as p (p)}<input type="hidden" name="permiso" value={p} />{/each}
+						<span>La clave (termina en <b class="num">{elegida.pista}</b>) va aparte y sólo se muestra una&nbsp;vez.</span>
 						<button class="g-accion">Generar una nueva</button>
 					</form>
-					{#if clave}
-						<div class="g-aviso ambar" role="status">
-							<span class="icono" aria-hidden="true">key</span>
-							<span class="clave-nueva"><b>Copiala ahora: no se vuelve a&nbsp;mostrar.</b><span class="url">{clave}</span></span>
-							<Copiar texto={clave} />
-						</div>
-					{:else}
-						<Mensaje {form} que="clave" />
-					{/if}
 				</div>
 
 				<form method="POST" action="?/permisos" use:enhance={sinReset} class="permisos" aria-labelledby="t-permisos">
 					<span id="t-permisos" class="g-rotulo">Qué puede hacer</span>
-					{#each PERMISOS as p (p)}
-						{@const x = TEXTO_PERMISO[p]}
-						{@const on = ia.permisos[p]}
+					<input type="hidden" name="id" value={elegida.id} />
+					{#each mcp.permisos as p (p.clave)}
+						{@const on = elegida.permisos.includes(p.clave)}
 						<label class="permiso">
-							<span class="icono lleno" class:apagado={!on} aria-hidden="true">{x.icono}</span>
-							<span class="permiso-texto"><b>{x.t}</b><span>{on ? x.s : x.apagado}</span></span>
-							<input type="checkbox" role="switch" class="g-interruptor" name={p} checked={on} onchange={mandar} />
+							<span class="icono lleno" class:apagado={!on} aria-hidden="true">{ICONO_PERMISO[p.clave] ?? 'tune'}</span>
+							<span class="permiso-texto"><b>{p.nombre}</b><span>{on ? p.descripcion : 'Apagado'}</span></span>
+							<input type="checkbox" role="switch" class="g-interruptor" name="permiso" value={p.clave} checked={on} onchange={mandar} />
 						</label>
 					{/each}
 					<button class="visualmente-oculto">Guardar permisos</button>
 					<Mensaje {form} que="permisos" />
+				</form>
+				<form method="POST" action="?/revocar" use:enhance={confirmar(`¿Desconectar ${elegida.nombre}? Su clave deja de andar al instante.`)} class="revocar">
+					<input type="hidden" name="id" value={elegida.id} />
+					<button class="g-accion peligro">Desconectar {elegida.nombre}</button>
 				</form>
 			{:else}
 				<div class="direccion">
@@ -157,6 +178,9 @@
 						<li class="g-paso"><span class="g-paso-num">2</span><span class="g-paso-cuerpo"><b>Sumalo a tu asistente</b><span>Claude, ChatGPT, Gemini u otro que acepte&nbsp;MCP.</span></span></li>
 						<li class="g-paso"><span class="g-paso-num">3</span><span class="g-paso-cuerpo"><b>Elegí qué puede hacer</b><span>Cada permiso se prende o se apaga con un&nbsp;interruptor.</span></span></li>
 					</ol>
+					{#if !mcp}
+						<p class="g-nota">El asistente de IA no está disponible en este momento. Probá de nuevo más&nbsp;tarde.</p>
+					{/if}
 				</div>
 			{/if}
 		</section>
@@ -192,11 +216,11 @@
 						class="g-interruptor grande"
 						name="activo"
 						aria-label="La IA de tus clientes puede reservar"
-						checked={!!ia?.publico.activo}
-						disabled={!ia}
+						checked={!!data.publico?.activo}
+						disabled={!data.publico}
 						onchange={mandar}
 					/>
-					<button class="visualmente-oculto" disabled={!ia}>Guardar</button>
+					<button class="visualmente-oculto" disabled={!data.publico}>Guardar</button>
 				</form>
 				<ul class="puede">
 					<li><span class="icono lleno" aria-hidden="true">spa</span>Ver servicios y precios</li>
@@ -204,14 +228,14 @@
 					<li><span class="icono lleno" aria-hidden="true">bookmark_added</span>Reservar con seña por link</li>
 				</ul>
 				<div class="publico-pie">
-					{#if ia}
-						<b class="num">{ia.publico.reservasMes}</b>
+					{#if data.publico}
+						<b class="num">{data.publico.reservasMes}</b>
 						<span>
-							{ia.publico.reservasMes === 1 ? 'reserva llegó' : 'reservas llegaron'} por un asistente de IA este mes. Pagaron la seña por el link de Mercado Pago, como cualquier&nbsp;reserva.
+							{data.publico.reservasMes === 1 ? 'reserva llegó' : 'reservas llegaron'} por un asistente de IA este mes. Pagaron la seña por el link de Mercado Pago, como cualquier&nbsp;reserva.
 						</span>
 					{:else}
 						<span class="icono" aria-hidden="true">info</span>
-						<span>Se prende cuando actives tu asistente. Las reservas pagan la seña por el link de Mercado Pago, como cualquier&nbsp;reserva.</span>
+						<span>Todavía no está disponible para tu negocio. Cuando lo esté, las reservas van a pagar la seña por el link de Mercado Pago, como cualquier&nbsp;reserva.</span>
 					{/if}
 				</div>
 				<div class="mensaje-publico"><Mensaje {form} que="publico" /></div>
@@ -219,10 +243,17 @@
 
 			<section class="g-bloque registro" aria-labelledby="t-registro">
 				<h2 id="t-registro" class="g-rotulo">Lo último que hizo la IA</h2>
-				{#if ia?.registro.length}
+				{#if data.registro.length}
 					<ul class="lineas">
-						{#each ia.registro.slice(0, 5) as r, i (i)}
-							<li><span class="num">{cuando(r.en)}</span><span><b>{r.quien}</b> {r.texto}</span></li>
+						{#each data.registro as r (r.id)}
+							<li>
+								<span class="num">{cuando(r.creadoEn)}</span>
+								{#if r.ok}
+									<span><b>{r.token}</b> {r.resumen || r.titulo.toLowerCase()}</span>
+								{:else}
+									<span class="fallo"><span class="icono" aria-hidden="true">error</span><span><b>{r.token}</b> no pudo {r.titulo.toLowerCase()}: {r.error}</span></span>
+								{/if}
+							</li>
 						{/each}
 					</ul>
 				{:else}
@@ -357,16 +388,6 @@
 	}
 	.asist .icono {
 		font-size: 15px;
-	}
-	.asist input {
-		position: absolute;
-		opacity: 0;
-		width: 1px;
-		height: 1px;
-	}
-	.asist:has(input:focus-visible) {
-		outline: 3px solid var(--tl-menta);
-		outline-offset: 2px;
 	}
 	.direccion {
 		padding: 16px 20px;
@@ -619,6 +640,30 @@
 	}
 	.lineas li > .num {
 		color: var(--tl-sub);
+	}
+	.fallo {
+		display: flex;
+		gap: 4px;
+		color: #a3241a;
+	}
+	.fallo .icono {
+		font-size: 16px;
+	}
+	.revocar {
+		padding: 0 20px 14px;
+	}
+	.mensaje-clave:not(:empty) {
+		padding: 12px 20px 0;
+	}
+	.asistentes form {
+		margin: 0;
+	}
+	.asistentes button.asist {
+		border: 0;
+		font-family: var(--tl-font);
+	}
+	a.asist {
+		text-decoration: none;
 	}
 	.otras {
 		list-style: none;

@@ -16,19 +16,26 @@ export type Servicio = {
 	activo: boolean;
 };
 type Profesional = { id: string; nombre: string; servicios: string[]; activo: boolean };
+/** Un producto del catálogo (docs/api/caja.md). `stock: null`: no se lleva la cuenta. */
+export type Producto = { id: string; nombre: string; precio: number; stock: number | null; activo: boolean; orden: number };
 
 export const load: PageServerLoad = async (event) => {
 	const api = apiDe(event);
-	const [{ servicios }, { categorias }, profesionales] = await Promise.all([
+	const [{ servicios }, { categorias }, profesionales, productos] = await Promise.all([
 		api.get<{ servicios: Servicio[] }>('/v1/panel/servicios'),
 		api.get<{ categorias: Categoria[] }>('/v1/panel/categorias'),
 		// Quién hace cada servicio: sólo para mostrarlo en la fila; si no se puede leer, no se muestra.
 		api
 			.get<{ profesionales: Profesional[] }>('/v1/panel/profesionales')
 			.then((r) => r.profesionales.map((p) => ({ id: p.id, nombre: p.nombre, servicios: p.servicios ?? [] })))
-			.catch(() => [])
+			.catch(() => []),
+		// El catálogo de productos (docs/api/caja.md): si no se puede leer, la carta no se muestra.
+		api
+			.get<{ productos: Producto[] }>('/v1/panel/productos')
+			.then((r) => r.productos)
+			.catch(() => null)
 	]);
-	return { servicios, categorias, profesionales };
+	return { servicios, categorias, profesionales, productos };
 };
 
 // Lo que viene del formulario de un servicio nuevo, como lo pide la API.
@@ -115,5 +122,46 @@ export const actions: Actions = {
 	borrarCategoria: async (event) => {
 		const f = await event.request.formData();
 		return intentar(() => apiDe(event).borrar(`/v1/panel/categorias/${f.get('id')}`));
+	},
+
+	// Productos (docs/api/caja.md): POST/PATCH/DELETE /v1/panel/productos.
+	crearProducto: async (event) => {
+		const f = await event.request.formData();
+		const stock = numero(f.get('stock'));
+		return intentar(() =>
+			apiDe(event).post('/v1/panel/productos', {
+				nombre: String(f.get('nombre') ?? '').trim(),
+				precio: precio(f.get('precio')) ?? 0,
+				...(stock === undefined ? {} : { stock }),
+				activo: true,
+				orden: numero(f.get('orden')) ?? 0
+			})
+		);
+	},
+	editarProducto: async (event) => {
+		const f = await event.request.formData();
+		const c: Record<string, unknown> = {};
+		if (f.has('nombre')) c.nombre = String(f.get('nombre') ?? '').trim();
+		if (f.has('precio')) c.precio = precio(f.get('precio')) ?? 0;
+		if (f.has('stock')) {
+			// Vacío: deja de llevar la cuenta del stock.
+			const stock = numero(f.get('stock'));
+			if (stock === undefined) c.sinStock = true;
+			else c.stock = stock;
+		}
+		if (f.has('conActivo')) c.activo = f.get('activo') === 'on';
+		return intentar(() => apiDe(event).patch(`/v1/panel/productos/${f.get('id')}`, c));
+	},
+	borrarProducto: async (event) => {
+		const f = await event.request.formData();
+		return intentar(() => apiDe(event).borrar(`/v1/panel/productos/${f.get('id')}`));
+	},
+	ordenarProductos: async (event) => {
+		const f = await event.request.formData();
+		const api = apiDe(event);
+		return intentar(async () => {
+			for (const [i, id] of ids(f).entries()) await api.patch(`/v1/panel/productos/${id}`, { orden: i + 1 });
+			return null;
+		});
 	}
 };
