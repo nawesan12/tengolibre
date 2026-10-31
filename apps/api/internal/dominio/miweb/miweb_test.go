@@ -34,7 +34,7 @@ func TestMiWebYGaleria(t *testing.T) {
 
 	var w miweb.Web
 	panel(200, "GET", "/v1/panel/mi-web", nil, &w)
-	if w.ColorPrimario != "#6366f1" || w.Latitud != nil {
+	if w.ColorPrimario != "#6366f1" || w.Latitud != nil || w.Estilo != (miweb.Estilo{"carta", "foto", "crema", "grandes", "redondos"}) {
 		t.Fatalf("por defecto: %+v", w)
 	}
 	panel(200, "PATCH", "/v1/panel/mi-web", map[string]any{"colorPrimario": "#1A2B3C", "rubro": "barberia", "acerca": "  Desde 1990.  ",
@@ -46,9 +46,14 @@ func TestMiWebYGaleria(t *testing.T) {
 	// Lo inválido no entra.
 	for _, malo := range []map[string]any{
 		{"colorAcento": "rojo"}, {"rubro": "carniceria"}, {"sitioWeb": "javascript:alert(1)"}, {"portada": "data:image/png;base64,AAAA"},
-		{"latitud": 10.0}, {"latitud": 91.0, "longitud": 0.0},
+		{"latitud": 10.0}, {"latitud": 91.0, "longitud": 0.0}, {"estilo": map[string]string{"plantilla": "otra"}},
 	} {
 		panel(400, "PATCH", "/v1/panel/mi-web", malo, nil)
+	}
+	// Publicar el estilo: lo que no viene toma el de por defecto.
+	panel(200, "PATCH", "/v1/panel/mi-web", map[string]any{"estilo": map[string]string{"plantilla": "galeria", "fondo": "noche"}}, &w)
+	if w.Estilo != (miweb.Estilo{"galeria", "foto", "noche", "grandes", "redondos"}) || w.Rubro != "barberia" {
+		t.Fatalf("estilo: %+v", w)
 	}
 	// Sacar portada y ubicación.
 	panel(200, "PATCH", "/v1/panel/mi-web", map[string]any{"portada": "", "sinUbicacion": true}, &w)

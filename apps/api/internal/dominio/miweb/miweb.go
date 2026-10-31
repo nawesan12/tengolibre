@@ -41,6 +41,51 @@ type Web struct {
 	Tiktok        string   `json:"tiktok"`
 	Latitud       *float64 `json:"latitud"`
 	Longitud      *float64 `json:"longitud"`
+	Estilo        Estilo   `json:"estilo"`
+}
+
+// Estilo publicado de la web: la plantilla y sus ajustes. Lo que falta toma el valor por defecto
+// (el primero de cada lista).
+type Estilo struct {
+	Plantilla string `json:"plantilla"`
+	Portada   string `json:"portada"`
+	Fondo     string `json:"fondo"`
+	Titulos   string `json:"titulos"`
+	Forma     string `json:"forma"`
+}
+
+// Valores de cada ajuste del estilo (el primero es el de por defecto).
+var (
+	Plantillas = []string{"carta", "vidriera", "sobria", "galeria", "editorial", "bloques"}
+	Portadas   = []string{"foto", "color"}
+	Fondos     = []string{"crema", "blanco", "noche"}
+	Titulos    = []string{"grandes", "medianos", "livianos"}
+	Formas     = []string{"redondos", "suaves", "rectos"}
+)
+
+// Completar pone el valor por defecto en lo que falta.
+func (e Estilo) Completar() Estilo {
+	def := func(v string, l []string) string {
+		if slices.Contains(l, v) {
+			return v
+		}
+		return l[0]
+	}
+	return Estilo{def(e.Plantilla, Plantillas), def(e.Portada, Portadas), def(e.Fondo, Fondos), def(e.Titulos, Titulos), def(e.Forma, Formas)}
+}
+
+// Validar dice qué campo trae un valor desconocido (vacío vale: es el de por defecto).
+func (e Estilo) Validar() error {
+	for _, c := range []struct {
+		ruta, v string
+		l       []string
+	}{{"estilo.plantilla", e.Plantilla, Plantillas}, {"estilo.portada", e.Portada, Portadas}, {"estilo.fondo", e.Fondo, Fondos},
+		{"estilo.titulos", e.Titulos, Titulos}, {"estilo.forma", e.Forma, Formas}} {
+		if c.v != "" && !slices.Contains(c.l, c.v) {
+			return campo(c.ruta, "tiene que ser uno de: "+strings.Join(c.l, ", "))
+		}
+	}
+	return nil
 }
 
 // Foto de la galería.
@@ -75,9 +120,10 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 func Leer(ctx context.Context, tx pgx.Tx) (Web, error) {
 	var w Web
 	err := tx.QueryRow(ctx, `SELECT rubro, provincia, acerca, portada, color_primario, color_acento, email, sitio_web,
-		facebook, tiktok, latitud, longitud FROM negocios WHERE id = app.negocio_actual()`).Scan(
+		facebook, tiktok, latitud, longitud, estilo FROM negocios WHERE id = app.negocio_actual()`).Scan(
 		&w.Rubro, &w.Provincia, &w.Acerca, &w.Portada, &w.ColorPrimario, &w.ColorAcento, &w.Email, &w.SitioWeb,
-		&w.Facebook, &w.Tiktok, &w.Latitud, &w.Longitud)
+		&w.Facebook, &w.Tiktok, &w.Latitud, &w.Longitud, &w.Estilo)
+	w.Estilo = w.Estilo.Completar()
 	return w, err
 }
 
@@ -154,6 +200,8 @@ func (s *Servicio) editar(w http.ResponseWriter, r *http.Request) error {
 		Longitud      *float64 `json:"longitud"`
 		// SinUbicacion borra las coordenadas (null en el JSON no se distingue de "no vino").
 		SinUbicacion bool `json:"sinUbicacion"`
+		// Estilo: publicar la plantilla y sus ajustes (reemplaza el publicado entero).
+		Estilo *Estilo `json:"estilo"`
 	}
 	if err := web.Leer(w, r, &in); err != nil {
 		return err
@@ -200,8 +248,20 @@ func (s *Servicio) editar(w http.ResponseWriter, r *http.Request) error {
 	if in.Latitud != nil && (*in.Latitud < -90 || *in.Latitud > 90 || *in.Longitud < -180 || *in.Longitud > 180) {
 		return campo("latitud", "coordenadas fuera de rango")
 	}
+	if in.Estilo != nil {
+		if err := in.Estilo.Validar(); err != nil {
+			return err
+		}
+		e := in.Estilo.Completar()
+		in.Estilo = &e
+	}
 	var out Web
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) (err error) {
+		if in.Estilo != nil {
+			if _, err = tx.Exec(ctx, "UPDATE negocios SET estilo = $1 WHERE id = app.negocio_actual()", *in.Estilo); err != nil {
+				return err
+			}
+		}
 		_, err = tx.Exec(ctx, `UPDATE negocios SET
 			rubro = coalesce($1, rubro), provincia = coalesce($2, provincia), acerca = coalesce($3, acerca),
 			color_primario = coalesce($4, color_primario), color_acento = coalesce($5, color_acento),
