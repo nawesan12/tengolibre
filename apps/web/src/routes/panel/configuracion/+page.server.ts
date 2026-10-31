@@ -1,6 +1,7 @@
 import { apiDe } from '#lib/server/api.ts';
 import { numero } from '#lib/server/acciones.ts';
-import { accion } from '#lib/configuracion/acciones.server.ts';
+import { accion, siPuede } from '#lib/configuracion/acciones.server.ts';
+import type { EntradaAuditoria } from '#lib/configuracion/actividad.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export type Ajustes = {
@@ -16,12 +17,14 @@ export type AjustesAusencias = { umbralAusencias: number; diasPenalidad: number;
 
 export const load: PageServerLoad = async (event) => {
 	const api = apiDe(event);
-	const [ajustes, avisos, ausencias] = await Promise.all([
+	const [ajustes, avisos, ausencias, actividad] = await Promise.all([
 		api.get<Ajustes>('/v1/panel/ajustes'),
 		api.get<AjustesAvisos>('/v1/panel/ajustes/avisos'),
-		api.get<AjustesAusencias>('/v1/panel/ausencias/ajustes')
+		api.get<AjustesAusencias>('/v1/panel/ausencias/ajustes'),
+		// El extracto del registro de actividad (lo último que cambió); si no le toca al rol, no se muestra.
+		siPuede(api.get<{ entradas: EntradaAuditoria[] }>('/v1/panel/auditoria?limite=3'))
 	]);
-	return { ajustes, avisos, ausencias };
+	return { ajustes, avisos, ausencias, actividad: actividad?.entradas ?? [] };
 };
 
 export const actions: Actions = {

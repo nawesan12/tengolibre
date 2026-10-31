@@ -1,8 +1,9 @@
 import { apiDe } from '#lib/server/api.ts';
 import { numero } from '#lib/server/acciones.ts';
-import { accion } from '#lib/configuracion/acciones.server.ts';
+import { accion, siPuede } from '#lib/configuracion/acciones.server.ts';
 import { beneficiosDe } from '#lib/configuracion/dinero.ts';
 import type { Actions, PageServerLoad } from './$types';
+import type { Cupon } from '../cupones/+page.server.ts';
 
 export type Plan = {
 	id: string;
@@ -39,12 +40,29 @@ export const load: PageServerLoad = async (event) => {
 	const api = apiDe(event);
 	const pedido = event.url.searchParams.get('estado') ?? 'activa';
 	const estado = ESTADOS.includes(pedido) ? pedido : 'activa';
-	const [{ planes }, { socios }, { servicios }] = await Promise.all([
+	// Se traen todas para contar por estado (los filtros muestran cuántas hay) y por plan (el cupo).
+	const [{ planes }, { socios: todas }, { servicios }, cupones] = await Promise.all([
 		api.get<{ planes: Plan[] }>('/v1/panel/membresias/planes'),
-		api.get<{ socios: Socio[] }>(`/v1/panel/membresias/socios?estado=${estado}`),
-		api.get<{ servicios: { id: string; nombre: string }[] }>('/v1/panel/servicios')
+		api.get<{ socios: Socio[] }>('/v1/panel/membresias/socios?estado=todas'),
+		api.get<{ servicios: { id: string; nombre: string }[] }>('/v1/panel/servicios'),
+		siPuede(api.get<{ cupones: Cupon[] }>('/v1/panel/cupones'))
 	]);
-	return { planes, socios, servicios, estado };
+	const cuenta = { activa: 0, vencida: 0, cancelada: 0, todas: todas.length } as Record<string, number>;
+	const porPlan: Record<string, number> = {};
+	for (const s of todas) {
+		cuenta[s.estado] = (cuenta[s.estado] ?? 0) + 1;
+		if (s.estado === 'activa') porPlan[s.planId] = (porPlan[s.planId] ?? 0) + 1;
+	}
+	const socios = estado === 'todas' ? todas : todas.filter((s) => s.estado === estado);
+	return {
+		planes,
+		socios,
+		servicios,
+		estado,
+		cuenta,
+		porPlan,
+		cupones: cupones ? cupones.cupones.filter((c) => !c.referidoId) : null
+	};
 };
 
 function planDe(f: FormData) {

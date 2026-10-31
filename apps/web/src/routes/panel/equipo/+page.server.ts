@@ -60,6 +60,16 @@ export const actions: Actions = {
 			apiDe(event).post('/v1/panel/invitaciones', { email, rol: String(f.get('rol') ?? '') })
 		);
 	},
+	// Reenviar: la API no tiene reenvío; se borra la invitación y se manda otra igual (link nuevo).
+	reenviar: async (event) => {
+		const f = await event.request.formData();
+		const email = String(f.get('email') ?? '').trim();
+		const api = apiDe(event);
+		return accion('invitaciones', `Le mandamos otra vez la invitación a ${email}.`, async () => {
+			await api.borrar(`/v1/panel/invitaciones/${f.get('id')}`);
+			return api.post('/v1/panel/invitaciones', { email, rol: String(f.get('rol') ?? '') });
+		});
+	},
 	revocar: async (event) => {
 		const f = await event.request.formData();
 		return accion('invitaciones', 'Borramos la invitación: el link ya no sirve.', () =>

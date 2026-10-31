@@ -6,18 +6,19 @@ test('alta del negocio y un servicio desde el panel', async ({ page }) => {
 	await expect(page.getByText('Para empezar a recibir turnos')).toBeVisible();
 
 	await page.goto('/panel/servicios');
-	await page.getByLabel('Nombre', { exact: true }).fill('Corte clásico');
-	await page.getByLabel('Precio').fill('8000');
-	await page.getByRole('button', { name: 'Agregar' }).first().click();
-	await expect(page.getByText('Corte clásico')).toBeVisible();
-	await expect(page.getByText(/30 min/)).toBeVisible();
+	const alta = page.getByRole('form', { name: 'Agregar a Tus servicios' });
+	await alta.getByLabel('Nombre', { exact: true }).fill('Corte clásico');
+	await alta.getByLabel('Precio', { exact: true }).fill('8000');
+	await alta.getByRole('button', { name: 'Agregar' }).click();
+	await expect(page.getByLabel('Nombre de Corte clásico')).toBeVisible();
+	await expect(page.getByLabel('Duración de Corte clásico en minutos')).toHaveValue('30');
 
 	// Un servicio con duración inválida vuelve con el mensaje de la API, sin romper la página.
-	await page.getByLabel('Nombre', { exact: true }).fill('Raro');
-	await page.getByLabel('Duración (minutos)').fill('7');
-	await page.getByLabel('Precio').fill('100');
-	await page.getByLabel('Duración (minutos)').evaluate((e: HTMLInputElement) => e.removeAttribute('step'));
-	await page.getByRole('button', { name: 'Agregar' }).first().click();
+	await alta.getByLabel('Nombre', { exact: true }).fill('Raro');
+	await alta.getByLabel('Duración (minutos)').fill('7');
+	await alta.getByLabel('Precio', { exact: true }).fill('100');
+	await alta.getByLabel('Duración (minutos)').evaluate((e: HTMLInputElement) => e.removeAttribute('step'));
+	await alta.getByRole('button', { name: 'Agregar' }).click();
 	await expect(page.getByRole('alert')).toContainText('duración');
 });
 

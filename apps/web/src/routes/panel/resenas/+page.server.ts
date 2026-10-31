@@ -1,7 +1,9 @@
 import { apiDe } from '#lib/server/api.ts';
 import { intentar } from '#lib/server/acciones.ts';
 import { enc, param } from '#lib/operacion/servidor.ts';
+import { opcional, type DistribucionResenas } from '#lib/gestion/api-reportes.ts';
 import type { Resena } from '#lib/operacion/tipos.ts';
+import type { AjustesReferidos } from '../referidos/+page.server.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
@@ -13,8 +15,14 @@ export const load: PageServerLoad = async (event) => {
 	const q = new URLSearchParams({ pagina: String(pagina) });
 	if (visible) q.set('visible', visible);
 	if (sinResponder) q.set('sinResponder', '1');
-	const r = await apiDe(event).get<{ promedio: number; cantidad: number; resenas: Resena[] }>(`/v1/panel/resenas?${q}`);
-	return { ...r, filtros: { visible, sinResponder, pagina } };
+	const api = apiDe(event);
+	// Al lado, como en el diseño: cuándo se pide la reseña y el programa de referidos (sólo gestión).
+	const [r, avisos, referidos] = await Promise.all([
+		api.get<{ promedio: number; cantidad: number; resenas: Resena[]; distribucion?: DistribucionResenas }>(`/v1/panel/resenas?${q}`),
+		opcional(api.get<{ resenaDemoraHoras: number }>('/v1/panel/ajustes/avisos')),
+		opcional(api.get<AjustesReferidos>('/v1/panel/referidos/config'))
+	]);
+	return { ...r, demora: avisos?.resenaDemoraHoras ?? null, referidos, filtros: { visible, sinResponder, pagina } };
 };
 
 export const actions: Actions = {

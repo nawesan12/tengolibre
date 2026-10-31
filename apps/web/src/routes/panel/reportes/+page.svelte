@@ -1,218 +1,391 @@
 <script lang="ts">
-	import { ESTADOS, dia, pesos } from '#lib/formato.ts';
-	import { nombreDia, sumarDias } from '#lib/operacion/fechas.ts';
-	import { escala, porcentaje } from '#lib/operacion/numeros.ts';
+	import '#lib/gestion/gestion.css';
+	import { dia, pesos } from '#lib/formato.ts';
+	import { lunesDe } from '#lib/operacion/fechas.ts';
 	import SinPermiso from '#lib/operacion/SinPermiso.svelte';
-	import type { FilaReporte } from '#lib/operacion/tipos.ts';
+	import BarrasDias from '#lib/gestion/reportes/BarrasDias.svelte';
 
 	let { data } = $props();
 	const r = $derived(data.reporte);
 	const hoy = dia();
-	const rapidos = [
-		{ nombre: '7 días', desde: sumarDias(hoy, -6) },
-		{ nombre: '30 días', desde: sumarDias(hoy, -29) },
-		{ nombre: '90 días', desde: sumarDias(hoy, -89) },
-		{ nombre: 'Este mes', desde: `${hoy.slice(0, 8)}01` }
+	const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+	const mesDe = (d: string) => MESES[Number(d.slice(5, 7)) - 1];
+	const mayus = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+	const periodos = [
+		{ clave: 'semana', nombre: 'Semana', desde: lunesDe(hoy) },
+		{ clave: 'mes', nombre: mayus(mesDe(hoy)), desde: `${hoy.slice(0, 8)}01` },
+		{ clave: 'anio', nombre: 'Año', desde: `${hoy.slice(0, 5)}01-01` }
 	];
+	const actual = $derived(r && r.hasta === hoy ? periodos.find((p) => p.desde === r.desde)?.clave : undefined);
+	const enPeriodo = $derived.by(() => {
+		if (!r) return '';
+		if (actual === 'semana') return 'esta semana';
+		if (actual === 'anio') return `en ${hoy.slice(0, 4)}`;
+		if (r.desde.endsWith('-01') && r.desde.slice(0, 7) === r.hasta.slice(0, 7)) return `en ${mesDe(r.desde)}`;
+		return 'en el período';
+	});
 	const rango = $derived(r ? `desde=${r.desde}&hasta=${r.hasta}` : '');
-	const barrasDia = $derived(r ? escala(r.porDia.map((d) => d.turnos)) : []);
-	const totalEstados = $derived(r ? Object.values(r.porEstado).reduce((a, b) => a + b, 0) : 0);
+
+	// Comparación con el período anterior (el mes anterior si se mira un mes).
+	const cambio = $derived.by(() => {
+		if (!r || !data.previo || data.previo.ingresos <= 0) return null;
+		const p = Math.round(((r.resumen.ingresos - data.previo.ingresos) / data.previo.ingresos) * 100);
+		return { p, contra: data.previo.mes ? mesDe(data.previo.desde) : 'el período anterior' };
+	});
+
+	const compacto = (n: number) =>
+		n >= 1_000_000 ? `$ ${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 1 }).format(n / 1_000_000)} M` : pesos(n);
+	const pct = (n: number, total: number) => (total ? Math.round((n / total) * 100) : 0);
+
+	const estados = $derived.by(() => {
+		if (!r) return null;
+		const e = r.porEstado;
+		const total = Object.values(e).reduce((a, b) => a + b, 0);
+		const porVenir = Object.entries(e)
+			.filter(([k]) => !['atendido', 'ausente', 'cancelado'].includes(k))
+			.reduce((a, [, v]) => a + v, 0);
+		return {
+			total,
+			tramos: [
+				{ clave: 'atendido', texto: 'Atendidos', n: e.atendido ?? 0 },
+				{ clave: 'ausente', texto: 'No vinieron', n: e.ausente ?? 0 },
+				{ clave: 'cancelado', texto: 'Cancelados', n: e.cancelado ?? 0 },
+				{ clave: 'porvenir', texto: 'Por venir', n: porVenir }
+			].filter((t) => t.n > 0)
+		};
+	});
+
+	const servicios = $derived(r ? [...r.porServicio].sort((a, b) => b.turnos - a.turnos).slice(0, 4) : []);
+	const maxServicio = $derived(Math.max(1, ...servicios.map((s) => s.turnos)));
+	const profesionales = $derived(r ? [...r.porProfesional].sort((a, b) => b.atendidos - a.atendidos || b.turnos - a.turnos) : []);
+	const vuelven = $derived(r && r.resumen.clientes ? pct(r.clientesRecurrentes, r.resumen.clientes) : null);
 </script>
 
 <svelte:head><title>Reportes · Panel</title></svelte:head>
 
-{#snippet tabla(titulo: string, filas: FilaReporte[], conOcupacion: boolean)}
-	{@const barras = escala(filas.map((f) => f.ingresos))}
-	<section class="tarjeta pila">
-		<h2>{titulo}</h2>
-		{#if filas.length === 0}
-			<p class="suave">Sin turnos en el período.</p>
-		{:else}
-			<div class="desplazable">
-				<table class="tabla">
-					<thead>
-						<tr>
-							<th scope="col">Nombre</th>
-							<th scope="col">Turnos</th>
-							<th scope="col">Atendidos</th>
-							<th scope="col">No vino</th>
-							{#if conOcupacion}<th scope="col">Ocupación</th>{/if}
-							<th scope="col">Ingresos</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each filas as f, i (f.id ?? f.nombre)}
-							<tr>
-								<th scope="row">{f.nombre || 'Sin nombre'}</th>
-								<td>{f.turnos}</td>
-								<td>{f.atendidos}</td>
-								<td>{f.ausentes}</td>
-								{#if conOcupacion}<td>{porcentaje(f.ocupacion)}</td>{/if}
-								<td class="con-barra">
-									{pesos(f.ingresos)}
-									<span class="barra" style={`width: ${barras[i]}%`} aria-hidden="true"></span>
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
+<div class="g-pagina">
+	<div class="g-cabeza">
+		<h1 class="g-titulo">Reportes</h1>
+		{#if r}
+			<nav class="g-segmento" aria-label="Período">
+				{#each periodos as p (p.clave)}
+					<a class="g-chip" href={`?desde=${p.desde}&hasta=${hoy}`} aria-current={actual === p.clave ? 'page' : undefined}>{p.nombre}</a>
+				{/each}
+			</nav>
 		{/if}
-	</section>
-{/snippet}
-
-<div class="pila">
-	<h1>Reportes</h1>
+	</div>
 
 	{#if data.error}<p class="aviso error" role="alert">{data.error}</p>{/if}
 
 	{#if !r && !data.error}
 		<SinPermiso que="los reportes" />
-	{:else}
-		<form method="GET" class="tarjeta fila" aria-label="Período">
-			<label class="campo">Desde <input type="date" name="desde" value={r?.desde ?? ''} /></label>
-			<label class="campo">Hasta <input type="date" name="hasta" value={r?.hasta ?? ''} /></label>
-			<button class="boton" style="align-self: end">Ver</button>
-			<div class="fila" style="align-self: end">
-				{#each rapidos as x (x.nombre)}<a class="boton chico" href={`?desde=${x.desde}&hasta=${hoy}`}>{x.nombre}</a>{/each}
-			</div>
-		</form>
 	{/if}
 
 	{#if r}
-		<p class="suave">Del {nombreDia(r.desde)} al {nombreDia(r.hasta)}. Ingresos es lo facturado: el precio de los turnos&nbsp;atendidos.</p>
-		<div class="grilla numeros">
-			<div class="tarjeta"><div class="suave chico">Ingresos</div><strong>{pesos(r.resumen.ingresos)}</strong></div>
-			<div class="tarjeta"><div class="suave chico">Turnos</div><strong>{r.resumen.turnos}</strong></div>
-			<div class="tarjeta"><div class="suave chico">Atendidos</div><strong>{r.resumen.atendidos}</strong></div>
-			<div class="tarjeta"><div class="suave chico">Ticket promedio</div><strong>{pesos(r.resumen.ticketPromedio)}</strong></div>
-			<div class="tarjeta"><div class="suave chico">Clientes</div><strong>{r.resumen.clientes}</strong> <span class="chico suave">({r.clientesNuevos} nuevos, {r.clientesRecurrentes}&nbsp;recurrentes)</span></div>
-			<div class="tarjeta"><div class="suave chico">No vinieron</div><strong>{porcentaje(r.resumen.tasaAusencias)}</strong></div>
-			<div class="tarjeta"><div class="suave chico">Ocupación</div><strong>{porcentaje(r.resumen.ocupacion)}</strong></div>
+		<details class="g-plegable otro" open={!actual}>
+			<summary>Otro período</summary>
+			<form method="GET" class="fechas" aria-label="Elegir fechas">
+				<label class="g-campo">Desde <input type="date" name="desde" value={r.desde} /></label>
+				<label class="g-campo">Hasta <input type="date" name="hasta" value={r.hasta} /></label>
+				<button class="g-boton oscuro">Ver</button>
+			</form>
+		</details>
+
+		<div class="g-tres arriba">
+			<section class="g-oscuro facture" aria-labelledby="t-facture">
+				<h2 class="pregunta claro" id="t-facture">¿Cuánto facturé {enPeriodo}?</h2>
+				<b class="plata">{pesos(r.resumen.ingresos)}</b>
+				{#if cambio}
+					<span class="cambio">
+						<span class="icono" aria-hidden="true">{cambio.p >= 0 ? 'arrow_upward' : 'arrow_downward'}</span>
+						{Math.abs(cambio.p)} % {cambio.p >= 0 ? 'más' : 'menos'} que {cambio.contra}
+					</span>
+				{/if}
+				<span class="pie">{r.resumen.atendidos} turnos atendidos · ticket promedio {pesos(r.resumen.ticketPromedio)}</span>
+			</section>
+
+			<section class="g-bloque" aria-labelledby="t-terminaron">
+				<h2 class="pregunta" id="t-terminaron">¿Cómo terminaron los turnos?</h2>
+				{#if !estados || estados.total === 0}
+					<p class="g-nota">Sin turnos en el&nbsp;período.</p>
+				{:else}
+					<div class="apilada" aria-hidden="true">
+						{#each estados.tramos as t (t.clave)}<span class="tramo {t.clave}" style:flex={t.n}></span>{/each}
+					</div>
+					<ul class="leyenda">
+						{#each estados.tramos as t (t.clave)}
+							<li class={t.clave}>{pct(t.n, estados.total)} % {t.texto} · {t.n}</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+
+			<section class="g-bloque" aria-labelledby="t-faltan">
+				<h2 class="pregunta" id="t-faltan">¿Quién falta más?</h2>
+				{#if data.ausentes && data.ausentes.length > 0}
+					<ul class="faltan">
+						{#each data.ausentes.slice(0, 3) as c (c.id)}
+							<li>
+								<b>{c.nombre}</b>
+								<span class="veces" aria-label={`${c.ausencias} ${c.ausencias === 1 ? 'ausencia' : 'ausencias'}`}>
+									{c.ausencias}<span class="icono" aria-hidden="true">close</span>
+								</span>
+							</li>
+						{/each}
+					</ul>
+				{:else if data.ausentes}
+					<p class="g-nota"><span class="icono ok" aria-hidden="true">check_circle</span> Nadie faltó sin avisar en el&nbsp;período.</p>
+				{:else}
+					<p class="faltaron"><b>{r.porEstado.ausente ?? 0}</b> {(r.porEstado.ausente ?? 0) === 1 ? 'turno' : 'turnos'} sin aviso</p>
+				{/if}
+				<a class="g-accion chica" href="/panel/penalidades">Ver penalidades →</a>
+			</section>
 		</div>
 
-		<section class="tarjeta pila">
-			<h2>Turnos por día</h2>
-			{#if r.porDia.every((d) => d.turnos === 0)}
-				<p class="suave">Sin turnos en el período.</p>
-			{:else}
-				<div class="columnas" role="img" aria-label={`Turnos por día: ${r.porDia.map((d) => `${nombreDia(d.fecha)}, ${d.turnos}`).join('; ')}`}>
-					{#each r.porDia as d, i (d.fecha)}
-						<div class="col" title={`${nombreDia(d.fecha)}: ${d.turnos} turnos, ${pesos(d.ingresos)}`}>
-							<span class="valor" style={`height: ${barrasDia[i]}%`}></span>
-						</div>
-					{/each}
-				</div>
-				<div class="fila chico suave" style="justify-content: space-between">
-					<span>{nombreDia(r.porDia[0].fecha)}</span><span>{nombreDia(r.porDia[r.porDia.length - 1].fecha)}</span>
-				</div>
-			{/if}
-		</section>
-
-		<section class="tarjeta pila">
-			<h2>Por estado</h2>
-			{#if totalEstados === 0}
-				<p class="suave">Sin turnos en el período.</p>
-			{:else}
-				<div class="apilada" aria-hidden="true">
-					{#each Object.entries(r.porEstado) as [k, v] (k)}
-						<span class="tramo {k}" style={`flex: ${v}`}></span>
-					{/each}
-				</div>
-				<ul class="fila leyenda chico">
-					{#each Object.entries(r.porEstado) as [k, v] (k)}
-						<li><span class="punto {k}" aria-hidden="true"></span>{ESTADOS[k] ?? k}: {v}</li>
-					{/each}
-				</ul>
-			{/if}
-		</section>
-
-		{@render tabla('Por profesional', r.porProfesional, true)}
-		{@render tabla('Por servicio', r.porServicio, false)}
-
-		<section class="tarjeta pila">
-			<h2>Descargas</h2>
-			<p class="suave chico">Planillas CSV (se abren en Excel o Google&nbsp;Sheets).</p>
-			<div class="fila">
-				<a class="boton" href={`/panel/reportes/csv/turnos?${rango}`} download data-sveltekit-reload>Turnos del período</a>
-				<a class="boton" href={`/panel/reportes/csv/clientes?${rango}`} download data-sveltekit-reload>Clientes</a>
+		<section class="g-bloque dias" aria-labelledby="t-dias">
+			<div class="g-bloque-cabeza">
+				<h2 class="pregunta" id="t-dias">¿Qué días se llena y qué días sobra&nbsp;lugar?</h2>
+				<a class="g-accion chica" href={`/panel/reportes/csv/turnos?${rango}`} download data-sveltekit-reload>CSV <span class="icono" aria-hidden="true">arrow_downward</span></a>
 			</div>
+			{#if r.porDia.length === 0}
+				<p class="g-nota">Sin días en el&nbsp;período.</p>
+			{:else}
+				<BarrasDias dias={r.porDia} />
+			{/if}
 		</section>
+
+		<div class="g-tres">
+			<section class="g-bloque" aria-labelledby="t-servicio">
+				<h2 class="pregunta" id="t-servicio">¿Qué servicio se pide más?</h2>
+				{#if servicios.length === 0}
+					<p class="g-nota">Sin turnos en el&nbsp;período.</p>
+				{:else}
+					<ul class="servicios">
+						{#each servicios as s (s.id ?? s.nombre)}
+							<li>
+								<span class="pista"><span class="relleno" style:width="{(s.turnos / maxServicio) * 100}%"></span><span class="nombre">{s.nombre || 'Sin nombre'}</span></span>
+								<b>{s.turnos}</b>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+
+			<section class="g-bloque" aria-labelledby="t-quien">
+				<h2 class="pregunta" id="t-quien">¿Quién atiende más?</h2>
+				{#if profesionales.length === 0}
+					<p class="g-nota">Sin turnos en el&nbsp;período.</p>
+				{:else}
+					<ul class="quienes">
+						{#each profesionales as p (p.id ?? p.nombre)}
+							<li><b>{p.nombre || 'Sin nombre'}</b><span>{p.atendidos} · {compacto(p.ingresos)}</span></li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+
+			<section class="g-bloque" aria-labelledby="t-vuelven">
+				<div class="g-bloque-cabeza">
+					<h2 class="pregunta" id="t-vuelven">¿Vuelven?</h2>
+					<a class="g-accion chica" href={`/panel/reportes/csv/clientes?${rango}`} download data-sveltekit-reload>CSV <span class="icono" aria-hidden="true">arrow_downward</span></a>
+				</div>
+				{#if vuelven === null}
+					<p class="g-nota">Sin clientes en el&nbsp;período.</p>
+				{:else}
+					<b class="grande">{vuelven}%</b>
+					<p class="g-nota">de tus clientes del período ya habían venido. {r.clientesNuevos}&nbsp;{r.clientesNuevos === 1 ? 'nuevo' : 'nuevos'}.</p>
+				{/if}
+			</section>
+		</div>
 	{/if}
 </div>
 
 <style>
-	.numeros {
-		grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
+	.g-cabeza {
+		align-items: center;
 	}
-	.numeros strong {
-		font-size: 20px;
+	.otro {
+		margin-top: -8px;
 	}
-	.con-barra {
-		position: relative;
-		min-width: 120px;
-	}
-	.barra {
-		display: block;
-		height: 4px;
-		margin-top: 4px;
-		border-radius: 2px;
-		background: var(--marca);
-	}
-	.columnas {
+	.fechas {
 		display: flex;
-		align-items: flex-end;
-		gap: 2px;
-		height: 140px;
-		border-bottom: 1px solid var(--borde);
+		flex-wrap: wrap;
+		align-items: end;
+		gap: 12px;
+		padding-bottom: 8px;
 	}
-	.col {
-		flex: 1;
-		height: 100%;
-		display: flex;
-		align-items: flex-end;
+	.pregunta {
+		margin: 0;
+		font-size: 14px;
+		font-weight: 400;
+		line-height: 1.35;
+		letter-spacing: normal;
+		color: var(--tl-sub);
 	}
-	.valor {
-		display: block;
-		width: 100%;
-		min-height: 1px;
-		background: var(--marca);
-		border-radius: 3px 3px 0 0;
+	.pregunta.claro {
+		color: rgba(255, 255, 255, 0.82);
+	}
+	.g-oscuro.facture {
+		border-radius: var(--tl-r-l);
+		padding: 24px 20px;
+		gap: 6px;
+	}
+	.plata {
+		font: 700 clamp(34px, 4vw, 44px) / 1 var(--tl-font);
+		font-variant-numeric: tabular-nums;
+		letter-spacing: -0.05em;
+		margin: 6px 0 4px;
+	}
+	.cambio {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		font-size: 13px;
+		font-variant-numeric: tabular-nums;
+		text-transform: uppercase;
+		color: var(--tl-menta);
+	}
+	.cambio .icono {
+		font-size: 16px;
+	}
+	.pie {
+		font-size: 13px;
+		font-variant-numeric: tabular-nums;
+		color: rgba(255, 255, 255, 0.82);
 	}
 	.apilada {
 		display: flex;
 		height: 14px;
-		border-radius: 7px;
+		border-radius: 999px;
 		overflow: hidden;
+		background: var(--tl-crema);
+	}
+	.tramo.atendido {
+		background: var(--tl-petroleo);
+	}
+	.tramo.ausente {
+		background: #a3241a;
+	}
+	.tramo.cancelado {
+		background: #cfc3a8;
+	}
+	.tramo.porvenir {
+		background: var(--tl-menta);
 	}
 	.leyenda {
 		list-style: none;
 		margin: 0;
 		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		font-size: 12px;
+		font-variant-numeric: tabular-nums;
+		text-transform: uppercase;
+		color: var(--tl-sub-2);
+	}
+	.leyenda .ausente {
+		color: #a3241a;
+	}
+	.leyenda .porvenir {
+		color: var(--tl-menta-texto);
+	}
+	.faltan,
+	.quienes,
+	.servicios {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.faltan li,
+	.quienes li {
+		display: flex;
+		justify-content: space-between;
+		gap: 12px;
+		font-size: 14px;
+	}
+	.faltan b,
+	.quienes b {
+		font-weight: 700;
+		overflow-wrap: anywhere;
+	}
+	.veces {
+		display: inline-flex;
+		align-items: center;
+		color: #a3241a;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+	}
+	.veces .icono {
+		font-size: 16px;
+	}
+	.quienes span {
+		font-size: 13px;
+		font-variant-numeric: tabular-nums;
+		color: var(--tl-sub-2);
+		white-space: nowrap;
+	}
+	.faltaron {
+		margin: 0;
+		font-size: 14px;
+	}
+	.faltaron b {
+		font-size: 22px;
+		font-variant-numeric: tabular-nums;
+	}
+	.ok {
+		font-size: 16px;
+		color: var(--tl-menta-texto);
+		vertical-align: -3px;
+	}
+	.chica {
+		font-size: 12px;
+		min-height: 32px;
+		align-self: flex-start;
+	}
+	.chica .icono {
+		font-size: 14px;
+	}
+	.servicios li {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 36px;
+		align-items: center;
 		gap: 12px;
 	}
-	.punto {
-		display: inline-block;
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
-		margin-right: 4px;
+	.pista {
+		position: relative;
+		min-height: 28px;
+		display: flex;
+		align-items: center;
 	}
-	.tramo,
-	.punto {
-		background: var(--marca);
+	.relleno {
+		position: absolute;
+		inset: 0 auto 0 0;
+		border-radius: 8px;
+		background: var(--tl-menta-suave);
 	}
-	.pendiente,
-	.pendiente_pago {
-		background: var(--aviso);
+	.nombre {
+		position: relative;
+		padding: 4px 8px;
+		font-size: 13px;
+		overflow-wrap: anywhere;
 	}
-	.atendido {
-		background: var(--suave);
+	.servicios b {
+		text-align: right;
+		font-variant-numeric: tabular-nums;
 	}
-	.ausente {
-		background: var(--peligro);
+	.grande {
+		font: 700 40px/1 var(--tl-font);
+		font-variant-numeric: tabular-nums;
+		letter-spacing: -0.04em;
 	}
-	.cancelado {
-		background: var(--borde);
+	@media (max-width: 640px) {
+		.chica {
+			min-height: 44px;
+		}
 	}
 </style>
