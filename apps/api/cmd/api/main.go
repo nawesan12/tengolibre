@@ -20,6 +20,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/clientes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/cobros"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/confirmaciones"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/diaslibres"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/directorio"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/dominios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/espera"
@@ -95,12 +96,12 @@ func correr() error {
 		SecretoWebhook: cfg.MPSecretoWebhook, Escritura: sus.Escritura, OtrosAvisos: sus.Receptores(), Avisar: av.Avisar}
 	pro := &promos.Servicio{Pool: app, Sesion: ses, Escritura: sus.Escritura}
 	mem := &membresias.Servicio{Pool: app, Sesion: ses, Escritura: sus.Escritura}
+	// El orden de Extras importa: membresía, después cupón, y el cobro último (sobre el precio final).
+	tur := &turnos.Servicio{Pool: app, Sesion: ses, Avisar: av.Avisar, Extras: []turnos.Extra{mem, pro, cob}}
 	go cob.RenovarCada(ctx, 6*time.Hour)
 	// Tiempo real: los cambios que avisa Postgres van por SSE a los paneles abiertos.
 	tr := &tiemporeal.Servicio{Pool: app, Sesion: ses}
 	go tr.Escuchar(ctx)
-	// El orden de Extras importa: membresía, después cupón, y el cobro último (sobre el precio final).
-	tur := &turnos.Servicio{Pool: app, Sesion: ses, Avisar: av.Avisar, Extras: []turnos.Extra{mem, pro, cob}}
 	// Push web: la clave pública VAPID es la que usa el navegador para suscribirse. Sin claves (o con
 	// claves que no sirven), apagado.
 	vapid, err := webpush.Desde(cfg.VAPIDPublica, cfg.VAPIDPrivada, cfg.VAPIDSujeto)
@@ -126,7 +127,9 @@ func correr() error {
 				av,
 				cob, pro, mem, sus,
 				&resenas.Servicio{Pool: app, Sesion: ses},
-				&espera.Servicio{Pool: app, Sesion: ses},
+				// La lista de espera reserva con turnos cuando alguien toma el lugar ofrecido.
+				&espera.Servicio{Pool: app, Sesion: ses, Turnos: tur},
+				&diaslibres.Servicio{Pool: app, Sesion: ses},
 				&invitaciones.Servicio{Pool: app, Sesion: ses},
 				&auditoria.Servicio{Pool: app, Sesion: ses},
 				&archivos.Servicio{Pool: app, Sesion: ses, Carpeta: cfg.Archivos, URLBase: cfg.ArchivosURL},

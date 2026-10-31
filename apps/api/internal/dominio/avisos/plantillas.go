@@ -120,6 +120,19 @@ func primerNombre(nombre string) string {
 	return nombre
 }
 
+// Pesos como en el diseño: 26000 → "$ 26.000".
+func Pesos(n int64) string {
+	signo := ""
+	if n < 0 {
+		signo, n = "-", -n
+	}
+	s := fmt.Sprint(n)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "." + s[i:]
+	}
+	return signo + "$ " + s
+}
+
 // ICS arma el evento de calendario del turno. El UID es el del turno: si se reprograma, el
 // calendario actualiza el mismo evento (SEQUENCE crece con el tiempo).
 func ICS(uid, titulo, descripcion, lugar string, inicio, fin, ahora time.Time) []byte {

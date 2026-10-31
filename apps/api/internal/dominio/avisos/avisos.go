@@ -98,6 +98,7 @@ func LinkResena(sitio, token string) string       { return sitio + "/resena/" + 
 func LinkInvitacion(sitio, token string) string   { return sitio + "/invitacion/" + token }
 func LinkPreferencias(sitio, token string) string { return sitio + "/mi-cuenta/avisos/" + token }
 func LinkAgenda(sitio, fecha string) string       { return sitio + "/panel?fecha=" + fecha }
+func LinkOferta(sitio, token string) string       { return sitio + "/espera/" + token }
 
 // Liberado es un horario que quedó libre (un turno cancelado, o el horario viejo de uno
 // reprogramado): la lista de espera lo escucha.
@@ -153,11 +154,18 @@ func (s *Servicio) avisar(ctx context.Context, tx pgx.Tx, turnoID, evento string
 	cuando := Fecha(t.Inicio.In(n.zona)) + " a las " + Hora(t.Inicio.In(n.zona))
 	inicio := map[string]any{"inicio": t.Inicio.UTC().Format(time.RFC3339Nano)}
 	switch evento {
-	case "reservado":
+	case "reservado", "reservado_espera":
 		if _, err := Encolar(ctx, tx, Aviso{Tipo: Reservado, TurnoID: t.ID, Clave: "reservado:" + t.ID, Datos: inicio}, ahora); err != nil {
 			return err
 		}
-		if quien == "" {
+		// Lo tomó alguien de la lista de espera desde su link: la campanita cuenta que se llenó el hueco.
+		if evento == "reservado_espera" {
+			if err := Notificar(ctx, tx, Notificacion{Tipo: NotiEspera, TurnoID: t.ID,
+				Titulo: "Se llenó el hueco de las " + Hora(t.Inicio.In(n.zona)),
+				Texto:  t.ClienteNombre + " lo tomó desde la lista de espera: " + t.Servicio + " con " + t.Profesional + ", el " + cuando + "."}); err != nil {
+				return err
+			}
+		} else if quien == "" {
 			if err := Notificar(ctx, tx, Notificacion{Tipo: NotiReserva, TurnoID: t.ID, Titulo: "Nueva reserva de " + t.ClienteNombre,
 				Texto: t.Servicio + " con " + t.Profesional + ", el " + cuando + "."}); err != nil {
 				return err

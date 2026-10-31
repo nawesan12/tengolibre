@@ -80,7 +80,9 @@ func correr() error {
 	ps := push.Nuevo(app, cliAPNs, cliFCM, slog.Default()).ConWeb(cliWeb)
 	// WhatsApp (confirmación del día antes, recordatorio, respuestas). Sin configurar, sin trabajos.
 	wa := confirmaciones.Nuevos(app, whatsapp.Desde(cfg.WhatsAppToken, cfg.WhatsAppTelefonoID, cfg.WhatsAppVersion), cfg.Sitio, slog.Default())
-	lista := append(tj.Lista(env), rs.Trabajo(), ps.Trabajo())
+	// Ofrecer el hueco solo: cuando vence el link de una persona sin respuesta, pasa a la siguiente.
+	es := &espera.Servicio{Pool: app}
+	lista := append(tj.Lista(env), rs.Trabajo(), ps.Trabajo(), es.Trabajo())
 	p := &trabajos.Planificador{Pool: app, Trabajos: append(lista, wa.Lista()...)}
 	slog.Info("worker andando", "entorno", cfg.Entorno, "smtp", cfg.SMTP != "")
 	p.Correr(ctx, 5*time.Second)

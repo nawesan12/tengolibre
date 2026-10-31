@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -293,6 +294,9 @@ type Pedido struct {
 	SerieID string `json:"-"`
 	// reglas, si no es nil, reemplaza las del negocio (el turno fijo mira más allá de la vista).
 	reglas *disponibilidad.Reglas
+	// SinAnticipacion (sólo desde otro dominio): no aplica la anticipación mínima. La lista de espera
+	// ofrece huecos que se liberaron a último momento: el negocio ya decidió ofrecerlos.
+	SinAnticipacion bool `json:"-"`
 }
 
 // elegir el profesional para el horario: el pedido, o el primero libre en el orden del negocio.
@@ -357,6 +361,9 @@ func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora ti
 	c, err := cargarContexto(ctx, tx)
 	if err != nil {
 		return Turno{}, err
+	}
+	if in.SinAnticipacion {
+		c.ajustes.AnticipacionMin = 0
 	}
 	srv, err := catalogo.LeerServicio(ctx, tx, in.ServicioID)
 	if err != nil || !srv.Activo {
@@ -475,4 +482,35 @@ func (s *Servicio) negocioDelTurno(ctx context.Context, cod string) (string, err
 		return "", problema.NoEncontrado("No encontramos ese turno.")
 	}
 	return *id, nil
+}
+
+// Disponible dice si el profesional tiene libre ese horario para el servicio, en el negocio fijado,
+// sin la anticipación mínima (la lista de espera lo usa para saber si un hueco sigue para ofrecer).
+func Disponible(ctx context.Context, tx pgx.Tx, servicioID, profesionalID string, inicio, ahora time.Time) (bool, error) {
+	c, err := cargarContexto(ctx, tx)
+	if err != nil {
+		return false, err
+	}
+	c.ajustes.AnticipacionMin = 0
+	srv, err := catalogo.LeerServicio(ctx, tx, servicioID)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && !srv.Activo) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	p, err := catalogo.LeerProfesional(ctx, tx, profesionalID, false)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && (!p.Activo || !p.Hace(srv.ID))) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	fecha := inicio.In(c.zona).Format(time.DateOnly)
+	d, err := datosDelDia(ctx, tx, p, fecha, c.zona, "")
+	if err != nil {
+		return false, err
+	}
+	return disponibilidad.Libre(disponibilidad.Consulta{Profesional: d, Fecha: fecha, Duracion: srv.Duracion,
+		Reglas: c.reglas(), Ahora: ahora, Zona: c.zona}, inicio), nil
 }
