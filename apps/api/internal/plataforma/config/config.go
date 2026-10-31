@@ -18,6 +18,8 @@ type Config struct {
 	Sitio string
 	// Clerk (ingreso de Grupo Vimo): clave secreta y publicable. Sin clave secreta, apagado.
 	ClerkSecreto, ClerkPublicable string
+	// Orígenes del front (CORS y `azp` de Clerk). Vacío: el sitio.
+	Origenes []string
 }
 
 // Desarrollo dice si se está corriendo en local.
@@ -34,6 +36,7 @@ func Leer() (Config, error) {
 		Sitio:           valor("TENGOLIBRE_SITIO", "https://tengolibre.com.ar"),
 		ClerkSecreto:    os.Getenv("TENGOLIBRE_CLERK_SECRETO"),
 		ClerkPublicable: os.Getenv("TENGOLIBRE_CLERK_PUBLICABLE"),
+		Origenes:        lista(os.Getenv("TENGOLIBRE_ORIGENES")),
 	}
 	switch c.Entorno {
 	case "desarrollo", "staging", "produccion":
@@ -49,7 +52,21 @@ func Leer() (Config, error) {
 		c.BaseAdmin = conDefecto(c.BaseAdmin, fmt.Sprintf(local, "tengolibre", "tengolibre"))
 		c.Sitio = conDefecto(os.Getenv("TENGOLIBRE_SITIO"), "http://localhost:5173")
 	}
+	if len(c.Origenes) == 0 {
+		c.Origenes = []string{c.Sitio}
+	}
 	return c, nil
+}
+
+// lista separa por comas y saca los vacíos.
+func lista(v string) []string {
+	var out []string
+	for _, x := range strings.Split(v, ",") {
+		if x = strings.TrimSpace(x); x != "" {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 // Exigir falla si falta alguna de las variables pedidas (por nombre de campo).
