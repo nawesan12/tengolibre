@@ -1,15 +1,12 @@
 import { expect, test, type Page } from './base.ts';
-import { entrar, negocioNuevo, unico } from './ayuda.ts';
+import { crearNegocio, entrar, negocioNuevo, unico } from './ayuda.ts';
 
 /** La persona de prueba del equipo (TENGOLIBRE_ADMINS en playwright.config.ts). */
 const ADMIN = 'user_e2eadmin00000001';
 
 /** Con la sesión abierta, da de alta otro negocio; devuelve su nombre. */
 async function otroNegocio(page: Page, nombre: string) {
-	await page.goto('/empezar');
-	await page.getByLabel('Nombre del negocio').fill(nombre);
-	await page.getByRole('button', { name: 'Crear' }).click();
-	await expect(page.getByRole('heading', { name: /Hola/ })).toBeVisible();
+	await crearNegocio(page, nombre);
 	return nombre;
 }
 
@@ -19,10 +16,12 @@ test('mi cuenta: dos negocios y cambiar entre ellos', async ({ page }) => {
 	const segundo = await otroNegocio(page, `Salón ${unico()}`);
 
 	await page.goto('/mi-cuenta');
-	await expect(page.getByRole('heading', { name: 'Mi cuenta' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: /^Hola/, level: 1 })).toBeVisible();
 	await expect(page.getByText(primero)).toBeVisible();
 	await expect(page.getByText(segundo)).toBeVisible();
 	await expect(page.getByText('Dueño/a').first()).toBeVisible();
+	// Cada negocio con su estado, con ícono y palabra: los dos recién creados están en prueba.
+	await expect(page.getByText(/Prueba · \d+ días?$/)).toHaveCount(2);
 
 	await page.getByRole('button', { name: `Entrar a ${primero}` }).click();
 	await expect(page).toHaveURL(/\/panel$/);
@@ -108,8 +107,8 @@ test('admin: estadísticas, búsqueda y desactivar o activar un negocio', async 
 	await context.clearCookies();
 
 	await entrar(page, ADMIN, '/admin');
-	await expect(page.getByRole('heading', { name: 'Resumen de la plataforma' })).toBeVisible();
-	await expect(page.locator('[data-numero="Negocios"]')).toHaveText(/^\d+$/);
+	await expect(page.getByRole('heading', { name: 'La plataforma' })).toBeVisible();
+	await expect(page.locator('[data-numero="Negocios en total"]')).toHaveText(/^[\d.]+$/);
 
 	await page.getByRole('navigation', { name: 'Administración' }).getByRole('link', { name: 'Negocios' }).click();
 	await page.getByRole('searchbox').fill(slug);
@@ -117,13 +116,18 @@ test('admin: estadísticas, búsqueda y desactivar o activar un negocio', async 
 	await expect(page).toHaveURL(new RegExp(`q=${slug}`));
 	await expect(page.getByText('Un negocio')).toBeVisible();
 	const fila = page.getByRole('listitem', { name: nombre });
-	await expect(fila.getByText('Activo', { exact: true })).toBeVisible();
+	// La fila dice el estado (en prueba) y «Abrir» despliega los datos y las acciones.
+	await expect(fila.getByText(/Prueba · \d+ días?$/)).toBeVisible();
+	await fila.getByText('Abrir').click();
+	await expect(fila.getByText('Activa', { exact: true })).toBeVisible();
 	await expect(fila.getByText(/Prueba hasta el/)).toBeVisible();
 
 	await fila.getByRole('button', { name: 'Desactivar' }).click();
 	await expect(fila.getByText('Desactivado')).toBeVisible();
+	await expect(fila.getByText('Desactivada', { exact: true })).toBeVisible();
 	await fila.getByRole('button', { name: 'Activar' }).click();
-	await expect(fila.getByText('Activo', { exact: true })).toBeVisible();
+	await expect(fila.getByText('Activa', { exact: true })).toBeVisible();
+	await expect(fila.getByText('Desactivado')).toHaveCount(0);
 
 	const antes = await fila.getByText(/Prueba hasta el/).textContent();
 	await fila.getByLabel(/Días para sumar/).fill('30');

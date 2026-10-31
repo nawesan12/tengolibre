@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from './base.ts';
-import { entrar, unico } from './ayuda.ts';
+import { crearNegocio, entrar, unico } from './ayuda.ts';
 
 /**
  * La operación diaria del panel contra la API de verdad: el negocio se da de alta por el panel y el
@@ -27,13 +27,7 @@ async function armar(page: Page, request: APIRequestContext): Promise<Armado> {
 	const u = unico();
 	const quien = `user_e2e${u}`;
 	await entrar(page, quien, '/empezar');
-	await page.getByLabel('Nombre del negocio').fill(`Barbería ${u}`);
-	// Con el servidor de desarrollo recién levantado, un clic antes de hidratar se puede perder.
-	const crear = page.getByRole('button', { name: 'Crear' });
-	await expect(async () => {
-		if (await crear.isVisible()) await crear.click();
-		await expect(page.getByRole('heading', { name: /Hola/ })).toBeVisible({ timeout: 4000 });
-	}).toPass({ timeout: 40_000 });
+	await crearNegocio(page, `Barbería ${u}`);
 
 	const auth = { authorization: `Bearer dev:${quien}` };
 	const yo = await (await request.get(`${API}/v1/yo`, { headers: auth })).json();

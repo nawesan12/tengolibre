@@ -2,9 +2,8 @@ import { error } from '@sveltejs/kit';
 import { apiPublica } from '#lib/server/api.ts';
 import { intentar } from '#lib/server/acciones.ts';
 import { codigoValido, o404 } from '#lib/publico/api.server.ts';
+import { PREFERENCIAS_NUEVAS, type Preferencias } from '#lib/cuenta/contratos.ts';
 import type { Actions, PageServerLoad } from './$types';
-
-type Preferencias = { negocio: string; slug: string; cliente: string; email: boolean; recordatorios: boolean };
 
 export const load: PageServerLoad = async ({ params, fetch, setHeaders }) => {
 	if (!codigoValido(params.token)) error(404, 'Ese link no existe o ya no sirve.');
@@ -17,15 +16,17 @@ export const load: PageServerLoad = async ({ params, fetch, setHeaders }) => {
 export const actions: Actions = {
 	default: async ({ params, fetch, request }) => {
 		const f = await request.formData();
-		// "Ninguno" apaga todo de una (el link de "no quiero más mails").
+		// "Dejar de recibir todo" apaga todo de una (el link de "no quiero más mails").
 		const nada = f.get('nada') === '1';
-		const r = await intentar(() =>
-			apiPublica(fetch).put<Preferencias>(`/v1/preferencias/${params.token}`, {
-				email: !nada && f.get('email') === 'on',
-				recordatorios: !nada && f.get('recordatorios') === 'on'
-			})
-		);
+		const cuerpo: Record<string, boolean> = {
+			email: !nada && f.get('email') === 'on',
+			recordatorios: !nada && f.get('recordatorios') === 'on'
+		};
+		// Los avisos nuevos van sólo si la API los mandó al cargar (si no, los rechaza).
+		const hay = new Set(String(f.get('campos') ?? '').split(','));
+		for (const k of PREFERENCIAS_NUEVAS) if (hay.has(k)) cuerpo[k] = !nada && f.get(k) === 'on';
+		const r = await intentar(() => apiPublica(fetch).put<Preferencias>(`/v1/preferencias/${params.token}`, cuerpo));
 		if (!('ok' in r)) return r;
-		return { guardado: true };
+		return { guardado: true, nada };
 	}
 };

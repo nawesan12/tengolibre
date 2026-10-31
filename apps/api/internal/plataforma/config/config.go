@@ -16,6 +16,8 @@ type Config struct {
 	BaseApp, BaseMigrador, BaseAdmin string
 	// Sitio público (links de los mails, CORS).
 	Sitio string
+	// MCPURL: la URL pública del servidor MCP; su origen es también el authorization server OAuth.
+	MCPURL string
 	// Clerk (ingreso de Grupo Vimo): clave secreta y publicable. Sin clave secreta, apagado.
 	ClerkSecreto, ClerkPublicable string
 	// Orígenes del front (CORS y `azp` de Clerk). Vacío: el sitio.
@@ -65,6 +67,7 @@ func Leer() (Config, error) {
 		BaseMigrador:    os.Getenv("TENGOLIBRE_BASE_DE_DATOS_MIGRADOR"),
 		BaseAdmin:       os.Getenv("TENGOLIBRE_BASE_DE_DATOS_ADMIN"),
 		Sitio:           valor("TENGOLIBRE_SITIO", "https://tengolibre.com.ar"),
+		MCPURL:          valor("TENGOLIBRE_MCP_URL", "https://api.tengolibre.com.ar/v1/mcp"),
 		ClerkSecreto:    os.Getenv("TENGOLIBRE_CLERK_SECRETO"),
 		ClerkPublicable: os.Getenv("TENGOLIBRE_CLERK_PUBLICABLE"),
 		Origenes:        lista(os.Getenv("TENGOLIBRE_ORIGENES")),
@@ -114,6 +117,7 @@ func Leer() (Config, error) {
 		c.BaseMigrador = conDefecto(c.BaseMigrador, fmt.Sprintf(local, "tengolibre_migrador", "tengolibre_dev"))
 		c.BaseAdmin = conDefecto(c.BaseAdmin, fmt.Sprintf(local, "tengolibre", "tengolibre"))
 		c.Sitio = conDefecto(os.Getenv("TENGOLIBRE_SITIO"), "http://localhost:5173")
+		c.MCPURL = conDefecto(os.Getenv("TENGOLIBRE_MCP_URL"), "http://localhost:4200/v1/mcp")
 		// En local, los archivos van a una carpeta del repo (ignorada) y los sirve la propia API.
 		c.Archivos = conDefecto(os.Getenv("TENGOLIBRE_ARCHIVOS"), "archivos")
 		c.ArchivosURL = strings.TrimSuffix(conDefecto(os.Getenv("TENGOLIBRE_ARCHIVOS_URL"), "http://localhost:4200/archivos"), "/")

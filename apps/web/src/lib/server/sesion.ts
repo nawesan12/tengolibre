@@ -42,8 +42,9 @@ export const volverValido = (v: string | null | undefined): v is string =>
 	!!v &&
 	v.length < 2000 &&
 	!v.includes('\\') &&
-	// La reserva de un negocio también: el socio ingresa para usar su membresía.
-	(/^\/(panel|admin|empezar|invitacion|mi-cuenta)(\/[^/]|\?|$)/.test(v) || /^\/[a-z0-9-]{2,60}\/reservar(\?|$)/.test(v));
+	// La reserva de un negocio también: el socio ingresa para usar su membresía. Y /conectar: dar
+	// permiso a un asistente de IA (OAuth del MCP).
+	(/^\/(panel|admin|empezar|invitacion|mi-cuenta|conectar)(\/[^/]|\?|$)/.test(v) || /^\/[a-z0-9-]{2,60}\/reservar(\?|$)/.test(v));
 
 export function destino(cookies: Cookies) {
 	const v = cookies.get(COOKIE_VOLVER);
