@@ -9,6 +9,7 @@
 	import Mensaje from '#lib/configuracion/Mensaje.svelte';
 	import ListaEquipo from '#lib/gestion/equipo/ListaEquipo.svelte';
 	import GrillaSemana from '#lib/gestion/equipo/GrillaSemana.svelte';
+	import { MOTIVOS_LIBRES, NOMBRE_MOTIVO } from '#lib/gestion/api-equipo.ts';
 	import {
 		DIA_CORTO,
 		diasAgrupados,
@@ -134,8 +135,10 @@
 				out.push({
 					clave: `p-${x.id}`,
 					f: rangoTalon(x.desde, x.hasta),
-					t: x.motivo || 'Días libres',
-					s: esProfesional ? 'Pedido · esperando respuesta' : `Lo pidió ${nombreCorto}`,
+					t: NOMBRE_MOTIVO[x.motivo] ?? 'Días libres',
+					s:
+						(esProfesional ? 'Pedido · esperando respuesta' : `Lo pidió ${nombreCorto}`) +
+						(x.afectados > 0 ? ` · ${x.afectados} ${x.afectados === 1 ? 'turno' : 'turnos'} para mover` : ''),
 					tono: 'ambar',
 					orden: x.desde,
 					estado: 'Pendiente',
@@ -185,6 +188,11 @@
 					<button class="g-accion" name="estado" value="aprobado">Aprobar</button>
 					<button class="g-accion peligro" name="estado" value="rechazado">Rechazar</button>
 				</form>
+			{:else if x.pedido && esProfesional}
+				<form method="POST" action="?/resolverPedido" use:enhance>
+					<input type="hidden" name="pedido" value={x.pedido} />
+					<button class="g-accion peligro" name="estado" value="cancelado">Cancelar</button>
+				</form>
 			{/if}
 			{#if x.sacar && !esProfesional}
 				<form method="POST" action={x.sacar.accion} use:enhance>
@@ -232,7 +240,13 @@
 				<div class="g-form">
 					<label class="g-campo">Desde <input type="date" name="desde" required min={hoy()} /></label>
 					<label class="g-campo">Hasta <input type="date" name="hasta" min={hoy()} /></label>
-					<label class="g-campo g-ancho">Motivo (lo ve sólo el equipo) <input name="motivo" maxlength="120" placeholder="Vacaciones" /></label>
+					<label class="g-campo">
+						Motivo
+						<select name="motivo">
+							{#each MOTIVOS_LIBRES as m (m)}<option value={m}>{NOMBRE_MOTIVO[m]}</option>{/each}
+						</select>
+					</label>
+					<label class="g-campo">Nota (lo ve sólo el equipo) <input name="nota" maxlength="300" /></label>
 				</div>
 				<button class="g-cta">Mandar el pedido</button>
 			</form>

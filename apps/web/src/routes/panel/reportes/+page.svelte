@@ -4,8 +4,9 @@
 	import { lunesDe } from '#lib/operacion/fechas.ts';
 	import SinPermiso from '#lib/operacion/SinPermiso.svelte';
 	import BarrasDias from '#lib/gestion/reportes/BarrasDias.svelte';
+	import HorasMuertas from '#lib/gestion/reportes/HorasMuertas.svelte';
 
-	let { data } = $props();
+	let { data, form } = $props();
 	const r = $derived(data.reporte);
 	const hoy = dia();
 	const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -74,6 +75,7 @@
 				{/each}
 			</nav>
 		{/if}
+		<a class="g-boton mensual" href="/panel/reportes/mensual"><span class="icono" aria-hidden="true">description</span>Reporte mensual</a>
 	</div>
 
 	{#if data.error}<p class="aviso error" role="alert">{data.error}</p>{/if}
@@ -154,6 +156,8 @@
 				<BarrasDias dias={r.porDia} />
 			{/if}
 		</section>
+
+		{#if data.horasMuertas}<HorasMuertas datos={data.horasMuertas} {form} />{/if}
 
 		<div class="g-tres">
 			<section class="g-bloque" aria-labelledby="t-servicio">

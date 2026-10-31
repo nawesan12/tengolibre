@@ -2,9 +2,11 @@ import { apiDe, ErrorApi } from '#lib/server/api.ts';
 import { dia } from '#lib/formato.ts';
 import { diasEntre, esDia, sumarDias } from '#lib/operacion/fechas.ts';
 import { param, siSePuede } from '#lib/operacion/servidor.ts';
-import { ausentes } from '#lib/gestion/api-reportes.ts';
+import { ausentes, opcional } from '#lib/gestion/api-reportes.ts';
+import { accion } from '#lib/configuracion/acciones.server.ts';
+import type { HorasMuertasDatos } from '#lib/gestion/reportes/HorasMuertas.svelte';
 import type { Reporte } from '#lib/operacion/tipos.ts';
-import type { PageServerLoad } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 
 /** El período anterior para comparar: el mes anterior entero si se mira un mes, si no, los mismos días justo antes. */
 function anterior(desde: string, hasta: string) {
@@ -29,19 +31,29 @@ export const load: PageServerLoad = async (event) => {
 	const antes = anterior(desde, hasta);
 	const api = apiDe(event);
 	try {
-		const [reporte, previo, faltan] = await Promise.all([
+		const [reporte, previo, faltan, horas] = await Promise.all([
 			siSePuede(api.get<Reporte>(`/v1/panel/reportes?${q}`)),
 			siSePuede(api.get<Reporte>(`/v1/panel/reportes?${new URLSearchParams({ desde: antes.desde, hasta: antes.hasta })}`)).catch(() => null),
-			ausentes(api, q).catch(() => null)
+			ausentes(api, q).catch(() => null),
+			opcional(api.get<HorasMuertasDatos>('/v1/panel/reportes/horas-muertas')).catch(() => null)
 		]);
 		return {
 			reporte,
 			previo: previo ? { ingresos: previo.resumen.ingresos, desde: antes.desde, mes: antes.mes } : null,
 			ausentes: faltan,
+			horasMuertas: horas,
 			error: ''
 		};
 	} catch (e) {
-		if (e instanceof ErrorApi && e.estado < 500) return { reporte: null, previo: null, ausentes: null, error: e.message };
+		if (e instanceof ErrorApi && e.estado < 500) return { reporte: null, previo: null, ausentes: null, horasMuertas: null, error: e.message };
 		throw e;
 	}
+};
+
+export const actions: Actions = {
+	/** El cupón sugerido de Horas muertas, tal cual lo propone la API. */
+	cupon: async (event) =>
+		accion('cupon', 'Creamos el cupón. Ya vale en esa franja.', () =>
+			apiDe(event).post('/v1/panel/reportes/horas-muertas/cupon', {})
+		)
 };

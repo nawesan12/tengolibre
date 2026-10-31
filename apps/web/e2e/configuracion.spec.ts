@@ -336,3 +336,22 @@ test('configuración: lista de espera, recordatorio y WhatsApp se guardan solos'
 	await expect(page.getByRole('form', { name: 'Cumpleaños' }).getByRole('switch')).toBeChecked();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test('reporte mensual: titular, cuatro números y cambio de mes', async ({ page }) => {
+	await negocioNuevo(page);
+
+	await abrir(page, '/panel/reportes');
+	await expect(page.getByRole('region', { name: /En qué horas te sobra/ })).toBeVisible();
+	await page.getByRole('link', { name: 'Reporte mensual' }).click();
+	await expect(page).toHaveURL(/\/panel\/reportes\/mensual$/);
+	await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+	await expect(page.getByText('FACTURADO')).toBeVisible();
+	await expect(page.getByText('1 / 4')).toBeVisible();
+
+	const mes = await page.getByLabel('Mes', { exact: true }).inputValue();
+	await page.getByRole('link', { name: 'Mes anterior' }).click();
+	await expect(page).toHaveURL(/\?mes=\d{4}-\d{2}$/);
+	await expect(page.getByLabel('Mes', { exact: true })).not.toHaveValue(mes);
+	await expect(page.getByRole('button', { name: 'Bajar PDF' })).toBeVisible();
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

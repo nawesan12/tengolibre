@@ -7,7 +7,7 @@ import { dia } from '#lib/formato.ts';
 import { sumarDias } from '#lib/operacion/fechas.ts';
 import type { Turno } from '#lib/operacion/tipos.ts';
 import { diasEntre } from '#lib/gestion/equipo/semana.ts';
-import { pedidosLibres, pedirLibres, resolverPedido } from '#lib/gestion/api-equipo.ts';
+import { MOTIVOS_LIBRES, pedidosLibres, pedirLibres, resolverPedido, type MotivoLibre } from '#lib/gestion/api-equipo.ts';
 import type { Miembro, Profesional } from '../../equipo/+page.server.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -137,20 +137,25 @@ export const actions: Actions = {
 	pedirLibres: async (event) => {
 		const f = await event.request.formData();
 		const desde = String(f.get('desde') ?? '');
+		const motivo = String(f.get('motivo') ?? '');
 		return accion('pedidos', 'Mandamos el pedido. Te avisamos cuando lo respondan.', () =>
-			pedirLibres(apiDe(event), event.params.id, {
+			pedirLibres(apiDe(event), {
 				desde,
 				hasta: String(f.get('hasta') ?? '') || desde,
-				motivo: String(f.get('motivo') ?? '').trim()
+				motivo: ((MOTIVOS_LIBRES as readonly string[]).includes(motivo) ? motivo : 'otro') as MotivoLibre,
+				nota: String(f.get('nota') ?? '').trim()
 			})
 		);
 	},
 	resolverPedido: async (event) => {
 		const f = await event.request.formData();
-		const estado = f.get('estado') === 'aprobado' ? 'aprobado' : 'rechazado';
-		return accion('pedidos', estado === 'aprobado' ? 'Aprobamos el pedido: esos días quedan bloqueados.' : 'Rechazamos el pedido.', () =>
-			resolverPedido(apiDe(event), event.params.id, String(f.get('pedido')), estado)
-		);
+		const que = f.get('estado') === 'aprobado' ? 'aprobar' : f.get('estado') === 'cancelado' ? 'cancelar' : 'rechazar';
+		const texto = {
+			aprobar: 'Aprobamos el pedido: esos días quedan bloqueados y sus turnos, en la lista para reprogramar.',
+			rechazar: 'Rechazamos el pedido.',
+			cancelar: 'Cancelamos el pedido.'
+		}[que];
+		return accion('pedidos', texto, () => resolverPedido(apiDe(event), String(f.get('pedido')), que));
 	},
 	borrarExcepcion: async (event) => {
 		const f = await event.request.formData();
