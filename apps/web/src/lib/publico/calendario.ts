@@ -38,3 +38,38 @@ export function sumarDias(f: string, n: number) {
 	d.setUTCDate(d.getUTCDate() + n);
 	return d.toISOString().slice(0, 10);
 }
+
+export const DIAS3 = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+export const MESES3 = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+const partes = (f: string) => {
+	const d = new Date(f + 'T12:00:00Z');
+	return { dow: d.getUTCDay(), dia: d.getUTCDate(), mes: d.getUTCMonth() };
+};
+
+/** "LUN 02" para un AAAA-MM-DD (rótulos del talón y de la barra). */
+export function diaCorto(f: string) {
+	const p = partes(f);
+	return `${DIAS3[p.dow].toUpperCase()} ${String(p.dia).padStart(2, '0')}`;
+}
+
+/** "lun 2" para un AAAA-MM-DD (en texto corrido). */
+export function diaTexto(f: string) {
+	const p = partes(f);
+	return `${DIAS3[p.dow]} ${p.dia}`;
+}
+
+/** "NOV" o "NOV · DIC": los meses que abarcan los días. */
+export function mesesCortos(fechas: string[]) {
+	const ms = [...new Set(fechas.map((f) => partes(f).mes))];
+	return ms.map((m) => MESES3[m].toUpperCase()).join(' · ');
+}
+
+/** "MES" en mayúsculas de un AAAA-MM-DD ("NOV"). */
+export const mesCorto = (f: string) => MESES3[partes(f).mes].toUpperCase();
+
+/** Lo que muestra un día en la tira: "lun" y "02". */
+export const tiraDia = (f: string) => {
+	const p = partes(f);
+	return { dow: DIAS3[p.dow], numero: String(p.dia).padStart(2, '0') };
+};
