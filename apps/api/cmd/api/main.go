@@ -23,6 +23,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/espera"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/grupos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/invitaciones"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/mcp"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/membresias"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/miweb"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
@@ -95,6 +96,8 @@ func correr() error {
 	// Tiempo real: los cambios que avisa Postgres van por SSE a los paneles abiertos.
 	tr := &tiemporeal.Servicio{Pool: app, Sesion: ses}
 	go tr.Escuchar(ctx)
+	// El orden de Extras importa: membresía, después cupón, y el cobro último (sobre el precio final).
+	tur := &turnos.Servicio{Pool: app, Sesion: ses, Avisar: av.Avisar, Extras: []turnos.Extra{mem, pro, cob}}
 	srv := &http.Server{
 		Addr: cfg.Direccion,
 		Handler: servidor.Nuevo(servidor.Dependencias{App: app, Version: version, Origenes: cfg.Origenes,
@@ -103,8 +106,7 @@ func correr() error {
 				tr,
 				&negocios.Servicio{Pool: app, Sesion: ses},
 				&catalogo.Servicio{Pool: app, Sesion: ses},
-				// El orden de Extras importa: membresía, después cupón, y el cobro último (sobre el precio final).
-				&turnos.Servicio{Pool: app, Sesion: ses, Avisar: av.Avisar, Extras: []turnos.Extra{mem, pro, cob}},
+				tur,
 				&clientes.Servicio{Pool: app, Sesion: ses},
 				&reportes.Servicio{Pool: app, Sesion: ses},
 				av,
@@ -121,6 +123,8 @@ func correr() error {
 				&arranque.Servicio{Pool: app, Sesion: ses},
 				&calendario.Servicio{Pool: app, Sesion: ses, Sitio: cfg.Sitio},
 				&push.Servicio{Pool: app, Sesion: ses},
+				// El asistente de IA del negocio (MCP): opera la agenda con los mismos turnos.
+				&mcp.Servicio{Pool: app, Sesion: ses, Turnos: tur, Origenes: cfg.Origenes},
 				&admin.Servicio{Pool: app, Sesion: ses, Admins: cfg.Admins, AdminsEmails: cfg.AdminsEmails},
 			}}),
 		ReadHeaderTimeout: 5 * time.Second,
