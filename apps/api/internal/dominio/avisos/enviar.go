@@ -33,7 +33,22 @@ type Enviador struct {
 	Ahora func() time.Time
 	Lote  int
 	Log   *slog.Logger
+	// Armadores de los tipos de aviso de otros dominios (recordatorios automáticos, reporte mensual):
+	// así avisos no los importa (ellos importan avisos).
+	Armadores map[string]Armador
 }
+
+// EnCola: el aviso que hay que armar, para un Armador.
+type EnCola struct {
+	Tipo, Para string
+	Datos      map[string]string
+	// Sitio público, para los links.
+	Sitio string
+}
+
+// Armador arma el mail de un aviso con los datos de ahora, en la transacción del negocio. descarte
+// no vacío: no se manda, por ese motivo.
+type Armador func(ctx context.Context, tx pgx.Tx, a EnCola, ahora time.Time) (m correo.Mensaje, descarte string, err error)
 
 // ResultadoEnvio de una pasada.
 type ResultadoEnvio struct {
@@ -191,6 +206,9 @@ func (e *Enviador) armar(ctx context.Context, tx pgx.Tx, f fila, ahora time.Time
 		return e.armarInvitacion(ctx, tx, f, n, ahora)
 	case Resumen:
 		return e.armarResumen(ctx, tx, f, n)
+	}
+	if a, ok := e.Armadores[f.Tipo]; ok {
+		return a(ctx, tx, EnCola{Tipo: f.Tipo, Para: f.Para, Datos: f.Datos, Sitio: e.Sitio}, ahora)
 	}
 	return correo.Mensaje{}, "tipo desconocido: " + f.Tipo, nil
 }

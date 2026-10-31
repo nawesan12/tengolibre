@@ -44,6 +44,11 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/panel/estadisticas", g(s.tablero))
 	mux.HandleFunc("GET /v1/panel/reportes/clientes.csv", g(s.csvClientes))
 	mux.HandleFunc("GET /v1/panel/reportes/turnos.csv", g(s.csvTurnos))
+	mux.HandleFunc("GET /v1/panel/reportes/horas-muertas", g(s.horasMuertas))
+	mux.HandleFunc("POST /v1/panel/reportes/horas-muertas/cupon", g(s.crearCupon))
+	mux.HandleFunc("GET /v1/panel/reportes/mensual", g(s.mensual))
+	mux.HandleFunc("GET /v1/panel/reportes/mensual/ajustes", g(s.leerAjustesMensual))
+	mux.HandleFunc("PUT /v1/panel/reportes/mensual/ajustes", g(s.guardarAjustesMensual))
 }
 
 // MaxDias de un reporte.

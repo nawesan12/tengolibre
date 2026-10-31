@@ -32,6 +32,11 @@ const (
 	Espera       = "espera"
 	Invitacion   = "invitacion"
 	Resumen      = "resumen"
+	// Los de otros dominios, que se arman con su Armador: los recordatorios automáticos
+	// (recordatorios) y el reporte mensual (reportes).
+	Cumpleanios = "cumpleanios"
+	Extraniamos = "extraniamos"
+	Mensual     = "mensual"
 )
 
 // Aviso a encolar. Para puede ir vacío en los de un turno (se usa el email del cliente al armarlo).
@@ -98,6 +103,7 @@ func LinkResena(sitio, token string) string       { return sitio + "/resena/" + 
 func LinkInvitacion(sitio, token string) string   { return sitio + "/invitacion/" + token }
 func LinkPreferencias(sitio, token string) string { return sitio + "/mi-cuenta/avisos/" + token }
 func LinkAgenda(sitio, fecha string) string       { return sitio + "/panel?fecha=" + fecha }
+func LinkMensual(sitio, mes string) string        { return sitio + "/panel/reportes/mensual?mes=" + mes }
 
 // Liberado es un horario que quedó libre (un turno cancelado, o el horario viejo de uno
 // reprogramado): la lista de espera lo escucha.
@@ -274,6 +280,21 @@ func (n negocio) lugar() string {
 	}
 	return n.Ciudad
 }
+
+// NegocioDelMail: lo que necesita un mail del negocio fijado (para los armadores de otros dominios).
+type NegocioDelMail struct {
+	Nombre, Slug string
+	Zona         *time.Location
+}
+
+// LeerNegocioDelMail del negocio fijado.
+func LeerNegocioDelMail(ctx context.Context, tx pgx.Tx) (NegocioDelMail, error) {
+	n, err := leerNegocio(ctx, tx)
+	return NegocioDelMail{Nombre: n.Nombre, Slug: n.Slug, Zona: n.zona}, err
+}
+
+// PrimerNombre: "Lucía Fernández" → "Lucía".
+func PrimerNombre(nombre string) string { return primerNombre(nombre) }
 
 func leerNegocio(ctx context.Context, tx pgx.Tx) (negocio, error) {
 	var n negocio

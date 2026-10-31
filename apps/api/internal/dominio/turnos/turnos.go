@@ -54,6 +54,8 @@ type Cliente struct {
 	Nombre   string `json:"nombre"`
 	Telefono string `json:"telefono"`
 	Email    string `json:"email"`
+	// Nacimiento (opcional, AAAA-MM-DD): se guarda si el cliente todavía no tenía. Sólo en el pedido.
+	Nacimiento string `json:"nacimiento,omitempty"`
 }
 
 // Turno como lo ve el panel (el cliente ve lo mismo salvo el id de cliente).
@@ -244,18 +246,26 @@ func limpiarTelefono(t string) string {
 }
 
 // clienteDe busca al cliente por teléfono (o crea uno) en el negocio fijado.
+// La fecha de nacimiento sólo se completa si faltaba (nunca pisa la que cargó el negocio).
 func clienteDe(ctx context.Context, tx pgx.Tx, c Cliente) (string, error) {
 	var id string
+	nacimiento := &c.Nacimiento
+	if c.Nacimiento == "" {
+		nacimiento = nil
+	}
 	if c.Telefono != "" {
-		err := tx.QueryRow(ctx, `INSERT INTO clientes (negocio_id, nombre, telefono, email) VALUES (app.negocio_actual(), $1, $2, $3)
-			ON CONFLICT (negocio_id, telefono) WHERE telefono <> '' DO UPDATE SET email = CASE WHEN excluded.email <> '' THEN excluded.email ELSE clientes.email END
-			RETURNING id::text`, c.Nombre, c.Telefono, c.Email).Scan(&id)
+		err := tx.QueryRow(ctx, `INSERT INTO clientes (negocio_id, nombre, telefono, email, nacimiento) VALUES (app.negocio_actual(), $1, $2, $3, $4::date)
+			ON CONFLICT (negocio_id, telefono) WHERE telefono <> '' DO UPDATE SET email = CASE WHEN excluded.email <> '' THEN excluded.email ELSE clientes.email END,
+				nacimiento = coalesce(clientes.nacimiento, excluded.nacimiento)
+			RETURNING id::text`, c.Nombre, c.Telefono, c.Email, nacimiento).Scan(&id)
 		return id, err
 	}
 	err := tx.QueryRow(ctx, "SELECT id::text FROM clientes WHERE telefono = '' AND email = $1 ORDER BY creado_en LIMIT 1", c.Email).Scan(&id)
 	if err == pgx.ErrNoRows {
-		err = tx.QueryRow(ctx, "INSERT INTO clientes (negocio_id, nombre, email) VALUES (app.negocio_actual(), $1, $2) RETURNING id::text",
-			c.Nombre, c.Email).Scan(&id)
+		err = tx.QueryRow(ctx, "INSERT INTO clientes (negocio_id, nombre, email, nacimiento) VALUES (app.negocio_actual(), $1, $2, $3::date) RETURNING id::text",
+			c.Nombre, c.Email, nacimiento).Scan(&id)
+	} else if err == nil && nacimiento != nil {
+		_, err = tx.Exec(ctx, "UPDATE clientes SET nacimiento = $2::date WHERE id = $1 AND nacimiento IS NULL", id, nacimiento)
 	}
 	return id, err
 }
@@ -331,6 +341,13 @@ func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora ti
 	}
 	if utf8.RuneCountInString(in.Nota) > 500 {
 		return Turno{}, problema.Invalido("La nota es muy larga (hasta 500).")
+	}
+	if in.Cliente.Nacimiento != "" {
+		n, err := clientes.ValidarNacimiento(&in.Cliente.Nacimiento, ahora, "cliente.nacimiento")
+		if err != nil {
+			return Turno{}, err
+		}
+		in.Cliente.Nacimiento = *n
 	}
 	c, err := cargarContexto(ctx, tx)
 	if err != nil {
