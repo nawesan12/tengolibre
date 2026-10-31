@@ -20,6 +20,9 @@ type Config struct {
 	ClerkSecreto, ClerkPublicable string
 	// Orígenes del front (CORS y `azp` de Clerk). Vacío: el sitio.
 	Origenes []string
+	// Correo (lo usa el worker): el SMTP propio del VPS con usuario y TLS. En desarrollo, sin SMTP
+	// los mails van al log; con TENGOLIBRE_SMTP=127.0.0.1:1025, a un Mailpit.
+	SMTP, SMTPUsuario, SMTPClave, CorreoDe string
 }
 
 // Desarrollo dice si se está corriendo en local.
@@ -37,6 +40,10 @@ func Leer() (Config, error) {
 		ClerkSecreto:    os.Getenv("TENGOLIBRE_CLERK_SECRETO"),
 		ClerkPublicable: os.Getenv("TENGOLIBRE_CLERK_PUBLICABLE"),
 		Origenes:        lista(os.Getenv("TENGOLIBRE_ORIGENES")),
+		SMTP:            os.Getenv("TENGOLIBRE_SMTP"),
+		SMTPUsuario:     os.Getenv("TENGOLIBRE_SMTP_USUARIO"),
+		SMTPClave:       os.Getenv("TENGOLIBRE_SMTP_CLAVE"),
+		CorreoDe:        valor("TENGOLIBRE_CORREO_DE", "TengoLibre <hola@tengolibre.com.ar>"),
 	}
 	switch c.Entorno {
 	case "desarrollo", "staging", "produccion":
@@ -82,6 +89,15 @@ func (c Config) Exigir(campos ...string) error {
 		return fmt.Errorf("falta configurar: %s", strings.Join(faltan, ", "))
 	}
 	return nil
+}
+
+// ExigirCorreo falla si no hay por dónde mandar mails de verdad (SMTP con usuario y clave): fuera
+// de desarrollo, el worker no arranca mandando al log.
+func (c Config) ExigirCorreo() error {
+	if c.SMTP != "" && c.SMTPUsuario != "" && c.SMTPClave != "" {
+		return nil
+	}
+	return fmt.Errorf("falta configurar el correo: TENGOLIBRE_SMTP, TENGOLIBRE_SMTP_USUARIO y TENGOLIBRE_SMTP_CLAVE")
 }
 
 func valor(k, def string) string { return conDefecto(os.Getenv(k), def) }

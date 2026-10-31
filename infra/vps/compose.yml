@@ -29,3 +29,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+  # Trabajos en segundo plano (cola de mails, recordatorios, reseñas, resumen, purga). Mismo
+  # api.conf que la api; sale por el SMTP propio (TENGOLIBRE_SMTP*). No publica puertos.
+  worker:
+    image: alpine:3.20
+    restart: unless-stopped
+    command: ['/app/worker']
+    env_file: ./api.conf
+    volumes:
+      - ./bin:/app:ro
+    mem_limit: 64m
+    depends_on:
+      postgres:
+        condition: service_healthy
