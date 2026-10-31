@@ -18,6 +18,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/catalogo"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/clientes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/cobros"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/confirmaciones"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/directorio"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/dominios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/espera"
@@ -42,6 +43,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/servidor"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/tiemporeal"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/webpush"
 )
 
 // version la pone el build: -ldflags "-X main.version=<commit>".
@@ -95,6 +97,16 @@ func correr() error {
 	// Tiempo real: los cambios que avisa Postgres van por SSE a los paneles abiertos.
 	tr := &tiemporeal.Servicio{Pool: app, Sesion: ses}
 	go tr.Escuchar(ctx)
+	// Push web: la clave pública VAPID es la que usa el navegador para suscribirse. Sin claves (o con
+	// claves que no sirven), apagado.
+	vapid, err := webpush.Desde(cfg.VAPIDPublica, cfg.VAPIDPrivada, cfg.VAPIDSujeto)
+	if err != nil {
+		slog.Error("push web: las claves VAPID no sirven, queda apagado", "error", err)
+	}
+	// WhatsApp: el webhook necesita el secreto de la app; los envíos los hace el worker.
+	conf := &confirmaciones.Servicio{Pool: app, Sesion: ses, Sitio: cfg.Sitio,
+		Disponible: cfg.WhatsAppToken != "" && cfg.WhatsAppTelefonoID != "", TelefonoID: cfg.WhatsAppTelefonoID,
+		SecretoApp: cfg.WhatsAppSecretoApp, Verificacion: cfg.WhatsAppVerificacion}
 	srv := &http.Server{
 		Addr: cfg.Direccion,
 		Handler: servidor.Nuevo(servidor.Dependencias{App: app, Version: version, Origenes: cfg.Origenes,
@@ -120,7 +132,8 @@ func correr() error {
 				&grupos.Servicio{Pool: app, Sesion: ses},
 				&arranque.Servicio{Pool: app, Sesion: ses},
 				&calendario.Servicio{Pool: app, Sesion: ses, Sitio: cfg.Sitio},
-				&push.Servicio{Pool: app, Sesion: ses},
+				&push.Servicio{Pool: app, Sesion: ses, ClaveVAPID: vapid.ClavePublica()},
+				conf,
 				&admin.Servicio{Pool: app, Sesion: ses, Admins: cfg.Admins, AdminsEmails: cfg.AdminsEmails},
 			}}),
 		ReadHeaderTimeout: 5 * time.Second,

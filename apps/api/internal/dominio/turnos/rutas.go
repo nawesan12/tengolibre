@@ -311,6 +311,7 @@ func (s *Servicio) delCliente(ctx context.Context, cod string, fn func(tx pgx.Tx
 		return nil
 	})
 	out.Cliente.ID = ""
+	out.LlamarDesde, out.LlamarMotivo = nil, nil
 	return out, negocio, err
 }
 
