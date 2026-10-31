@@ -41,24 +41,21 @@
 			<div class="fila-buscar">
 				<label class="buscar">
 					<Icono nombre="search" tam={22} />
-					<span class="visualmente-oculto">Buscar</span>
-					<input name="q" type="search" value={f.q} placeholder="Nombre o servicio" maxlength="80" />
+					<input aria-label="Buscar" name="q" type="search" value={f.q} placeholder="Nombre o servicio" maxlength="80" />
 				</label>
 				<button class="ir">Buscar</button>
 			</div>
 			<div class="chips">
 				<label class="chip campo-chip" class:activo={!!f.ciudad}>
 					<Icono nombre="location_on" tam={18} lleno={!!f.ciudad} />
-					<span class="visualmente-oculto">Ciudad</span>
-					<input name="ciudad" value={f.ciudad} list="ciudades" maxlength="80" autocomplete="address-level2" placeholder="Ciudad" />
-					<datalist id="ciudades">
-						{#each data.ciudades as c (c.ciudad)}<option value={c.ciudad}>{c.provincia}</option>{/each}
-					</datalist>
+					<input aria-label="Ciudad" name="ciudad" value={f.ciudad} list="ciudades" maxlength="80" autocomplete="address-level2" placeholder="Ciudad" />
 				</label>
+				<datalist id="ciudades">
+					{#each data.ciudades as c (c.ciudad)}<option value={c.ciudad}>{c.provincia}</option>{/each}
+				</datalist>
 				<label class="chip campo-chip" class:activo={!!f.rubro}>
 					<Icono nombre="storefront" tam={18} lleno={!!f.rubro} />
-					<span class="visualmente-oculto">Rubro</span>
-					<select name="rubro" onchange={enviar}>
+					<select aria-label="Rubro" name="rubro" onchange={enviar}>
 						<option value="">Todos los rubros</option>
 						{#each data.rubros as r (r)}<option value={r} selected={r === f.rubro}>{rubro(r)}</option>{/each}
 					</select>
