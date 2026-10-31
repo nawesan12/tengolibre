@@ -23,6 +23,9 @@ Push al teléfono (`push`, migración 00011): la app registra su token en `POST 
 (atado a la sesión) y el worker manda cada notificación nueva de la campanita a los miembros activos,
 por APNs (iPhone, clave «Vimo APNs») y FCM (Android, cuenta `fcm-tengolibre`). Las claves viven sólo
 en el VPS, en `/opt/tengolibre/claves/` (montada en el worker); `vimo-copia` las guarda.
+Asistente de IA por MCP (`mcp`, migración 00016): el negocio crea una clave en el panel y conecta su
+Claude/ChatGPT a `https://api.tengolibre.com.ar/v1/mcp`, con permisos por clave y registro de acciones.
+Detalle para el front en `docs/api/mcp.md`.
 Diseño: el handoff v2 está en `docs/handoff/design_handoff_tengolibre_v2/` (README con las reglas).
 
 Desplegar el front: `cd apps/web && bun run build`, `rsync -az --delete build/ root@187.41.102.190:/opt/tengolibre/web/build/`
