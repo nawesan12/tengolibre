@@ -196,12 +196,15 @@ func (s *Servicio) reservarPublico(w http.ResponseWriter, r *http.Request) error
 	in.Forzar = false
 	var t Turno
 	err = s.Pool.EnNegocio(ctx, id, func(tx pgx.Tx) (err error) {
-		t, err = reservar(ctx, tx, in, "web", s.ahora())
-		return err
+		if t, err = reservar(ctx, tx, in, "web", s.ahora()); err != nil {
+			return err
+		}
+		return s.alReservar(ctx, tx, &t, in, "web")
 	})
 	if err != nil {
 		return err
 	}
+	s.despuesDeReservar(ctx, id, &t)
 	s.avisar(ctx, id, t.ID, "reservado")
 	web.JSON(w, http.StatusCreated, t)
 	return nil
@@ -216,12 +219,15 @@ func (s *Servicio) reservarPanel(w http.ResponseWriter, r *http.Request) error {
 	negocio := sesion.De(ctx).NegocioID
 	var t Turno
 	err := s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) (err error) {
-		t, err = reservar(ctx, tx, in, "panel", s.ahora())
-		return err
+		if t, err = reservar(ctx, tx, in, "panel", s.ahora()); err != nil {
+			return err
+		}
+		return s.alReservar(ctx, tx, &t, in, "panel")
 	})
 	if err != nil {
 		return err
 	}
+	s.despuesDeReservar(ctx, negocio, &t)
 	s.avisar(ctx, negocio, t.ID, "reservado")
 	web.JSON(w, http.StatusCreated, t)
 	return nil
@@ -291,7 +297,7 @@ func (s *Servicio) cancelarCliente(w http.ResponseWriter, r *http.Request) error
 			return err
 		}
 		t.Estado = "cancelado"
-		return nil
+		return s.alCancelar(ctx, tx, t.ID)
 	})
 	if err != nil {
 		return err
@@ -436,6 +442,11 @@ func (s *Servicio) cambiar(w http.ResponseWriter, r *http.Request) error {
 			vence_en = CASE WHEN coalesce($2, estado) = 'pendiente_pago' THEN vence_en END, actualizado_en = now() WHERE id = $1`,
 			t.ID, in.Estado, in.Nota); err != nil {
 			return err
+		}
+		if in.Estado != nil && *in.Estado == "cancelado" && antes != "cancelado" {
+			if err := s.alCancelar(ctx, tx, t.ID); err != nil {
+				return err
+			}
 		}
 		t, err = leerTurno(ctx, tx, "t.id = $1", t.ID, false)
 		return err

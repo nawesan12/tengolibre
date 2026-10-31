@@ -20,6 +20,12 @@ type Config struct {
 	ClerkSecreto, ClerkPublicable string
 	// Orígenes del front (CORS y `azp` de Clerk). Vacío: el sitio.
 	Origenes []string
+	// Mercado Pago: la aplicación de TengoLibre (OAuth de los negocios), la clave de los webhooks y el
+	// token de la cuenta de la plataforma (suscripciones). Sin aplicación, los negocios no cobran; sin
+	// token de la plataforma, no se puede suscribir.
+	MPAppID, MPSecreto, MPSecretoWebhook, MPTokenPlataforma string
+	// ClaveCifrado: 32 bytes en base64 para cifrar los tokens de los negocios en la base.
+	ClaveCifrado string
 }
 
 // Desarrollo dice si se está corriendo en local.
@@ -37,6 +43,12 @@ func Leer() (Config, error) {
 		ClerkSecreto:    os.Getenv("TENGOLIBRE_CLERK_SECRETO"),
 		ClerkPublicable: os.Getenv("TENGOLIBRE_CLERK_PUBLICABLE"),
 		Origenes:        lista(os.Getenv("TENGOLIBRE_ORIGENES")),
+
+		MPAppID:           os.Getenv("TENGOLIBRE_MP_APP_ID"),
+		MPSecreto:         os.Getenv("TENGOLIBRE_MP_SECRETO"),
+		MPSecretoWebhook:  os.Getenv("TENGOLIBRE_MP_SECRETO_WEBHOOK"),
+		MPTokenPlataforma: os.Getenv("TENGOLIBRE_MP_TOKEN_PLATAFORMA"),
+		ClaveCifrado:      os.Getenv("TENGOLIBRE_CLAVE_CIFRADO"),
 	}
 	switch c.Entorno {
 	case "desarrollo", "staging", "produccion":
