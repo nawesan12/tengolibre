@@ -16,6 +16,8 @@ export const GRUPOS: Entrada[][] = [
 	],
 	[
 		{ nombre: 'Mi web', href: '/panel/mi-web', cubre: ['/panel/dominio'], roles: GESTION },
+		{ nombre: 'Plantillas', href: '/panel/plantillas', roles: GESTION },
+		{ nombre: 'Integraciones e IA', href: '/panel/integraciones', roles: GESTION },
 		{ nombre: 'Servicios', href: '/panel/servicios', roles: GESTION },
 		{ nombre: 'Equipo y horarios', href: '/panel/equipo', cubre: ['/panel/profesionales', '/panel/invitaciones'] }
 	],
