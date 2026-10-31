@@ -1,5 +1,18 @@
 # Estado
 
+## 31/10/2026 (tarde): front publicado
+
+https://tengolibre.com.ar sirve el front (SvelteKit, `apps/web`, contenedor `tengolibre-web-1` en
+127.0.0.1:3400) con todas las pantallas de Jiku: página pública y reserva en pasos, link del turno,
+reseñas, invitaciones, explorar, panel completo (turnos, calendario en vivo, clientes, equipo y
+horarios, mi web, pagos, membresías, cupones, referidos, reportes, configuración, suscripción),
+sucursales, mi cuenta y admin. Estilo neutro provisorio: la UI final sale del handoff.
+Ingreso: Google y Apple por Clerk producción, canjeado por una sesión propia de la API (30 días).
+Tiempo real: SSE de la API (`/v1/panel/eventos`, LISTEN/NOTIFY) reenviado por `/panel/eventos`.
+
+Desplegar el front: `cd apps/web && bun run build`, `rsync -az --delete build/ root@187.41.102.190:/opt/tengolibre/web/build/`
+y `docker compose restart web` en /opt/tengolibre. Config en `/opt/tengolibre/web.conf`.
+
 ## 31/10/2026: backend de Jiku completo en Go, en producción
 
 La API (`apps/api`) cubre todo lo de Jiku y está desplegada en https://api.tengolibre.com.ar
@@ -44,7 +57,7 @@ sólo lectura), `web`, `problema`, `archivos`, `correo`, `auditoria`, `trabajos`
 - Registro común de todas las apps: `/opt/VPS.md`.
 
 ### Pendiente
-1. Front: SvelteKit + adapter-node (127.0.0.1:3400), calcando mostrador-v2/apps/web; la UI, fiel al handoff (cuando llegue).
+1. UI final del front: aplicar el handoff del rediseño (fiel al handoff) sobre las pantallas que ya andan.
 2. Credenciales de Mercado Pago de TengoLibre: App ID y secreto (marketplace con PKCE), clave de
    webhooks y token de la cuenta de la plataforma (`TENGOLIBRE_MP_*`). Sin eso, cobrar y suscribirse
    responden que falta configurarlo.
@@ -52,8 +65,7 @@ sólo lectura), `web`, `problema`, `archivos`, `correo`, `auditoria`, `trabajos`
 4. Dominios propios: el DNS `dominios.tengolibre.com.ar` ya existe (sin proxy). Falta correr
    `infra/vps/dominios.sh` después de la primera verificación (coordinar con las otras apps, que
    comparten Caddy) y ponerle un timer.
-5. Pasar el ingreso al esquema recomendado para Grupo Vimo: Clerk sólo como identidad y sesión
-   propia de la API (hoy se verifica el JWT de Clerk en cada pedido).
+5. Banner de sólo lectura en todo el panel cuando vence la prueba (hoy lo muestran las páginas de plata).
 6. Membresías en la reserva pública: requiere identificar al cliente (hoy sólo desde el panel).
 
 ## Desplegar
