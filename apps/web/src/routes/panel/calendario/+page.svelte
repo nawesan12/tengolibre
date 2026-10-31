@@ -138,7 +138,7 @@
 		<a href={enlace({ vista: 'semana' })} class:on={data.vista === 'semana'} aria-current={data.vista === 'semana' ? 'page' : undefined}>Semana</a>
 	</div>
 	<span class="crece"></span>
-	<a class="cancelados" class:on={data.cancelados} href={enlace({ cancelados: !data.cancelados })} aria-pressed={data.cancelados} data-sveltekit-noscroll>
+	<a class="cancelados" class:on={data.cancelados} href={enlace({ cancelados: !data.cancelados })} aria-current={data.cancelados ? "true" : undefined} data-sveltekit-noscroll>
 		<Icono nombre={data.cancelados ? 'visibility' : 'visibility_off'} tam={18} />Cancelados
 	</a>
 	<a class="ical" href="/panel/calendario/suscribirse"><img src="/logos/google.svg" alt="" width="16" height="16" />Verlo en tu calendario</a>

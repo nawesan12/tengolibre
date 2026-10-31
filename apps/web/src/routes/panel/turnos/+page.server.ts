@@ -2,7 +2,7 @@ import { apiDe, ErrorApi } from '#lib/server/api.ts';
 import { intentar } from '#lib/server/acciones.ts';
 import { dia } from '#lib/formato.ts';
 import { esDia, sumarDias } from '#lib/operacion/fechas.ts';
-import { cambiarEstado, catalogo, enc, param, siExiste, siSePuede } from '#lib/operacion/servidor.ts';
+import { cambiarEstado, catalogo, cobrar, enc, param, siExiste, siSePuede } from '#lib/operacion/servidor.ts';
 import type { Oferta, Producto } from '#lib/operacion/contrato.ts';
 import type { Anotado, Turno } from '#lib/operacion/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -71,17 +71,5 @@ export const actions: Actions = {
 		return intentar(() => apiDe(event).borrar(`/v1/panel/huecos/ofertas/${enc(f.get('id'))}`));
 	},
 	/** La caja: cobra lo que resta y lo marca atendido (contrato nuevo, Propuestas 07 y 08). */
-	cobrar: async (event) => {
-		const f = await event.request.formData();
-		const id = enc(f.get('id'));
-		const api = apiDe(event);
-		return intentar(async () => {
-			const r = await api.post<{ total: number }>(`/v1/panel/turnos/${id}/cobro`, {
-				medio: String(f.get('medio') ?? 'efectivo'),
-				productos: f.getAll('productos').map(String)
-			});
-			await api.patch(`/v1/panel/turnos/${id}`, { estado: 'atendido' });
-			return r;
-		});
-	}
+	cobrar
 };

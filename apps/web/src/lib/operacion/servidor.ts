@@ -44,6 +44,24 @@ export async function cambiarEstado(event: RequestEvent) {
 	return intentar(() => apiDe(event).patch(`/v1/panel/turnos/${enc(f.get('id'))}`, { estado: String(f.get('estado') ?? '') }));
 }
 
+/**
+ * La acción `cobrar` de la caja (contrato nuevo, Propuestas 07 y 08): cobra lo que resta con el medio
+ * y los productos elegidos, y deja el turno atendido.
+ */
+export async function cobrar(event: RequestEvent) {
+	const f = await event.request.formData();
+	const id = enc(f.get('id'));
+	const api = apiDe(event);
+	return intentar(async () => {
+		const r = await api.post<{ total: number }>(`/v1/panel/turnos/${id}/cobro`, {
+			medio: String(f.get('medio') ?? 'efectivo'),
+			productos: f.getAll('productos').map(String)
+		});
+		await api.patch(`/v1/panel/turnos/${id}`, { estado: 'atendido' });
+		return r;
+	});
+}
+
 /** Un id de la ruta o del formulario, seguro para ir en la URL de la API. */
 export const enc = (v: FormDataEntryValue | string | null | undefined) => encodeURIComponent(String(v ?? ''));
 

@@ -216,15 +216,6 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.vip {
-		font-size: 11px;
-		font-weight: 700;
-		letter-spacing: 0.06em;
-		padding: 2px 6px;
-		border-radius: 5px;
-		background: var(--tl-petroleo);
-		color: #f0c46a;
-	}
 	.nota,
 	.wa {
 		display: flex;
