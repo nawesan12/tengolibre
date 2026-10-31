@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -54,6 +55,8 @@ type Cliente struct {
 	Nombre   string `json:"nombre"`
 	Telefono string `json:"telefono"`
 	Email    string `json:"email"`
+	// Nacimiento (opcional, AAAA-MM-DD): se guarda si el cliente todavía no tenía. Sólo en el pedido.
+	Nacimiento string `json:"nacimiento,omitempty"`
 }
 
 // Turno como lo ve el panel (el cliente ve lo mismo salvo el id de cliente).
@@ -75,20 +78,31 @@ type Turno struct {
 	CreadoEn      time.Time  `json:"creadoEn"`
 	// SerieID: el turno fijo del que es parte (ver serie.go). null: un turno suelto.
 	SerieID *string `json:"serieId"`
+	// De dónde vino la confirmación (whatsapp, web, panel) y cuándo: el talón dice «Confirmó por
+	// WhatsApp · 10:02». CambioPedidoEn: tocó «Necesito cambiarlo».
+	ConfirmadoPor  *string    `json:"confirmadoPor"`
+	ConfirmadoEn   *time.Time `json:"confirmadoEn"`
+	CambioPedidoEn *time.Time `json:"cambioPedidoEn"`
+	// Para recepción (el cliente no lo ve): desde cuándo hay que llamarlo y por qué (cambio,
+	// sin_respuesta, no_llego).
+	LlamarDesde  *time.Time `json:"llamarDesde"`
+	LlamarMotivo *string    `json:"llamarMotivo"`
 	// Sólo en la respuesta de la reserva: lo que descontó el cupón y el pago que queda pendiente.
 	Descuento int64 `json:"descuento,omitempty"`
 	Pago      *Pago `json:"pago,omitempty"`
 }
 
 const columnasTurno = `t.id::text, t.codigo, t.servicio_id::text, t.servicio, t.profesional_id::text, t.profesional,
-	c.id::text, c.nombre, c.telefono, c.email, t.inicio, t.fin, t.precio, t.estado, t.origen, t.nota, t.vence_en, t.creado_en, t.serie_id::text`
+	c.id::text, c.nombre, c.telefono, c.email, t.inicio, t.fin, t.precio, t.estado, t.origen, t.nota, t.vence_en, t.creado_en,
+	t.serie_id::text, t.confirmado_por, t.confirmado_en, t.cambio_pedido_en, t.llamar_desde, t.llamar_motivo`
 
 const desdeTurnos = " FROM turnos t JOIN clientes c ON c.id = t.cliente_id"
 
 func escanearTurno(f pgx.Row, t *Turno) error {
 	return f.Scan(&t.ID, &t.Codigo, &t.ServicioID, &t.Servicio, &t.ProfesionalID, &t.Profesional,
 		&t.Cliente.ID, &t.Cliente.Nombre, &t.Cliente.Telefono, &t.Cliente.Email,
-		&t.Inicio, &t.Fin, &t.Precio, &t.Estado, &t.Origen, &t.Nota, &t.VenceEn, &t.CreadoEn, &t.SerieID)
+		&t.Inicio, &t.Fin, &t.Precio, &t.Estado, &t.Origen, &t.Nota, &t.VenceEn, &t.CreadoEn,
+		&t.SerieID, &t.ConfirmadoPor, &t.ConfirmadoEn, &t.CambioPedidoEn, &t.LlamarDesde, &t.LlamarMotivo)
 }
 
 func leerTurno(ctx context.Context, tx pgx.Tx, donde string, arg any, bloquear bool) (Turno, error) {
@@ -246,18 +260,26 @@ func limpiarTelefono(t string) string {
 }
 
 // clienteDe busca al cliente por teléfono (o crea uno) en el negocio fijado.
+// La fecha de nacimiento sólo se completa si faltaba (nunca pisa la que cargó el negocio).
 func clienteDe(ctx context.Context, tx pgx.Tx, c Cliente) (string, error) {
 	var id string
+	nacimiento := &c.Nacimiento
+	if c.Nacimiento == "" {
+		nacimiento = nil
+	}
 	if c.Telefono != "" {
-		err := tx.QueryRow(ctx, `INSERT INTO clientes (negocio_id, nombre, telefono, email) VALUES (app.negocio_actual(), $1, $2, $3)
-			ON CONFLICT (negocio_id, telefono) WHERE telefono <> '' DO UPDATE SET email = CASE WHEN excluded.email <> '' THEN excluded.email ELSE clientes.email END
-			RETURNING id::text`, c.Nombre, c.Telefono, c.Email).Scan(&id)
+		err := tx.QueryRow(ctx, `INSERT INTO clientes (negocio_id, nombre, telefono, email, nacimiento) VALUES (app.negocio_actual(), $1, $2, $3, $4::date)
+			ON CONFLICT (negocio_id, telefono) WHERE telefono <> '' DO UPDATE SET email = CASE WHEN excluded.email <> '' THEN excluded.email ELSE clientes.email END,
+				nacimiento = coalesce(clientes.nacimiento, excluded.nacimiento)
+			RETURNING id::text`, c.Nombre, c.Telefono, c.Email, nacimiento).Scan(&id)
 		return id, err
 	}
 	err := tx.QueryRow(ctx, "SELECT id::text FROM clientes WHERE telefono = '' AND email = $1 ORDER BY creado_en LIMIT 1", c.Email).Scan(&id)
 	if err == pgx.ErrNoRows {
-		err = tx.QueryRow(ctx, "INSERT INTO clientes (negocio_id, nombre, email) VALUES (app.negocio_actual(), $1, $2) RETURNING id::text",
-			c.Nombre, c.Email).Scan(&id)
+		err = tx.QueryRow(ctx, "INSERT INTO clientes (negocio_id, nombre, email, nacimiento) VALUES (app.negocio_actual(), $1, $2, $3::date) RETURNING id::text",
+			c.Nombre, c.Email, nacimiento).Scan(&id)
+	} else if err == nil && nacimiento != nil {
+		_, err = tx.Exec(ctx, "UPDATE clientes SET nacimiento = $2::date WHERE id = $1 AND nacimiento IS NULL", id, nacimiento)
 	}
 	return id, err
 }
@@ -282,6 +304,9 @@ type Pedido struct {
 	SerieID string `json:"-"`
 	// reglas, si no es nil, reemplaza las del negocio (el turno fijo mira más allá de la vista).
 	reglas *disponibilidad.Reglas
+	// SinAnticipacion (sólo desde otro dominio): no aplica la anticipación mínima. La lista de espera
+	// ofrece huecos que se liberaron a último momento: el negocio ya decidió ofrecerlos.
+	SinAnticipacion bool `json:"-"`
 }
 
 // elegir el profesional para el horario: el pedido, o el primero libre en el orden del negocio.
@@ -343,9 +368,19 @@ func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora ti
 	if utf8.RuneCountInString(in.Nota) > 500 {
 		return Turno{}, problema.Invalido("La nota es muy larga (hasta 500).")
 	}
+	if in.Cliente.Nacimiento != "" {
+		n, err := clientes.ValidarNacimiento(&in.Cliente.Nacimiento, ahora, "cliente.nacimiento")
+		if err != nil {
+			return Turno{}, err
+		}
+		in.Cliente.Nacimiento = *n
+	}
 	c, err := cargarContexto(ctx, tx)
 	if err != nil {
 		return Turno{}, err
+	}
+	if in.SinAnticipacion {
+		c.ajustes.AnticipacionMin = 0
 	}
 	srv, err := catalogo.LeerServicio(ctx, tx, in.ServicioID)
 	if err != nil || !srv.Activo {
@@ -464,4 +499,35 @@ func (s *Servicio) negocioDelTurno(ctx context.Context, cod string) (string, err
 		return "", problema.NoEncontrado("No encontramos ese turno.")
 	}
 	return *id, nil
+}
+
+// Disponible dice si el profesional tiene libre ese horario para el servicio, en el negocio fijado,
+// sin la anticipación mínima (la lista de espera lo usa para saber si un hueco sigue para ofrecer).
+func Disponible(ctx context.Context, tx pgx.Tx, servicioID, profesionalID string, inicio, ahora time.Time) (bool, error) {
+	c, err := cargarContexto(ctx, tx)
+	if err != nil {
+		return false, err
+	}
+	c.ajustes.AnticipacionMin = 0
+	srv, err := catalogo.LeerServicio(ctx, tx, servicioID)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && !srv.Activo) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	p, err := catalogo.LeerProfesional(ctx, tx, profesionalID, false)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && (!p.Activo || !p.Hace(srv.ID))) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	fecha := inicio.In(c.zona).Format(time.DateOnly)
+	d, err := datosDelDia(ctx, tx, p, fecha, c.zona, "")
+	if err != nil {
+		return false, err
+	}
+	return disponibilidad.Libre(disponibilidad.Consulta{Profesional: d, Fecha: fecha, Duracion: srv.Duracion,
+		Reglas: c.reglas(), Ahora: ahora, Zona: c.zona}, inicio), nil
 }

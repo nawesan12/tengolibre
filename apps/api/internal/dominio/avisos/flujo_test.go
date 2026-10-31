@@ -203,7 +203,7 @@ func TestAvisosDeUnTurno(t *testing.T) {
 		t.Fatalf("recordatorio: %+v", m)
 	}
 
-	// La clienta lo pasa a las 10:30: le llega el cambio, y la que esperaba ese día recibe las 9.
+	// La clienta lo pasa a las 10:30: le llega el cambio, y a la que esperaba ese día se le ofrecen las 9.
 	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/t/" + t1.Codigo + "/reprogramar",
 		Cuerpo: map[string]any{"inicio": en("2026-11-02 10:30").Format(time.RFC3339)}}, nil)
 	e.enviar()
@@ -211,7 +211,7 @@ func TestAvisosDeUnTurno(t *testing.T) {
 		!strings.Contains(m.Texto, "Hora: 10:30") {
 		t.Fatalf("reprogramado: %s", m.Texto)
 	}
-	if m := e.ultimo("martina@ejemplo.com"); m.Asunto != "Se liberó un turno — El Corte" || !strings.Contains(m.Texto, "Hora: 09:00") {
+	if m := e.ultimo("martina@ejemplo.com"); m.Asunto != "Se liberó lo que esperabas — El Corte" || !strings.Contains(m.Texto, "Hora: 09:00") || !strings.Contains(m.Texto, sitio+"/espera/") {
 		t.Fatalf("lista de espera: %s", m.Texto)
 	}
 	var lista struct {
