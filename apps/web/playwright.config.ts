@@ -16,6 +16,9 @@ export default defineConfig({
 	fullyParallel: false,
 	// Con la máquina cargada (agentes, builds) 5 s se quedan cortos.
 	expect: { timeout: 10_000 },
+	// Un reintento: la máquina la comparten varias sesiones y a veces está muy cargada. Lo que pasa al
+	// segundo intento figura como `flaky` en el reporte, no se esconde.
+	retries: 1,
 	workers: 1,
 	use: { baseURL: WEB, trace: 'retain-on-failure' },
 	projects: [

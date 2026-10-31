@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect, type Page } from "@playwright/test";
 
 /** Espera a que la página esté hidratada (lo marca el layout raíz en onMount). */
 export const hidratada = (page: Page) => page.locator('html[data-hidratado="1"]').waitFor({ state: 'attached' });
@@ -20,4 +20,4 @@ export const test = base.extend({
 });
 
 export { expect };
-export type { Page };
+export type { APIRequestContext, Page } from "@playwright/test";

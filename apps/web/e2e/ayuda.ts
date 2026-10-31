@@ -1,5 +1,5 @@
 import { expect, hidratada } from './base.ts';
-import type { Page } from '@playwright/test';
+import type { Page } from './base.ts';
 
 /** Un id de persona y un slug nuevos por prueba (la base local se reusa). */
 export const unico = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
