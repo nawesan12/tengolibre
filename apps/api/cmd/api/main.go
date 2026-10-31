@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/catalogo"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/clientes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/reportes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/turnos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/config"
@@ -56,6 +58,8 @@ func correr() error {
 				&negocios.Servicio{Pool: app, Sesion: ses},
 				&catalogo.Servicio{Pool: app, Sesion: ses},
 				&turnos.Servicio{Pool: app, Sesion: ses},
+				&clientes.Servicio{Pool: app, Sesion: ses},
+				&reportes.Servicio{Pool: app, Sesion: ses},
 			}}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
