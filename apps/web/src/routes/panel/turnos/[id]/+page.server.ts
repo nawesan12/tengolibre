@@ -4,12 +4,12 @@ import { intentar } from '#lib/server/acciones.ts';
 import { dia } from '#lib/formato.ts';
 import { esDia, esHora, instante } from '#lib/operacion/fechas.ts';
 import { cambiarEstado, catalogo, cobrar, enc, param, siExiste, siSePuede } from '#lib/operacion/servidor.ts';
-import type { Producto } from '#lib/operacion/contrato.ts';
+import type { CuentaCaja, Producto } from '#lib/operacion/contrato.ts';
 import type { HorarioLibre, RegistroAviso, Turno } from '#lib/operacion/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
-	event.depends('panel:turnos', 'panel:notificaciones');
+	event.depends('panel:turnos', 'panel:notificaciones', 'panel:caja');
 	const api = apiDe(event);
 	const id = enc(event.params.id);
 	let turno: Turno;
@@ -19,10 +19,11 @@ export const load: PageServerLoad = async (event) => {
 		if (e instanceof ErrorApi && (e.estado === 404 || e.estado === 400)) error(404, 'No encontramos ese turno.');
 		throw e;
 	}
-	const [cat, avisos, productos] = await Promise.all([
+	const [cat, avisos, productos, caja] = await Promise.all([
 		catalogo(api),
 		siSePuede(api.get<{ avisos: RegistroAviso[] }>(`/v1/panel/avisos?turno=${id}`)).then((r) => r?.avisos ?? null),
-		siExiste(api.get<{ productos: Producto[] }>('/v1/panel/productos')).catch(() => null)
+		siExiste(api.get<{ productos: Producto[] }>('/v1/panel/productos?activos=1')).catch(() => null),
+		siExiste(api.get<CuentaCaja>(`/v1/panel/turnos/${id}/caja`)).catch(() => null)
 	]);
 
 	// Reprogramar: los libres del día elegido, para el mismo servicio.
@@ -41,12 +42,17 @@ export const load: PageServerLoad = async (event) => {
 		}
 	}
 	const profesionales = cat.profesionales.filter((p) => p.activo && (!turno.servicioId || p.servicios.includes(turno.servicioId)));
-	return { turno, avisos, profesionales, fecha, profesional, horarios, errorLibres, productos: productos?.productos ?? [] };
+	return { turno, avisos, profesionales, fecha, profesional, horarios, errorLibres, productos: productos?.productos ?? [], caja };
 };
 
 export const actions: Actions = {
 	estado: cambiarEstado,
 	cobrar,
+	/** Ya lo llamaron (whatsapp.md). */
+	llamado: async (event) => intentar(() => apiDe(event).post(`/v1/panel/turnos/${enc(event.params.id)}/llamado`)),
+	/** Turno fijo: cancela éste y los que siguen de la serie (turno-fijo.md). */
+	cancelarSiguientes: async (event) =>
+		intentar(() => apiDe(event).post<{ cancelados: string[] }>(`/v1/panel/turnos/${enc(event.params.id)}/cancelar-siguientes`)),
 	nota: async (event) => {
 		const f = await event.request.formData();
 		const r = await intentar(() => apiDe(event).patch(`/v1/panel/turnos/${enc(event.params.id)}`, { nota: String(f.get('nota') ?? '') }));

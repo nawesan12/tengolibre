@@ -26,22 +26,23 @@
 	let enviando = $state(false);
 	let raiz: HTMLElement | undefined = $state();
 
-	const pago = $derived.by(() => {
-		if (t.estado === 'pendiente_pago') return { icono: 'hourglass_top', color: '#7a4a00', texto: t.venceEn ? `Seña vence ${hora(t.venceEn)}` : 'Esperando la seña' };
-		const s = t.sena;
-		if (s === null) return { icono: 'money_off', color: '#4a5d61', texto: 'Sin seña' };
-		if (!s) return { icono: 'sell', color: '#4a5d61', texto: pesos(t.precio) };
-		if (s.estado === 'pagada') return { icono: 'paid', color: '#17805a', texto: `Seña ${pesos(s.monto)}` };
-		if (s.estado === 'devuelta') return { icono: 'currency_exchange', color: '#a3241a', texto: 'Seña devuelta' };
-		return { icono: 'hourglass_top', color: '#7a4a00', texto: `Seña ${pesos(s.monto)} pendiente` };
-	});
-	const confirmo = $derived(
-		t.confirmacion?.via === 'whatsapp' && t.confirmacion.respuesta
-			? t.confirmacion.respuesta === 'confirmo'
-				? `Confirmó por WhatsApp${t.confirmacion.en ? ` · ${hora(t.confirmacion.en)}` : ''}`
-				: 'Pidió cambiarlo por WhatsApp'
-			: ''
+	const pago = $derived(
+		t.estado === 'pendiente_pago'
+			? { icono: 'hourglass_top', color: '#7a4a00', texto: t.venceEn ? `Seña vence ${hora(t.venceEn)}` : 'Esperando la seña' }
+			: { icono: 'sell', color: '#4a5d61', texto: pesos(t.precio) }
 	);
+	// Confirmación por WhatsApp (whatsapp.md): de dónde vino y si hay que llamar.
+	const confirmo = $derived(
+		t.cambioPedidoEn
+			? 'Pidió cambiarlo · le mandamos los horarios'
+			: t.confirmadoPor === 'whatsapp'
+				? `Confirmó por WhatsApp${t.confirmadoEn ? ` · ${hora(t.confirmadoEn)}` : ''}`
+				: t.confirmadoPor === 'web'
+					? `Confirmó desde su link${t.confirmadoEn ? ` · ${hora(t.confirmadoEn)}` : ''}`
+					: ''
+	);
+	const llamar = $derived(!!t.llamarDesde && t.estado !== 'cancelado');
+	const MOTIVO: Record<string, string> = { cambio: 'Pidió cambiarlo', sin_respuesta: 'No contestó el WhatsApp', no_llego: 'No le llegó el WhatsApp' };
 
 	function fuera(e: MouseEvent) {
 		if (abierto && raiz && !raiz.contains(e.target as Node)) abierto = false;
@@ -59,7 +60,7 @@
 <svelte:window onclick={fuera} onkeydown={(e) => e.key === 'Escape' && (abierto = false)} />
 
 <li class="turno" data-turno={t.id} class:cancelado={t.estado === 'cancelado'} class:atendido={t.estado === 'atendido'}>
-	<div class="talon" class:en-curso={est === 'en_curso'} class:recien>
+	<div class="talon" class:en-curso={est === 'en_curso'} class:recien class:confirmo-wa={t.confirmadoPor === 'whatsapp' && !llamar} class:llamar>
 		<a class="stub tl-num" href={`/panel/turnos/${t.id}`} aria-label={`${hora(t.inicio)}, ${t.cliente.nombre}: abrir el turno`}>
 			<b>{hora(t.inicio)}</b><span>{hora(t.fin)}</span>
 			{#if t.estado === 'atendido'}<span class="picado" title="Atendido"></span>{/if}
@@ -67,7 +68,7 @@
 		<a class="quien" href={`/panel/turnos/${t.id}`} tabindex="-1">
 			<span class="nombre"><b>{t.cliente.nombre}</b></span>
 			{#if t.nota}<span class="nota"><Icono nombre="sticky_note_2" lleno tam={14} />{t.nota}</span>{/if}
-			{#if confirmo}<span class="wa"><img src="/logos/whatsapp.svg" alt="" width="13" height="13" />{confirmo}</span>{/if}
+			{#if llamar}<span class="wa ambar"><Icono nombre="call" tam={14} />{MOTIVO[t.llamarMotivo ?? ''] ?? 'Para llamar'}</span>{:else if confirmo}<span class="wa" class:ambar={!!t.cambioPedidoEn}><img src="/logos/whatsapp.svg" alt="" width="13" height="13" />{confirmo}</span>{/if}
 			{#if !t.nota && !confirmo}<span class="tel tl-num">{t.cliente.telefono || t.cliente.email}</span>{/if}
 		</a>
 		<span class="que"><span class="srv">{t.servicio}</span><span class="con">con {t.profesional || 'cualquiera'}</span></span>
@@ -76,7 +77,9 @@
 			<span class="pago tl-num" style:color={pago.color}><Icono nombre={pago.icono} lleno tam={14} />{pago.texto}</span>
 		</span>
 		<span class="acciones" bind:this={raiz}>
-			{#if principal}
+			{#if llamar && t.cliente.telefono}
+				<a class="accion" href={`tel:${t.cliente.telefono}`}><Icono nombre="call" tam={16} />Llamar</a>
+			{:else if principal}
 				{#if principal.estado === 'atendido' && alAtender}
 					<button class="accion" onclick={() => alAtender(t)}><Icono nombre={principal.icono} tam={16} />{principal.texto}</button>
 				{:else}
@@ -92,6 +95,12 @@
 			{#if abierto}
 				<div class="menu" role="menu">
 					<a role="menuitem" href={`/panel/turnos/${t.id}`}><Icono nombre="open_in_full" tam={20} />Abrir detalle</a>
+					{#if llamar && puedeActuar}
+						<form method="POST" action="?/llamado" use:enhance={trabajar}>
+							<input type="hidden" name="id" value={t.id} />
+							<button role="menuitem"><Icono nombre="phone_callback" tam={20} />Ya lo llamé</button>
+						</form>
+					{/if}
 					{#if menu.length}
 						<form method="POST" action="?/estado" use:enhance={trabajar}>
 							<input type="hidden" name="id" value={t.id} />
@@ -227,6 +236,16 @@
 	}
 	.wa {
 		color: var(--tl-menta-texto);
+	}
+	.wa.ambar {
+		color: #7a4a00;
+	}
+	.talon.confirmo-wa {
+		--fondo: #f3fbf7;
+		box-shadow: 0 0 0 2px var(--tl-menta), 0 10px 20px -16px rgba(15, 35, 40, 0.45);
+	}
+	.talon.llamar {
+		box-shadow: 0 0 0 2px #f0c46a, 0 10px 20px -16px rgba(15, 35, 40, 0.45);
 	}
 	.tel {
 		font-size: 12px;

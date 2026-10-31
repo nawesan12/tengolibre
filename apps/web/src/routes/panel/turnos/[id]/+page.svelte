@@ -28,7 +28,7 @@
 	const otras = $derived(puedeActuar ? accionesRapidas(t.estado).filter((a) => a.estado !== principal?.estado) : []);
 	const vivo = $derived(t.estado !== 'cancelado' && t.estado !== 'atendido' && t.estado !== 'ausente');
 	const wa = $derived(t.cliente.telefono ? `https://wa.me/${t.cliente.telefono.replace(/\D/g, '').replace(/^(?!54)/, '549')}` : '');
-	const sena = $derived(t.sena?.estado === 'pagada' ? t.sena.monto : 0);
+	const MOTIVO_L: Record<string, string> = { cambio: 'Pidió cambiarlo', sin_respuesta: 'No contestó el WhatsApp', no_llego: 'No le llegó el WhatsApp' };
 
 	const ORIGENES: Record<string, string> = { web: 'Reservó por la web', panel: 'Lo cargó el equipo', app: 'Reservó por la app' };
 	const ESTADO_AVISO: Record<string, string> = { pendiente: 'En cola', enviado: 'Enviado', fallido: 'Falló', descartado: 'Descartado' };
@@ -81,17 +81,34 @@
 				{#if t.cliente.email}<a class="chip-c" href={`mailto:${t.cliente.email}`}><Icono nombre="mail" tam={17} />{t.cliente.email}</a>{/if}
 				{#if !t.cliente.telefono && !t.cliente.email}<span class="suave chico">Sin datos de contacto</span>{/if}
 			</div>
+			{#if t.llamarDesde && t.estado !== 'cancelado'}
+				<div class="llamar" role="status">
+					<Icono nombre="call" tam={20} />
+					<span><b>Para llamar:</b> {MOTIVO_L[t.llamarMotivo ?? ''] ?? 'pendiente'}.</span>
+					{#if puedeActuar}
+						<form method="POST" action="?/llamado" use:enhance><button>Ya lo llamé</button></form>
+					{/if}
+				</div>
+			{/if}
 		</section>
 
 		<section class="bloque plata">
-			<div class="linea"><span>Precio</span><b class="tl-num">{pesos(t.precio)}</b></div>
+			{#if data.caja}
+				{#each data.caja.lineas as l, i (i)}
+					<div class="linea" class:verde={l.monto < 0}><span>{l.concepto}</span><b class="tl-num">{l.monto < 0 ? `− ${pesos(-l.monto)}` : pesos(l.monto)}</b></div>
+				{/each}
+				{#if data.caja.estado === 'cobrado'}
+					<div class="linea verde"><span class="ic"><Icono nombre="paid" tam={18} />Cobrado{data.caja.medio ? ` · ${data.caja.medio}` : ''}</span><b class="tl-num">{pesos(data.caja.total)}</b></div>
+				{:else if data.caja.estado === 'debe'}
+					<div class="linea ambar"><span class="ic"><Icono nombre="pending" tam={18} />Quedó debiendo</span><b class="tl-num">{pesos(data.caja.total)}</b></div>
+				{:else}
+					<div class="linea suave-l"><span>Resta cobrar en el local</span><b class="tl-num">{pesos(data.caja.total)}</b></div>
+				{/if}
+			{:else}
+				<div class="linea"><span>Precio</span><b class="tl-num">{pesos(t.precio)}</b></div>
+			{/if}
 			{#if t.estado === 'pendiente_pago'}
 				<div class="linea ambar"><span class="ic"><Icono nombre="hourglass_top" tam={18} />Esperando la seña{t.venceEn ? ` hasta las ${hora(t.venceEn)}` : ''}</span></div>
-			{:else if t.sena}
-				<div class="linea" class:verde={t.sena.estado === 'pagada'}>
-					<span class="ic"><Icono nombre={t.sena.estado === 'pagada' ? 'paid' : t.sena.estado === 'devuelta' ? 'currency_exchange' : 'hourglass_top'} tam={18} />Seña {pesos(t.sena.monto)}{t.sena.estado === 'pagada' ? ' por Mercado Pago' : t.sena.estado === 'devuelta' ? ' devuelta' : ' pendiente'}</span>
-				</div>
-				{#if sena}<div class="linea suave-l"><span>Resta cobrar en el local</span><b class="tl-num">{pesos(t.precio - sena)}</b></div>{/if}
 			{/if}
 		</section>
 
@@ -120,8 +137,11 @@
 			<h2 id="t-historia" class="tl-rotulo rot">Historia</h2>
 			<ul class="historia">
 				<li><span class="punto" style:background="#c9bda4"></span><span>{ORIGENES[t.origen] ?? t.origen}</span><span class="cuando tl-num">{fechaHora(t.creadoEn)}</span></li>
-				{#if t.confirmacion?.via === 'whatsapp' && t.confirmacion.respuesta}
-					<li><span class="punto" style:background="#3ccc90"></span><span>{t.confirmacion.respuesta === 'confirmo' ? 'Confirmó por WhatsApp' : 'Pidió cambiarlo por WhatsApp'}</span><span class="cuando tl-num">{t.confirmacion.en ? fechaHora(t.confirmacion.en) : ''}</span></li>
+				{#if t.confirmadoPor}
+					<li><span class="punto" style:background="#3ccc90"></span><span>{t.confirmadoPor === 'whatsapp' ? 'Confirmó por WhatsApp' : t.confirmadoPor === 'web' ? 'Confirmó desde su link' : 'Confirmado por el equipo'}</span><span class="cuando tl-num">{t.confirmadoEn ? fechaHora(t.confirmadoEn) : ''}</span></li>
+				{/if}
+				{#if t.cambioPedidoEn}
+					<li><span class="punto" style:background="#f0c46a"></span><span>Pidió cambiarlo por WhatsApp</span><span class="cuando tl-num">{fechaHora(t.cambioPedidoEn)}</span></li>
 				{/if}
 				{#each data.avisos ?? [] as a (a.id)}
 					<li>
@@ -211,6 +231,18 @@
 					{/if}
 				{/each}
 			</form>
+			{#if t.serieId && vivo}
+				<form
+					method="POST"
+					action="?/cancelarSiguientes"
+					use:enhance={({ cancel }) => {
+						if (!confirm('¿Cancelar este turno y los siguientes de su turno fijo? Se le avisa al cliente.')) cancel();
+						return trabajar();
+					}}
+				>
+					<button class="sec peligro"><Icono nombre="event_repeat" tam={18} />Cancelar este y los siguientes</button>
+				</form>
+			{/if}
 		</footer>
 	{:else if data.acceso?.bloqueado}
 		<footer class="pie lectura"><Icono nombre="lock" tam={18} />Sólo lectura: para cambiar el turno hace falta un&nbsp;plan.</footer>
@@ -629,6 +661,30 @@
 	.sec.peligro {
 		background: transparent;
 		color: #a3241a;
+	}
+	.llamar {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 8px 10px;
+		padding: 10px 14px;
+		border-radius: 14px;
+		background: #fbe9c2;
+		color: #5c3800;
+		font-size: 14px;
+	}
+	.llamar span {
+		flex: 1 1 180px;
+	}
+	.llamar button {
+		min-height: 40px;
+		padding: 0 14px;
+		border: 0;
+		border-radius: 999px;
+		background: var(--tl-petroleo);
+		color: #fff;
+		font: 700 13px var(--tl-font);
+		cursor: pointer;
 	}
 	.lectura {
 		align-items: center;

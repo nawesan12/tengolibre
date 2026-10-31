@@ -45,20 +45,22 @@ export async function cambiarEstado(event: RequestEvent) {
 }
 
 /**
- * La acción `cobrar` de la caja (contrato nuevo, Propuestas 07 y 08): cobra lo que resta con el medio
- * y los productos elegidos, y deja el turno atendido.
+ * La acción `cobrar` de la caja (caja.md): deja el turno atendido y registra el cobro con el medio y
+ * los productos elegidos (`medio: "despues"` = «Cobrar después», queda debiendo).
  */
 export async function cobrar(event: RequestEvent) {
 	const f = await event.request.formData();
 	const id = enc(f.get('id'));
 	const api = apiDe(event);
+	// «Cobrar después» manda medio=despues además del medio elegido: gana ése.
+	const medios = f.getAll('medio').map(String);
+	const medio = medios.includes('despues') ? 'despues' : (medios[0] ?? 'efectivo');
 	return intentar(async () => {
-		const r = await api.post<{ total: number }>(`/v1/panel/turnos/${id}/cobro`, {
-			medio: String(f.get('medio') ?? 'efectivo'),
-			productos: f.getAll('productos').map(String)
+		if (f.get('estado') !== 'atendido') await api.patch(`/v1/panel/turnos/${id}`, { estado: 'atendido' });
+		return api.post(`/v1/panel/turnos/${id}/caja`, {
+			medio,
+			productos: f.getAll('productos').map((p) => ({ productoId: String(p), cantidad: 1 }))
 		});
-		await api.patch(`/v1/panel/turnos/${id}`, { estado: 'atendido' });
-		return r;
 	});
 }
 

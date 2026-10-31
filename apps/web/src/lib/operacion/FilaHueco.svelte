@@ -26,7 +26,7 @@
 		esperan?: number;
 		oferta?: Oferta | null;
 		/** Lo que va en el formulario para ofrecerlo: profesional, inicio y fin. */
-		ofrecer?: { profesionalId: string; inicio: string; fin: string; servicioId?: string | null } | null;
+		ofrecer?: { profesionalId: string; inicio: string; servicioId: string | null } | null;
 		puedeActuar?: boolean;
 	} = $props();
 
@@ -35,29 +35,34 @@
 		const r = setInterval(() => (ahora = Date.now()), 1000);
 		return () => clearInterval(r);
 	});
-	const restan = $derived(oferta ? Math.max(0, Date.parse(oferta.vence) - ahora) : 0);
+	const actual = $derived(oferta?.actual ?? null);
+	const vence = $derived(actual?.venceEn ? Date.parse(actual.venceEn) : 0);
+	const desde = $derived(actual?.ofrecidaEn ? Date.parse(actual.ofrecidaEn) : ahora);
+	const restan = $derived(Math.max(0, vence - ahora));
 	const cuenta = $derived(`${String(Math.floor(restan / 60000)).padStart(2, '0')}:${String(Math.floor(restan / 1000) % 60).padStart(2, '0')}`);
-	// La barra arranca llena cuando se empieza a mirar la oferta y se vacía hasta el vencimiento.
-	let inicioOferta = $state<number | null>(null);
-	$effect(() => {
-		if (oferta && inicioOferta === null) inicioOferta = Date.now();
-		if (!oferta) inicioOferta = null;
-	});
-	const progreso = $derived(oferta && inicioOferta !== null ? Math.min(1, (ahora - inicioOferta) / Math.max(1, Date.parse(oferta.vence) - inicioOferta)) : 0);
+	// La barra se llena a medida que se le acaba el tiempo a quien lo tiene.
+	const progreso = $derived(vence > desde ? Math.min(1, (ahora - desde) / (vence - desde)) : 0);
+	const corto = (n: string) => {
+		const p = n.trim().split(/\s+/);
+		return p.length > 1 ? `${p[0]} ${p[1][0]}.` : p[0];
+	};
 </script>
 
 <li class="hueco" class:ofreciendo={!!oferta}>
 	{#if oferta}
 		<span class="rango tl-num">{rango}</span>
-		<b class="titulo">Ofreciendo a {oferta.nombre}</b>
+		<b class="titulo">Ofreciendo a {actual ? corto(actual.nombre) : 'la lista'}</b>
 		<span class="reloj tl-num" role="timer" aria-label={`Le quedan ${Math.ceil(restan / 60000)} minutos para tomarlo`}><Icono nombre="timer" tam={16} />{cuenta}</span>
 		<span class="barra" aria-hidden="true"><span style:width={`${(progreso * 100).toFixed(1)}%`}></span></span>
 		<span class="sigue tl-num">
-			{#if oferta.siguen.length}SIGUE: <span class="quien">{oferta.siguen.length + 1} · {oferta.siguen[0].toUpperCase()}</span>{:else}ES LA ÚLTIMA DE LA LISTA{/if}
+			{#if oferta.sigue}SIGUE: <span class="quien">{oferta.sigue.orden} · {corto(oferta.sigue.nombre).toUpperCase()}</span>{:else}ES LA ÚLTIMA DE LA LISTA{/if}
 		</span>
 		{#if puedeActuar}
 			<span class="fin">
-				<a class="yo" href={cargar}>Cargarlo yo</a>
+				<form method="POST" action="?/cargar" use:enhance>
+					<input type="hidden" name="id" value={oferta.id} />
+					<button class="yo">Cargarlo yo</button>
+				</form>
 				<form method="POST" action="?/frenar" use:enhance>
 					<input type="hidden" name="id" value={oferta.id} />
 					<button class="frenar">Frenar</button>
@@ -68,11 +73,10 @@
 		<span class="rango tl-num">{rango}</span>
 		<span class="texto"><b>{titulo}</b>{#if sub}<span>{sub}</span>{/if}</span>
 		{#if puedeActuar}
-			{#if ofrecer && esperan > 0}
+			{#if ofrecer?.servicioId && esperan > 0}
 				<form method="POST" action="?/ofrecer" use:enhance>
 					<input type="hidden" name="profesionalId" value={ofrecer.profesionalId} />
 					<input type="hidden" name="inicio" value={ofrecer.inicio} />
-					<input type="hidden" name="fin" value={ofrecer.fin} />
 					{#if ofrecer.servicioId}<input type="hidden" name="servicioId" value={ofrecer.servicioId} />{/if}
 					<button class="ofrecer"><Icono nombre="campaign" tam={16} />Ofrecer a la lista · {esperan}</button>
 				</form>

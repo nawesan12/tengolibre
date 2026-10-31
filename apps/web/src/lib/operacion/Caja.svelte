@@ -4,9 +4,10 @@
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { onMount } from 'svelte';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { pesos } from '#lib/formato.ts';
-	import { MEDIOS, type Medio, type Producto } from './contrato.ts';
+	import { MEDIOS, type CuentaCaja, type Medio, type Producto } from './contrato.ts';
 	import type { Turno } from './tipos.ts';
 
 	let { t, productos = [], alCerrar }: { t: Turno; productos?: Producto[]; alCerrar: () => void } = $props();
@@ -14,9 +15,23 @@
 	let medio = $state<Medio>('efectivo');
 	let elegidos = $state<string[]>([]);
 	let enviando = $state(false);
-	const sena = $derived(t.sena?.estado === 'pagada' ? t.sena.monto : 0);
+	let cuenta = $state<CuentaCaja | null>(null);
+	// La cuenta la arma la API (servicio, cupón, membresía, seña); mientras llega, el precio de lista.
+	onMount(async () => {
+		try {
+			const r = await fetch(`/panel/turnos/${t.id}/caja`);
+			if (r.ok) cuenta = await r.json();
+		} catch {
+			/* sin la cuenta: queda el precio del turno */
+		}
+	});
+	const lineas = $derived(
+		(cuenta?.lineas ?? [{ tipo: 'servicio' as const, concepto: t.servicio, monto: t.precio }]).filter((l) => l.tipo !== 'producto')
+	);
+	const base = $derived(cuenta ? cuenta.total : t.precio);
 	const extras = $derived(productos.filter((p) => elegidos.includes(p.id)));
-	const total = $derived(Math.max(0, t.precio - sena) + extras.reduce((s, p) => s + p.precio, 0));
+	const total = $derived(Math.max(0, base) + extras.reduce((s, p) => s + p.precio, 0));
+	const yaCobrado = $derived(cuenta?.estado === 'cobrado' || cuenta?.estado === 'debe');
 	const cerrarAl = () => {
 		enviando = true;
 		return async ({ result, update }: { result: { type: string }; update: (o?: { reset?: boolean }) => Promise<void> }) => {
@@ -42,8 +57,11 @@
 	<div class="troquel" aria-hidden="true"><span></span></div>
 	<form method="POST" action="?/cobrar" class="cuerpo" id="form-caja" use:enhance={cerrarAl}>
 		<input type="hidden" name="id" value={t.id} />
-		<div class="linea"><span>{t.servicio}</span><span class="tl-num">{pesos(t.precio)}</span></div>
-		{#if sena}<div class="linea verde"><span>Seña pagada (Mercado Pago)</span><span class="tl-num">− {pesos(sena)}</span></div>{/if}
+		<input type="hidden" name="estado" value={t.estado} />
+		{#each lineas as l, i (i)}
+			<div class="linea" class:verde={l.monto < 0}><span>{l.concepto}</span><span class="tl-num">{l.monto < 0 ? `− ${pesos(-l.monto)}` : pesos(l.monto)}</span></div>
+		{/each}
+		{#if yaCobrado}<p class="ya">Este turno ya pasó por la caja{cuenta?.estado === 'debe' ? ': quedó debiendo' : ''}.</p>{/if}
 		{#each extras as p (p.id)}<div class="linea"><span>{p.nombre}</span><span class="tl-num">{pesos(p.precio)}</span></div>{/each}
 
 		{#if productos.length}
@@ -69,11 +87,8 @@
 		</div>
 	</form>
 	<div class="pie">
-		<button class="cobrar" form="form-caja" disabled={enviando}>Cobrar {pesos(total)}</button>
-		<form method="POST" action="?/estado" use:enhance={cerrarAl}>
-			<input type="hidden" name="id" value={t.id} />
-			<button class="despues" name="estado" value="atendido" disabled={enviando}>Cobrar después</button>
-		</form>
+		<button class="cobrar" form="form-caja" disabled={enviando || yaCobrado}>Cobrar {pesos(total)}</button>
+		<button class="despues" form="form-caja" name="medio" value="despues" disabled={enviando || yaCobrado}>Cobrar después</button>
 	</div>
 </aside>
 
@@ -243,9 +258,14 @@
 		outline: 3px solid var(--tl-menta);
 		outline-offset: 2px;
 	}
+	.ya {
+		margin: 0;
+		font-size: 13px;
+		color: #7a4a00;
+	}
 	.medios {
 		display: grid;
-		grid-template-columns: repeat(4, 1fr);
+		grid-template-columns: repeat(5, 1fr);
 		gap: 6px;
 	}
 	.medio {

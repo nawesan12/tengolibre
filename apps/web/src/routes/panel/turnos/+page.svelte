@@ -4,6 +4,8 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { enhance } from '$app/forms';
+	import { cuandoCorto } from '#lib/operacion/ui.ts';
 	import { SvelteSet } from 'svelte/reactivity';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { dia } from '#lib/formato.ts';
@@ -77,15 +79,6 @@
 	const visibles = $derived(f.cancelados || f.estado === 'cancelado' ? filtrados : filtrados.filter((t) => t.estado !== 'cancelado'));
 
 	// Huecos que dejó una cancelación (sólo de acá en adelante y si el lugar sigue libre).
-	const esperanPara = (t: Turno) =>
-		data.espera.filter(
-			(a) =>
-				!a.avisadoEn &&
-				a.desde <= data.fecha &&
-				a.hasta >= data.fecha &&
-				(!a.profesionalId || a.profesionalId === t.profesionalId) &&
-				(!t.servicioId || a.servicioId === t.servicioId)
-		).length;
 	const liberados = $derived(
 		f.estado
 			? []
@@ -101,6 +94,7 @@
 		| { tipo: 'turno'; k: number; t: Turno }
 		| { tipo: 'liberado'; k: number; t: Turno }
 		| { tipo: 'ahora'; k: number }
+		| { tipo: 'oferta'; k: number; o: (typeof data.ofertas)[number] }
 		| { tipo: 'hueco'; k: number; h: (typeof dias)[number]['huecos'][number] };
 	const filas = $derived.by<Fila[]>(() => {
 		if (f.huecos) {
@@ -112,7 +106,11 @@
 		}
 		const out: Fila[] = [
 			...visibles.map((t) => ({ tipo: 'turno' as const, k: minutosDelDia(t.inicio) + 0.1, t })),
-			...liberados.map((t) => ({ tipo: 'liberado' as const, k: minutosDelDia(t.inicio), t }))
+			...liberados.map((t) => ({ tipo: 'liberado' as const, k: minutosDelDia(t.inicio), t })),
+			// Ofertas de huecos que no vienen de un cancelado de la lista (un turno que se movió, por ejemplo).
+			...data.ofertas
+				.filter((o) => dia(o.inicio) === data.fecha && (!f.profesional || o.profesionalId === f.profesional) && !liberados.some((t) => ofertaPara(t)?.id === o.id))
+				.map((o) => ({ tipo: 'oferta' as const, k: minutosDelDia(o.inicio), o }))
 		].sort((a, b) => a.k - b.k);
 		if (data.fecha === hoy && out.length) {
 			const i = out.findIndex((x) => x.k > ahora);
@@ -176,13 +174,43 @@
 {#if form?.error}<p class="aviso error" role="alert">{form.error}</p>{/if}
 {#if data.error}<p class="aviso error" role="alert">{data.error}</p>{/if}
 
+{#if data.reprogramar.length}
+	<section class="reprogramar" aria-labelledby="t-repro">
+		<h2 id="t-repro"><Icono nombre="event_repeat" tam={20} />Para reprogramar <span class="tl-num">{data.reprogramar.length}</span></h2>
+		<p>Turnos de días libres aprobados: movelos o avisale al cliente, y marcalos&nbsp;resueltos.</p>
+		<ul>
+			{#each data.reprogramar as r (r.id)}
+				<li>
+					<a href={`/panel/turnos/${r.turno.id}#reprogramar`}>
+						<b class="tl-num">{cuandoCorto(r.turno.inicio)}</b>
+						<span>{r.turno.cliente.nombre} · {r.turno.servicio} · {primerNombre(r.turno.profesional)}</span>
+					</a>
+					{#if r.turno.cliente.telefono}<a class="tel" href={`tel:${r.turno.cliente.telefono}`} aria-label={`Llamar a ${r.turno.cliente.nombre}`}><Icono nombre="call" tam={18} /></a>{/if}
+					<form method="POST" action="?/resolver" use:enhance>
+						<input type="hidden" name="id" value={r.id} />
+						<button>Resuelto</button>
+					</form>
+				</li>
+			{/each}
+		</ul>
+	</section>
+{/if}
+
 <h2 class="visualmente-oculto" aria-live="polite">{nombreDia}: {visibles.length}&nbsp;{visibles.length === 1 ? 'turno' : 'turnos'}</h2>
 <ul class="lista">
-	{#each filas as x (x.tipo === 'ahora' ? 'ahora' : x.tipo === 'hueco' ? `h${x.h.profesionalId}${x.h.desde}` : `${x.tipo}${x.t.id}`)}
+	{#each filas as x (x.tipo === 'ahora' ? 'ahora' : x.tipo === 'hueco' ? `h${x.h.profesionalId}${x.h.desde}` : x.tipo === 'oferta' ? `o${x.o.id}` : `${x.tipo}${x.t.id}`)}
 		{#if x.tipo === 'turno'}
 			<FilaTurno t={x.t} ahora={ahoraMs} {puedeActuar} recien={recientes.has(x.t.id)} alAtender={(t) => (caja = t)} />
 		{:else if x.tipo === 'ahora'}
 			<li class="ahora"><LineaAhora hora={hhmm(ahora)} rotulo /></li>
+		{:else if x.tipo === 'oferta'}
+			<FilaHueco
+				rango={`${hhmm(minutosDelDia(x.o.inicio))} – ${hhmm(minutosDelDia(x.o.fin))}`}
+				titulo={`Se liberó con ${primerNombre(x.o.profesional)}`}
+				cargar={cargarEn(x.o.profesionalId, data.fecha, minutosDelDia(x.o.inicio))}
+				oferta={x.o}
+				{puedeActuar}
+			/>
 		{:else if x.tipo === 'liberado'}
 			{@const t = x.t}
 			<FilaHueco
@@ -190,9 +218,9 @@
 				titulo={`Se liberó: ${primerNombre(t.cliente.nombre)} canceló`}
 				sub={`${primerNombre(t.profesional)} · ${duracion(Math.round((Date.parse(t.fin) - Date.parse(t.inicio)) / 60000))}`}
 				cargar={cargarEn(t.profesionalId ?? '', data.fecha, minutosDelDia(t.inicio))}
-				esperan={rol === 'profesional' ? 0 : esperanPara(t)}
+				esperan={data.candidatos[t.id] ?? 0}
 				oferta={ofertaPara(t)}
-				ofrecer={{ profesionalId: t.profesionalId ?? '', inicio: t.inicio, fin: t.fin, servicioId: t.servicioId }}
+				ofrecer={{ profesionalId: t.profesionalId ?? '', inicio: t.inicio, servicioId: t.servicioId }}
 				{puedeActuar}
 			/>
 		{:else}
@@ -372,6 +400,74 @@
 	}
 	.ahora {
 		list-style: none;
+	}
+	.reprogramar {
+		padding: 14px 16px;
+		border-radius: 18px;
+		background: #fbe9c2;
+		color: #5c3800;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.reprogramar h2 {
+		margin: 0;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 16px;
+	}
+	.reprogramar p {
+		margin: 0;
+		font-size: 13px;
+	}
+	.reprogramar ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.reprogramar li {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 6px 8px 6px 12px;
+		border-radius: 12px;
+		background: var(--tl-papel);
+	}
+	.reprogramar li > a:first-child {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		gap: 10px;
+		align-items: baseline;
+		color: var(--tl-tinta);
+		text-decoration: none;
+		font-size: 13px;
+	}
+	.reprogramar li span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.reprogramar .tel {
+		width: 40px;
+		height: 40px;
+		display: grid;
+		place-items: center;
+		color: var(--tl-menta-texto);
+	}
+	.reprogramar button {
+		min-height: 40px;
+		padding: 0 12px;
+		border: 0;
+		border-radius: 999px;
+		background: var(--tl-petroleo);
+		color: #fff;
+		font: 700 12px var(--tl-font);
+		cursor: pointer;
 	}
 	.vacio {
 		padding: 40px 24px;
