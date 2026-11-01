@@ -1,4 +1,6 @@
 /** Lo que devuelven las rutas públicas de la API (sin sesión). */
+import type { Estilo } from './estilo.ts';
+import type { FranjaAtencion, PagoTurno } from './contrato.ts';
 
 export type Negocio = {
 	id: string;
@@ -50,6 +52,8 @@ export type Web = {
 	tiktok: string;
 	latitud: number | null;
 	longitud: number | null;
+	/** Plantilla y ajustes publicados (siempre completo). */
+	estilo: Estilo;
 };
 
 export type Foto = { id: string; url: string; epigrafe: string; orden: number };
@@ -66,6 +70,8 @@ export type Pagina = {
 	web: Web;
 	galeria: Foto[];
 	resenas: Resumen;
+	/** Supuesto (contrato.ts): el horario de atención del negocio. Sin eso no se muestra. */
+	horarioAtencion?: FranjaAtencion[];
 };
 
 export type ResenaPublica = {
@@ -110,9 +116,21 @@ export type Turno = {
 	venceEn: string | null;
 	descuento?: number;
 	pago?: Pago;
+	/** Quién confirmó (docs/api/whatsapp.md): whatsapp, web (el link o la seña) o panel. */
+	confirmadoPor?: 'whatsapp' | 'web' | 'panel' | null;
+	confirmadoEn?: string | null;
+	cambioPedidoEn?: string | null;
 };
 
-export type TurnoCliente = Turno & { negocio: Negocio; puedeCancelar: boolean; cancelarHastaHoras: number };
+export type TurnoCliente = Turno & {
+	negocio: Negocio;
+	puedeCancelar: boolean;
+	cancelarHastaHoras: number;
+	/** Supuesto (contrato.ts): lo cobrado por adelantado y una referencia corta para mostrar en el local. */
+	sena?: PagoTurno | null;
+	referencia?: string;
+	conMembresia?: boolean;
+};
 
 export type Cupon = { id: string; codigo: string; tipo: 'porcentaje' | 'fijo'; valor: number; hasta: string | null; activo: boolean; usos: number; maxUsos: number | null };
 export type MiReferido = { codigo: string | null; referidos: number; recompensas: Cupon[]; programaActivo: boolean };
@@ -147,3 +165,31 @@ export type Ciudad = { ciudad: string; provincia: string; cantidad: number };
 
 /** La membresía vigente de quien ingresó (GET /v1/p/{slug}/mi-membresia). */
 export type MiMembresia = { plan: string; hasta: string; saldo: number; servicios: string[] };
+
+/** Un horario para volver a reservar (docs/api/repetir.md). */
+export type HorarioRepetir = { inicio: string; fecha: string; hora: string; mismoHorario: boolean };
+
+/** GET /v1/t/{codigo}/repetir: el próximo turno armado de un turno atendido. */
+export type Repetir = {
+	semanas: number;
+	habitual: boolean;
+	servicio: { id: string; nombre: string; precio: number; duracion: number };
+	profesional: { id: string; nombre: string };
+	sugerencia: HorarioRepetir | null;
+	alternativas: HorarioRepetir[];
+	pago: { monto: number; modo: string } | null;
+};
+
+/** GET /v1/espera/{token}: el lugar que se le ofrece a quien esperaba (docs/api/espera-ofertas.md). */
+export type OfertaPublica = {
+	estado: 'ofrecida' | 'tomada' | 'paso' | 'vencida' | 'cerrada';
+	nombre: string;
+	negocio: Negocio;
+	servicio: string;
+	profesional: string;
+	inicio: string;
+	fin: string;
+	precio: number;
+	venceEn: string | null;
+	turno: string | null;
+};

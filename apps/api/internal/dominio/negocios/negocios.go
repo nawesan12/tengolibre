@@ -92,6 +92,7 @@ var Reservados = map[string]bool{
 	"mis-turnos": true, "panel": true, "presentacion": true, "recuperar-contrasena": true, "registrarse": true,
 	"review": true, "resena": true, "sin-conexion": true, "turno": true, "ingresar": true, "precios": true,
 	"ayuda": true, "legal": true, "terminos": true, "privacidad": true, "www": true, "cal": true,
+	"espera": true, "conectar": true, "empezar": true, "salir": true, "fotos": true, "logos": true, "marca": true, "og": true,
 }
 
 // ValidarSlug devuelve el problema si el slug no sirve.
