@@ -286,11 +286,12 @@ func (s *Servicio) guardarAjustes(w http.ResponseWriter, r *http.Request) error 
 
 // PreferenciasPublicas: lo que ve el cliente en el link de baja.
 type PreferenciasPublicas struct {
-	Negocio       string `json:"negocio"`
-	Slug          string `json:"slug"`
-	Cliente       string `json:"cliente"`
-	Email         bool   `json:"email"`
-	Recordatorios bool   `json:"recordatorios"`
+	Negocio string `json:"negocio"`
+	Slug    string `json:"slug"`
+	Cliente string `json:"cliente"`
+	// Correo: el mail del cliente, para el encabezado.
+	Correo string `json:"correo"`
+	Preferencias
 }
 
 func (s *Servicio) conPreferencias(ctx context.Context, token string, fn func(tx pgx.Tx, p *PreferenciasPublicas) error) (PreferenciasPublicas, error) {
@@ -300,9 +301,9 @@ func (s *Servicio) conPreferencias(ctx context.Context, token string, fn func(tx
 		return p, err
 	}
 	err = s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
-		if err := tx.QueryRow(ctx, `SELECT n.nombre, n.slug, c.nombre, p.email, p.recordatorios FROM preferencias p
-			JOIN clientes c ON c.id = p.cliente_id JOIN negocios n ON n.id = p.negocio_id WHERE p.token = $1 FOR UPDATE OF p`, token).
-			Scan(&p.Negocio, &p.Slug, &p.Cliente, &p.Email, &p.Recordatorios); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT n.nombre, n.slug, c.nombre, c.email, p.email, p.recordatorios, p.resena, p.lista_espera, p.novedades
+			FROM preferencias p JOIN clientes c ON c.id = p.cliente_id JOIN negocios n ON n.id = p.negocio_id WHERE p.token = $1 FOR UPDATE OF p`, token).
+			Scan(&p.Negocio, &p.Slug, &p.Cliente, &p.Correo, &p.Email, &p.Recordatorios, &p.Resena, &p.ListaEspera, &p.Novedades); err != nil {
 			return err
 		}
 		return fn(tx, &p)
@@ -321,9 +322,13 @@ func (s *Servicio) verPreferencias(w http.ResponseWriter, r *http.Request) error
 }
 
 func (s *Servicio) guardarPreferencias(w http.ResponseWriter, r *http.Request) error {
+	// Las llaves que no vienen no se tocan.
 	var in struct {
 		Email         *bool `json:"email"`
 		Recordatorios *bool `json:"recordatorios"`
+		Resena        *bool `json:"resena"`
+		ListaEspera   *bool `json:"listaEspera"`
+		Novedades     *bool `json:"novedades"`
 	}
 	if err := web.Leer(w, r, &in); err != nil {
 		return err
@@ -331,8 +336,10 @@ func (s *Servicio) guardarPreferencias(w http.ResponseWriter, r *http.Request) e
 	ctx := r.Context()
 	p, err := s.conPreferencias(ctx, r.PathValue("token"), func(tx pgx.Tx, p *PreferenciasPublicas) error {
 		return tx.QueryRow(ctx, `UPDATE preferencias SET email = coalesce($2, email), recordatorios = coalesce($3, recordatorios),
-			actualizado_en = now() WHERE token = $1 RETURNING email, recordatorios`, r.PathValue("token"), in.Email, in.Recordatorios).
-			Scan(&p.Email, &p.Recordatorios)
+			resena = coalesce($4, resena), lista_espera = coalesce($5, lista_espera), novedades = coalesce($6, novedades),
+			actualizado_en = now() WHERE token = $1 RETURNING email, recordatorios, resena, lista_espera, novedades`,
+			r.PathValue("token"), in.Email, in.Recordatorios, in.Resena, in.ListaEspera, in.Novedades).
+			Scan(&p.Email, &p.Recordatorios, &p.Resena, &p.ListaEspera, &p.Novedades)
 	})
 	if err != nil {
 		return err

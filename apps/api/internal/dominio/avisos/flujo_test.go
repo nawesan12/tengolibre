@@ -233,17 +233,32 @@ func TestAvisosDeUnTurno(t *testing.T) {
 		t.Fatalf("campanita: %+v", c)
 	}
 
-	// Desde el link de baja apaga los mails: el próximo turno no le manda nada (queda descartado).
+	// Desde el link de baja apaga todo: la confirmación de un turno nuevo sale igual (es el
+	// comprobante), pero los cambios ya no (quedan descartados).
 	var pref avisos.PreferenciasPublicas
 	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/preferencias/" + baja}, &pref)
-	if pref.Negocio != "El Corte" || pref.Cliente != "Lucía" || !pref.Email {
+	if pref.Negocio != "El Corte" || pref.Cliente != "Lucía" || pref.Correo != lucia || !pref.Email || !pref.Resena || !pref.ListaEspera || !pref.Novedades {
 		t.Fatalf("preferencias: %+v", pref)
 	}
-	e.Esperar(200, P{Metodo: "PUT", Ruta: "/v1/preferencias/" + baja, Cuerpo: map[string]bool{"email": false}}, &pref)
+	e.Esperar(200, P{Metodo: "PUT", Ruta: "/v1/preferencias/" + baja, Cuerpo: map[string]bool{"email": false, "recordatorios": false,
+		"resena": false, "listaEspera": false, "novedades": false}}, &pref)
+	if pref.Email || pref.Recordatorios || pref.Resena || pref.ListaEspera || pref.Novedades {
+		t.Fatalf("preferencias apagadas: %+v", pref)
+	}
+	// Una llave sola no toca las demás.
+	e.Esperar(200, P{Metodo: "PUT", Ruta: "/v1/preferencias/" + baja, Cuerpo: map[string]bool{"novedades": true}}, &pref)
+	if !pref.Novedades || pref.Resena || pref.Email {
+		t.Fatalf("una llave: %+v", pref)
+	}
+	e.Esperar(400, P{Metodo: "PUT", Ruta: "/v1/preferencias/" + baja, Cuerpo: map[string]bool{"otra": true}}, nil)
 	e.Esperar(404, P{Metodo: "GET", Ruta: "/v1/preferencias/no-existe-este-token"}, nil)
 	antes := e.mails.Cantidad()
-	e.reservar("2026-11-02 09:30", "1111", lucia)
-	if r := e.enviar(); r.Descartados != 1 || e.mails.Cantidad() != antes {
+	t2 := e.reservar("2026-11-02 09:30", "1111", lucia)
+	if r := e.enviar(); r.Enviados != 1 || e.mails.Cantidad() != antes+1 || e.ultimo(lucia).Asunto != "Turno reservado — El Corte" {
+		t.Fatalf("la confirmación con los mails apagados: %+v", r)
+	}
+	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/t/" + t2.Codigo + "/cancelar"}, nil)
+	if r := e.enviar(); r.Descartados != 1 || e.mails.Cantidad() != antes+1 {
 		t.Fatalf("con los mails apagados: %+v", r)
 	}
 	as := e.avisos("?estado=descartado")
@@ -253,7 +268,7 @@ func TestAvisosDeUnTurno(t *testing.T) {
 
 	// Reenviar uno que ya salió lo vuelve a mandar; uno de otro negocio no se encuentra.
 	enviados := e.avisos("?estado=enviado&tipo=reservado")
-	if len(enviados) != 1 {
+	if len(enviados) != 2 {
 		t.Fatalf("enviados: %+v", enviados)
 	}
 	e.panel(202, "POST", "/v1/panel/avisos/"+enviados[0].ID+"/reenviar", nil, nil)

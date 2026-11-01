@@ -86,6 +86,9 @@ func (s *Servicio) ahora() time.Time {
 	return s.Ahora()
 }
 
+// Estados de la cuenta de un negocio, como los muestra el admin.
+var Estados = []string{"prueba", "inicial", "completo", "cobro_fallido", "solo_lectura"}
+
 // Rutas del dominio.
 func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/admin/estadisticas", s.admin(s.estadisticas))
@@ -116,10 +119,12 @@ func crudo(w http.ResponseWriter, b []byte) {
 func (s *Servicio) estadisticas(w http.ResponseWriter, r *http.Request) error {
 	ahora := s.ahora().In(disponibilidad.ZonaPorDefecto)
 	mes := time.Date(ahora.Year(), ahora.Month(), 1, 0, 0, 0, 0, ahora.Location())
+	hoy := time.Date(ahora.Year(), ahora.Month(), ahora.Day(), 0, 0, 0, 0, ahora.Location())
 	ctx := r.Context()
 	var b []byte
 	err := s.Pool.EnTx(ctx, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, "SELECT app.admin_estadisticas($1, $2)", mes, mes.AddDate(0, -1, 0)).Scan(&b)
+		return tx.QueryRow(ctx, "SELECT app.admin_estadisticas($1, $2, $3, $4, $5)", mes, mes.AddDate(0, -1, 0), ahora,
+			hoy, hoy.AddDate(0, 0, 1)).Scan(&b)
 	})
 	if err != nil {
 		return err
@@ -134,13 +139,18 @@ func (s *Servicio) negocios(w http.ResponseWriter, r *http.Request) error {
 	if len(texto) > 120 {
 		return problema.Invalido("La búsqueda es demasiado larga.")
 	}
+	// estado: el de la cuenta (app.estado_cuenta, en 00019); vacío, todos.
+	estado := q.Get("estado")
+	if estado != "" && !slices.Contains(Estados, estado) {
+		return problema.Invalido("Estado desconocido.", problema.Campo{Ruta: "estado", Mensaje: strings.Join(Estados, ", ")})
+	}
 	pagina, _ := strconv.Atoi(q.Get("pagina"))
 	pagina = max(1, min(pagina, 10000))
 	const limite = 25
 	ctx := r.Context()
 	var b []byte
 	err := s.Pool.EnTx(ctx, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, "SELECT app.admin_negocios($1, $2, $3)", texto, limite, (pagina-1)*limite).Scan(&b)
+		return tx.QueryRow(ctx, "SELECT app.admin_negocios($1, $2, $3, $4, $5)", texto, estado, s.ahora(), limite, (pagina-1)*limite).Scan(&b)
 	})
 	if err != nil {
 		return err

@@ -236,8 +236,13 @@ func (e *Enviador) armarTurno(ctx context.Context, tx pgx.Tx, f fila, n negocio,
 	if err != nil {
 		return sin, "", err
 	}
-	if !p.Email {
+	// La confirmación de un turno nuevo sale siempre (es el comprobante); el resto, según lo que
+	// eligió el cliente en su link de preferencias.
+	switch {
+	case (f.Tipo == Cancelado || f.Tipo == Reprogramado) && !p.Email:
 		return sin, "el cliente pidió no recibir mails", nil
+	case f.Tipo == Resena && !p.Resena:
+		return sin, "el cliente pidió no recibir pedidos de reseña", nil
 	}
 	activo := t.Estado == "pendiente" || t.Estado == "confirmado" || t.Estado == "pendiente_pago"
 	inicio, fin := t.Inicio.In(n.zona), t.Fin.In(n.zona)
@@ -332,6 +337,11 @@ func (e *Enviador) armarEspera(ctx context.Context, tx pgx.Tx, f fila, n negocio
 	if err != nil {
 		return correo.Mensaje{}, "", err
 	}
+	if no, err := sinListaEspera(ctx, tx, email); err != nil {
+		return correo.Mensaje{}, "", err
+	} else if no {
+		return correo.Mensaje{Para: email}, "el cliente pidió no recibir avisos de la lista de espera", nil
+	}
 	c := Carta{Encabezado: n.Nombre, Asunto: "Se liberó un turno — " + n.Nombre, Titulo: "Se liberó el horario que esperabas",
 		Saludo: "Hola " + primerNombre(nombre) + ",", Parrafos: []string{"El primero que reserve se lo lleva, así que no lo dejes para después."},
 		Boton: "Reservar este turno"}
@@ -375,6 +385,11 @@ func (e *Enviador) armarOferta(ctx context.Context, tx pgx.Tx, f fila, n negocio
 	}
 	if estado != "ofrecida" || vence == nil || !vence.After(ahora) {
 		return sin, "la oferta ya no está vigente", nil
+	}
+	if no, err := sinListaEspera(ctx, tx, f.Para); err != nil {
+		return sin, "", err
+	} else if no {
+		return sin, "el cliente pidió no recibir avisos de la lista de espera", nil
 	}
 	i, v := inicio.In(n.zona), vence.In(n.zona)
 	filas := []Fila{{"Servicio", servicio}, {"Profesional", profesional}, {"Fecha", Fecha(i)}, {"Hora", Hora(i)}, {"Precio", Pesos(precio)}}
@@ -464,4 +479,16 @@ func (e *Enviador) armarResumen(ctx context.Context, tx pgx.Tx, f fila, n negoci
 		Notas: []string{"Abrí el panel para ver con quién va cada uno, los teléfonos y las notas.",
 			"Te llega una vez por día, a la tarde. Lo apagás en Ajustes."}}
 	return c.Mensaje(f.Para), "", nil
+}
+
+// sinListaEspera: la lista de espera se anota por email, sin cliente; si un cliente del negocio con
+// ese email apagó esos avisos, no se le mandan.
+func sinListaEspera(ctx context.Context, tx pgx.Tx, email string) (bool, error) {
+	if email == "" {
+		return false, nil
+	}
+	var no bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM clientes c JOIN preferencias p ON p.cliente_id = c.id
+		WHERE lower(c.email) = lower($1) AND NOT p.lista_espera)`, email).Scan(&no)
+	return no, err
 }

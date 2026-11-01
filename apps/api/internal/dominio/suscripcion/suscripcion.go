@@ -85,6 +85,43 @@ type Acceso struct {
 	ConSuscripcion bool       `json:"conSuscripcion"`
 	// Plan efectivo: durante la prueba, el completo (para mostrar el producto entero).
 	Plan string `json:"plan"`
+	// ProximoCobro de la suscripción autorizada (null: no hay, o Mercado Pago no lo dijo todavía).
+	// Lo completa LeerCobros (no el chequeo de escritura).
+	ProximoCobro *Cobro `json:"proximoCobro"`
+	// CobroFallidoHasta: el último cobro no pasó y la suscripción vale, en gracia, hasta acá.
+	CobroFallidoHasta *time.Time `json:"cobroFallidoHasta"`
+}
+
+// Cobro que viene.
+type Cobro struct {
+	Fecha time.Time `json:"fecha"`
+	Monto int64     `json:"monto"`
+}
+
+// LeerCobros completa ProximoCobro y CobroFallidoHasta del negocio fijado en tx. Una pausada sin
+// cancelar es un cobro rechazado (la cancelada con el mes pago también queda pausada, pero con
+// cancelada_en).
+func LeerCobros(ctx context.Context, tx pgx.Tx, ahora time.Time, a *Acceso) error {
+	var fecha *time.Time
+	var monto int64
+	err := tx.QueryRow(ctx, `SELECT proximo_cobro, monto FROM suscripciones WHERE estado = 'autorizada'
+		ORDER BY creado_en DESC LIMIT 1`).Scan(&fecha, &monto)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if fecha != nil {
+		a.ProximoCobro = &Cobro{Fecha: *fecha, Monto: monto}
+		return nil
+	}
+	if err == nil {
+		return nil // autorizada sin fecha: no hay cobro fallido que mostrar
+	}
+	err = tx.QueryRow(ctx, `SELECT gracia_hasta FROM suscripciones WHERE estado = 'pausada' AND cancelada_en IS NULL
+		AND gracia_hasta > $1 ORDER BY creado_en DESC LIMIT 1`, ahora).Scan(&a.CobroFallidoHasta)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	return err
 }
 
 // LeerAcceso del negocio fijado en tx. Una suscripción pausada cuenta mientras dure la gracia.
