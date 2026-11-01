@@ -7,9 +7,10 @@
  *   DELETE /v1/panel/mcp/tokens/{id}     → 204 (revoca)
  *   GET    /v1/panel/mcp/registro        ?token&soloCambios=1&limite → { acciones: AccionMcp[] }
  *
- * «La IA de tus clientes» sigue con contrato SUPUESTO (la API todavía no lo tiene):
+ * «La IA de tus clientes»: el servidor MCP público (sin clave) donde el asistente de cualquier
+ * persona encuentra el negocio y reserva (docs/api/mcp.md, «La IA de tus clientes»):
  *
- *   GET /v1/panel/ia/publico → { activo: boolean, reservasMes: number }   (404 = todavía no existe)
+ *   GET /v1/panel/ia/publico → IaPublica
  *   PUT /v1/panel/ia/publico   { activo: boolean } → 204
  */
 export const RUTAS_MCP = {
@@ -46,7 +47,9 @@ export type AccionMcp = {
 	error: string;
 	creadoEn: string;
 };
-export type IaPublica = { activo: boolean; reservasMes: number };
+/** Una reserva que hizo el asistente de una persona: `resumen` va después de «Asistente de una clienta». */
+export type UltimaIa = { turnoId: string; resumen: string; creadoEn: string };
+export type IaPublica = { activo: boolean; reservasMes: number; ultimas: UltimaIa[]; url: string };
 
 /** Los asistentes del diseño: cada uno es una clave con ese nombre. */
 export const ASISTENTES = ['Claude', 'ChatGPT', 'Gemini', 'Otro (MCP)'] as const;

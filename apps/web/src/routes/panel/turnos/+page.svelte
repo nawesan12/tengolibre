@@ -1,5 +1,10 @@
 <script lang="ts">
+	import '#lib/gestion/gestion.css';
+	import { enhance } from '$app/forms';
 	import { ESTADOS, dia, hora, pesos } from '#lib/formato.ts';
+	import Mensaje from '#lib/configuracion/Mensaje.svelte';
+	import { NOMBRE_MOTIVO } from '#lib/gestion/dias-libres.ts';
+	import { fechaTalon } from '#lib/gestion/equipo/semana.ts';
 	import { nombreDia, sumarDias } from '#lib/operacion/fechas.ts';
 	import AccionesTurno from '#lib/operacion/AccionesTurno.svelte';
 	import EstadoTurno from '#lib/operacion/EstadoTurno.svelte';
@@ -35,7 +40,38 @@
 		<a class="boton primario" href="/panel/turnos/nuevo">Nuevo turno</a>
 	</div>
 
-	{#if form?.error}<p class="aviso error" role="alert">{form.error}</p>{/if}
+	{#if data.reprogramar.length}
+		<!-- «Para reprogramar» (propuesta 06): los turnos de días libres aprobados, como talones. -->
+		<section class="g-bloque reprogramar" aria-labelledby="t-reprogramar">
+			<span class="cabeza">
+				<span class="icono lleno" aria-hidden="true">event_busy</span>
+				<h2 id="t-reprogramar" class="g-bloque-titulo">Para reprogramar</h2>
+				<span class="g-pildora ambar num">{data.reprogramar.length}</span>
+			</span>
+			<p class="g-nota">Caen en días libres aprobados. Movelos con la clienta: al moverlos o cancelarlos salen solos de la&nbsp;lista.</p>
+			<ul class="talones">
+				{#each data.reprogramar as r (r.id)}
+					<li class="g-talon ambar" style:--tx="96px">
+						<span>{fechaTalon(dia(r.turno.inicio))}<span class="num">{hora(r.turno.inicio)}</span></span>
+						<span>
+							<b>{r.turno.cliente.nombre}</b>
+							<span>{r.turno.servicio}{r.turno.profesional ? ` · con ${r.turno.profesional}` : ''} · {NOMBRE_MOTIVO[r.motivo] ?? r.motivo}</span>
+						</span>
+						<span class="acciones-talon">
+							<a class="g-accion" href={`/panel/turnos/${r.turno.id}`}>Mover</a>
+							<form method="POST" action="?/resolver" use:enhance>
+								<input type="hidden" name="id" value={r.id} />
+								<button class="g-accion" aria-label={`Sacar a ${r.turno.cliente.nombre} de la lista sin moverlo`}>Ya está</button>
+							</form>
+						</span>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+	<Mensaje {form} que="reprogramar" />
+
+	{#if form?.error && !('que' in form)}<p class="aviso error" role="alert">{form.error}</p>{/if}
 	{#if data.error}<p class="aviso error" role="alert">{data.error}</p>{/if}
 
 	<form method="GET" class="tarjeta grilla filtros" aria-label="Filtros">
@@ -99,6 +135,48 @@
 </div>
 
 <style>
+	.reprogramar .cabeza {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.reprogramar .cabeza .icono {
+		color: #b26a00;
+	}
+	.reprogramar h2 {
+		margin: 0;
+	}
+	.talones {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.talones .g-talon > :first-child {
+		font-size: 12px;
+		gap: 2px;
+	}
+	.acciones-talon {
+		flex-wrap: wrap;
+	}
+	.acciones-talon form {
+		display: flex;
+	}
+	@media (max-width: 480px) {
+		/* En el teléfono las acciones bajan a una segunda fila, debajo del texto. */
+		.talones .g-talon {
+			grid-template-columns: var(--tx) minmax(0, 1fr);
+		}
+		.talones .g-talon > :first-child {
+			grid-row: span 2;
+		}
+		.talones .g-talon > :nth-child(3) {
+			padding: 0 14px 8px;
+			gap: 16px;
+		}
+	}
 	.filtros {
 		grid-template-columns: repeat(auto-fill, minmax(min(130px, 100%), 1fr));
 	}

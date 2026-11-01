@@ -516,20 +516,22 @@ func (s *Servicio) leerPublico(w http.ResponseWriter, r *http.Request) error {
 			AND NOT (estado = 'pendiente_pago' AND vence_en <= now())`, z.String()).Scan(&out.ReservasMes); err != nil {
 			return err
 		}
-		filas, err := tx.Query(ctx, `SELECT t.id::text, t.servicio, c.nombre, t.inicio, t.creado_en FROM turnos t
-			JOIN clientes c ON c.id = t.cliente_id WHERE t.origen = 'ia' ORDER BY t.creado_en DESC LIMIT 5`)
+		filas, err := tx.Query(ctx, `SELECT t.id::text, t.servicio, t.inicio, t.creado_en FROM turnos t
+			WHERE t.origen = 'ia' ORDER BY t.creado_en DESC LIMIT 5`)
 		if err != nil {
 			return err
 		}
 		defer filas.Close()
 		for filas.Next() {
 			var u UltimaIA
-			var servicio, cliente string
+			var servicio string
 			var inicio time.Time
-			if err := filas.Scan(&u.TurnoID, &servicio, &cliente, &inicio, &u.CreadoEn); err != nil {
+			if err := filas.Scan(&u.TurnoID, &servicio, &inicio, &u.CreadoEn); err != nil {
 				return err
 			}
-			u.Resumen = "reservó " + servicio + " para " + strings.Fields(cliente + " ")[0] + " el " + avisos.Fecha(inicio.In(z)) + " a las " + avisos.Hora(inicio.In(z))
+			// Como en el diseño: «reservó Laminado el jueves 5, 15:30».
+			en := inicio.In(z)
+			u.Resumen = "reservó " + servicio + " el " + strings.SplitN(avisos.Fecha(en), " de ", 2)[0] + ", " + avisos.Hora(en)
 			out.Ultimas = append(out.Ultimas, u)
 		}
 		return filas.Err()

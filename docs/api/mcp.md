@@ -324,14 +324,14 @@ Sólo **dueño y encargado**; el `PUT` respeta el sólo lectura.
 {
   "activo": true,
   "reservasMes": 3,
-  "ultimas": [{ "turnoId": "…", "resumen": "reservó Corte para María el lunes 2 de noviembre a las 10:00", "creadoEn": "…" }],
+  "ultimas": [{ "turnoId": "…", "resumen": "reservó Corte el lunes 2, 10:00", "creadoEn": "…" }],
   "url": "https://api.tengolibre.com.ar/v1/mcp/publico"
 }
 ```
 
 `reservasMes`: turnos con origen `ia` creados este mes (en la zona del negocio), sin los que vencieron
 sin pagar la seña. `ultimas`: las 5 últimas reservas por la IA («Lo último que hizo la IA»; el front
-las mezcla con el registro del asistente del negocio como «El asistente de un cliente …»).
+las mezcla con el registro del asistente del negocio como «Asistente de una clienta …», como en el diseño).
 
 ### `PUT /v1/panel/ia/publico`
 

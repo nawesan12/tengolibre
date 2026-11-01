@@ -1,8 +1,7 @@
 /**
- * Contratos SUPUESTOS de la API para lo que muestran Reseñas, Referidos, Reportes y el Registro de
- * actividad del diseño v2 y la API todavía no da. La UI ya está conectada: mientras el endpoint no
- * exista (404/405/501) la sección no se muestra o cae a lo que se puede calcular. Al integrar,
- * ajustar acá la ruta o la forma y nada más.
+ * Lo que muestran Reseñas, Referidos, Reportes y el Registro de actividad del diseño v2 además de lo
+ * de siempre. Si el endpoint no está (404/405/501, una API vieja) o no le toca al rol (403), la
+ * sección no se muestra o cae a lo que se puede calcular.
  *
  * - GET /v1/panel/reportes/ausentes?desde=AAAA-MM-DD&hasta=AAAA-MM-DD
  *     → { clientes: [{ id, nombre, ausencias }] }  (los que más faltaron sin avisar, de mayor a menor, hasta 5)
@@ -12,7 +11,8 @@
  *     distribucion: { "1": n, "2": n, "3": n, "4": n, "5": n }  (reseñas visibles por puntaje)
  * - GET /v1/panel/referidos/usos
  *     → { usos: [{ id, refiere, referido, estado: 'premio_usado' | 'premio_disponible' | 'turno', turnoInicio: string | null }] }
- * - GET /v1/panel/auditoria?plata=1  (filtro nuevo: sólo cambios de plata — cobros, señas, precios, devoluciones)
+ *     estado: premio_usado (el premio ya se usó), turno (todavía no vino) o premio_disponible.
+ * - GET /v1/panel/auditoria?plata=1  (sólo cambios de plata: config de cobro, devoluciones, caja, precios, cupones, plan)
  */
 
 /** Lo mínimo del cliente de la API que hace falta (así este archivo no importa nada del servidor). */

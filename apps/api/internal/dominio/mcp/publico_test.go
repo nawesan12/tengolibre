@@ -175,7 +175,7 @@ func TestLaIADeTusClientes(t *testing.T) {
 
 	// El panel cuenta las reservas del mes y muestra lo último.
 	if p.Panel(200, "GET", "/v1/panel/ia/publico", nil, &ia); !ia.Activo || ia.ReservasMes != 2 || len(ia.Ultimas) != 2 ||
-		!strings.HasPrefix(ia.Ultimas[0].Resumen, "reservó Corte para Juana el lunes") {
+		ia.Ultimas[0].Resumen != "reservó Corte el lunes 2, 10:00" {
 		t.Fatalf("panel: %+v", ia)
 	}
 

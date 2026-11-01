@@ -11,7 +11,7 @@
 	let forzar = $state(false);
 	let notaCambiada = $state(false);
 
-	const ORIGENES: Record<string, string> = { web: 'Reserva online', panel: 'Cargado en el panel', app: 'App' };
+	const ORIGENES: Record<string, string> = { web: 'Reserva online', panel: 'Cargado en el panel', app: 'App', ia: 'Asistente de IA de la clienta' };
 	const ESTADO_AVISO: Record<string, string> = { pendiente: 'En cola', enviado: 'Enviado', fallido: 'Falló', descartado: 'Descartado' };
 </script>
 

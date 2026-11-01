@@ -267,6 +267,15 @@ test('plantillas: el borrador se prueba en la vista previa y se publica', async 
 	await page.getByRole('group', { name: 'Fondo' }).getByRole('button', { name: 'Noche' }).click();
 	await expect(page.getByText('Cambios sin publicar')).toBeVisible();
 	await expect(page.locator('iframe')).toHaveAttribute('src', new RegExp(`^/${slug}\\?vista=1&plantilla=vidriera.*fondo=noche`));
+	// La vista previa carga adentro del iframe (mismo origen) con el borrador, sin guardar nada.
+	await expect(page.frameLocator('iframe').locator('header.vidriera')).toBeVisible();
+	const previa = await page.request.get(`/${slug}?vista=1&plantilla=sobria&fondo=fucsia&secciones=equipo`);
+	expect(previa.headers()['x-frame-options']).toBe('SAMEORIGIN');
+	expect(previa.headers()['content-security-policy']).toContain("frame-ancestors 'self'");
+	const html = await previa.text();
+	expect(html).toContain('class="sobria');
+	expect(html).not.toContain('id="t-servicios"');
+	expect((await (await page.request.get(`/${slug}`)).text())).toContain('id="t-servicios"');
 
 	// Descartar vuelve a lo publicado; publicar lo deja guardado.
 	await page.getByRole('button', { name: 'Descartar' }).click();
@@ -294,6 +303,16 @@ test('plantillas: el borrador se prueba en la vista previa y se publica', async 
 	await page.reload();
 	await expect(page.getByRole('switch', { name: /Cancelar turnos/ })).toBeChecked();
 	await expect(page.getByText('Esperando conexión')).toBeVisible();
+
+	// La IA de tus clientes: se prende y queda prendida, con las reservas del mes.
+	const publica = page.getByRole('switch', { name: 'La IA de tus clientes puede reservar' });
+	await expect(publica).toBeEnabled();
+	await expect(publica).not.toBeChecked();
+	await publica.check();
+	await expect(page.getByRole('status').filter({ hasText: 'Los asistentes de tus clientes ya te encuentran.' })).toBeVisible();
+	await page.reload();
+	await expect(page.getByRole('switch', { name: 'La IA de tus clientes puede reservar' })).toBeChecked();
+	await expect(page.getByText(/reservas llegaron por un asistente de IA este mes/)).toBeVisible();
 });
 
 test('productos: se cargan en Servicios y quedan tras recargar', async ({ page }) => {
