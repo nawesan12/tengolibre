@@ -35,6 +35,21 @@
 	}
 
 	const nombreCorto = $derived(data.negocio.nombre.split(' ')[0]);
+
+	/** «Lo último que hizo la IA»: el asistente del negocio y los de las clientas, lo más nuevo arriba. */
+	type Linea = { id: string; creadoEn: string; quien: string; texto: string; error?: string };
+	const lineas = $derived<Linea[]>(
+		[
+			...data.registro.map((r) =>
+				r.ok
+					? { id: r.id, creadoEn: r.creadoEn, quien: r.token, texto: r.resumen || r.titulo.toLowerCase() }
+					: { id: r.id, creadoEn: r.creadoEn, quien: r.token, texto: r.titulo.toLowerCase(), error: r.error }
+			),
+			...(data.publico?.ultimas ?? []).map((u) => ({ id: u.turnoId, creadoEn: u.creadoEn, quien: 'Asistente de una clienta', texto: u.resumen }))
+		]
+			.sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))
+			.slice(0, 5)
+	);
 	const cuantos = ['', 'un hueco', 'dos huecos', 'tres huecos'];
 
 	type Otra = { t: string; logo?: string; icono?: string; ok: boolean; estado: string; accion: string; href: string; externo?: boolean };
@@ -243,15 +258,15 @@
 
 			<section class="g-bloque registro" aria-labelledby="t-registro">
 				<h2 id="t-registro" class="g-rotulo">Lo último que hizo la IA</h2>
-				{#if data.registro.length}
+				{#if lineas.length}
 					<ul class="lineas">
-						{#each data.registro as r (r.id)}
+						{#each lineas as r (r.id)}
 							<li>
 								<span class="num">{cuando(r.creadoEn)}</span>
-								{#if r.ok}
-									<span><b>{r.token}</b> {r.resumen || r.titulo.toLowerCase()}</span>
+								{#if r.error === undefined}
+									<span><b>{r.quien}</b> {r.texto}</span>
 								{:else}
-									<span class="fallo"><span class="icono" aria-hidden="true">error</span><span><b>{r.token}</b> no pudo {r.titulo.toLowerCase()}: {r.error}</span></span>
+									<span class="fallo"><span class="icono" aria-hidden="true">error</span><span><b>{r.quien}</b> no pudo {r.texto}: {r.error}</span></span>
 								{/if}
 							</li>
 						{/each}

@@ -31,6 +31,33 @@ func (s *Servicio) Reservar(ctx context.Context, negocioID string, in Pedido) (T
 	return t, nil
 }
 
+// OrigenIA: el turno lo sacó el asistente de IA de una persona (el servidor MCP público).
+const OrigenIA = "ia"
+
+// ReservarIA reserva para el asistente de IA de una persona (servidor MCP público): las mismas
+// reglas que la página pública (penalidades, seña con link de Mercado Pago, lo cargado no es de
+// confianza), sin cupones ni membresías, y con origen "ia" para contarlas en el panel.
+func (s *Servicio) ReservarIA(ctx context.Context, negocioID string, in Pedido) (Turno, error) {
+	in.Forzar, in.UsarMembresia, in.ClienteID, in.SinAnticipacion = false, false, "", false
+	in.Cupon, in.Referido, in.SerieID, in.reglas = "", "", "", nil
+	var t Turno
+	err := s.Pool.EnNegocio(ctx, negocioID, func(tx pgx.Tx) (err error) {
+		if _, err := tx.Exec(ctx, "SELECT set_config('app.origen', 'web', true)"); err != nil {
+			return err
+		}
+		if t, err = reservar(ctx, tx, in, OrigenIA, s.ahora()); err != nil {
+			return err
+		}
+		return s.alReservar(ctx, tx, &t, in, OrigenIA)
+	})
+	if err != nil {
+		return t, err
+	}
+	s.despuesDeReservar(ctx, negocioID, &t)
+	s.avisar(ctx, negocioID, t.ID, "reservado")
+	return t, nil
+}
+
 // Ver un turno del negocio.
 func (s *Servicio) Ver(ctx context.Context, negocioID, turnoID string) (Turno, error) {
 	var t Turno

@@ -26,7 +26,7 @@ export const load: PageServerLoad = async (event) => {
 		colores: { primario: web.colorPrimario || '#183c44', acento: web.colorAcento || '#3ccc90' },
 		rubro: web.rubro,
 		publicado: web.estilo,
-		// Las secciones son un contrato supuesto: hasta que la API las guarde no se publican.
+		// Las secciones: una API vieja no las conoce, y entonces no se publican.
 		conSecciones: Array.isArray(web.estilo.secciones),
 		servicios: servicios
 			.filter((s) => s.activo)

@@ -11,7 +11,8 @@
 	- `proximo`: el primer lugar libre { fecha: AAAA-MM-DD, hora: HH:MM } (barra del teléfono), opcional.
 
 	Props del componente (README del handoff): `plantilla`, `portada`, `fondo`, `titulos`, `forma`,
-	`primario`, `acento` (por defecto, lo publicado en `pagina.web`), y para incrustarlo:
+	`primario`, `acento` y `secciones` (las que se ven y en qué orden: servicios, resenas, equipo,
+	fotos, membresias) (por defecto, lo publicado en `pagina.web`), y para incrustarlo:
 	`ancho` (fuerza el ancho de diseño en px: menos de 900 es el teléfono) e `incrustado` (la barra
 	de abajo pasa de fixed a sticky).
 
@@ -26,7 +27,18 @@
 	import Icono from '#lib/ui/Icono.svelte';
 	import PanelReserva from './PanelReserva.svelte';
 	import { diaCorto } from './calendario.ts';
-	import { completar, tema, variables, type Fondo, type Forma, type Plantilla, type Portada, type Titulos } from './estilo.ts';
+	import {
+		completar,
+		secciones as seccionesDe,
+		tema,
+		variables,
+		type Fondo,
+		type Forma,
+		type Plantilla,
+		type Portada,
+		type Seccion,
+		type Titulos
+	} from './estilo.ts';
 	import {
 		compartirWhatsapp,
 		duracion,
@@ -54,6 +66,7 @@
 		fondo,
 		titulos,
 		forma,
+		secciones,
 		primario,
 		acento,
 		ancho,
@@ -73,6 +86,7 @@
 		fondo?: Fondo;
 		titulos?: Titulos;
 		forma?: Forma;
+		secciones?: Seccion[];
 		primario?: string;
 		acento?: string;
 		ancho?: number;
@@ -99,6 +113,8 @@
 		});
 	});
 	const t = $derived(tema(estilo, primario ?? w.colorPrimario, acento ?? w.colorAcento));
+	/** Las secciones del medio de la página, en el orden elegido (sin elegir: todas). */
+	const orden = $derived(seccionesDe(secciones ?? w.estilo?.secciones));
 	const vars = $derived(variables(t));
 	const pl = $derived(estilo.plantilla);
 	// Con `ancho`, el teléfono o el escritorio lo decide la prop (la barra vive fuera del contenedor).
@@ -184,6 +200,105 @@
 		<img class={clase} src={fotos[i % fotos.length]} {alt} loading={i ? 'lazy' : undefined} />
 	{:else}
 		<span class="{clase} sin-foto" aria-hidden="true"></span>
+	{/if}
+{/snippet}
+
+{#snippet sServicios()}
+	<section class="carta-servicios lado" aria-labelledby="t-servicios">
+		<div class="titulo-fila">
+			<h2 id="t-servicios">Servicios</h2>
+			<span class="sub chico-num">{pagina.servicios.length} · precios finales</span>
+		</div>
+		{#if grupos.length === 0}<p class="sub">Este negocio todavía no cargó&nbsp;servicios.</p>{/if}
+		{#each grupos as g (g.id)}
+			{#if g.nombre}<h3 class="categoria">{g.nombre}</h3>{/if}
+			{#each g.servicios as s (s.id)}
+				<a class="servicio" href={`${reservar}?servicio=${s.id}`} aria-current={elegido === s.id ? 'true' : undefined}>
+					<span class="srv-fila">
+						<span class="srv-nombre">{s.nombre}</span>
+						<span class="puntos" aria-hidden="true"></span>
+						<b class="tl-num">{s.precio > 0 ? pesos(s.precio) : 'Sin cargo'}</b>
+					</span>
+					<span class="srv-sub">
+						<span class="tl-num">{duracion(s.duracion)}{s.descripcion ? ` · ${s.descripcion}` : ''}</span>
+						<span class="srv-cta">{elegido === s.id ? 'Elegido' : 'Reservar'}</span>
+					</span>
+				</a>
+			{/each}
+		{/each}
+	</section>
+{/snippet}
+
+{#snippet sMembresias()}
+	{#each planes as p (p.id)}
+		<div class="plan lado-m">
+			<div class="plan-texto">
+				<span class="plan-rotulo"><Icono nombre="card_membership" tam={16} lleno />MEMBRESÍA</span>
+				<b class="plan-nombre">{p.nombre}</b>
+				<span class="plan-desc">{sinViuda(textoPlan(p))}</span>
+			</div>
+			<div class="plan-precio">
+				<b class="tl-num">{pesos(p.precio)}</b>
+				<span>{porPlan(p)}</span>
+			</div>
+		</div>
+	{/each}
+{/snippet}
+
+{#snippet sResenas()}
+	{#if hayResenas}
+		<section id="resenas" class="resenas lado" aria-labelledby="t-res">
+			<div class="titulo-fila">
+				<h2 id="t-res">Reseñas</h2>
+				<b class="tl-num prom">{promedio}</b><span class="sub chico">de {pagina.resenas.cantidad}</span>
+			</div>
+			{#if destacada}
+				<figure>
+					<blockquote>«{sinViuda(destacada.comentario)}»</blockquote>
+					<figcaption>
+						<span class="estrellas" aria-label={`${destacada.puntaje} de 5`}>{estrellas(destacada.puntaje)}</span>{destacada.nombre}{destacada.servicio
+							? ` · ${destacada.servicio}`
+							: ''}
+					</figcaption>
+				</figure>
+				{#if destacada.respuesta}<span class="respuesta"><b>{n.nombre} respondió:</b> {destacada.respuesta}</span>{/if}
+			{/if}
+			{#each otras as r, i (i)}
+				<div class="resena">
+					<span class="resena-cab">
+						<b>{r.nombre}</b><span class="estrellas" aria-label={`${r.puntaje} de 5`}>{estrellas(r.puntaje)}</span>
+						<span class="cuando tl-num">{hace(r.creadoEn)}</span>
+					</span>
+					{r.comentario}
+					{#if r.respuesta}<span class="respuesta"><b>{n.nombre} respondió:</b> {r.respuesta}</span>{/if}
+				</div>
+			{/each}
+		</section>
+	{/if}
+{/snippet}
+
+{#snippet sEquipo()}
+	{#if pagina.profesionales.length}
+		<section class="equipo lado" aria-labelledby="t-eq">
+			<h2 id="t-eq">Equipo</h2>
+			<ul>
+				{#each pagina.profesionales as p (p.id)}
+					<li>
+						{#if p.foto}<img src={p.foto} alt="" width="72" height="72" loading="lazy" />{:else}<span class="ini" aria-hidden="true">{iniciales(p.nombre)}</span>{/if}
+						<b>{corto(p.nombre)}</b>
+						{#if p.especialidad}<span>{p.especialidad}</span>{/if}
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+{/snippet}
+
+{#snippet sFotos()}
+	{#if galeria.length}
+		<div class="fotos lado-m" style:--cols={galeria.length === 1 ? '1fr' : galeria.length === 2 ? '2fr 1fr' : '2fr 1fr 1fr'}>
+			{#each galeria as f (f.id)}<img src={f.url} alt={f.epigrafe || `Foto de ${n.nombre}`} loading="lazy" />{/each}
+		</div>
 	{/if}
 {/snippet}
 
@@ -289,94 +404,9 @@
 					</a>
 				</div>
 
-				<section class="carta-servicios lado" aria-labelledby="t-servicios">
-					<div class="titulo-fila">
-						<h2 id="t-servicios">Servicios</h2>
-						<span class="sub chico-num">{pagina.servicios.length} · precios finales</span>
-					</div>
-					{#if grupos.length === 0}<p class="sub">Este negocio todavía no cargó&nbsp;servicios.</p>{/if}
-					{#each grupos as g (g.id)}
-						{#if g.nombre}<h3 class="categoria">{g.nombre}</h3>{/if}
-						{#each g.servicios as s (s.id)}
-							<a class="servicio" href={`${reservar}?servicio=${s.id}`} aria-current={elegido === s.id ? 'true' : undefined}>
-								<span class="srv-fila">
-									<span class="srv-nombre">{s.nombre}</span>
-									<span class="puntos" aria-hidden="true"></span>
-									<b class="tl-num">{s.precio > 0 ? pesos(s.precio) : 'Sin cargo'}</b>
-								</span>
-								<span class="srv-sub">
-									<span class="tl-num">{duracion(s.duracion)}{s.descripcion ? ` · ${s.descripcion}` : ''}</span>
-									<span class="srv-cta">{elegido === s.id ? 'Elegido' : 'Reservar'}</span>
-								</span>
-							</a>
-						{/each}
-					{/each}
-				</section>
-
-				{#each planes as p (p.id)}
-					<div class="plan lado-m">
-						<div class="plan-texto">
-							<span class="plan-rotulo"><Icono nombre="card_membership" tam={16} lleno />MEMBRESÍA</span>
-							<b class="plan-nombre">{p.nombre}</b>
-							<span class="plan-desc">{sinViuda(textoPlan(p))}</span>
-						</div>
-						<div class="plan-precio">
-							<b class="tl-num">{pesos(p.precio)}</b>
-							<span>{porPlan(p)}</span>
-						</div>
-					</div>
+				{#each orden as x (x)}
+					{#if x === 'servicios'}{@render sServicios()}{:else if x === 'membresias'}{@render sMembresias()}{:else if x === 'resenas'}{@render sResenas()}{:else if x === 'equipo'}{@render sEquipo()}{:else}{@render sFotos()}{/if}
 				{/each}
-
-				{#if hayResenas}
-					<section id="resenas" class="resenas lado" aria-labelledby="t-res">
-						<div class="titulo-fila">
-							<h2 id="t-res">Reseñas</h2>
-							<b class="tl-num prom">{promedio}</b><span class="sub chico">de {pagina.resenas.cantidad}</span>
-						</div>
-						{#if destacada}
-							<figure>
-								<blockquote>«{sinViuda(destacada.comentario)}»</blockquote>
-								<figcaption>
-									<span class="estrellas" aria-label={`${destacada.puntaje} de 5`}>{estrellas(destacada.puntaje)}</span>{destacada.nombre}{destacada.servicio
-										? ` · ${destacada.servicio}`
-										: ''}
-								</figcaption>
-							</figure>
-							{#if destacada.respuesta}<span class="respuesta"><b>{n.nombre} respondió:</b> {destacada.respuesta}</span>{/if}
-						{/if}
-						{#each otras as r, i (i)}
-							<div class="resena">
-								<span class="resena-cab">
-									<b>{r.nombre}</b><span class="estrellas" aria-label={`${r.puntaje} de 5`}>{estrellas(r.puntaje)}</span>
-									<span class="cuando tl-num">{hace(r.creadoEn)}</span>
-								</span>
-								{r.comentario}
-								{#if r.respuesta}<span class="respuesta"><b>{n.nombre} respondió:</b> {r.respuesta}</span>{/if}
-							</div>
-						{/each}
-					</section>
-				{/if}
-
-				{#if pagina.profesionales.length}
-					<section class="equipo lado" aria-labelledby="t-eq">
-						<h2 id="t-eq">Equipo</h2>
-						<ul>
-							{#each pagina.profesionales as p (p.id)}
-								<li>
-									{#if p.foto}<img src={p.foto} alt="" width="72" height="72" loading="lazy" />{:else}<span class="ini" aria-hidden="true">{iniciales(p.nombre)}</span>{/if}
-									<b>{corto(p.nombre)}</b>
-									{#if p.especialidad}<span>{p.especialidad}</span>{/if}
-								</li>
-							{/each}
-						</ul>
-					</section>
-				{/if}
-
-				{#if galeria.length}
-					<div class="fotos lado-m" style:--cols={galeria.length === 1 ? '1fr' : galeria.length === 2 ? '2fr 1fr' : '2fr 1fr 1fr'}>
-						{#each galeria as f (f.id)}<img src={f.url} alt={f.epigrafe || `Foto de ${n.nombre}`} loading="lazy" />{/each}
-					</div>
-				{/if}
 
 				<section id="donde" class="donde lado" aria-label="Dónde y cuándo">
 					{#if n.direccion}

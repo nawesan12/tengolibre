@@ -9,15 +9,18 @@ export const PORTADAS = ['foto', 'color'] as const;
 export const FONDOS = ['crema', 'blanco', 'noche'] as const;
 export const TITULOS = ['grandes', 'medianos', 'livianos'] as const;
 export const FORMAS = ['redondos', 'suaves', 'rectos'] as const;
+/** Las secciones de la página que se muestran, ocultan y ordenan (miweb.Secciones en la API). */
+export const SECCIONES = ['servicios', 'resenas', 'equipo', 'fotos', 'membresias'] as const;
 
 export type Plantilla = (typeof PLANTILLAS)[number];
 export type Portada = (typeof PORTADAS)[number];
 export type Fondo = (typeof FONDOS)[number];
 export type Titulos = (typeof TITULOS)[number];
 export type Forma = (typeof FORMAS)[number];
+export type Seccion = (typeof SECCIONES)[number];
 
-/** El estilo publicado, como lo devuelve la API en `web.estilo`. */
-export type Estilo = { plantilla: Plantilla; portada: Portada; fondo: Fondo; titulos: Titulos; forma: Forma };
+/** El estilo publicado, como lo devuelve la API en `web.estilo` (sin `secciones`: una API vieja). */
+export type Estilo = { plantilla: Plantilla; portada: Portada; fondo: Fondo; titulos: Titulos; forma: Forma; secciones?: Seccion[] };
 
 export const ESTILO_BASE: Estilo = { plantilla: 'carta', portada: 'foto', fondo: 'crema', titulos: 'grandes', forma: 'redondos' };
 
@@ -31,6 +34,33 @@ export function completar(e: Partial<Record<keyof Estilo, unknown>> | null | und
 		fondo: de(e?.fondo, FONDOS),
 		titulos: de(e?.titulos, TITULOS),
 		forma: de(e?.forma, FORMAS)
+	};
+}
+
+/** Las secciones a mostrar, en orden: las conocidas, sin repetir. Sin lista (null), todas. */
+export function secciones(v: readonly unknown[] | null | undefined): Seccion[] {
+	if (!Array.isArray(v)) return [...SECCIONES];
+	return v.filter((x, i): x is Seccion => (SECCIONES as readonly unknown[]).includes(x) && v.indexOf(x) === i);
+}
+
+/**
+ * La vista previa de Plantillas (`/<slug>?vista=1&plantilla=…&portada=…&fondo=…&titulos=…&forma=…[&secciones=a,b]`):
+ * lo que venga y sea válido pisa lo publicado, sólo para mostrar. Sin `vista=1`, null.
+ */
+export function vistaPrevia(q: URLSearchParams): (Partial<Omit<Estilo, 'secciones'>> & { secciones?: Seccion[] }) | null {
+	if (q.get('vista') !== '1') return null;
+	const uno = <T extends string>(k: string, lista: readonly T[]) => {
+		const v = q.get(k);
+		return v !== null && (lista as readonly string[]).includes(v) ? (v as T) : undefined;
+	};
+	const s = q.get('secciones');
+	return {
+		plantilla: uno('plantilla', PLANTILLAS),
+		portada: uno('portada', PORTADAS),
+		fondo: uno('fondo', FONDOS),
+		titulos: uno('titulos', TITULOS),
+		forma: uno('forma', FORMAS),
+		secciones: s === null ? undefined : secciones(s ? s.split(',') : [])
 	};
 }
 

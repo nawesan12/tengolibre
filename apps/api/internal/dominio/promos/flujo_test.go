@@ -156,4 +156,13 @@ func TestReferidos(t *testing.T) {
 	if len(l.Referidos) != 1 || l.Referidos[0].Usos != 2 || l.Referidos[0].Cliente != "Cliente 1111" {
 		t.Fatalf("panel: %+v", l.Referidos)
 	}
+	// Cada uso con su premio: el de Beto ya se usó; Carla tiene el turno por delante.
+	var u struct {
+		Usos []promos.UsoReferido `json:"usos"`
+	}
+	e.Panel(200, "GET", "/v1/panel/referidos/usos", nil, &u)
+	if len(u.Usos) != 2 || u.Usos[0].Referido != "Cliente 3333" || u.Usos[0].Estado != "turno" || u.Usos[0].TurnoInicio == nil ||
+		u.Usos[1].Referido != "Cliente 2222" || u.Usos[1].Refiere != "Cliente 1111" || u.Usos[1].Estado != "premio_usado" {
+		t.Fatalf("usos: %+v", u.Usos)
+	}
 }

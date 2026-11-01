@@ -30,6 +30,10 @@ export type Estado = {
 
 export const load: PageServerLoad = async (event) => {
 	const estado = await apiDe(event).get<Estado>('/v1/panel/suscripcion');
+	// Cancelada con el mes pago, la API la deja «pausada» hasta el próximo cobro (con canceladaEn):
+	// para la pantalla es una cancelada que todavía anda, no un cobro fallido.
+	const s = estado.suscripcion;
+	if (s?.estado === 'pausada' && s.canceladaEn) estado.suscripcion = { ...s, estado: 'cancelada', proximoCobro: s.graciaHasta ?? s.proximoCobro };
 	return { estado, vuelta: event.url.searchParams.get('resultado') === 'vuelta' };
 };
 
@@ -45,8 +49,8 @@ export const actions: Actions = {
 	},
 	cancelar: async (event) =>
 		accion('cancelar', 'Cancelamos la suscripción.', () => apiDe(event).post('/v1/panel/suscripcion/cancelar')),
-	// Contratos supuestos (ver #lib/gestion/api-cobros.ts): cambiar de plan, pagar la cuota que falló,
-	// cambiar la tarjeta y reactivar una cancelada. Los tres últimos llevan a Mercado Pago.
+	// Ver #lib/gestion/api-cobros.ts: cambiar de plan, pagar la cuota que falló, cambiar la tarjeta y
+	// reactivar una cancelada. Los tres últimos llevan a Mercado Pago.
 	cambiar: async (event) => {
 		const f = await event.request.formData();
 		return accion('suscribir', 'Cambiamos tu plan: el precio nuevo rige desde el próximo cobro.', () =>

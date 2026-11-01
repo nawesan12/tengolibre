@@ -114,11 +114,7 @@
 							<span class="gracia-sub">Todo sigue andando hasta ese día</span>
 						</span>
 						{#if esDuenio}
-							{#if s.link}
-								<a class="g-boton menta" href={s.link} rel="noopener">Pagar ahora</a>
-							{:else}
-								<form method="POST" action="?/pagar"><button class="g-boton menta">Pagar ahora</button></form>
-							{/if}
+							<form method="POST" action="?/pagar"><button class="g-boton menta">Pagar ahora</button></form>
 						{/if}
 					</div>
 				{/if}

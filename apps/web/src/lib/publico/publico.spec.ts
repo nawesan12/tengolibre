@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { diaCorto, fechaLarga, mesesCortos, semanas, sumarDias } from './calendario.ts';
-import { completar, contraste, tema, textoSobre, variables } from './estilo.ts';
+import { completar, contraste, secciones, tema, textoSobre, variables, vistaPrevia } from './estilo.ts';
 import { cacheDeHosts, esHostPropio, rutaPara } from './dominio.ts';
 import { urlDePaso } from './reserva.ts';
 import { duracion, estadoAtencion, iniciales, linkMapa, linkWhatsapp, montoSena, renglonesAtencion, sinViuda } from './textos.ts';
@@ -88,6 +88,20 @@ describe('estilo de la web', () => {
 		expect(noche.bg).toBe('#14221f');
 		expect(contraste(noche.marca, noche.bg)).toBeGreaterThanOrEqual(4.5);
 		expect(variables(noche)).toContain('--w-pri:#7a3b5e');
+	});
+
+	it('las secciones: sin lista, todas; con lista, las conocidas y sin repetir', () => {
+		expect(secciones(undefined)).toEqual(['servicios', 'resenas', 'equipo', 'fotos', 'membresias']);
+		expect(secciones(['fotos', 'tienda', 'servicios', 'fotos'])).toEqual(['fotos', 'servicios']);
+		expect(secciones([])).toEqual([]);
+	});
+
+	it('la vista previa toma sólo lo válido y sólo con vista=1', () => {
+		expect(vistaPrevia(new URLSearchParams('plantilla=galeria'))).toBeNull();
+		const v = vistaPrevia(new URLSearchParams('vista=1&plantilla=galeria&fondo=fucsia&forma=rectos&secciones=equipo,nada'));
+		expect(v).toMatchObject({ plantilla: 'galeria', fondo: undefined, forma: 'rectos', secciones: ['equipo'] });
+		expect(vistaPrevia(new URLSearchParams('vista=1'))?.secciones).toBeUndefined();
+		expect(vistaPrevia(new URLSearchParams('vista=1&secciones='))?.secciones).toEqual([]);
 	});
 
 	it('un color inválido usa el de por defecto', () => {

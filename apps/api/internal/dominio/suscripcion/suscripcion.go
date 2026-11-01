@@ -212,10 +212,11 @@ func escanear(f pgx.Row, x *Suscripcion) error {
 	return f.Scan(&x.ID, &x.Plan, &x.Estado, &x.Monto, &x.Link, &x.ProximoCobro, &x.UltimoCobro, &x.GraciaHasta, &x.CanceladaEn, &x.CreadoEn)
 }
 
-// vigente: la última autorizada, pausada o pendiente.
+// vigente: la última autorizada, pausada o pendiente, en ese orden (un alta que reemplaza a otra
+// queda pendiente hasta que Mercado Pago la autorice: hasta ahí se ve la de antes).
 func vigente(ctx context.Context, tx pgx.Tx, bloquear bool) (*Suscripcion, error) {
 	q := "SELECT " + columnas + ` FROM suscripciones WHERE estado IN ('autorizada', 'pausada', 'pendiente')
-		ORDER BY (estado = 'autorizada') DESC, creado_en DESC LIMIT 1`
+		ORDER BY CASE estado WHEN 'autorizada' THEN 0 WHEN 'pausada' THEN 1 ELSE 2 END, creado_en DESC LIMIT 1`
 	if bloquear {
 		q += " FOR UPDATE"
 	}

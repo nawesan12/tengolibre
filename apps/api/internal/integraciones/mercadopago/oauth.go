@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/url"
+	"strings"
 )
 
 // Aplicacion son las credenciales de la aplicación de TengoLibre en Mercado Pago (OAuth).
@@ -93,4 +94,32 @@ func (c *Cliente) Renovar(ctx context.Context, a Aplicacion, renovacion string) 
 		tk.RefreshToken = renovacion
 	}
 	return tk, err
+}
+
+// Cuenta: lo que hace falta de /users/me para mostrar la cuenta conectada.
+type Cuenta struct {
+	Nickname  string `json:"nickname"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Company   struct {
+		BrandName     string `json:"brand_name"`
+		CorporateName string `json:"corporate_name"`
+	} `json:"company"`
+}
+
+// Nombre para el panel: la razón social, la marca, la persona o el apodo, lo primero que haya.
+func (c Cuenta) Nombre() string {
+	for _, v := range []string{c.Company.CorporateName, c.Company.BrandName, strings.TrimSpace(c.FirstName + " " + c.LastName), c.Nickname} {
+		if v = strings.TrimSpace(v); v != "" {
+			return Recortar(v, 120)
+		}
+	}
+	return ""
+}
+
+// LeerCuenta con el token del vendedor.
+func (c *Cliente) LeerCuenta(ctx context.Context, token string) (Cuenta, error) {
+	var u Cuenta
+	err := c.JSON(ctx, "GET", "/users/me", token, "", nil, &u)
+	return u, err
 }

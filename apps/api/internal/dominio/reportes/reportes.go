@@ -44,6 +44,7 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	g := func(h web.Manejador) http.HandlerFunc { return s.Sesion.Panel(sesion.Gestion, web.Envolver(h)) }
 	mux.HandleFunc("GET /v1/panel/reportes", g(s.reporte))
 	mux.HandleFunc("GET /v1/panel/estadisticas", g(s.tablero))
+	mux.HandleFunc("GET /v1/panel/reportes/ausentes", g(s.ausentes))
 	mux.HandleFunc("GET /v1/panel/reportes/clientes.csv", g(s.csvClientes))
 	mux.HandleFunc("GET /v1/panel/reportes/turnos.csv", g(s.csvTurnos))
 	mux.HandleFunc("GET /v1/panel/reportes/horas-muertas", g(s.horasMuertas))
@@ -126,6 +127,10 @@ type Dia struct {
 	Turnos    int    `json:"turnos"`
 	Atendidos int    `json:"atendidos"`
 	Ingresos  int64  `json:"ingresos"`
+	// MinutosReservados: los de los turnos no cancelados del día; MinutosDisponibles, los de horario
+	// de los profesionales activos ese día (la barra hecho / libre). Null si nadie atendía.
+	MinutosReservados  int  `json:"minutosReservados"`
+	MinutosDisponibles *int `json:"minutosDisponibles,omitempty" db:"-"`
 	// Cobrado: señas y caja que entraron ese día.
 	Cobrado int64 `json:"cobrado" db:"-"`
 }
@@ -201,9 +206,9 @@ func agrupar(ctx context.Context, tx pgx.Tx, rg rango, id, copia, tabla string) 
 }
 
 // disponibles: los minutos de horario de cada profesional activo en el rango, menos los días
-// bloqueados enteros y lo que tapan los bloqueos parciales. Es una aproximación: no descuenta los
-// bloqueos semanales ni las excepciones (que son de a un horario).
-func disponibles(ctx context.Context, tx pgx.Tx, rg rango) (map[string]int, map[string]string, error) {
+// bloqueados enteros y lo que tapan los bloqueos parciales, por profesional y por día. Es una
+// aproximación: no descuenta los bloqueos semanales ni las excepciones (que son de a un horario).
+func disponibles(ctx context.Context, tx pgx.Tx, rg rango) (map[string]int, map[string]string, map[string]int, error) {
 	filas, err := tx.Query(ctx, `WITH dias AS (
 			SELECT d::date AS fecha FROM generate_series($1::date, $2::date, interval '1 day') d
 		), franjas AS (
@@ -212,25 +217,27 @@ func disponibles(ctx context.Context, tx pgx.Tx, rg rango) (map[string]int, map[
 			JOIN profesionales p ON p.id = h.profesional_id AND p.activo
 			WHERE NOT EXISTS (SELECT 1 FROM bloqueos b WHERE b.profesional_id = h.profesional_id AND b.fecha = d.fecha AND b.desde IS NULL)
 		)
-		SELECT f.profesional_id::text, max(p.nombre), sum(greatest(0, extract(epoch FROM f.hasta - f.desde) / 60
+		SELECT f.profesional_id::text, max(p.nombre), to_char(f.fecha, 'YYYY-MM-DD'), sum(greatest(0, extract(epoch FROM f.hasta - f.desde) / 60
 			- coalesce((SELECT sum(extract(epoch FROM least(f.hasta, b.hasta) - greatest(f.desde, b.desde)) / 60) FROM bloqueos b
 				WHERE b.profesional_id = f.profesional_id AND b.fecha = f.fecha AND b.desde < f.hasta AND b.hasta > f.desde), 0)))::int
 		FROM franjas f JOIN profesionales p ON p.id = f.profesional_id
-		GROUP BY f.profesional_id`, rg.desde, rg.hasta)
+		GROUP BY f.profesional_id, f.fecha`, rg.desde, rg.hasta)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer filas.Close()
-	minutos, nombres := map[string]int{}, map[string]string{}
+	minutos, nombres, porDia := map[string]int{}, map[string]string{}, map[string]int{}
 	for filas.Next() {
-		var id, nombre string
+		var id, nombre, fecha string
 		var m int
-		if err := filas.Scan(&id, &nombre, &m); err != nil {
-			return nil, nil, err
+		if err := filas.Scan(&id, &nombre, &fecha, &m); err != nil {
+			return nil, nil, nil, err
 		}
-		minutos[id], nombres[id] = m, nombre
+		minutos[id] += m
+		nombres[id] = nombre
+		porDia[fecha] += m
 	}
-	return minutos, nombres, filas.Err()
+	return minutos, nombres, porDia, filas.Err()
 }
 
 // armar el reporte del rango en el negocio fijado.
@@ -261,7 +268,7 @@ func armar(ctx context.Context, tx pgx.Tx, rg rango) (Reporte, error) {
 	if rep.PorProfesional, err = agrupar(ctx, tx, rg, "profesional_id", "profesional", "profesionales"); err != nil {
 		return rep, err
 	}
-	minutos, nombres, err := disponibles(ctx, tx, rg)
+	minutos, nombres, libresPorDia, err := disponibles(ctx, tx, rg)
 	if err != nil {
 		return rep, err
 	}
@@ -289,7 +296,8 @@ func armar(ctx context.Context, tx pgx.Tx, rg rango) (Reporte, error) {
 
 	filas, err = tx.Query(ctx, `SELECT to_char(t.inicio AT TIME ZONE $3, 'YYYY-MM-DD'),
 		count(*) FILTER (WHERE t.estado <> 'cancelado'), count(*) FILTER (WHERE t.estado = 'atendido'),
-		coalesce(sum(t.precio) FILTER (WHERE t.estado = 'atendido'), 0)
+		coalesce(sum(t.precio) FILTER (WHERE t.estado = 'atendido'), 0),
+		coalesce(sum(extract(epoch FROM t.fin - t.inicio) / 60) FILTER (WHERE t.estado <> 'cancelado'), 0)::int
 		FROM turnos t WHERE t.inicio >= $1 AND t.inicio < $2 AND `+vivo+` GROUP BY 1`, rg.ini, rg.fin, rg.zona.String())
 	if err != nil {
 		return rep, err
@@ -307,6 +315,9 @@ func armar(ctx context.Context, tx pgx.Tx, rg rango) (Reporte, error) {
 		x, ok := porFecha[f]
 		if !ok {
 			x = Dia{Fecha: f}
+		}
+		if m, ok := libresPorDia[f]; ok {
+			x.MinutosDisponibles = &m
 		}
 		rep.PorDia = append(rep.PorDia, x)
 		rep.Resumen.Turnos += x.Turnos
@@ -430,5 +441,44 @@ func (s *Servicio) reporte(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	web.JSON(w, http.StatusOK, rep)
+	return nil
+}
+
+// Ausente: un cliente que faltó sin avisar en el período.
+type Ausente struct {
+	ID        string `json:"id"`
+	Nombre    string `json:"nombre"`
+	Ausencias int    `json:"ausencias"`
+}
+
+// ausentes: los 5 clientes con más turnos ausentes en el rango (?desde=&hasta=, como el reporte).
+func (s *Servicio) ausentes(w http.ResponseWriter, r *http.Request) error {
+	out := []Ausente{}
+	ahora := s.ahora()
+	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
+		if _, err := clientes.MarcarAusentes(ctx, tx, ahora); err != nil {
+			return err
+		}
+		zona, err := zonaDe(ctx, tx)
+		if err != nil {
+			return err
+		}
+		rg, err := leerRango(r, zona, ahora)
+		if err != nil {
+			return err
+		}
+		filas, err := tx.Query(ctx, `SELECT c.id::text, c.nombre, count(*)::int FROM turnos t JOIN clientes c ON c.id = t.cliente_id
+			WHERE t.estado = 'ausente' AND t.inicio >= $1 AND t.inicio < $2
+			GROUP BY c.id, c.nombre ORDER BY 3 DESC, max(t.inicio) DESC, c.nombre LIMIT 5`, rg.ini, rg.fin)
+		if err != nil {
+			return err
+		}
+		out, err = pgx.CollectRows(filas, pgx.RowToStructByPos[Ausente])
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	web.JSON(w, http.StatusOK, map[string]any{"clientes": out})
 	return nil
 }

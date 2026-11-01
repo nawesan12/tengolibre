@@ -52,6 +52,9 @@ type Estilo struct {
 	Fondo     string `json:"fondo"`
 	Titulos   string `json:"titulos"`
 	Forma     string `json:"forma"`
+	// Secciones: las que muestra la página, en ese orden (de Secciones). Sin el campo (un estilo
+	// guardado antes), todas en el orden de siempre; vacía, ninguna.
+	Secciones []string `json:"secciones"`
 }
 
 // Valores de cada ajuste del estilo (el primero es el de por defecto).
@@ -61,6 +64,8 @@ var (
 	Fondos     = []string{"crema", "blanco", "noche"}
 	Titulos    = []string{"grandes", "medianos", "livianos"}
 	Formas     = []string{"redondos", "suaves", "rectos"}
+	// Secciones de la página pública que se pueden mostrar, ocultar y ordenar (lib/publico/PaginaNegocio).
+	Secciones = []string{"servicios", "resenas", "equipo", "fotos", "membresias"}
 )
 
 // Completar pone el valor por defecto en lo que falta.
@@ -71,7 +76,17 @@ func (e Estilo) Completar() Estilo {
 		}
 		return l[0]
 	}
-	return Estilo{def(e.Plantilla, Plantillas), def(e.Portada, Portadas), def(e.Fondo, Fondos), def(e.Titulos, Titulos), def(e.Forma, Formas)}
+	secciones := slices.Clone(Secciones)
+	if e.Secciones != nil {
+		secciones = []string{}
+		for _, x := range e.Secciones {
+			if slices.Contains(Secciones, x) && !slices.Contains(secciones, x) {
+				secciones = append(secciones, x)
+			}
+		}
+	}
+	return Estilo{def(e.Plantilla, Plantillas), def(e.Portada, Portadas), def(e.Fondo, Fondos), def(e.Titulos, Titulos), def(e.Forma, Formas),
+		secciones}
 }
 
 // Validar dice qué campo trae un valor desconocido (vacío vale: es el de por defecto).
@@ -83,6 +98,14 @@ func (e Estilo) Validar() error {
 		{"estilo.titulos", e.Titulos, Titulos}, {"estilo.forma", e.Forma, Formas}} {
 		if c.v != "" && !slices.Contains(c.l, c.v) {
 			return campo(c.ruta, "tiene que ser uno de: "+strings.Join(c.l, ", "))
+		}
+	}
+	for i, x := range e.Secciones {
+		if !slices.Contains(Secciones, x) {
+			return campo("estilo.secciones", "cada una tiene que ser una de: "+strings.Join(Secciones, ", "))
+		}
+		if slices.Contains(e.Secciones[:i], x) {
+			return campo("estilo.secciones", "«"+x+"» está repetida")
 		}
 	}
 	return nil

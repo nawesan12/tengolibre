@@ -2,8 +2,8 @@
  * El estilo de la web pública (plantilla y ajustes), como lo guarda la API en
  * `GET/PATCH /v1/panel/mi-web` → `estilo`. El PATCH reemplaza el publicado entero.
  *
- * `secciones` (qué secciones se muestran y en qué orden) es un contrato supuesto: la API todavía
- * no lo tiene. Se manda sólo si el GET lo devuelve (así no rompe con DisallowUnknownFields).
+ * `secciones`: qué secciones se muestran y en qué orden (miweb.Secciones en la API). Se manda sólo
+ * si el GET lo devuelve (así no rompe con una API vieja, que no conoce el campo).
  */
 export const PLANTILLAS = ['carta', 'vidriera', 'sobria', 'galeria', 'editorial', 'bloques'] as const;
 export const PORTADAS = ['foto', 'color'] as const;
@@ -20,7 +20,7 @@ export type Estilo = {
 	fondo: (typeof FONDOS)[number];
 	titulos: (typeof TITULOS)[number];
 	forma: (typeof FORMAS)[number];
-	/** Supuesto: las secciones visibles, en orden. */
+	/** Las secciones visibles, en orden. */
 	secciones?: Seccion[];
 };
 export type Ajuste = 'portada' | 'fondo' | 'titulos' | 'forma';
@@ -94,8 +94,8 @@ export function diferencias(pub: Estilo, bor: Estilo): string[] {
 }
 
 /**
- * La vista previa: la página pública real del negocio con el borrador en la query. Al integrar, la
- * página pública lee estos parámetros (sólo con `vista=1`) para previsualizar sin publicar.
+ * La vista previa: la página pública real del negocio con el borrador en la query. La página pública
+ * lee estos parámetros sólo con `vista=1` (validados contra estas listas) y no guarda nada.
  */
 export function urlVistaPrevia(slug: string, e: Estilo) {
 	const q = new URLSearchParams({ vista: '1', plantilla: e.plantilla, portada: e.portada, fondo: e.fondo, titulos: e.titulos, forma: e.forma });

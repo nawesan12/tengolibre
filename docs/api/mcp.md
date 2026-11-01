@@ -252,3 +252,96 @@ cada acción nueva avisa por el SSE del panel con tipo `mcp_registro`.
   `app.negocio_del_mcp` ya no resuelve un acceso vencido.
 - `auth.oauth_clientes` (registro dinámico) y `auth.oauth_autorizaciones` (pedido → decisión → código,
   sólo hashes), globales como las sesiones.
+
+# La IA de tus clientes (servidor MCP público)
+
+El otro lado: que el asistente de IA **de cualquier persona** encuentre a los negocios que lo
+prendieron y saque turno, sin clave. Es la tarjeta «La IA de tus clientes» de Integraciones e IA.
+Código: `apps/api/internal/dominio/mcp/publico.go`, migración `00020_ia_publica_y_gestion.sql`.
+
+## URL para cargar en los asistentes
+
+`https://api.tengolibre.com.ar/v1/mcp/publico` — sin clave ni OAuth (la devuelve también
+`GET /v1/panel/ia/publico` en `url`).
+
+- **claude.ai**: Configuración → Conectores → «Agregar conector personalizado», nombre «Tengo Libre»
+  y esa URL. **ChatGPT**: Conectores (modo desarrollador), esa URL y «Sin autenticación».
+- **Claude Code**: `claude mcp add --transport http tengolibre-turnos https://api.tengolibre.com.ar/v1/mcp/publico`
+- **Claude Desktop** y otros: `{"mcpServers": {"tengolibre": {"type": "http", "url": "https://api.tengolibre.com.ar/v1/mcp/publico"}}}`
+
+Mismo transporte que el del negocio (POST JSON-RPC, respuesta JSON, sin sesión; `GET`/`DELETE` → 405).
+Acepta cualquier `Origin`: no hay credenciales que cuidar.
+
+## Herramientas
+
+| Herramienta | Qué hace |
+|---|---|
+| `buscar_negocios` | `{texto?, rubro?, ciudad?, limite?}` (hasta 20). Sólo negocios activos, reservables y con la IA pública prendida. Devuelve `slug`, nombre, rubro, ciudad, dirección, servicios, `precioDesde` y `pagina`. |
+| `ver_servicios_y_profesionales` | `{negocio}` (el slug). Servicios (duración, precio), profesionales (servicios y horario, sin contacto), dirección, política de cancelación y cuántos días se puede reservar. |
+| `buscar_horarios_libres` | `{negocio, servicioId, fecha, dias?, profesionalId?}`, como el del negocio (mismas reglas que la página: anticipación, días de vista). |
+| `reservar_turno` | `{negocio, servicioId, fecha, hora, profesionalId?, nombre, telefono?, email?, nota?}` (teléfono o email). |
+
+`servicioId` y `profesionalId` aceptan el id o el nombre exacto. Una herramienta que falla responde
+`isError: true` con `{"error": "frase"}` (la misma de la página: `Ese horario ya no está libre`,
+`Por ausencias anteriores no podés reservar online…`).
+
+`reservar_turno` reserva **como la página pública**: origen `ia` (en `turnos.origen` y en el panel),
+estado `pendiente`, lo que se carga no es «de confianza» (`app.origen = 'web'`), una clienta
+penalizada no reserva, y si el negocio cobra seña el turno queda `pendiente_pago` con el link de
+Mercado Pago que abre la persona. Respuesta:
+
+```json
+{
+  "negocio": "El Corte",
+  "turno": { "codigo": "…", "dia": "lunes 2 de noviembre", "inicio": "2026-11-02T10:00:00-03:00",
+             "servicio": "Corte", "profesional": "Ana", "precio": 8000, "estado": "pendiente_pago" },
+  "link": "https://tengolibre.com.ar/turno/…",
+  "pago": { "monto": 4000, "modo": "porcentaje", "url": "https://www.mercadopago.com.ar/…", "pagarAntesDe": "…" },
+  "mensaje": "El turno queda guardado hasta que pague la seña con el link de Mercado Pago. …"
+}
+```
+
+Sin seña no viene `pago`. Si Mercado Pago no respondió, `pago.url` es el link del turno (desde ahí se
+pide de nuevo). Cupones y membresías no se usan por acá. Al negocio le llegan los avisos de siempre
+de una reserva nueva.
+
+## Topes por IP
+
+La IP es `CF-Connecting-IP` (la API sólo escucha detrás de Caddy, que sólo acepta a Cloudflare).
+- 60 pedidos por minuto: pasado eso, `429 demasiados_pedidos` (con `Retry-After: 60`).
+- 5 reservas por hora (contando las que no pasaron; los datos incompletos no cuentan): la sexta
+  responde `isError` con «Ya se hicieron muchas reservas desde esta conexión…».
+
+En memoria (un solo proceso de API).
+
+## Rutas del panel
+
+Sólo **dueño y encargado**; el `PUT` respeta el sólo lectura.
+
+### `GET /v1/panel/ia/publico`
+
+```json
+{
+  "activo": true,
+  "reservasMes": 3,
+  "ultimas": [{ "turnoId": "…", "resumen": "reservó Corte el lunes 2, 10:00", "creadoEn": "…" }],
+  "url": "https://api.tengolibre.com.ar/v1/mcp/publico"
+}
+```
+
+`reservasMes`: turnos con origen `ia` creados este mes (en la zona del negocio), sin los que vencieron
+sin pagar la seña. `ultimas`: las 5 últimas reservas por la IA («Lo último que hizo la IA»; el front
+las mezcla con el registro del asistente del negocio como «Asistente de una clienta …», como en el diseño).
+
+### `PUT /v1/panel/ia/publico`
+
+`{"activo": true}` → `204`. Prenderla o apagarla va a la auditoría (`ia_publica.prendida` /
+`ia_publica.apagada`). Apagada, el negocio deja de aparecer y sus herramientas responden que no lo
+encuentran. Por defecto está apagada.
+
+## Base
+
+- `negocios.ia_publica` (por defecto `false`).
+- `turnos.origen` acepta `ia`; índice parcial `turnos_ia` para contar.
+- `app.directorio_ia(rubro, ciudad, texto, limite)`: SECURITY DEFINER como `app.directorio`, sólo los
+  que tienen `ia_publica`.

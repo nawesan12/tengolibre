@@ -308,11 +308,31 @@ func (s *Servicio) listar(w http.ResponseWriter, r *http.Request) error {
 	}
 	var out struct {
 		Resumen
-		Resenas []Resena `json:"resenas"`
+		// Distribucion: cuántas reseñas visibles hay de cada puntaje («1» a «5», siempre los cinco).
+		Distribucion map[string]int `json:"distribucion"`
+		Resenas      []Resena       `json:"resenas"`
 	}
 	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error {
 		var err error
 		if out.Resumen, err = Promedio(ctx, tx); err != nil {
+			return err
+		}
+		out.Distribucion = map[string]int{"1": 0, "2": 0, "3": 0, "4": 0, "5": 0}
+		ds, err := tx.Query(ctx, "SELECT puntaje::text, count(*)::int FROM resenas WHERE visible GROUP BY 1")
+		if err != nil {
+			return err
+		}
+		for ds.Next() {
+			var p string
+			var n int
+			if err := ds.Scan(&p, &n); err != nil {
+				ds.Close()
+				return err
+			}
+			out.Distribucion[p] = n
+		}
+		ds.Close()
+		if err := ds.Err(); err != nil {
 			return err
 		}
 		filas, err := tx.Query(ctx, "SELECT "+columnas+" FROM resenas WHERE "+cond+" ORDER BY creado_en DESC LIMIT 50 OFFSET $1", pagina*50)

@@ -8,6 +8,27 @@ export const NOMBRE_MOTIVO: Record<MotivoLibre, string> = {
 	otro: 'Otro'
 };
 
+/** Un turno de la lista «para reprogramar» (GET /v1/panel/reprogramar, docs/api/dias-libres.md). */
+export type Reprogramar = {
+	id: string;
+	pedidoId: string;
+	motivo: MotivoLibre;
+	resueltoEn: string | null;
+	resueltoPor: string | null;
+	creadoEn: string;
+	turno: {
+		id: string;
+		codigo: string;
+		inicio: string;
+		fin: string;
+		servicio: string;
+		profesionalId: string | null;
+		profesional: string;
+		estado: string;
+		cliente: { nombre: string; telefono: string; email: string };
+	};
+};
+
 export type PedidoLibre = {
 	id: string;
 	profesionalId: string;

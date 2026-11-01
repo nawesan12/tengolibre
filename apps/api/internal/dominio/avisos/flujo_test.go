@@ -384,9 +384,14 @@ func TestResenas(t *testing.T) {
 
 	// El panel responde y la oculta: deja de contar en la página.
 	var lista struct {
-		Resenas []resenas.Resena `json:"resenas"`
+		Resenas      []resenas.Resena `json:"resenas"`
+		Distribucion map[string]int   `json:"distribucion"`
 	}
 	e.panel(200, "GET", "/v1/panel/resenas", nil, &lista)
+	// Cuántas hay de cada puntaje (las visibles), siempre los cinco.
+	if len(lista.Distribucion) != 5 || lista.Distribucion["4"] != 1 || lista.Distribucion["5"] != 0 {
+		t.Fatalf("distribución: %+v", lista.Distribucion)
+	}
 	var x resenas.Resena
 	e.panel(200, "PATCH", "/v1/panel/resenas/"+lista.Resenas[0].ID, map[string]any{"respuesta": "¡Gracias!"}, &x)
 	if x.Respuesta != "¡Gracias!" || x.RespondidaEn == nil {

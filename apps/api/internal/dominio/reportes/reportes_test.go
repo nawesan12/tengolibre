@@ -96,6 +96,22 @@ func TestReportesYExportaciones(t *testing.T) {
 	if rep.ClientesNuevos != 3 || rep.ClientesRecurrentes != 0 || len(rep.PorDia) != 1 || rep.PorDia[0].Fecha != "2026-11-02" {
 		t.Fatalf("clientes y días: %+v", rep)
 	}
+	// La barra del día: 90' reservados de 180 de horario.
+	if d := rep.PorDia[0]; d.MinutosReservados != 90 || d.MinutosDisponibles == nil || *d.MinutosDisponibles != 180 {
+		t.Fatalf("minutos del día: %+v", d)
+	}
+	// Los que faltaron sin avisar: Pedro, una vez.
+	var aus struct {
+		Clientes []reportes.Ausente `json:"clientes"`
+	}
+	panel(200, "GET", "/v1/panel/reportes/ausentes?desde=2026-11-02&hasta=2026-11-02", nil, &aus)
+	if len(aus.Clientes) != 1 || aus.Clientes[0].Nombre != "Pedro" || aus.Clientes[0].Ausencias != 1 {
+		t.Fatalf("ausentes: %+v", aus)
+	}
+	panel(200, "GET", "/v1/panel/reportes/ausentes?desde=2026-11-09&hasta=2026-11-09", nil, &aus)
+	if len(aus.Clientes) != 0 {
+		t.Fatalf("ausentes del 9: %+v", aus)
+	}
 
 	// El lunes 9 Juana es recurrente; el período entero tiene 8 días.
 	panel(200, "GET", "/v1/panel/reportes?desde=2026-11-09&hasta=2026-11-09", nil, &rep)
@@ -105,6 +121,10 @@ func TestReportesYExportaciones(t *testing.T) {
 	panel(200, "GET", "/v1/panel/reportes?desde=2026-11-02&hasta=2026-11-09", nil, &rep)
 	if len(rep.PorDia) != 8 || rep.PorDia[3].Turnos != 0 || rep.Resumen.Turnos != 4 {
 		t.Fatalf("semana: %+v", rep.PorDia)
+	}
+	// Un día sin horario no tiene minutos disponibles.
+	if rep.PorDia[3].MinutosDisponibles != nil || rep.PorDia[7].MinutosReservados != 30 {
+		t.Fatalf("minutos de la semana: %+v", rep.PorDia)
 	}
 	// Al profesional sin turnos en el período también se lo lista, en cero.
 	panel(200, "GET", "/v1/panel/reportes?desde=2026-11-09&hasta=2026-11-09", nil, &rep)

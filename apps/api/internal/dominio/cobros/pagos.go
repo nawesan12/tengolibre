@@ -66,9 +66,10 @@ func nuevaReferencia() string {
 
 // AlReservar (turnos.Extra): si el negocio cobra, la reserva web queda pendiente_pago por VencePago
 // y se registra el pago pendiente. El monto sale del precio del turno (ya con el cupón), nunca del
-// navegador. Un turno cubierto por una membresía no se cobra; las reservas del panel tampoco.
+// navegador. Un turno cubierto por una membresía no se cobra; las reservas del panel tampoco. Las
+// que hace el asistente de IA de una persona (origen ia) se cobran como las de la web.
 func (s *Servicio) AlReservar(ctx context.Context, tx pgx.Tx, r *turnos.Reserva) error {
-	if r.Origen != "web" {
+	if r.Origen != "web" && r.Origen != turnos.OrigenIA {
 		return nil
 	}
 	c, err := leerConfig(ctx, tx)

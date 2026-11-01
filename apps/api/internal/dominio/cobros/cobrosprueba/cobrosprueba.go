@@ -27,6 +27,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/turnos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago/mpfalso"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/cifrado"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/prueba"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/servidor"
@@ -95,6 +96,7 @@ func ArmarCon(t *testing.T, mas func(a *prueba.API, tur *turnos.Servicio) []serv
 			tur, cob, pro, mem, sus,
 			&caja.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj},
 			&reportes.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj},
+			&auditoria.Servicio{Pool: app, Sesion: a.Sesion},
 		}
 		if mas != nil {
 			ds = append(ds, mas(a, tur)...)
@@ -134,7 +136,7 @@ func (e *Entorno) ConectarMP() {
 	}
 	var est cobros.Conexion
 	e.Panel(200, "POST", "/v1/panel/mercadopago/vuelta", map[string]string{"codigo": "TG-codigo", "estado": u.Query().Get("state")}, &est)
-	if !est.Conectada || est.Usuario != e.MP.Usuario {
+	if !est.Conectada || est.Usuario != e.MP.Usuario || est.Cuenta != "EL CORTE SRL" {
 		e.T.Fatalf("conexión: %+v", est)
 	}
 }

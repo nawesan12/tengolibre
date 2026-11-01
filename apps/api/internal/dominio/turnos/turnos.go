@@ -469,9 +469,9 @@ func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora ti
 			return Turno{}, err
 		}
 	}
-	// Con una penalidad vigente (por ausencias, o puesta a mano) no se reserva desde la web; desde el
-	// panel sí, porque ahí decide el negocio.
-	if origen == "web" {
+	// Con una penalidad vigente (por ausencias, o puesta a mano) no se reserva desde la web ni por un
+	// asistente de IA; desde el panel sí, porque ahí decide el negocio.
+	if origen != "panel" {
 		penalizado, err := clientes.Penalizado(ctx, tx, clienteID)
 		if err != nil {
 			return Turno{}, err

@@ -38,6 +38,10 @@ type MP struct {
 	Devoluciones  map[int64][]int64
 	Preaprobacion map[string]*mercadopago.Preaprobacion
 	Cobros        map[string]mercadopago.CobroAutorizado
+	// Montos: el último precio que se le puso a cada preapproval con un PUT (cambio de plan).
+	Montos map[string]int64
+	// Cuenta: lo que devuelve /users/me con el token del vendedor (el nombre de la cuenta).
+	Cuenta map[string]any
 	// Renovaciones de tokens pedidas.
 	Renovaciones int
 	// FallarRenovacion hace que el refresh responda 400.
@@ -49,7 +53,9 @@ type MP struct {
 func Nuevo(t testing.TB) *MP {
 	m := &MP{Usuario: 777, Preferencias: map[string]mercadopago.Preferencia{}, TokenDePreferencia: map[string]string{},
 		Pagos: map[int64]mercadopago.Pago{}, Devoluciones: map[int64][]int64{}, Preaprobacion: map[string]*mercadopago.Preaprobacion{},
-		Cobros: map[string]mercadopago.CobroAutorizado{}}
+		Cobros: map[string]mercadopago.CobroAutorizado{}, Montos: map[string]int64{},
+		Cuenta: map[string]any{"id": 777, "nickname": "ELCORTE", "first_name": "Carla", "last_name": "Gómez",
+			"company": map[string]any{"brand_name": "El Corte", "corporate_name": "EL CORTE SRL"}}}
 	m.Server = httptest.NewServer(http.HandlerFunc(m.servir))
 	t.Cleanup(m.Close)
 	return m
@@ -96,6 +102,12 @@ func (m *MP) servir(w http.ResponseWriter, r *http.Request) {
 		default:
 			escribir(w, 400, nil)
 		}
+	case r.Method == "GET" && ruta == "/users/me":
+		if !strings.HasPrefix(token(r), "APP_USR-") || token(r) == TokenPlataforma {
+			escribir(w, 401, nil)
+			return
+		}
+		escribir(w, 200, m.Cuenta)
 	case r.Method == "POST" && ruta == "/checkout/preferences":
 		var p mercadopago.Preferencia
 		_ = json.NewDecoder(r.Body).Decode(&p)
@@ -155,10 +167,18 @@ func (m *MP) servir(w http.ResponseWriter, r *http.Request) {
 		}
 		if r.Method == "PUT" {
 			var b struct {
-				Status string `json:"status"`
+				Status        string `json:"status"`
+				AutoRecurring *struct {
+					TransactionAmount int64 `json:"transaction_amount"`
+				} `json:"auto_recurring"`
 			}
 			_ = json.NewDecoder(r.Body).Decode(&b)
-			p.Status = b.Status
+			if b.Status != "" {
+				p.Status = b.Status
+			}
+			if b.AutoRecurring != nil {
+				m.Montos[p.ID] = b.AutoRecurring.TransactionAmount
+			}
 		}
 		escribir(w, 200, p)
 	case r.Method == "GET" && strings.HasPrefix(ruta, "/authorized_payments/"):

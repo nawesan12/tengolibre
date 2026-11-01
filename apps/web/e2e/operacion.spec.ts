@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from './base.ts';
 import { crearNegocio, entrar, unico } from './ayuda.ts';
+import { sql } from './publico-ayuda.ts';
 
 /**
  * La operación diaria del panel contra la API de verdad: el negocio se da de alta por el panel y el
@@ -245,4 +246,42 @@ test('los turnos en Google Calendar: link para suscribirse y regenerarlo', async
 	await expect(link).not.toHaveValue(viejo);
 	expect((await request.get(viejo)).status()).toBe(404);
 	await expect(page.getByRole('region', { name: 'Ana' }).getByRole('button', { name: 'Crear link' })).toBeVisible();
+});
+
+test('para reprogramar: los turnos de días libres aprobados, como talones', async ({ page, request }) => {
+	const a = await armar(page, request);
+	const t = await a.api('POST', '/v1/panel/turnos', {
+		servicioId: a.servicio,
+		profesionalId: a.profesional,
+		inicio: `${manana()}T11:00:00-03:00`,
+		cliente: { nombre: 'Marta Reprogramar', telefono: '1155550011' }
+	});
+	await irA(page, '/panel/turnos');
+	await expect(page.getByRole('region', { name: 'Para reprogramar' })).toHaveCount(0);
+
+	// Un pedido de días libres ya aprobado deja el turno en la lista (lo arma la base, como el aprobar).
+	sql(
+		`WITH d AS (INSERT INTO dias_libres (negocio_id, profesional_id, pidio, desde, hasta, motivo, estado)
+			SELECT negocio_id, id, 'user_e2e', :'p2'::date, :'p2'::date, 'vacaciones', 'aprobado' FROM profesionales WHERE id = :'p1' RETURNING id, negocio_id)
+		INSERT INTO reprogramar (negocio_id, turno_id, dia_libre_id) SELECT d.negocio_id, :'p3', d.id FROM d`,
+		a.profesional,
+		manana(),
+		t.id
+	);
+	await irA(page, '/panel/turnos');
+	const lista = page.getByRole('region', { name: 'Para reprogramar' });
+	await expect(lista.getByText('Marta Reprogramar')).toBeVisible();
+	await expect(lista.getByText(/Corte · con Ana · Vacaciones/)).toBeVisible();
+	await expect(lista.getByRole('link', { name: 'Mover' })).toHaveAttribute('href', `/panel/turnos/${t.id}`);
+	// A 375 px no se corre de costado (las acciones bajan debajo del texto).
+	await page.setViewportSize({ width: 375, height: 812 });
+	if (process.env.E2E_CAPTURAS) await lista.screenshot({ path: `${process.env.E2E_CAPTURAS}/reprogramar-375.png` });
+	const ancho = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+	expect(ancho).toBeLessThanOrEqual(0);
+
+	// «Ya está»: sale de la lista sin mover el turno.
+	await lista.getByRole('button', { name: /Sacar a Marta Reprogramar/ }).click();
+	await expect(page.getByRole('status')).toHaveText('Listo: salió de la lista.');
+	await expect(page.getByRole('region', { name: 'Para reprogramar' })).toHaveCount(0);
+	await expect(page.locator(`[data-turno="${t.id}"]`)).toBeVisible();
 });

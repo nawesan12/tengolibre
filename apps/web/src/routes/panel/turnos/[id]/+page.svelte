@@ -30,7 +30,7 @@
 	const wa = $derived(t.cliente.telefono ? `https://wa.me/${t.cliente.telefono.replace(/\D/g, '').replace(/^(?!54)/, '549')}` : '');
 	const MOTIVO_L: Record<string, string> = { cambio: 'Pidió cambiarlo', sin_respuesta: 'No contestó el WhatsApp', no_llego: 'No le llegó el WhatsApp' };
 
-	const ORIGENES: Record<string, string> = { web: 'Reservó por la web', panel: 'Lo cargó el equipo', app: 'Reservó por la app' };
+	const ORIGENES: Record<string, string> = { web: 'Reservó por la web', panel: 'Lo cargó el equipo', app: 'Reservó por la app', ia: 'Lo reservó el asistente de IA de quien vino' };
 	const ESTADO_AVISO: Record<string, string> = { pendiente: 'En cola', enviado: 'Enviado', fallido: 'Falló', descartado: 'Descartado' };
 	const COLOR_AVISO: Record<string, string> = { pendiente: '#c9bda4', enviado: '#3ccc90', fallido: '#a3241a', descartado: '#4a5d61' };
 	const trabajar = () => {

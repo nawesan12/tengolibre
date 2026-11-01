@@ -51,6 +51,10 @@ type Servicio struct {
 	// validarlo contra el DNS rebinding). Los clientes MCP de servidor no mandan Origin.
 	Origenes []string
 	Ahora    func() time.Time
+	// Topes por IP del servidor público (0: PedidosPorMinuto y ReservasPorHora).
+	TopePedidos, TopeReservas int
+
+	limite limite
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -72,12 +76,18 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/mcp", s.servir)
 	mux.HandleFunc("GET /v1/mcp", s.sinFlujo)
 	mux.HandleFunc("DELETE /v1/mcp", s.sinFlujo)
+	// «La IA de tus clientes»: el servidor público, sin clave (publico.go), y su interruptor.
+	mux.HandleFunc("POST /v1/mcp/publico", s.servirPublico)
+	mux.HandleFunc("GET /v1/mcp/publico", s.sinFlujo)
+	mux.HandleFunc("DELETE /v1/mcp/publico", s.sinFlujo)
 	g := func(h web.Manejador) http.HandlerFunc { return s.Sesion.Panel(sesion.Gestion, web.Envolver(h)) }
 	mux.HandleFunc("GET /v1/panel/mcp", g(s.leer))
 	mux.HandleFunc("POST /v1/panel/mcp/tokens", g(s.crearToken))
 	mux.HandleFunc("PATCH /v1/panel/mcp/tokens/{id}", g(s.editarToken))
 	mux.HandleFunc("DELETE /v1/panel/mcp/tokens/{id}", g(s.revocarToken))
 	mux.HandleFunc("GET /v1/panel/mcp/registro", g(s.registro))
+	mux.HandleFunc("GET /v1/panel/ia/publico", g(s.leerPublico))
+	mux.HandleFunc("PUT /v1/panel/ia/publico", g(s.guardarPublico))
 	mux.HandleFunc("PATCH /v1/panel/mcp/conexiones/{id}", g(s.editarConexion))
 	mux.HandleFunc("DELETE /v1/panel/mcp/conexiones/{id}", g(s.desconectar))
 	// OAuth 2.1 (claude.ai, ChatGPT): metadatos, registro, autorización, tokens y consentimiento.
@@ -205,15 +215,11 @@ func (s *Servicio) origenPermitido(r *http.Request) bool {
 	return o == "" || slices.Contains(s.Origenes, o)
 }
 
-// servir atiende un POST del cliente MCP: un mensaje JSON-RPC (o un lote, como en 2025-03-26).
+// servir atiende un POST del cliente MCP del negocio: un mensaje JSON-RPC (o un lote, como en
+// 2025-03-26), con la clave del negocio.
 func (s *Servicio) servir(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	if !s.origenPermitido(r) {
-		problema.Escribir(w, problema.SinPermiso("Ese origen no puede hablar con el servidor MCP."))
-		return
-	}
-	if v := r.Header.Get("MCP-Protocol-Version"); v != "" && !slices.Contains(versiones, v) {
-		problema.Escribir(w, problema.Invalido("No conocemos la versión "+v+" del protocolo MCP."))
+	if !s.chequear(w, r) {
 		return
 	}
 	c, err := s.conectar(ctx, claveDe(r))
@@ -226,6 +232,26 @@ func (s *Servicio) servir(w http.ResponseWriter, r *http.Request) {
 		s.sinClave(w, claveDe(r) != "")
 		return
 	}
+	s.rpc(w, r, func(ctx context.Context, m mensaje) *respuesta { return s.atender(ctx, c, m) })
+}
+
+// chequear lo que la spec pide antes de leer nada: el origen (DNS rebinding) y la versión.
+func (s *Servicio) chequear(w http.ResponseWriter, r *http.Request) bool {
+	if !s.origenPermitido(r) {
+		problema.Escribir(w, problema.SinPermiso("Ese origen no puede hablar con el servidor MCP."))
+		return false
+	}
+	if v := r.Header.Get("MCP-Protocol-Version"); v != "" && !slices.Contains(versiones, v) {
+		problema.Escribir(w, problema.Invalido("No conocemos la versión "+v+" del protocolo MCP."))
+		return false
+	}
+	return true
+}
+
+// rpc es el transporte: lee el mensaje (o el lote), atiende cada uno con atender y responde. Lo
+// comparten el servidor del negocio y el público.
+func (s *Servicio) rpc(w http.ResponseWriter, r *http.Request, atender func(context.Context, mensaje) *respuesta) {
+	ctx := r.Context()
 	cuerpo, err := io.ReadAll(http.MaxBytesReader(w, r.Body, web.MaxCuerpo))
 	if err != nil {
 		escribirRPC(w, http.StatusRequestEntityTooLarge, respuesta{JSONRPC: "2.0", ID: nulo, Error: &errorRPC{errPedido, "El pedido es muy grande."}})
@@ -241,13 +267,13 @@ func (s *Servicio) servir(w http.ResponseWriter, r *http.Request) {
 		err = json.Unmarshal(cuerpo, &m)
 		lote = []mensaje{m}
 	}
-	if err != nil || len(lote) == 0 {
+	if err != nil || len(lote) == 0 || len(lote) > maxLote {
 		escribirRPC(w, http.StatusBadRequest, respuesta{JSONRPC: "2.0", ID: nulo, Error: &errorRPC{errParseo, "El cuerpo no es JSON-RPC válido."}})
 		return
 	}
 	var out []respuesta
 	for _, m := range lote {
-		if res := s.atender(ctx, c, m); res != nil {
+		if res := atender(ctx, m); res != nil {
 			out = append(out, *res)
 		}
 	}
@@ -263,6 +289,9 @@ func (s *Servicio) servir(w http.ResponseWriter, r *http.Request) {
 	escribirRPC(w, http.StatusOK, out[0])
 }
 
+// maxLote: cuántos mensajes puede traer un lote.
+const maxLote = 20
+
 func escribirRPC(w http.ResponseWriter, estado int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
@@ -270,8 +299,9 @@ func escribirRPC(w http.ResponseWriter, estado int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// atender un mensaje. nil: no lleva respuesta (notificación o respuesta del cliente).
-func (s *Servicio) atender(ctx context.Context, c *conexion, m mensaje) *respuesta {
+// abrir un mensaje: nil si no lleva respuesta (notificación o respuesta del cliente); con Error si
+// no es JSON-RPC 2.0; si no, la respuesta vacía para completar.
+func abrir(m mensaje) *respuesta {
 	if m.Metodo == "" {
 		return nil
 	}
@@ -282,6 +312,14 @@ func (s *Servicio) atender(ctx context.Context, c *conexion, m mensaje) *respues
 	res := &respuesta{JSONRPC: "2.0", ID: m.ID}
 	if m.JSONRPC != "2.0" {
 		res.Error = &errorRPC{errPedido, "Falta jsonrpc: \"2.0\"."}
+	}
+	return res
+}
+
+// atender un mensaje. nil: no lleva respuesta (notificación o respuesta del cliente).
+func (s *Servicio) atender(ctx context.Context, c *conexion, m mensaje) *respuesta {
+	res := abrir(m)
+	if res == nil || res.Error != nil {
 		return res
 	}
 	var err *errorRPC

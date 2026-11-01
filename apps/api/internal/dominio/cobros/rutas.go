@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/web"
@@ -129,9 +130,12 @@ func (s *Servicio) guardarConfig(w http.ResponseWriter, r *http.Request) error {
 		c.SenaPorcentaje = 50
 	}
 	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `UPDATE ajustes SET cobro_modo = $1, sena_porcentaje = $2, sena_fija = $3, actualizado_en = now()
-			WHERE negocio_id = app.negocio_actual()`, c.Modo, c.SenaPorcentaje, max(c.SenaFija, 0))
-		return err
+		if _, err := tx.Exec(ctx, `UPDATE ajustes SET cobro_modo = $1, sena_porcentaje = $2, sena_fija = $3, actualizado_en = now()
+			WHERE negocio_id = app.negocio_actual()`, c.Modo, c.SenaPorcentaje, max(c.SenaFija, 0)); err != nil {
+			return err
+		}
+		return auditoria.Anotar(ctx, tx, auditoria.Registro{Accion: "cobros.config", Entidad: "ajustes",
+			Detalle: map[string]any{"modo": c.Modo, "senaPorcentaje": c.SenaPorcentaje, "senaFija": max(c.SenaFija, 0)}})
 	})
 	if err != nil {
 		return err
@@ -258,8 +262,12 @@ func (s *Servicio) devolver(w http.ResponseWriter, r *http.Request) error {
 				return err
 			}
 		}
-		return tx.QueryRow(ctx, "SELECT id::text, estado, monto, devuelto FROM pagos WHERE id = $1", r.PathValue("id")).
-			Scan(&t.ID, &t.Estado, &t.Monto, &t.Devuelto)
+		if err := tx.QueryRow(ctx, "SELECT id::text, estado, monto, devuelto FROM pagos WHERE id = $1", r.PathValue("id")).
+			Scan(&t.ID, &t.Estado, &t.Monto, &t.Devuelto); err != nil {
+			return err
+		}
+		return auditoria.Anotar(ctx, tx, auditoria.Registro{Accion: "pago.devuelto", Entidad: "pago", EntidadID: t.ID,
+			Detalle: map[string]any{"monto": in.Monto, "total": total, "turno": turnoID}})
 	})
 	if err != nil {
 		return err
