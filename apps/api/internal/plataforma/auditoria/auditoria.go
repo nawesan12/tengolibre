@@ -56,6 +56,12 @@ type Entrada struct {
 	CreadoEn  time.Time       `json:"creadoEn"`
 }
 
+// DePlata: lo que filtra «Sólo cambios de plata» (?plata=1), por entidad o por el prefijo de la
+// acción: cobros y señas, devoluciones, caja, precios, cupones, membresías, productos y la
+// suscripción. Quien anote algo de plata nuevo lo suma acá.
+var DePlata = []string{"pago", "pagos", "cobro", "cobros", "caja", "precio", "precios", "servicio_precio", "cupon",
+	"membresia", "membresias", "producto", "suscripcion", "devolucion", "sena"}
+
 // Servicio de la pantalla de auditoría.
 type Servicio struct {
 	Pool   *db.Pool
@@ -105,6 +111,9 @@ func (s *Servicio) buscar(ctx context.Context, r *http.Request, limite int) ([]E
 	}
 	if v := q.Get("quien"); v != "" {
 		agregar("a.clerk_id = ?", v)
+	}
+	if q.Get("plata") == "1" {
+		agregar("(a.entidad = ANY(?) OR split_part(a.accion, '.', 1) = ANY(?))", DePlata)
 	}
 	if v := q.Get("antes"); v != "" {
 		t, err := time.Parse(time.RFC3339Nano, v)

@@ -1,6 +1,7 @@
 package miweb_test
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -34,7 +35,7 @@ func TestMiWebYGaleria(t *testing.T) {
 
 	var w miweb.Web
 	panel(200, "GET", "/v1/panel/mi-web", nil, &w)
-	if w.ColorPrimario != "#6366f1" || w.Latitud != nil || w.Estilo != (miweb.Estilo{"carta", "foto", "crema", "grandes", "redondos"}) {
+	if w.ColorPrimario != "#6366f1" || w.Latitud != nil || !reflect.DeepEqual(w.Estilo, miweb.Estilo{"carta", "foto", "crema", "grandes", "redondos", miweb.Secciones}) {
 		t.Fatalf("por defecto: %+v", w)
 	}
 	panel(200, "PATCH", "/v1/panel/mi-web", map[string]any{"colorPrimario": "#1A2B3C", "rubro": "barberia", "acerca": "  Desde 1990.  ",
@@ -47,13 +48,23 @@ func TestMiWebYGaleria(t *testing.T) {
 	for _, malo := range []map[string]any{
 		{"colorAcento": "rojo"}, {"rubro": "carniceria"}, {"sitioWeb": "javascript:alert(1)"}, {"portada": "data:image/png;base64,AAAA"},
 		{"latitud": 10.0}, {"latitud": 91.0, "longitud": 0.0}, {"estilo": map[string]string{"plantilla": "otra"}},
+		{"estilo": map[string]any{"secciones": []string{"servicios", "tienda"}}}, {"estilo": map[string]any{"secciones": []string{"fotos", "fotos"}}},
 	} {
 		panel(400, "PATCH", "/v1/panel/mi-web", malo, nil)
 	}
 	// Publicar el estilo: lo que no viene toma el de por defecto.
 	panel(200, "PATCH", "/v1/panel/mi-web", map[string]any{"estilo": map[string]string{"plantilla": "galeria", "fondo": "noche"}}, &w)
-	if w.Estilo != (miweb.Estilo{"galeria", "foto", "noche", "grandes", "redondos"}) || w.Rubro != "barberia" {
+	if !reflect.DeepEqual(w.Estilo, miweb.Estilo{"galeria", "foto", "noche", "grandes", "redondos", miweb.Secciones}) || w.Rubro != "barberia" {
 		t.Fatalf("estilo: %+v", w)
+	}
+	// Secciones: las que se ven y en qué orden (vacía: ninguna).
+	panel(200, "PATCH", "/v1/panel/mi-web", map[string]any{"estilo": map[string]any{"plantilla": "galeria", "secciones": []string{"fotos", "servicios"}}}, &w)
+	if !reflect.DeepEqual(w.Estilo.Secciones, []string{"fotos", "servicios"}) {
+		t.Fatalf("secciones: %+v", w.Estilo)
+	}
+	panel(200, "PATCH", "/v1/panel/mi-web", map[string]any{"estilo": map[string]any{"secciones": []string{}}}, &w)
+	if w.Estilo.Secciones == nil || len(w.Estilo.Secciones) != 0 {
+		t.Fatalf("sin secciones: %+v", w.Estilo)
 	}
 	// Sacar portada y ubicación.
 	panel(200, "PATCH", "/v1/panel/mi-web", map[string]any{"portada": "", "sinUbicacion": true}, &w)

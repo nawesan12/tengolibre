@@ -133,9 +133,11 @@ func (s *Servicio) traducir(err error) error {
 // Conexion es lo que ve el panel de la cuenta de Mercado Pago.
 type Conexion struct {
 	// Disponible: TengoLibre tiene la aplicación configurada.
-	Disponible  bool       `json:"disponible"`
-	Conectada   bool       `json:"conectada"`
-	Usuario     int64      `json:"usuario,omitempty"`
+	Disponible bool  `json:"disponible"`
+	Conectada  bool  `json:"conectada"`
+	Usuario    int64 `json:"usuario,omitempty"`
+	// Cuenta: el nombre de la cuenta conectada (razón social, marca o persona), si Mercado Pago lo dio.
+	Cuenta      string     `json:"cuenta,omitempty"`
 	Desde       *time.Time `json:"desde,omitempty"`
 	VenceEn     *time.Time `json:"venceEn,omitempty"`
 	Reautorizar bool       `json:"reautorizar"`
@@ -146,8 +148,8 @@ type Conexion struct {
 func leerConexion(ctx context.Context, tx pgx.Tx) (Conexion, error) {
 	var c Conexion
 	var desde, vence time.Time
-	err := tx.QueryRow(ctx, `SELECT mp_usuario, conectada_en, vence_en, reautorizar, ultimo_error FROM mp_conexiones
-		WHERE negocio_id = app.negocio_actual()`).Scan(&c.Usuario, &desde, &vence, &c.Reautorizar, &c.UltimoError)
+	err := tx.QueryRow(ctx, `SELECT mp_usuario, cuenta, conectada_en, vence_en, reautorizar, ultimo_error FROM mp_conexiones
+		WHERE negocio_id = app.negocio_actual()`).Scan(&c.Usuario, &c.Cuenta, &desde, &vence, &c.Reautorizar, &c.UltimoError)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return c, nil
 	}
@@ -204,7 +206,19 @@ func (s *Servicio) volver(ctx context.Context, negocio, clerkID, codigo, estado 
 	if err != nil {
 		return err
 	}
-	return s.guardarTokens(ctx, negocio, tk, true)
+	if err := s.guardarTokens(ctx, negocio, tk, true); err != nil {
+		return err
+	}
+	// El nombre de la cuenta, para el panel. Si Mercado Pago no lo da, queda el número de usuario.
+	u, err := s.cliente().LeerCuenta(ctx, tk.AccessToken)
+	if err != nil {
+		s.log().Warn("cobros: no se pudo leer la cuenta de Mercado Pago", "negocio", negocio, "error", err)
+		return nil
+	}
+	return s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, "UPDATE mp_conexiones SET cuenta = $1 WHERE negocio_id = app.negocio_actual()", u.Nombre())
+		return err
+	})
 }
 
 func (s *Servicio) guardarTokens(ctx context.Context, negocio string, tk mercadopago.Tokens, nueva bool) error {
@@ -223,7 +237,7 @@ func (s *Servicio) guardarTokens(ctx context.Context, negocio string, tk mercado
 			_, err := tx.Exec(ctx, `INSERT INTO mp_conexiones (negocio_id, mp_usuario, acceso, renovacion, vence_en, alcances)
 				VALUES (app.negocio_actual(), $1, $2, $3, $4, $5)
 				ON CONFLICT (negocio_id) DO UPDATE SET mp_usuario = $1, acceso = $2, renovacion = $3, vence_en = $4, alcances = $5,
-					conectada_en = now(), renovada_en = NULL, reautorizar = false, ultimo_error = ''`,
+					conectada_en = now(), renovada_en = NULL, reautorizar = false, ultimo_error = '', cuenta = ''`,
 				tk.UserID, acceso, renov, vence, tk.Scope)
 			return err
 		}

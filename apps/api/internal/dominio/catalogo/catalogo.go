@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/disponibilidad"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
@@ -294,7 +295,7 @@ func (s *Servicio) editarServicio(w http.ResponseWriter, r *http.Request) error 
 		if p, err = LeerServicio(ctx, tx, r.PathValue("id")); err != nil {
 			return err
 		}
-		id := p.ID
+		id, antes := p.ID, p.Precio
 		if err := web.Leer(w, r, &p); err != nil {
 			return err
 		}
@@ -302,9 +303,17 @@ func (s *Servicio) editarServicio(w http.ResponseWriter, r *http.Request) error 
 		if err := validarServicio(&p); err != nil {
 			return err
 		}
-		return escanearServicio(tx.QueryRow(ctx, `UPDATE servicios SET categoria_id = $2, nombre = $3, descripcion = $4, duracion = $5,
+		if err := escanearServicio(tx.QueryRow(ctx, `UPDATE servicios SET categoria_id = $2, nombre = $3, descripcion = $4, duracion = $5,
 			precio = $6, foto = $7, orden = $8, activo = $9 WHERE id = $1 RETURNING `+columnasServicio,
-			p.ID, p.CategoriaID, p.Nombre, p.Descripcion, p.Duracion, p.Precio, p.Foto, p.Orden, p.Activo), &p)
+			p.ID, p.CategoriaID, p.Nombre, p.Descripcion, p.Duracion, p.Precio, p.Foto, p.Orden, p.Activo), &p); err != nil {
+			return err
+		}
+		if p.Precio == antes {
+			return nil
+		}
+		// Un cambio de precio va a la auditoría (el filtro «Sólo cambios de plata»).
+		return auditoria.Anotar(ctx, tx, auditoria.Registro{Accion: "precio.cambiado", Entidad: "servicio", EntidadID: p.ID,
+			Detalle: map[string]any{"servicio": p.Nombre, "antes": antes, "ahora": p.Precio}})
 	})
 	if err != nil {
 		return err

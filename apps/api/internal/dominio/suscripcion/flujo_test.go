@@ -12,6 +12,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/suscripcion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago/mpfalso"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
 )
 
 type P = cobrosprueba.P
@@ -172,7 +173,8 @@ func TestCanceladaDesdeMercadoPago(t *testing.T) {
 	// La persona la cancela desde Mercado Pago (sin pasar por el panel): se corta.
 	e.MP.Autorizar(id, "cancelled", nil)
 	e.Avisar("subscription_preapproval", id)
-	if s := leer(e); !s.Bloqueado || s.Suscripcion != nil {
+	// Se sigue viendo, cancelada (para reactivarla).
+	if s := leer(e); !s.Bloqueado || s.Suscripcion == nil || s.Suscripcion.Estado != "cancelada" {
 		t.Fatalf("cancelada: %+v", s)
 	}
 	// Un aviso de algo que no existe se contesta 200 (reintentar no lo arregla); uno sin firma, 401.
@@ -184,6 +186,93 @@ func TestCanceladaDesdeMercadoPago(t *testing.T) {
 	e.Handler.ServeHTTP(w, r)
 	if w.estado != 401 {
 		t.Fatalf("aviso viejo: %d", w.estado)
+	}
+}
+
+func TestCambiarPagarTarjetaYReactivar(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.SQL("UPDATE negocios SET prueba_hasta = NULL")
+	var url struct {
+		URL string `json:"url"`
+	}
+	// Sin suscripción no hay nada que cambiar.
+	e.Panel(409, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "completo"}, nil)
+	e.Panel(404, "POST", "/v1/panel/suscripcion/pagar", nil, nil)
+	e.Panel(201, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "inicial"}, &url)
+	id := strings.TrimPrefix(url.URL, "https://mp.falso/suscripcion/")
+	proximo := e.Ahora.Add(20 * 24 * time.Hour)
+	e.MP.Autorizar(id, "authorized", &proximo)
+	e.Avisar("subscription_preapproval", id)
+
+	// Cambiar de plan: el precio nuevo va al preapproval y el plan cambia ya.
+	e.Panel(400, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "oro"}, nil)
+	e.Panel(409, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "inicial"}, nil)
+	var x suscripcion.Suscripcion
+	e.Panel(200, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "completo"}, &x)
+	if x.Plan != "completo" || x.Monto != 15000 || e.MP.Montos[id] != 15000 {
+		t.Fatalf("cambiar: %+v %v", x, e.MP.Montos)
+	}
+	if s := leer(e); s.Plan != "completo" || s.NombrePlan != "Completo" {
+		t.Fatalf("plan: %+v", s)
+	}
+	// Va a la auditoría, entre los cambios de plata; lo del equipo no.
+	e.Panel(200, "PUT", "/v1/panel/cobros", map[string]any{"modo": "total"}, nil)
+	var aud struct {
+		Entradas []auditoria.Entrada `json:"entradas"`
+	}
+	e.Panel(200, "GET", "/v1/panel/auditoria?plata=1", nil, &aud)
+	if len(aud.Entradas) != 2 || aud.Entradas[0].Accion != "cobros.config" || aud.Entradas[1].Accion != "suscripcion.plan_cambiado" {
+		t.Fatalf("auditoría de plata: %+v", aud.Entradas)
+	}
+	// Una recepcionista no toca nada de esto.
+	e.Panel(201, "POST", "/v1/panel/equipo", map[string]string{"clerkId": "user_recepcion01", "rol": "recepcion"}, nil)
+	e.Esperar(403, P{Metodo: "POST", Ruta: "/v1/panel/suscripcion/tarjeta", Quien: "user_recepcion01", Negocio: e.Negocio}, nil)
+	// Con todo al día no hay cuota para pagar; la tarjeta sí se cambia (y no se cobra dos veces el mes).
+	e.Panel(409, "POST", "/v1/panel/suscripcion/pagar", map[string]any{}, nil)
+	e.Panel(409, "POST", "/v1/panel/suscripcion/reactivar", nil, nil)
+	e.Panel(200, "POST", "/v1/panel/suscripcion/tarjeta", nil, &url)
+	nueva := strings.TrimPrefix(url.URL, "https://mp.falso/suscripcion/")
+	if nueva == id || e.MP.Preaprobacion[nueva] == nil {
+		t.Fatalf("tarjeta: %s", url.URL)
+	}
+	// Mientras no se autoriza, se sigue viendo la de antes.
+	if s := leer(e); s.Suscripcion.Estado != "autorizada" || s.Suscripcion.Plan != "completo" {
+		t.Fatalf("antes de autorizar la nueva: %+v", s.Suscripcion)
+	}
+	e.MP.Autorizar(nueva, "authorized", &proximo)
+	e.Avisar("subscription_preapproval", nueva)
+	if e.MP.Preaprobacion[id].Status != "cancelled" {
+		t.Fatalf("la vieja en Mercado Pago: %s", e.MP.Preaprobacion[id].Status)
+	}
+	if s := leer(e); s.Bloqueado || s.Suscripcion.Estado != "autorizada" || !strings.HasSuffix(*s.Suscripcion.Link, nueva) || s.Plan != "completo" {
+		t.Fatalf("con la tarjeta nueva: %+v", s.Suscripcion)
+	}
+
+	// El cobro falla: pagar ahora es un alta que cobra ya y reemplaza a la pausada.
+	e.MP.Cobros["9001"] = mercadopago.CobroAutorizado{ID: 9001, PreapprovalID: nueva, Payment: struct {
+		Status string `json:"status"`
+	}{"rejected"}}
+	e.Avisar("subscription_authorized_payment", "9001")
+	e.Panel(200, "POST", "/v1/panel/suscripcion/pagar", nil, &url)
+	otra := strings.TrimPrefix(url.URL, "https://mp.falso/suscripcion/")
+	e.MP.Autorizar(otra, "authorized", &proximo)
+	e.Avisar("subscription_preapproval", otra)
+	if s := leer(e); s.Suscripcion.Estado != "autorizada" || !strings.HasSuffix(*s.Suscripcion.Link, otra) || e.MP.Preaprobacion[nueva].Status != "cancelled" {
+		t.Fatalf("después de pagar: %+v", s.Suscripcion)
+	}
+
+	// Cancelada del todo: reactivar con el mismo plan.
+	e.MP.Autorizar(otra, "cancelled", nil)
+	e.Avisar("subscription_preapproval", otra)
+	if s := leer(e); s.Suscripcion.Estado != "cancelada" {
+		t.Fatalf("cancelada: %+v", s.Suscripcion)
+	}
+	e.Panel(200, "POST", "/v1/panel/suscripcion/reactivar", nil, &url)
+	if p := e.MP.Preaprobacion[strings.TrimPrefix(url.URL, "https://mp.falso/suscripcion/")]; p == nil {
+		t.Fatalf("reactivar: %s", url.URL)
+	}
+	if s := leer(e); s.Suscripcion.Estado != "pendiente" || s.Suscripcion.Plan != "completo" {
+		t.Fatalf("reactivada: %+v", s.Suscripcion)
 	}
 }
 

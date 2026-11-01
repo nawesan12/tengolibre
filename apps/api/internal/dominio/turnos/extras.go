@@ -32,7 +32,7 @@ type Estimador interface {
 type Reserva struct {
 	Turno  *Turno
 	Pedido Pedido
-	// Origen: web o panel.
+	// Origen: web, panel o ia (el asistente de IA de una persona).
 	Origen string
 	// Identificado: la reserva web la hizo el socio con sesión y pidió usar su membresía.
 	Identificado bool

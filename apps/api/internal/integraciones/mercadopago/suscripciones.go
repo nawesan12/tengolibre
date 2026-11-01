@@ -64,6 +64,13 @@ func (c *Cliente) CambiarPreaprobacion(ctx context.Context, token, id, estado st
 	return c.JSON(ctx, http.MethodPut, "/preapproval/"+url.PathEscape(id), token, "", map[string]string{"status": estado}, nil)
 }
 
+// CambiarMontoPreaprobacion: el precio nuevo rige desde el próximo cobro (cambio de plan).
+func (c *Cliente) CambiarMontoPreaprobacion(ctx context.Context, token, id string, monto int64) error {
+	return c.JSON(ctx, http.MethodPut, "/preapproval/"+url.PathEscape(id), token, "", map[string]any{
+		"auto_recurring": map[string]any{"transaction_amount": monto, "currency_id": "ARS"},
+	}, nil)
+}
+
 // CobroAutorizado es el cobro mensual de una suscripción (/authorized_payments/{id}): la única señal
 // de que una renovación se rechazó (el preapproval puede seguir "authorized" mientras reintenta).
 type CobroAutorizado struct {

@@ -25,6 +25,11 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/panel/acceso", ses.Panel(sesion.Agenda, web.Envolver(s.acceso)))
 	mux.HandleFunc("POST /v1/panel/suscripcion", ses.Panel([]string{sesion.Duenio}, web.Envolver(s.suscribir)))
 	mux.HandleFunc("POST /v1/panel/suscripcion/cancelar", ses.Panel([]string{sesion.Duenio}, web.Envolver(s.cancelar)))
+	// Cambiar de plan, pagar la cuota que falló, cambiar la tarjeta y reactivar (cambios.go).
+	mux.HandleFunc("POST /v1/panel/suscripcion/cambiar", ses.Panel([]string{sesion.Duenio}, web.Envolver(s.cambiar)))
+	mux.HandleFunc("POST /v1/panel/suscripcion/pagar", ses.Panel([]string{sesion.Duenio}, web.Envolver(s.reemplazo(pagar))))
+	mux.HandleFunc("POST /v1/panel/suscripcion/tarjeta", ses.Panel([]string{sesion.Duenio}, web.Envolver(s.reemplazo(tarjeta))))
+	mux.HandleFunc("POST /v1/panel/suscripcion/reactivar", ses.Panel([]string{sesion.Duenio}, web.Envolver(s.reemplazo(reactivar))))
 }
 
 func (s *Servicio) leer(w http.ResponseWriter, r *http.Request) error {
@@ -40,7 +45,7 @@ func (s *Servicio) leer(w http.ResponseWriter, r *http.Request) error {
 		if out.Acceso, err = LeerAcceso(ctx, tx, s.ahora()); err != nil {
 			return err
 		}
-		out.Suscripcion, err = vigente(ctx, tx, false)
+		out.Suscripcion, err = ultima(ctx, tx)
 		return err
 	})
 	if err != nil {
@@ -245,6 +250,15 @@ func (s *Servicio) ConciliarPreaprobacion(ctx context.Context, id string) error 
 		return nil // no la creó TengoLibre
 	}
 	ahora := s.ahora()
+	var viejaMP *string
+	defer func() {
+		// La que esta reemplazó ya se canceló acá; en Mercado Pago, lo mejor que se pueda.
+		if viejaMP != nil {
+			if err := s.cliente().CambiarPreaprobacion(context.WithoutCancel(ctx), s.TokenPlataforma, *viejaMP, "cancelled"); err != nil {
+				s.log().Warn("suscripcion: no se pudo cancelar la reemplazada en Mercado Pago", "preapproval", *viejaMP, "error", err)
+			}
+		}
+	}()
 	return s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
 		var subID, plan string
 		var cancelada, proximo *time.Time
@@ -262,6 +276,9 @@ func (s *Servicio) ConciliarPreaprobacion(ctx context.Context, id string) error 
 			if _, err := tx.Exec(ctx, `UPDATE suscripciones SET estado = 'autorizada', mp_id = $2, email = coalesce(nullif($3, ''), email),
 				proximo_cobro = coalesce($4, proximo_cobro), gracia_hasta = NULL, actualizado_en = now() WHERE id = $1`,
 				subID, p.ID, p.PayerEmail, p.NextPaymentDate); err != nil {
+				return err
+			}
+			if viejaMP, err = reemplazar(ctx, tx, subID, ahora); err != nil {
 				return err
 			}
 			_, err = tx.Exec(ctx, "UPDATE negocios SET plan = $1 WHERE id = app.negocio_actual()", plan)

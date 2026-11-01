@@ -25,6 +25,7 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /v1/panel/cupones/{id}", escribir(s.editarCupon))
 	mux.HandleFunc("DELETE /v1/panel/cupones/{id}", escribir(s.borrarCupon))
 	mux.HandleFunc("GET /v1/panel/referidos", leer(s.referidos))
+	mux.HandleFunc("GET /v1/panel/referidos/usos", leer(s.usosReferidos))
 	mux.HandleFunc("GET /v1/panel/referidos/config", leer(s.leerConfig))
 	mux.HandleFunc("PUT /v1/panel/referidos/config", escribir(s.guardarConfig))
 	// Página pública: validar antes de reservar.
@@ -238,6 +239,47 @@ func (s *Servicio) referidos(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	web.JSON(w, http.StatusOK, map[string]any{"referidos": out})
+	return nil
+}
+
+// UsoReferido: una persona que llegó con el código de otra, y qué pasó con el premio.
+type UsoReferido struct {
+	ID       string `json:"id"`
+	Refiere  string `json:"refiere"`
+	Referido string `json:"referido"`
+	// Estado: turno (todavía no vino al turno con el que llegó), premio_disponible (vino, o el premio
+	// ya está para usar) o premio_usado.
+	Estado      string     `json:"estado"`
+	TurnoInicio *time.Time `json:"turnoInicio"`
+}
+
+// usosReferidos: los últimos 100 usos de códigos. El cupón de premio nace en la misma transacción
+// que el uso (mismo creado_en y mismo referido), así se los empareja.
+func (s *Servicio) usosReferidos(w http.ResponseWriter, r *http.Request) error {
+	out := []UsoReferido{}
+	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
+		filas, err := tx.Query(ctx, `SELECT u.id::text, d.nombre, c.nombre,
+				CASE WHEN k.usos > 0 THEN 'premio_usado'
+					WHEN t.estado IN ('pendiente_pago', 'pendiente', 'confirmado') THEN 'turno'
+					ELSE 'premio_disponible' END,
+				t.inicio
+			FROM referido_usos u
+			JOIN referidos r ON r.id = u.referido_id
+			JOIN clientes d ON d.id = r.cliente_id
+			JOIN clientes c ON c.id = u.cliente_id
+			LEFT JOIN turnos t ON t.id = u.turno_id
+			LEFT JOIN LATERAL (SELECT x.usos FROM cupones x WHERE x.referido_id = u.referido_id AND x.creado_en = u.creado_en LIMIT 1) k ON true
+			ORDER BY u.creado_en DESC LIMIT 100`)
+		if err != nil {
+			return err
+		}
+		out, err = pgx.CollectRows(filas, pgx.RowToStructByPos[UsoReferido])
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	web.JSON(w, http.StatusOK, map[string]any{"usos": out})
 	return nil
 }
 
