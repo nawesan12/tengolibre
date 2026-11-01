@@ -39,7 +39,7 @@ push web (`TENGOLIBRE_VAPID_*`, se generan con `go run ./cmd/vapid`).
 Mercado Pago, configurado el 1/11: app «TengoLibre» 6161498246914243 en la cuenta de Nahuel
 (Checkout Pro, OAuth con PKCE). Vuelta del OAuth en
 `https://tengolibre.com.ar/panel/mercadopago/vuelta` y webhook de producción en
-`https://api.tengolibre.com.ar/v1/webhooks/mercadopago` (pagos, planes y suscripciones, vinculación).
+`https://api.tengolibre.com.ar/v1/webhooks/mercadopago` (pagos, órdenes, planes y suscripciones, vinculación).
 `TENGOLIBRE_MP_*` está en `/opt/tengolibre/api.conf` y en CREDENCIALES.md.
 
 Señas con la API de Orders (31/10): Mercado Pago discontinúa la API de Preferencias, así que la seña
@@ -56,8 +56,10 @@ parcial con `transactions[{id, amount}]`) si el pago tiene `mp_orden`, y por `/v
 si no. Una orden cuyo intento fue rechazado no admite otro (`retries.allowed: false` de fábrica): el
 siguiente pedido de link crea una orden nueva. Para que Mercado Pago avise las órdenes hay que tener
 tildado el evento «Order (Mercado Pago)» (tópico `order`) en Webhooks del panel, además de «Pagos
-(legacy)». Verificado sólo contra el falso (`mpfalso`): falta una seña real en producción para
-confirmar el formato `PT15M` de `expiration_time` y el redirect de vuelta.
+(legacy)»: ya están los dos (1/11). En producción desde el 1/11 (versión 3eb0fe8, migración 00021,
+copia previa `antes-202611010154.sql.gz`). Contra la API real se comprobó que una orden con
+`expiration_time: PT15M` se crea y devuelve `checkout_url`. Falta probar un pago real de punta a
+punta (redirect de vuelta y webhook `order`) cuando un negocio conecte su cuenta.
 
 ## 31/10/2026 (tarde): front publicado
 
