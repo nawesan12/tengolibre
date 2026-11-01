@@ -521,7 +521,8 @@ func TestInvitaciones(t *testing.T) {
 
 	var pub invitaciones.Publica
 	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/invitaciones/" + token}, &pub)
-	if pub.Negocio != "El Corte" || pub.Rol != "recepcion" || pub.Email != mailNueva || pub.Aceptada {
+	if pub.Negocio != "El Corte" || pub.Rol != "recepcion" || pub.Email != mailNueva || pub.Aceptada ||
+		pub.InvitadoPor == "" || !strings.Contains(m.Texto, pub.InvitadoPor+" te invitó") || !pub.VenceEn.Equal(inv.VenceEn) {
 		t.Fatalf("pública: %+v", pub)
 	}
 	// Sin sesión no se acepta; con otra cuenta tampoco.

@@ -106,6 +106,12 @@ func TestReservaConSenaYWebhook(t *testing.T) {
 	if x := e.Turno(tu.ID); x.Estado != "confirmado" || x.VenceEn != nil {
 		t.Fatalf("aprobado: %+v", x)
 	}
+	// El link del cliente muestra la seña pagada.
+	var tc turnos.TurnoCliente
+	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/t/" + tu.Codigo}, &tc)
+	if tc.Sena == nil || tc.Sena.Monto != 4000 || tc.Sena.Estado != "aprobado" || tc.Referencia == "" {
+		t.Fatalf("seña en el link: %+v %+v", tc.Sena, tc.Referencia)
+	}
 	if ev := e.Avisos[tu.ID]; len(ev) != 2 || ev[1] != "confirmado" {
 		t.Fatalf("avisos del turno: %v", ev)
 	}

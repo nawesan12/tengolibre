@@ -1,7 +1,10 @@
 /*
- * Lo que el diseño v2 de Cuenta y accesos muestra y la API todavía no manda (o manda a medias).
- * Todo lo nuevo es opcional: mientras no venga, la pantalla lo omite (nada de datos inventados) y no
- * se envía (la API rechaza campos desconocidos). Cada campo documenta el contrato propuesto.
+ * Lo que el diseño v2 de Cuenta y accesos muestra además de lo que ya existía. La API lo manda desde
+ * la migración 00019 (con estos nombres y formas); los campos siguen opcionales para que la pantalla
+ * aguante una API vieja: si no viene, lo omite (nada de datos inventados) y no lo envía (la API
+ * rechaza campos desconocidos). Detalles de la API: preferencias apagadas no frenan la confirmación
+ * de un turno nuevo; `conLugarHoy` mira hoy en la zona del negocio y como mucho 200 candidatos;
+ * `conteos` del admin son de la búsqueda, sin el filtro de estado.
  */
 
 /** GET /v1/admin/estadisticas: además de lo que ya manda (Estadisticas), el pulso de hoy y la plata. */

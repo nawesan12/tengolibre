@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/catalogo"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/disponibilidad"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/miweb"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/resenas"
@@ -74,6 +76,8 @@ func (s *Servicio) pagina(w http.ResponseWriter, r *http.Request) error {
 		Web                 miweb.Web             `json:"web"`
 		Galeria             []miweb.Foto          `json:"galeria"`
 		Resenas             resenas.Resumen       `json:"resenas"`
+		// HorarioAtencion: cuándo abre el negocio, la unión de los horarios de sus profesionales activos.
+		HorarioAtencion []disponibilidad.Franja `json:"horarioAtencion"`
 	}
 	err = s.Pool.EnNegocio(ctx, id, func(tx pgx.Tx) error {
 		var err error
@@ -91,6 +95,7 @@ func (s *Servicio) pagina(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 		out.Profesionales = []ProfesionalPublico{}
+		out.HorarioAtencion = HorarioAtencion(ps)
 		for _, p := range ps {
 			out.Profesionales = append(out.Profesionales, ProfesionalPublico{p.ID, p.Nombre, p.Especialidad, p.Bio, p.Foto, p.Servicios})
 		}
@@ -288,6 +293,68 @@ type TurnoCliente struct {
 	Negocio            negocios.Negocio `json:"negocio"`
 	PuedeCancelar      bool             `json:"puedeCancelar"`
 	CancelarHastaHoras int              `json:"cancelarHastaHoras"`
+	// Sena: lo cobrado por adelantado (null: no hubo cobro).
+	Sena *Sena `json:"sena"`
+	// Referencia: código corto para decir en el local (el código del link es el secreto).
+	Referencia   string `json:"referencia"`
+	ConMembresia bool   `json:"conMembresia"`
+}
+
+// Sena del turno como la ve el cliente.
+type Sena struct {
+	Monto int64 `json:"monto"`
+	// Estado: aprobado, pendiente, devuelto o rechazado.
+	Estado string `json:"estado"`
+}
+
+// estadosSena: del estado del pago a lo que ve el cliente.
+var estadosSena = map[string]string{"pendiente": "pendiente", "en_proceso": "pendiente", "aprobado": "aprobado",
+	"rechazado": "rechazado", "cancelado": "rechazado", "devuelto": "devuelto"}
+
+// Referencia corta de un turno: los primeros 6 caracteres del id, en mayúsculas. El id no es secreto
+// (el panel lo usa), así que no abre el link del cliente.
+func Referencia(id string) string {
+	if len(id) < 6 {
+		return strings.ToUpper(id)
+	}
+	return strings.ToUpper(id[:6])
+}
+
+// HorarioAtencion une los horarios semanales de los profesionales (activos): por día, las franjas
+// que se pisan o se tocan quedan en una sola. Ordenado por día y hora.
+func HorarioAtencion(ps []catalogo.Profesional) []disponibilidad.Franja {
+	var todas []disponibilidad.Franja
+	for _, p := range ps {
+		if p.Activo {
+			todas = append(todas, p.Horario...)
+		}
+	}
+	sort.Slice(todas, func(i, j int) bool {
+		if todas[i].Dia != todas[j].Dia {
+			return todas[i].Dia < todas[j].Dia
+		}
+		return todas[i].Desde < todas[j].Desde
+	})
+	out := []disponibilidad.Franja{}
+	for _, f := range todas {
+		f.Desde, f.Hasta = hhmmDe(f.Desde), hhmmDe(f.Hasta)
+		if n := len(out); n > 0 && out[n-1].Dia == f.Dia && f.Desde <= out[n-1].Hasta {
+			if f.Hasta > out[n-1].Hasta {
+				out[n-1].Hasta = f.Hasta
+			}
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
+// hhmmDe: "HH:MM:SS" (como puede venir de Postgres) a "HH:MM".
+func hhmmDe(s string) string {
+	if len(s) > 5 {
+		return s[:5]
+	}
+	return s
 }
 
 // delCliente corre fn con el turno del link bloqueado.
@@ -312,6 +379,17 @@ func (s *Servicio) delCliente(ctx context.Context, cod string, fn func(tx pgx.Tx
 		out.CancelarHastaHoras = a.CancelarHastaHoras
 		if err := fn(tx, &out); err != nil {
 			return err
+		}
+		out.Referencia = Referencia(out.ID)
+		var monto *int64
+		var estado *string
+		if err := tx.QueryRow(ctx, `SELECT t.membresia_id IS NOT NULL, p.monto, p.estado FROM turnos t
+			LEFT JOIN pagos p ON p.turno_id = t.id WHERE t.id = $1`, out.ID).Scan(&out.ConMembresia, &monto, &estado); err != nil {
+			return err
+		}
+		out.Sena = nil
+		if monto != nil && estado != nil {
+			out.Sena = &Sena{Monto: *monto, Estado: estadosSena[*estado]}
 		}
 		out.PuedeCancelar = (out.Estado == "pendiente" || out.Estado == "confirmado" || out.Estado == "pendiente_pago") &&
 			s.ahora().Add(time.Duration(a.CancelarHastaHoras)*time.Hour).Before(out.Inicio)
