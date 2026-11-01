@@ -257,7 +257,7 @@ test('para reprogramar: los turnos de días libres aprobados, como talones', asy
 		cliente: { nombre: 'Marta Reprogramar', telefono: '1155550011' }
 	});
 	await irA(page, '/panel/turnos');
-	await expect(page.getByRole('region', { name: 'Para reprogramar' })).toHaveCount(0);
+	await expect(page.getByRole('region', { name: /Para reprogramar/ })).toHaveCount(0);
 
 	// Un pedido de días libres ya aprobado deja el turno en la lista (lo arma la base, como el aprobar).
 	sql(
@@ -269,19 +269,20 @@ test('para reprogramar: los turnos de días libres aprobados, como talones', asy
 		t.id
 	);
 	await irA(page, '/panel/turnos');
-	const lista = page.getByRole('region', { name: 'Para reprogramar' });
-	await expect(lista.getByText('Marta Reprogramar')).toBeVisible();
-	await expect(lista.getByText(/Corte · con Ana · Vacaciones/)).toBeVisible();
-	await expect(lista.getByRole('link', { name: 'Mover' })).toHaveAttribute('href', `/panel/turnos/${t.id}`);
+	const lista = page.getByRole('region', { name: /Para reprogramar/ });
+	await expect(lista.getByText(/Marta Reprogramar · Corte · Ana/)).toBeVisible();
+	await expect(lista.locator(`a[href="/panel/turnos/${t.id}#reprogramar"]`)).toBeVisible();
+	await expect(lista.getByRole('link', { name: 'Llamar a Marta Reprogramar' })).toHaveAttribute('href', 'tel:1155550011');
 	// A 375 px no se corre de costado (las acciones bajan debajo del texto).
 	await page.setViewportSize({ width: 375, height: 812 });
 	if (process.env.E2E_CAPTURAS) await lista.screenshot({ path: `${process.env.E2E_CAPTURAS}/reprogramar-375.png` });
 	const ancho = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 	expect(ancho).toBeLessThanOrEqual(0);
 
-	// «Ya está»: sale de la lista sin mover el turno.
-	await lista.getByRole('button', { name: /Sacar a Marta Reprogramar/ }).click();
-	await expect(page.getByRole('status')).toHaveText('Listo: salió de la lista.');
-	await expect(page.getByRole('region', { name: 'Para reprogramar' })).toHaveCount(0);
-	await expect(page.locator(`[data-turno="${t.id}"]`)).toBeVisible();
+	// «Resuelto»: sale de la lista sin mover el turno.
+	await lista.getByRole('button', { name: 'Resuelto' }).click();
+	await expect(page.getByRole('region', { name: /Para reprogramar/ })).toHaveCount(0);
+	const sigue = await a.api('GET', `/v1/panel/turnos/${t.id}`);
+	expect(sigue.inicio).toBe(t.inicio);
+	expect(sigue.estado).not.toBe('cancelado');
 });
