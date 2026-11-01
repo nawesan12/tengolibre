@@ -40,13 +40,15 @@ test('profesional con horario y un día bloqueado: se refleja en los horarios li
 	const slug = await negocioNuevo(page);
 
 	await abrir(page, '/panel/servicios');
-	await page.getByLabel('Nombre', { exact: true }).fill('Corte');
-	await page.getByLabel('Precio').fill('8000');
-	await page.getByRole('button', { name: 'Agregar' }).first().click();
-	await expect(page.getByText('Corte', { exact: true })).toBeVisible();
+	const alta = page.getByRole('form', { name: 'Agregar a Tus servicios' });
+	await alta.getByLabel('Nombre', { exact: true }).fill('Corte');
+	await alta.getByLabel('Precio', { exact: true }).fill('8000');
+	await alta.getByRole('button', { name: 'Agregar' }).click();
+	await expect(page.getByLabel('Nombre de Corte')).toBeVisible();
 
 	await abrir(page, '/panel/equipo');
-	await page.getByText('Sumar un profesional').click();
+	// Sin profesionales, «Sumar un profesional» ya viene abierto.
+	await expect(page.locator('details#sumar')).toHaveAttribute('open', '');
 	await page.getByLabel('Nombre').fill('Ana Gómez');
 	await page.getByLabel('Especialidad').fill('Barbera');
 	await expect(page.getByLabel('Corte')).toBeChecked();
@@ -55,7 +57,7 @@ test('profesional con horario y un día bloqueado: se refleja en los horarios li
 	await expect(page.getByRole('heading', { name: 'Ana Gómez' })).toBeVisible();
 
 	// Todos los días, de 9 a 13 y de 15 a 19 (horario cortado).
-	const horario = seccion(page, 'Horario semanal');
+	const horario = seccion(page, 'Horario de Ana');
 	for (const d of [0, 1, 2, 3, 4, 5, 6]) {
 		await horario.locator(`input[name="abre-${d}"]`).check();
 		await horario.locator(`input[name="hasta-${d}-0"]`).fill('13:00');
@@ -67,18 +69,20 @@ test('profesional con horario y un día bloqueado: se refleja en los horarios li
 
 	const bloqueada = enDias(3);
 	const libre = enDias(4);
-	const bloqueos = seccion(page, 'Días bloqueados');
-	await bloqueos.getByLabel('Fecha').fill(bloqueada);
-	await bloqueos.getByLabel('Motivo (opcional)').fill('Trámite');
-	await bloqueos.getByRole('button', { name: 'Bloquear' }).click();
-	await expect(bloqueos.getByRole('status')).toHaveText('Bloqueamos esa fecha.');
+	// «Nuevo bloqueo» llega abierto con ?nuevo=1: puntual por defecto.
+	const nuevo = seccion(page, 'Nuevo bloqueo');
+	await nuevo.getByLabel('Fecha').fill(bloqueada);
+	await nuevo.getByLabel('Motivo (opcional)').fill('Trámite');
+	await nuevo.getByRole('button', { name: /^Bloquear/ }).click();
+	await expect(nuevo.getByRole('status')).toHaveText('Bloqueamos esa fecha.');
+	const bloqueos = seccion(page, 'Bloqueos y excepciones');
 	await expect(bloqueos.getByText('Trámite', { exact: true })).toBeVisible();
 
 	// Un bloqueo semanal también se guarda y se lista.
-	const semanales = seccion(page, 'Horarios bloqueados todas las semanas');
-	await semanales.getByLabel('Hora').fill('12:00');
-	await semanales.getByRole('button', { name: 'Bloquear ese horario' }).click();
-	await expect(semanales.getByText('Lunes 12:00')).toBeVisible();
+	await nuevo.getByRole('radio', { name: 'Todas las semanas' }).check();
+	await nuevo.getByLabel('Hora').fill('12:00');
+	await nuevo.getByRole('button', { name: 'Bloquear ese horario' }).click();
+	await expect(bloqueos.getByText(/Lunes 12:00/)).toBeVisible();
 
 	// La página pública: el día bloqueado no tiene horarios; el siguiente, sí (y sin el mediodía).
 	const pub = await (await request.get(`${API}/v1/p/${slug}`)).json();
@@ -99,7 +103,8 @@ test('invitación al equipo y ajustes guardados', async ({ page }) => {
 	await negocioNuevo(page);
 
 	await abrir(page, '/panel/equipo');
-	const invitaciones = seccion(page, 'Invitaciones');
+	const invitaciones = seccion(page, 'Quiénes entran al panel');
+	await invitaciones.getByText('Invitar por mail').click();
 	const email = `e2e-${unico()}@ejemplo.com`;
 	await invitaciones.getByLabel('Email').fill(email);
 	await invitaciones.getByLabel('Rol').selectOption('recepcion');
@@ -107,33 +112,32 @@ test('invitación al equipo y ajustes guardados', async ({ page }) => {
 	await expect(invitaciones.getByRole('status')).toContainText(email);
 	await expect(invitaciones.getByRole('listitem').filter({ hasText: email })).toContainText('Recepción');
 
+	// Configuración: cada ajuste se guarda solo al cambiarlo.
 	await abrir(page, '/panel/configuracion');
 	const reservas = seccion(page, 'Reservas');
-	await reservas.getByLabel('Se puede reservar hasta (días)').fill('45');
-	await reservas.getByLabel('Los turnos arrancan cada').selectOption('15');
-	await reservas.getByRole('button', { name: 'Guardar reservas' }).click();
+	await reservas.getByLabel('La agenda se ve hasta').selectOption('45');
+	await expect(reservas.getByRole('status')).toHaveText('Guardamos los ajustes de reserva.');
+	await reservas.getByLabel('Los horarios arrancan cada').selectOption('15');
 	await expect(reservas.getByRole('status')).toHaveText('Guardamos los ajustes de reserva.');
 
-	const ausencias = seccion(page, 'Ausencias y penalidades');
-	await ausencias.getByLabel('Días de penalidad').fill('15');
-	await ausencias.getByRole('button', { name: 'Guardar ausencias' }).click();
+	const ausencias = seccion(page, 'Ausencias');
+	await ausencias.getByLabel('La penalidad dura').selectOption('15');
 	await expect(ausencias.getByRole('status')).toBeVisible();
 
 	// Un valor fuera de rango vuelve con el mensaje de la API al lado del formulario.
 	const avisos = seccion(page, 'Avisos');
-	await avisos.getByLabel(/Pedido de reseña/).evaluate((e: HTMLInputElement) => e.removeAttribute('max'));
-	await avisos.getByLabel(/Pedido de reseña/).fill('500');
-	await avisos.getByRole('button', { name: 'Guardar avisos' }).click();
+	await avisos.getByLabel('Pedir reseña').evaluate((e: HTMLSelectElement) => e.add(new Option('500 h', '500')));
+	await avisos.getByLabel('Pedir reseña').selectOption('500');
 	await expect(avisos.getByRole('alert')).toContainText('168');
 
 	await page.reload();
-	await expect(page.getByLabel('Se puede reservar hasta (días)')).toHaveValue('45');
-	await expect(page.getByLabel('Los turnos arrancan cada')).toHaveValue('15');
-	await expect(page.getByLabel('Días de penalidad')).toHaveValue('15');
+	await expect(page.getByLabel('La agenda se ve hasta')).toHaveValue('45');
+	await expect(page.getByLabel('Los horarios arrancan cada')).toHaveValue('15');
+	await expect(page.getByLabel('La penalidad dura')).toHaveValue('15');
 
 	await abrir(page, '/panel/auditoria');
-	await expect(page.getByRole('heading', { name: 'Registro de cambios' })).toBeVisible();
-	await expect(page.getByText('equipo.invitado')).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Registro de actividad' })).toBeVisible();
+	await expect(page.getByText(`invitó a ${email}`)).toBeVisible();
 	const csv = await page.request.get('/panel/auditoria/exportar');
 	expect(csv.ok()).toBe(true);
 	expect(await csv.text()).toContain('equipo.invitado');
@@ -156,8 +160,9 @@ test('una foto sube a la galería y un cupón se crea', async ({ page }) => {
 	await expect(galeria.getByRole('alert')).toContainText('JPG, PNG o WebP');
 
 	const web = seccion(page, 'Tu página');
+	await web.getByText('Acerca de, contactos y redes').click();
 	await web.getByLabel('Provincia').fill('Córdoba');
-	await web.getByRole('button', { name: 'Guardar tu página' }).click();
+	await web.getByLabel('Provincia').press('Tab');
 	await expect(web.getByRole('status')).toHaveText('Guardamos tu web.');
 
 	await abrir(page, '/panel/cupones');
@@ -177,14 +182,14 @@ test('suscripción en prueba y Mercado Pago sin configurar', async ({ page }) =>
 	await expect(page.getByText('Prueba gratis')).toBeVisible();
 	await expect(page.getByText(/Te quedan? \d+ días?/)).toBeVisible();
 	// En local no hay token de la plataforma: lo dice sin romperse.
-	await page.getByRole('button', { name: 'Suscribirme al Inicial' }).click();
+	await page.getByRole('button', { name: 'Elegir Inicial' }).click();
 	await expect(page.getByRole('alert')).toContainText('todavía no están habilitadas');
 
 	await abrir(page, '/panel/pagos');
 	await expect(page.getByText('Los cobros con Mercado Pago todavía no están habilitados')).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Conectar Mercado Pago' })).toHaveCount(0);
 	const cobro = seccion(page, 'Cómo cobrás al reservar');
-	await cobro.getByLabel('Seña en porcentaje').check();
+	await cobro.getByRole('radio', { name: /Seña.*en porcentaje/ }).check();
 	await cobro.getByLabel('Porcentaje de la seña').fill('30');
 	await cobro.getByRole('button', { name: 'Guardar' }).click();
 	await expect(cobro.getByRole('status')).toHaveText('Guardamos cómo cobrás.');
@@ -251,4 +256,102 @@ test('membresías, referidos y dominio, sin desbordar en el teléfono', async ({
 		await abrir(page, ruta);
 		await sinDesborde();
 	}
+});
+
+test('plantillas: el borrador se prueba en la vista previa y se publica', async ({ page }) => {
+	const slug = await negocioNuevo(page);
+
+	await abrir(page, '/panel/plantillas');
+	await expect(page.getByRole('button', { name: /Carta/ })).toHaveAttribute('aria-pressed', 'true');
+	await page.getByRole('button', { name: /Vidriera/ }).click();
+	await page.getByRole('group', { name: 'Fondo' }).getByRole('button', { name: 'Noche' }).click();
+	await expect(page.getByText('Cambios sin publicar')).toBeVisible();
+	await expect(page.locator('iframe')).toHaveAttribute('src', new RegExp(`^/${slug}\\?vista=1&plantilla=vidriera.*fondo=noche`));
+
+	// Descartar vuelve a lo publicado; publicar lo deja guardado.
+	await page.getByRole('button', { name: 'Descartar' }).click();
+	await expect(page.getByText('Cambios sin publicar')).toHaveCount(0);
+	await page.getByRole('button', { name: /Vidriera/ }).click();
+	await page.getByRole('button', { name: 'Publicar' }).click();
+	await expect(page.getByRole('status')).toContainText('Publicada. Tus clientes ya la');
+	await page.reload();
+	await expect(page.getByRole('button', { name: /Vidriera/ })).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByText('Cambios sin publicar')).toHaveCount(0);
+
+	await abrir(page, '/panel/integraciones');
+	await expect(page.getByRole('heading', { name: /Integraciones e/ })).toBeVisible();
+	await expect(page.getByRole('link', { name: /Mercado Pago/ })).toHaveAttribute('href', '/panel/pagos');
+	await expect(page.getByRole('link', { name: /Google Calendar/ })).toHaveAttribute('href', '/panel/calendario/suscribirse');
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+	// El asistente de IA: sumar Claude da una clave (una sola vez) y los permisos se guardan solos.
+	await page.getByRole('button', { name: 'Sumar Claude' }).click();
+	await expect(page.getByRole('status').filter({ hasText: 'no se vuelve a' })).toContainText('tlmcp_');
+	const cancelar = page.getByRole('switch', { name: /Cancelar turnos/ });
+	await expect(cancelar).not.toBeChecked();
+	await cancelar.check();
+	await expect(page.getByRole('status').filter({ hasText: 'Guardamos qué puede hacer.' })).toBeVisible();
+	await page.reload();
+	await expect(page.getByRole('switch', { name: /Cancelar turnos/ })).toBeChecked();
+	await expect(page.getByText('Esperando conexión')).toBeVisible();
+});
+
+test('productos: se cargan en Servicios y quedan tras recargar', async ({ page }) => {
+	await negocioNuevo(page);
+
+	await abrir(page, '/panel/servicios');
+	const productos = seccion(page, 'Productos');
+	const alta = productos.getByRole('form', { name: 'Agregar producto' });
+	await alta.getByLabel('Nombre del producto').fill('Sérum de pestañas');
+	await alta.getByLabel('Stock (opcional)').fill('4');
+	await alta.getByLabel('Precio del producto').fill('9.000');
+	await alta.getByRole('button', { name: 'Agregar producto' }).click();
+	await expect(productos.getByLabel('Nombre del producto Sérum de pestañas')).toBeVisible();
+
+	await page.reload();
+	await expect(productos.getByLabel('Nombre del producto Sérum de pestañas')).toHaveValue('Sérum de pestañas');
+	await expect(productos.getByLabel('Precio de Sérum de pestañas en pesos')).toHaveValue('9.000');
+	await expect(productos.getByLabel(/Stock de Sérum de pestañas/)).toHaveValue('4');
+});
+
+test('configuración: lista de espera, recordatorio y WhatsApp se guardan solos', async ({ page }) => {
+	await negocioNuevo(page);
+	await abrir(page, '/panel/configuracion');
+
+	const espera = seccion(page, 'Lista de espera');
+	await espera.getByLabel('Tiempo para tomarlo').selectOption('45');
+	await expect(espera.getByRole('status')).toHaveText('Guardamos cómo se ofrece la lista de espera.');
+
+	const recordatorios = seccion(page, 'Recordatorios');
+	const cumple = recordatorios.getByRole('form', { name: 'Cumpleaños' });
+	await cumple.getByRole('switch').check();
+	await expect(cumple.getByRole('status')).toHaveText('Guardamos el recordatorio.');
+
+	// Sin WhatsApp en la plataforma (local), la opción se ve pero no se puede prender.
+	const whatsapp = page.getByRole('form', { name: 'WhatsApp' });
+	await expect(whatsapp.getByRole('switch', { name: /Pedir confirmación por WhatsApp/ })).toBeDisabled();
+
+	await page.reload();
+	await expect(page.getByLabel('Tiempo para tomarlo')).toHaveValue('45');
+	await expect(page.getByRole('form', { name: 'Cumpleaños' }).getByRole('switch')).toBeChecked();
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('reporte mensual: titular, cuatro números y cambio de mes', async ({ page }) => {
+	await negocioNuevo(page);
+
+	await abrir(page, '/panel/reportes');
+	await expect(page.getByRole('region', { name: /En qué horas te sobra/ })).toBeVisible();
+	await page.getByRole('link', { name: 'Reporte mensual' }).click();
+	await expect(page).toHaveURL(/\/panel\/reportes\/mensual$/);
+	await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+	await expect(page.getByText('FACTURADO')).toBeVisible();
+	await expect(page.getByText('1 / 4')).toBeVisible();
+
+	const mes = await page.getByLabel('Mes', { exact: true }).inputValue();
+	await page.getByRole('link', { name: 'Mes anterior' }).click();
+	await expect(page).toHaveURL(/\?mes=\d{4}-\d{2}$/);
+	await expect(page.getByLabel('Mes', { exact: true })).not.toHaveValue(mes);
+	await expect(page.getByRole('button', { name: 'Bajar PDF' })).toBeVisible();
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

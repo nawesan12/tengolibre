@@ -12,6 +12,8 @@ export type Conexion = {
 	venceEn?: string;
 	reautorizar: boolean;
 	ultimoError?: string;
+	/** Supuesto (ver #lib/gestion/api-cobros.ts): el nombre de la cuenta conectada. */
+	cuenta?: string;
 };
 export type ConfigCobro = { modo: string; senaPorcentaje: number; senaFija: number };
 export type Pago = {
@@ -36,12 +38,16 @@ export const load: PageServerLoad = async (event) => {
 	event.depends('panel:pagos');
 	const api = apiDe(event);
 	const estado = event.url.searchParams.get('estado') ?? '';
-	const [conexion, config, { pagos }] = await Promise.all([
+	const [conexion, config, { pagos }, { servicios }] = await Promise.all([
 		api.get<Conexion>('/v1/panel/mercadopago'),
 		api.get<ConfigCobro>('/v1/panel/cobros'),
-		api.get<{ pagos: Pago[] }>(`/v1/panel/pagos${estado ? `?estado=${encodeURIComponent(estado)}` : ''}`)
+		api.get<{ pagos: Pago[] }>(`/v1/panel/pagos${estado ? `?estado=${encodeURIComponent(estado)}` : ''}`),
+		api.get<{ servicios: { nombre: string; precio: number; activo: boolean }[] }>('/v1/panel/servicios')
 	]);
-	return { conexion, config, pagos, estado };
+	// El ejemplo en plata real de cada forma de cobro: el servicio activo más caro.
+	const ejemplo =
+		servicios.filter((s) => s.activo && s.precio > 0).sort((a, b) => b.precio - a.precio)[0] ?? null;
+	return { conexion, config, pagos, estado, ejemplo: ejemplo && { nombre: ejemplo.nombre, precio: ejemplo.precio } };
 };
 
 export const actions: Actions = {

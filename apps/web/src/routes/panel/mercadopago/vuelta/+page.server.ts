@@ -11,11 +11,14 @@ export const load: PageServerLoad = async (event) => {
 	const codigo = q.get('code');
 	const estado = q.get('state');
 	if (q.get('error') || !codigo || !estado)
-		return { error: 'No se autorizó la conexión con Mercado Pago. Podés probar de nuevo cuando quieras.' };
+		return {
+			motivo: 'permiso' as const,
+			error: 'No se autorizó la conexión con Mercado Pago. Podés probar de nuevo cuando quieras.'
+		};
 	try {
 		await apiDe(event).post('/v1/panel/mercadopago/vuelta', { codigo, estado });
 	} catch (e) {
-		if (e instanceof ErrorApi) return { error: e.message };
+		if (e instanceof ErrorApi) return { motivo: 'api' as const, error: e.message };
 		throw e;
 	}
 	redirect(303, '/panel/pagos?mercadopago=conectada');

@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { apiDe } from '#lib/server/api.ts';
 import { accion } from '#lib/configuracion/acciones.server.ts';
+import { SUSCRIPCION_CAMBIAR, SUSCRIPCION_PAGAR, SUSCRIPCION_REACTIVAR, SUSCRIPCION_TARJETA } from '#lib/gestion/api-cobros.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export type PlanVenta = { clave: string; nombre: string; precio: number };
@@ -43,5 +44,22 @@ export const actions: Actions = {
 		return r;
 	},
 	cancelar: async (event) =>
-		accion('cancelar', 'Cancelamos la suscripción.', () => apiDe(event).post('/v1/panel/suscripcion/cancelar'))
+		accion('cancelar', 'Cancelamos la suscripción.', () => apiDe(event).post('/v1/panel/suscripcion/cancelar')),
+	// Contratos supuestos (ver #lib/gestion/api-cobros.ts): cambiar de plan, pagar la cuota que falló,
+	// cambiar la tarjeta y reactivar una cancelada. Los tres últimos llevan a Mercado Pago.
+	cambiar: async (event) => {
+		const f = await event.request.formData();
+		return accion('suscribir', 'Cambiamos tu plan: el precio nuevo rige desde el próximo cobro.', () =>
+			apiDe(event).post(SUSCRIPCION_CAMBIAR, { plan: String(f.get('plan') ?? '') })
+		);
+	},
+	pagar: async (event) => irAMercadoPago(event, 'pagar', SUSCRIPCION_PAGAR),
+	tarjeta: async (event) => irAMercadoPago(event, 'pagar', SUSCRIPCION_TARJETA),
+	reactivar: async (event) => irAMercadoPago(event, 'cancelar', SUSCRIPCION_REACTIVAR)
 };
+
+async function irAMercadoPago(event: Parameters<Actions[string]>[0], que: string, ruta: string) {
+	const r = await accion(que, '', () => apiDe(event).post<{ url: string }>(ruta, {}));
+	if ('ok' in r && r.ok) redirect(303, r.datos.url);
+	return r;
+}

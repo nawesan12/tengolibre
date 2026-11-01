@@ -3,6 +3,11 @@ import { apiDe, type Api } from '#lib/server/api.ts';
 import { numero } from '#lib/server/acciones.ts';
 import { accion, siPuede } from '#lib/configuracion/acciones.server.ts';
 import { horarioDeForm, sacarSemanal, sumarSemanal, type Semanal } from '#lib/configuracion/horario.ts';
+import { dia } from '#lib/formato.ts';
+import { sumarDias } from '#lib/operacion/fechas.ts';
+import type { Turno } from '#lib/operacion/tipos.ts';
+import { diasEntre } from '#lib/gestion/equipo/semana.ts';
+import { MOTIVOS_LIBRES, pedidosLibres, pedirLibres, resolverPedido, type MotivoLibre } from '#lib/gestion/api-equipo.ts';
 import type { Miembro, Profesional } from '../../equipo/+page.server.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -15,17 +20,25 @@ const semanalesDe = async (api: Api, id: string) =>
 export const load: PageServerLoad = async (event) => {
 	const api = apiDe(event);
 	const id = event.params.id;
-	const [{ profesionales }, { servicios }, { bloqueos }, semanales, { excepciones }, equipo] = await Promise.all([
+	const hoy = dia();
+	const [{ profesionales }, { servicios }, { bloqueos }, semanales, { excepciones }, equipo, turnos, pedidos] = await Promise.all([
 		api.get<{ profesionales: Profesional[] }>('/v1/panel/profesionales'),
 		api.get<{ servicios: { id: string; nombre: string; activo: boolean }[] }>('/v1/panel/servicios'),
 		api.get<{ bloqueos: Bloqueo[] }>(`/v1/panel/profesionales/${id}/bloqueos`),
 		semanalesDe(api, id),
 		api.get<{ excepciones: Excepcion[] }>(`/v1/panel/profesionales/${id}/excepciones`),
-		siPuede(api.get<{ miembros: Miembro[] }>('/v1/panel/equipo'))
+		siPuede(api.get<{ miembros: Miembro[] }>('/v1/panel/equipo')),
+		// Los turnos que vienen (hasta 90 días): para avisar cuáles toca un bloqueo antes de guardarlo.
+		api
+			.get<{ turnos: Turno[] }>(`/v1/panel/turnos?${new URLSearchParams({ desde: hoy, hasta: sumarDias(hoy, 90), profesional: id })}`)
+			.then((r) => r.turnos.filter((t) => t.estado !== 'cancelado'))
+			.catch(() => [] as Turno[]),
+		pedidosLibres(api, id)
 	]);
 	const profesional = profesionales.find((p) => p.id === id);
 	if (!profesional) error(404, 'No encontramos ese profesional.');
-	return { profesional, servicios, bloqueos, semanales, excepciones, miembros: equipo?.miembros ?? null };
+	const proximos = turnos.map((t) => ({ id: t.id, inicio: t.inicio, cliente: t.cliente.nombre, servicio: t.servicio }));
+	return { profesional, profesionales, servicios, bloqueos, semanales, excepciones, miembros: equipo?.miembros ?? null, proximos, pedidos };
 };
 
 const base = (id: string) => `/v1/panel/profesionales/${id}`;
@@ -66,20 +79,31 @@ export const actions: Actions = {
 	bloqueo: async (event) => {
 		const f = await event.request.formData();
 		const entero = f.get('entero') === 'on';
-		return accion('bloqueos', 'Bloqueamos esa fecha.', () =>
-			apiDe(event).post(`${base(event.params.id)}/bloqueos`, {
-				fecha: String(f.get('fecha') ?? ''),
-				desde: entero ? null : String(f.get('desde') ?? '') || null,
-				hasta: entero ? null : String(f.get('hasta') ?? '') || null,
-				motivo: String(f.get('motivo') ?? '')
-			})
-		);
+		const fecha = String(f.get('fecha') ?? '');
+		// Con «hasta el día», un bloqueo por cada fecha del rango (la API los guarda de a uno).
+		const hastaDia = String(f.get('hastaDia') ?? '');
+		const fechas = hastaDia && hastaDia > fecha ? diasEntre(fecha, hastaDia) : [fecha];
+		const api = apiDe(event);
+		return accion('bloqueos', fechas.length > 1 ? `Bloqueamos esos ${fechas.length} días.` : 'Bloqueamos esa fecha.', async () => {
+			for (const d of fechas)
+				await api.post(`${base(event.params.id)}/bloqueos`, {
+					fecha: d,
+					desde: entero ? null : String(f.get('desde') ?? '') || null,
+					hasta: entero ? null : String(f.get('hasta') ?? '') || null,
+					motivo: String(f.get('motivo') ?? '')
+				});
+			return { fechas };
+		});
 	},
 	borrarBloqueo: async (event) => {
 		const f = await event.request.formData();
-		return accion('bloqueos', 'Sacamos el bloqueo.', () =>
-			apiDe(event).borrar(`${base(event.params.id)}/bloqueos/${f.get('bloqueo')}`)
-		);
+		// Un talón puede juntar varios días seguidos: se sacan todos.
+		const ids = f.getAll('bloqueo').map(String);
+		const api = apiDe(event);
+		return accion('bloqueos', ids.length > 1 ? 'Sacamos esos días bloqueados.' : 'Sacamos el bloqueo.', async () => {
+			for (const id of ids) await api.borrar(`${base(event.params.id)}/bloqueos/${id}`);
+			return null;
+		});
 	},
 	semanal: async (event) => {
 		const f = await event.request.formData();
@@ -109,6 +133,29 @@ export const actions: Actions = {
 				tipo: String(f.get('tipo') ?? 'bloqueado')
 			})
 		);
+	},
+	pedirLibres: async (event) => {
+		const f = await event.request.formData();
+		const desde = String(f.get('desde') ?? '');
+		const motivo = String(f.get('motivo') ?? '');
+		return accion('pedidos', 'Mandamos el pedido. Te avisamos cuando lo respondan.', () =>
+			pedirLibres(apiDe(event), {
+				desde,
+				hasta: String(f.get('hasta') ?? '') || desde,
+				motivo: ((MOTIVOS_LIBRES as readonly string[]).includes(motivo) ? motivo : 'otro') as MotivoLibre,
+				nota: String(f.get('nota') ?? '').trim()
+			})
+		);
+	},
+	resolverPedido: async (event) => {
+		const f = await event.request.formData();
+		const que = f.get('estado') === 'aprobado' ? 'aprobar' : f.get('estado') === 'cancelado' ? 'cancelar' : 'rechazar';
+		const texto = {
+			aprobar: 'Aprobamos el pedido: esos días quedan bloqueados y sus turnos, en la lista para reprogramar.',
+			rechazar: 'Rechazamos el pedido.',
+			cancelar: 'Cancelamos el pedido.'
+		}[que];
+		return accion('pedidos', texto, () => resolverPedido(apiDe(event), String(f.get('pedido')), que));
 	},
 	borrarExcepcion: async (event) => {
 		const f = await event.request.formData();

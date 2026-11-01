@@ -3,16 +3,9 @@ import { siPuede } from '#lib/configuracion/acciones.server.ts';
 import { FILTROS, filtrosDe } from '#lib/configuracion/auditoria.ts';
 import type { PageServerLoad } from './$types';
 
-export type Entrada = {
-	id: string;
-	clerkId: string;
-	nombre: string;
-	accion: string;
-	entidad: string;
-	entidadId: string;
-	detalle: unknown;
-	creadoEn: string;
-};
+import type { EntradaAuditoria } from '#lib/configuracion/actividad.ts';
+
+export type Entrada = EntradaAuditoria;
 type Miembro = { clerkId: string; nombre: string; email: string };
 
 export const load: PageServerLoad = async (event) => {

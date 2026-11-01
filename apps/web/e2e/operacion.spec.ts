@@ -170,7 +170,7 @@ test('el calendario y la campanita se actualizan solos con una reserva online', 
 test('reportes con descarga CSV, lista de espera y reseñas', async ({ page, request }) => {
 	const a = await armar(page, request);
 	await irA(page, '/panel/reportes');
-	await expect(page.getByRole('heading', { name: 'Por profesional' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: '¿Quién atiende más?' })).toBeVisible();
 	await expect(page.getByText('Ticket promedio')).toBeVisible();
 	const csv = await page.request.get('/panel/reportes/csv/turnos');
 	expect(csv.status()).toBe(200);

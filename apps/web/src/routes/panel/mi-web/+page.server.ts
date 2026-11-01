@@ -1,5 +1,6 @@
 import { apiDe } from '#lib/server/api.ts';
 import { accion, subirImagen } from '#lib/configuracion/acciones.server.ts';
+import type { Dominio } from '../dominio/+page.server.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export type Negocio = {
@@ -33,12 +34,22 @@ export type Foto = { id: string; url: string; epigrafe: string; orden: number };
 
 export const load: PageServerLoad = async (event) => {
 	const api = apiDe(event);
-	const [negocio, web, { fotos }] = await Promise.all([
+	const [negocio, web, { fotos }, servicios, dominio] = await Promise.all([
 		api.get<Negocio>('/v1/panel/negocio'),
 		api.get<Web>('/v1/panel/mi-web'),
-		api.get<{ fotos: Foto[] }>('/v1/panel/mi-web/galeria')
+		api.get<{ fotos: Foto[] }>('/v1/panel/mi-web/galeria'),
+		// Para la vista en vivo (los primeros servicios con su precio) y el estado del dominio propio:
+		// si alguno no se puede leer, la página sigue sin esa parte.
+		api
+			.get<{ servicios: { id: string; nombre: string; precio: number; activo: boolean }[] }>('/v1/panel/servicios')
+			.then((r) => r.servicios.filter((s) => s.activo))
+			.catch(() => []),
+		api
+			.get<{ dominio: Dominio | null }>('/v1/panel/dominio')
+			.then((r) => r.dominio)
+			.catch(() => null)
 	]);
-	return { datos: negocio, web, fotos };
+	return { datos: negocio, web, fotos, servicios, dominio };
 };
 
 const texto = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
@@ -119,6 +130,12 @@ export const actions: Actions = {
 			if (i >= 0 && j >= 0 && j < ids.length) [ids[i], ids[j]] = [ids[j], ids[i]];
 			return api.put('/v1/panel/mi-web/galeria/orden', { ids });
 		});
+	},
+	// El orden entero de la galería (al arrastrar una foto o moverla con las flechas).
+	ordenar: async (event) => {
+		const f = await event.request.formData();
+		const ids = String(f.get('ids') ?? '').split(',').filter(Boolean);
+		return accion('galeria', 'Cambiamos el orden.', () => apiDe(event).put('/v1/panel/mi-web/galeria/orden', { ids }));
 	},
 	borrarFoto: async (event) => {
 		const f = await event.request.formData();
