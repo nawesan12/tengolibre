@@ -44,7 +44,7 @@ export const actions: Actions = {
 			apiDe(event).post<{ suscripcionId: string; url: string }>('/v1/panel/suscripcion', { plan: String(f.get('plan') ?? '') })
 		);
 		// A Mercado Pago a cargar la tarjeta; vuelve a /panel/suscripcion?resultado=vuelta.
-		if ('ok' in r && r.ok) redirect(303, r.datos.url);
+		if ('ok' in r && r.ok) redirect(303, r.datos.url, { external: true });
 		return r;
 	},
 	cancelar: async (event) =>
@@ -64,6 +64,6 @@ export const actions: Actions = {
 
 async function irAMercadoPago(event: Parameters<Actions[string]>[0], que: string, ruta: string) {
 	const r = await accion(que, '', () => apiDe(event).post<{ url: string }>(ruta, {}));
-	if ('ok' in r && r.ok) redirect(303, r.datos.url);
+	if ('ok' in r && r.ok) redirect(303, r.datos.url, { external: true });
 	return r;
 }

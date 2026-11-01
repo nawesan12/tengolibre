@@ -150,7 +150,7 @@ export const actions: Actions = {
 		if (!('ok' in r)) return fail(r.status, { ...r.data, valores });
 		const t = r.datos;
 		// Si el negocio cobra seña, derecho a Mercado Pago; sin link (MP no respondió), lo pide el link del turno.
-		if (t.pago?.url && /^https:\/\//.test(t.pago.url)) redirect(303, t.pago.url);
+		if (t.pago?.url && /^https:\/\//.test(t.pago.url)) redirect(303, t.pago.url, { external: true });
 		redirect(303, `/turno/${t.codigo}?nuevo=1`);
 	},
 

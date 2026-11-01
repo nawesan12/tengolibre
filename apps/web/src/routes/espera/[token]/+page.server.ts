@@ -26,7 +26,7 @@ export const actions: Actions = {
 		const r = await intentar(() => apiPublica(fetch).post<Turno>(`/v1/espera/${params.token}/tomar`));
 		if (!('ok' in r)) return r;
 		// Con seña, a Mercado Pago; sin link (MP no respondió), lo pide el link del turno.
-		if (r.datos.pago?.url && /^https:\/\//.test(r.datos.pago.url)) redirect(303, r.datos.pago.url);
+		if (r.datos.pago?.url && /^https:\/\//.test(r.datos.pago.url)) redirect(303, r.datos.pago.url, { external: true });
 		redirect(303, `/turno/${r.datos.codigo}?nuevo=1`);
 	},
 	pasar: async ({ params, fetch }) => {

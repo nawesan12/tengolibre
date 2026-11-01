@@ -88,7 +88,7 @@ export const actions: Actions = {
 		const r = await intentar(() => apiPublica(fetch).post<{ url: string; monto: number }>(`/v1/t/${params.codigo}/pagar`));
 		if (!('ok' in r)) return r;
 		if (!/^https:\/\//.test(r.datos.url)) return fail(502, { error: 'No pudimos armar el link de pago. Probá en un rato.', codigo: 'sin_link', campos: {} });
-		redirect(303, r.datos.url);
+		redirect(303, r.datos.url, { external: true });
 	},
 	confirmar: async ({ params, fetch }) => {
 		const r = await intentar(() => apiPublica(fetch).post(`/v1/t/${params.codigo}/confirmar`));
@@ -101,7 +101,7 @@ export const actions: Actions = {
 		if (isNaN(Date.parse(inicio))) return fail(400, { error: 'Elegí un día.', codigo: 'invalido', campos: {} });
 		const r = await intentar(() => apiPublica(fetch).post<Turno>(`/v1/t/${params.codigo}/repetir`, { inicio }));
 		if (!('ok' in r)) return r;
-		if (r.datos.pago?.url && /^https:\/\//.test(r.datos.pago.url)) redirect(303, r.datos.pago.url);
+		if (r.datos.pago?.url && /^https:\/\//.test(r.datos.pago.url)) redirect(303, r.datos.pago.url, { external: true });
 		redirect(303, `/turno/${r.datos.codigo}?nuevo=1`);
 	},
 	referido: async ({ params, fetch }) => {

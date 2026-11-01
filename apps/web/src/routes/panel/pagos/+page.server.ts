@@ -54,7 +54,7 @@ export const actions: Actions = {
 	conectar: async (event) => {
 		const r = await accion('mercadopago', '', () => apiDe(event).post<{ url: string }>('/v1/panel/mercadopago/conectar'));
 		// A Mercado Pago a autorizar; vuelve a /panel/mercadopago/vuelta.
-		if ('ok' in r && r.ok) redirect(303, r.datos.url);
+		if ('ok' in r && r.ok) redirect(303, r.datos.url, { external: true });
 		return r;
 	},
 	desconectar: async (event) =>
