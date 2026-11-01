@@ -24,12 +24,14 @@ export function accion(url: { search: string }, nombre: string) {
 }
 
 /** «14 SEP» */
-export const fechaCorta = (iso: string) =>
-	new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short', timeZone: 'America/Argentina/Buenos_Aires' })
-		.format(new Date(iso))
-		.replace('.', '')
-		.replace(' de ', ' ')
-		.toUpperCase();
+export function fechaCorta(iso: string) {
+	const p = Object.fromEntries(
+		new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short', timeZone: 'America/Argentina/Buenos_Aires' })
+			.formatToParts(new Date(iso))
+			.map((x) => [x.type, x.value])
+	);
+	return `${p.day} ${String(p.month).replace('.', '').toUpperCase()}`;
+}
 
 /** Fondo y texto legibles para una etiqueta con el color que eligió el negocio. */
 export const colorEtiqueta = (c: string) => ({

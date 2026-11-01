@@ -56,7 +56,8 @@
 		!bloqueado && !!data.acceso && !data.acceso.conSuscripcion && !!data.acceso.pruebaHasta && data.acceso.diasDePrueba <= 3 && rol === 'duenio'
 	);
 	const verEnvios = $derived(['duenio', 'encargado', 'recepcion'].includes(rol));
-	const enNuevo = $derived(ruta.startsWith('/panel/turnos/nuevo'));
+	// «Nuevo turno» flotante sólo donde es la acción principal (un foco por pantalla).
+	const conFab = $derived(['/panel', '/panel/turnos', '/panel/calendario', '/panel/clientes', '/panel/lista-espera'].includes(ruta));
 
 	onMount(() => {
 		const parar = escucharPanel();
@@ -152,7 +153,7 @@
 		</main>
 	</div>
 
-	{#if !enNuevo && !bloqueado}
+	{#if conFab && !bloqueado}
 		<a class="fab" href="/panel/turnos/nuevo"><Icono nombre="add" tam={24} />Nuevo turno</a>
 	{/if}
 	<nav class="tabs" aria-label="Panel" style:--n={pestanias.length + 1}>
