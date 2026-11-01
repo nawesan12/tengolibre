@@ -151,30 +151,99 @@ func (c contexto) reglas() disponibilidad.Reglas {
 // datosDelDia arma lo que el motor necesita de un profesional para una fecha. sinTurno deja afuera
 // un turno (el que se está reprogramando, para que no se tape a sí mismo).
 func datosDelDia(ctx context.Context, tx pgx.Tx, p catalogo.Profesional, fecha string, zona *time.Location, sinTurno string) (disponibilidad.Profesional, error) {
+	return datosDeDias(ctx, tx, p, fecha, fecha, zona, sinTurno)
+}
+
+// datosDeDias: lo mismo para un rango de fechas (desde y hasta incluidas), con las mismas consultas.
+func datosDeDias(ctx context.Context, tx pgx.Tx, p catalogo.Profesional, desde, hasta string, zona *time.Location, sinTurno string) (disponibilidad.Profesional, error) {
 	d := disponibilidad.Profesional{ID: p.ID, Horario: p.Horario}
 	var err error
-	if d.Bloqueos, err = catalogo.Bloqueos(ctx, tx, p.ID, fecha, fecha); err != nil {
+	if d.Bloqueos, err = catalogo.Bloqueos(ctx, tx, p.ID, desde, hasta); err != nil {
 		return d, err
 	}
 	if d.Semanales, err = catalogo.Semanales(ctx, tx, p.ID); err != nil {
 		return d, err
 	}
-	if d.Excepciones, err = catalogo.Excepciones(ctx, tx, p.ID, fecha, fecha); err != nil {
+	if d.Excepciones, err = catalogo.Excepciones(ctx, tx, p.ID, desde, hasta); err != nil {
 		return d, err
 	}
-	dia, err := time.ParseInLocation(time.DateOnly, fecha, zona)
-	if err != nil {
+	ini, err1 := time.ParseInLocation(time.DateOnly, desde, zona)
+	fin, err2 := time.ParseInLocation(time.DateOnly, hasta, zona)
+	if err1 != nil || err2 != nil {
 		return d, problema.Invalido("La fecha va como AAAA-MM-DD.")
 	}
 	// Un día de margen de cada lado: un turno de la noche anterior con margen puede asomar.
 	filas, err := tx.Query(ctx, `SELECT inicio, fin, estado, vence_en FROM turnos
 		WHERE profesional_id = $1 AND estado <> 'cancelado' AND inicio < $3 AND fin > $2 AND id::text <> $4`,
-		p.ID, dia.AddDate(0, 0, -1), dia.AddDate(0, 0, 2), sinTurno)
+		p.ID, ini.AddDate(0, 0, -1), fin.AddDate(0, 0, 2), sinTurno)
 	if err != nil {
 		return d, err
 	}
 	d.Turnos, err = pgx.CollectRows(filas, pgx.RowToStructByPos[disponibilidad.Ocupado])
 	return d, err
+}
+
+// ProximoLibre es el primer horario que se puede reservar en el negocio fijado, de hoy a dias−1
+// días adelante (en su zona), o nil. Por profesional mira su servicio activo más corto: si ése no
+// entra, ninguno entra. Lo usa el directorio, acotado a pocos días y a los negocios de la página.
+func ProximoLibre(ctx context.Context, tx pgx.Tx, ahora time.Time, dias int) (*time.Time, error) {
+	c, err := cargarContexto(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	srvs, err := catalogo.Servicios(ctx, tx, true)
+	if err != nil {
+		return nil, err
+	}
+	ps, err := catalogo.Profesionales(ctx, tx, true)
+	if err != nil {
+		return nil, err
+	}
+	hoy := ahora.In(c.zona)
+	fechas := make([]string, dias)
+	for i := range fechas {
+		fechas[i] = time.Date(hoy.Year(), hoy.Month(), hoy.Day()+i, 0, 0, 0, 0, c.zona).Format(time.DateOnly)
+	}
+	type cargado struct {
+		d        disponibilidad.Profesional
+		duracion int
+	}
+	var cs []cargado
+	for _, p := range ps {
+		duracion := 0
+		for _, s := range srvs {
+			if p.Hace(s.ID) && (duracion == 0 || s.Duracion < duracion) {
+				duracion = s.Duracion
+			}
+		}
+		if duracion == 0 || len(p.Horario) == 0 {
+			continue
+		}
+		d, err := datosDeDias(ctx, tx, p, fechas[0], fechas[len(fechas)-1], c.zona, "")
+		if err != nil {
+			return nil, err
+		}
+		cs = append(cs, cargado{d, duracion})
+	}
+	for _, fecha := range fechas {
+		var mejor *time.Time
+		for _, x := range cs {
+			for _, h := range disponibilidad.Dia(disponibilidad.Consulta{Profesional: x.d, Fecha: fecha, Duracion: x.duracion,
+				Reglas: c.reglas(), Ahora: ahora, Zona: c.zona}) {
+				if h.Libre {
+					if mejor == nil || h.Inicio.Before(*mejor) {
+						i := h.Inicio
+						mejor = &i
+					}
+					break
+				}
+			}
+		}
+		if mejor != nil {
+			return mejor, nil
+		}
+	}
+	return nil, nil
 }
 
 // HorarioLibre de la página pública: a qué hora, y qué profesionales están libres.

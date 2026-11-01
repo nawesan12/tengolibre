@@ -338,7 +338,7 @@ var sinAcentos = strings.NewReplacer("Á", "A", "É", "E", "Í", "I", "Ó", "O",
 func clientesAntiguos(ctx context.Context, tx pgx.Tx, ahora time.Time, dias int) (int, error) {
 	var n int
 	err := tx.QueryRow(ctx, `SELECT count(*) FROM clientes c LEFT JOIN preferencias p ON p.cliente_id = c.id
-		WHERE c.email <> '' AND coalesce(p.email, true)
+		WHERE c.email <> '' AND coalesce(p.novedades, true)
 		AND (SELECT min(t.inicio) FROM turnos t WHERE t.cliente_id = c.id AND t.estado = 'atendido') <= $1`,
 		ahora.AddDate(0, 0, -dias)).Scan(&n)
 	return n, err

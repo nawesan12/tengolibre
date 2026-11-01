@@ -118,7 +118,7 @@ func TestCumpleaniosYHaceMuchoQueNoVenis(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	a.Esperar(200, P{Metodo: "PUT", Ruta: "/v1/preferencias/" + token, Cuerpo: map[string]bool{"email": false}}, nil)
+	a.Esperar(200, P{Metodo: "PUT", Ruta: "/v1/preferencias/" + token, Cuerpo: map[string]bool{"novedades": false}}, nil)
 
 	// Domingo 1/11 a las 9: los dos apagados; esta semana cumple Sofía y le toca a Paula.
 	a.Ahora = en("2026-11-01 09:00")

@@ -191,7 +191,7 @@ func candidatos(ctx context.Context, tx pgx.Tx, r Recordatorio, zona *time.Locat
 	if r.Tipo == Cumpleanios {
 		filas, err := tx.Query(ctx, `SELECT c.id::text, c.nombre, c.email, c.nacimiento FROM clientes c
 			LEFT JOIN preferencias p ON p.cliente_id = c.id
-			WHERE c.nacimiento IS NOT NULL AND c.email <> '' AND coalesce(p.email, true)
+			WHERE c.nacimiento IS NOT NULL AND c.email <> '' AND coalesce(p.novedades, true)
 			AND EXISTS (SELECT 1 FROM turnos t WHERE t.cliente_id = c.id AND t.estado = 'atendido')
 			ORDER BY c.nombre LIMIT 20000`)
 		if err != nil {
@@ -225,7 +225,7 @@ func candidatos(ctx context.Context, tx pgx.Tx, r Recordatorio, zona *time.Locat
 		LEFT JOIN preferencias p ON p.cliente_id = c.id
 		JOIN LATERAL (SELECT t.id::text AS turno_id, t.inicio, t.servicio FROM turnos t
 			WHERE t.cliente_id = c.id AND t.estado = 'atendido' ORDER BY t.inicio DESC LIMIT 1) u ON true
-		WHERE c.email <> '' AND coalesce(p.email, true) AND u.inicio >= $1 AND u.inicio < $2
+		WHERE c.email <> '' AND coalesce(p.novedades, true) AND u.inicio >= $1 AND u.inicio < $2
 		AND NOT EXISTS (SELECT 1 FROM turnos t WHERE t.cliente_id = c.id AND t.inicio >= $3
 			AND (t.estado IN ('pendiente', 'confirmado') OR (t.estado = 'pendiente_pago' AND t.vence_en > $3)))
 		ORDER BY u.inicio LIMIT 5000`, desde.AddDate(0, 0, -r.Dias), hasta.AddDate(0, 0, 1-r.Dias), ahora)
@@ -421,8 +421,8 @@ func armar(ctx context.Context, tx pgx.Tx, f avisos.EnCola, ahora time.Time) (co
 	if err != nil {
 		return sin, "", err
 	}
-	if !p.Email {
-		return sin, "el cliente pidió no recibir mails", nil
+	if !p.Novedades {
+		return sin, "el cliente pidió no recibir novedades", nil
 	}
 	d := datosMail{nombre: nombre}
 	if f.Tipo == Extraniamos {

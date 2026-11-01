@@ -318,11 +318,17 @@ func leerNegocio(ctx context.Context, tx pgx.Tx) (negocio, error) {
 	return n, nil
 }
 
-// Preferencias de un cliente (con su token, que se crea la primera vez que se pide).
+// Preferencias de un cliente (con su token, que se crea la primera vez que se pide). La
+// confirmación de un turno nuevo no depende de ninguna: es el comprobante y sale siempre.
 type Preferencias struct {
-	Token         string `json:"-"`
-	Email         bool   `json:"email"`
-	Recordatorios bool   `json:"recordatorios"`
+	Token string `json:"-"`
+	// Email: los cambios en sus turnos (cancelado, reprogramado).
+	Email         bool `json:"email"`
+	Recordatorios bool `json:"recordatorios"`
+	Resena        bool `json:"resena"`
+	ListaEspera   bool `json:"listaEspera"`
+	// Novedades: los recordatorios automáticos del negocio (cumpleaños, «hace mucho que no venís»).
+	Novedades bool `json:"novedades"`
 }
 
 // PreferenciasDe devuelve las preferencias del cliente en el negocio fijado (las crea si no hay).
@@ -332,7 +338,7 @@ func PreferenciasDe(ctx context.Context, tx pgx.Tx, clienteID string) (Preferenc
 		ON CONFLICT (cliente_id) DO NOTHING`, clienteID, Token()); err != nil {
 		return p, err
 	}
-	err := tx.QueryRow(ctx, "SELECT token, email, recordatorios FROM preferencias WHERE cliente_id = $1", clienteID).
-		Scan(&p.Token, &p.Email, &p.Recordatorios)
+	err := tx.QueryRow(ctx, "SELECT token, email, recordatorios, resena, lista_espera, novedades FROM preferencias WHERE cliente_id = $1", clienteID).
+		Scan(&p.Token, &p.Email, &p.Recordatorios, &p.Resena, &p.ListaEspera, &p.Novedades)
 	return p, err
 }

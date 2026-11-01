@@ -1,7 +1,8 @@
 /**
- * Lo que la parte pública supone de la API y todavía no existe (o no se sabe si existe). Todo es
- * opcional del lado del front: si la API no lo manda, la pantalla se arma sin eso. Al integrar,
- * ajustar acá y en los load que lo usan.
+ * Lo que la parte pública usa además de lo que ya existía. La API ya lo manda con estas formas; sigue
+ * opcional del lado del front: si una API vieja no lo manda, la pantalla se arma sin eso.
+ * `horarioAtencion` une los horarios de los profesionales activos (franjas que se pisan quedan en
+ * una, por día); `referencia` son los 6 primeros caracteres del id del turno, en mayúsculas.
  *
  * 1. GET /v1/p/{slug} → `horarioAtencion`: FranjaAtencion[] (los días que abre el negocio). Con eso
  *    la página muestra «Abierto hasta las 20» y el bloque de horarios (LUN–VIE 10–20).

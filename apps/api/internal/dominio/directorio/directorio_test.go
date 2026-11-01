@@ -13,6 +13,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/disponibilidad"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/miweb"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/turnos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/prueba"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/servidor"
 )
@@ -62,6 +63,7 @@ func armar(t *testing.T) *prueba.API {
 			&catalogo.Servicio{Pool: app, Sesion: a.Sesion},
 			&miweb.Servicio{Pool: app, Sesion: a.Sesion},
 			&directorio.Servicio{Pool: app, Sesion: a.Sesion, Ahora: a.Reloj()},
+			&turnos.Servicio{Pool: app, Sesion: a.Sesion, Ahora: a.Reloj()},
 		}
 	})
 }
@@ -200,4 +202,89 @@ func TestSugerenciasDelCliente(t *testing.T) {
 	// Otro negocio no ve al cliente.
 	otro, _, _ := negocio(t, a, "user_bbbbbbbbbb", "otro", "Tandil", "barberia", "Corte", false)
 	a.Esperar(404, P{Metodo: "GET", Ruta: "/v1/panel/clientes/" + cliente + "/sugerencias", Quien: "user_bbbbbbbbbb", Negocio: otro}, nil)
+}
+
+// Explorar con el puntaje, el próximo horario libre (hoy o mañana) y el filtro «hoy con lugar».
+// Ahora: domingo 1/11 a las 10.
+func TestExplorarProximoLibreYPuntaje(t *testing.T) {
+	a := armar(t)
+	// El helper los deja atendiendo los martes; a dos se les suma alguien que atiende otro día.
+	hoy, sHoy, _ := negocio(t, a, "user_aaaaaaaaaa", "abre-hoy", "Tandil", "barberia", "Corte", true)
+	manana, sManana, _ := negocio(t, a, "user_bbbbbbbbbb", "abre-manana", "Tandil", "barberia", "Corte", true)
+	negocio(t, a, "user_cccccccccc", "abre-martes", "Tandil", "barberia", "Corte", true)
+	sumar := func(quien, negocio, servicio string, dia int) {
+		a.Esperar(201, P{Metodo: "POST", Ruta: "/v1/panel/profesionales", Quien: quien, Negocio: negocio, Cuerpo: map[string]any{
+			"nombre": "Beto", "servicios": []string{servicio}, "horario": []disponibilidad.Franja{{Dia: dia, Desde: "09:00", Hasta: "13:00"}}}}, nil)
+	}
+	sumar("user_aaaaaaaaaa", hoy, sHoy, 0)
+	sumar("user_bbbbbbbbbb", manana, sManana, 1)
+
+	// Lo que dice la página pública de cada uno es lo que tiene que decir explorar.
+	primero := func(slug, servicio, fecha string) time.Time {
+		t.Helper()
+		var l struct {
+			Horarios []turnos.HorarioLibre `json:"horarios"`
+		}
+		a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/p/" + slug + "/libres?servicio=" + servicio + "&fecha=" + fecha}, &l)
+		if len(l.Horarios) == 0 {
+			t.Fatalf("%s no tiene libres el %s", slug, fecha)
+		}
+		return l.Horarios[0].Inicio
+	}
+	quieroHoy, quieroManana := primero("abre-hoy", sHoy, "2026-11-01"), primero("abre-manana", sManana, "2026-11-02")
+
+	// Una reseña visible de 4 y otra de 5 (y una oculta de 1) para el que abre hoy. Los turnos van
+	// el martes, para no tapar el primer libre.
+	for i, h := range []string{"2026-11-03 18:00", "2026-11-03 18:30", "2026-11-03 19:00"} {
+		var tu turnos.Turno
+		a.Esperar(201, P{Metodo: "POST", Ruta: "/v1/p/abre-hoy/turnos", Cuerpo: map[string]any{"servicioId": sHoy,
+			"inicio": en(h).Format(time.RFC3339), "cliente": map[string]string{"nombre": "Cliente", "telefono": fmt.Sprint(1000 + i)}}}, &tu)
+		admin(t, a, `INSERT INTO resenas (negocio_id, turno_id, nombre, servicio, profesional, puntaje, visible)
+			VALUES ($1, $2, 'Cliente', 'Corte', 'Ana', $3, $4)`, hoy, tu.ID, []int{4, 5, 1}[i], i < 2)
+	}
+
+	fichas := func(q string) (directorio.Pagina, map[string]directorio.Ficha) {
+		t.Helper()
+		var p directorio.Pagina
+		a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/explorar" + q}, &p)
+		m := map[string]directorio.Ficha{}
+		for _, f := range p.Negocios {
+			m[f.Slug] = f
+		}
+		return p, m
+	}
+	p, m := fichas("")
+	if p.Total != 3 {
+		t.Fatalf("todos: %+v", p)
+	}
+	h, ma, ms := m["abre-hoy"], m["abre-manana"], m["abre-martes"]
+	if h.ProximoLibre == nil || !h.ProximoLibre.Equal(quieroHoy) || h.Promedio == nil || *h.Promedio != 4.5 || h.Resenas != 2 ||
+		h.ZonaHoraria != "America/Argentina/Buenos_Aires" {
+		t.Fatalf("abre hoy: %+v (quería %v)", h, quieroHoy)
+	}
+	if ma.ProximoLibre == nil || !ma.ProximoLibre.Equal(quieroManana) || ma.Promedio != nil || ma.Resenas != 0 {
+		t.Fatalf("abre mañana: %+v (quería %v)", ma, quieroManana)
+	}
+	if ms.ProximoLibre != nil {
+		t.Fatalf("abre el martes: fuera de hoy y mañana %+v", ms)
+	}
+
+	// Hoy con lugar: sólo el de hoy, paginado acá.
+	p, m = fichas("?conLugarHoy=1")
+	if p.Total != 1 || len(p.Negocios) != 1 || m["abre-hoy"].ProximoLibre == nil || p.Paginas != 1 {
+		t.Fatalf("hoy con lugar: %+v", p)
+	}
+	if p, _ := fichas("?conLugarHoy=1&pagina=2&limite=1"); p.Total != 1 || len(p.Negocios) != 0 {
+		t.Fatalf("hoy con lugar, página 2: %+v", p)
+	}
+
+	// Pasado el último horario de hoy, el que abre hoy ya no tiene lugar (el guardado ya pasó) y el
+	// próximo domingo queda fuera de hoy y mañana.
+	a.Ahora = en("2026-11-01 12:45")
+	if p, _ := fichas("?conLugarHoy=1"); p.Total != 0 {
+		t.Fatalf("hoy con lugar a la tarde: %+v", p)
+	}
+	if _, m := fichas(""); m["abre-hoy"].ProximoLibre != nil {
+		t.Fatalf("abre hoy a la tarde: %+v", m["abre-hoy"])
+	}
 }

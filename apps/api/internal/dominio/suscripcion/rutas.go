@@ -40,6 +40,9 @@ func (s *Servicio) leer(w http.ResponseWriter, r *http.Request) error {
 		if out.Acceso, err = LeerAcceso(ctx, tx, s.ahora()); err != nil {
 			return err
 		}
+		if err := LeerCobros(ctx, tx, s.ahora(), &out.Acceso); err != nil {
+			return err
+		}
 		out.Suscripcion, err = vigente(ctx, tx, false)
 		return err
 	})
@@ -60,8 +63,10 @@ func (s *Servicio) acceso(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	var a Acceso
 	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) (err error) {
-		a, err = LeerAcceso(ctx, tx, s.ahora())
-		return err
+		if a, err = LeerAcceso(ctx, tx, s.ahora()); err != nil {
+			return err
+		}
+		return LeerCobros(ctx, tx, s.ahora(), &a)
 	})
 	if err != nil {
 		return err

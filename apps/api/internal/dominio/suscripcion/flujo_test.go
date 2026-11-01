@@ -102,6 +102,15 @@ func TestPanelEnSoloLecturaConLaPruebaVencida(t *testing.T) {
 	}
 	escribe(e, 201)
 	e.Panel(409, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "completo"}, nil)
+	acceso := func() suscripcion.Acceso {
+		e.T.Helper()
+		var a suscripcion.Acceso
+		e.Panel(200, "GET", "/v1/panel/acceso", nil, &a)
+		return a
+	}
+	if a := acceso(); a.ProximoCobro == nil || !a.ProximoCobro.Fecha.Equal(proximo) || a.ProximoCobro.Monto != 7000 || a.CobroFallidoHasta != nil {
+		t.Fatalf("acceso autorizada: %+v", a)
+	}
 
 	// Un cobro mensual rechazado la pausa con 7 días de gracia; pasada la gracia, se bloquea.
 	e.MP.Cobros["5001"] = mercadopago.CobroAutorizado{ID: 5001, PreapprovalID: id, Payment: struct {
@@ -110,6 +119,9 @@ func TestPanelEnSoloLecturaConLaPruebaVencida(t *testing.T) {
 	e.Avisar("subscription_authorized_payment", "5001")
 	if s = leer(e); s.Bloqueado || s.Suscripcion.Estado != "pausada" || !s.Suscripcion.GraciaHasta.Equal(e.Ahora.AddDate(0, 0, 7)) {
 		t.Fatalf("pausada: %+v", s.Suscripcion)
+	}
+	if a := acceso(); a.ProximoCobro != nil || a.CobroFallidoHasta == nil || !a.CobroFallidoHasta.Equal(e.Ahora.AddDate(0, 0, 7)) {
+		t.Fatalf("acceso con el cobro fallido: %+v", a)
 	}
 	e.Ahora = e.Ahora.AddDate(0, 0, 8)
 	if s = leer(e); !s.Bloqueado {
@@ -143,6 +155,9 @@ func TestPanelEnSoloLecturaConLaPruebaVencida(t *testing.T) {
 	}
 	if s = leer(e); s.Bloqueado || s.Suscripcion.Estado != "pausada" || s.Suscripcion.CanceladaEn == nil {
 		t.Fatalf("cancelada con el mes pago: %+v", s.Suscripcion)
+	}
+	if a := acceso(); a.ProximoCobro != nil || a.CobroFallidoHasta != nil {
+		t.Fatalf("acceso dada de baja: %+v", a)
 	}
 	// El aviso de la cancelación no la corta antes.
 	e.Avisar("subscription_preapproval", id)

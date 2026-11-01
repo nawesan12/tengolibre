@@ -88,7 +88,18 @@ func TestMembresiaDesdeLaPagina(t *testing.T) {
 	}
 
 	// La socia, con su sesión y pidiéndolo, reserva cubierta (sin seña) y gasta la visita.
-	conToken(e, 201, "POST", "/v1/p/el-corte/turnos", socia, reservaWeb(e, "10:00", "999999", "", true), nil)
+	var cubierto struct {
+		Codigo string `json:"codigo"`
+	}
+	conToken(e, 201, "POST", "/v1/p/el-corte/turnos", socia, reservaWeb(e, "10:00", "999999", "", true), &cubierto)
+	var link struct {
+		ConMembresia bool `json:"conMembresia"`
+		Sena         any  `json:"sena"`
+	}
+	conToken(e, 200, "GET", "/v1/t/"+cubierto.Codigo, "", nil, &link)
+	if !link.ConMembresia || link.Sena != nil {
+		t.Fatalf("el link del turno cubierto: %+v", link)
+	}
 	x := socio(e, s.ID)
 	if x.Quedan != 0 || x.Creditos[0].TurnoID == nil {
 		t.Fatalf("después de reservar: %+v", x)

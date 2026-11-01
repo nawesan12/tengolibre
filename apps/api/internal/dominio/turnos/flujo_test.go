@@ -1,7 +1,9 @@
 package turnos_test
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -84,9 +86,11 @@ func TestReservaDePuntaAPunta(t *testing.T) {
 		Profesionales []map[string]any       `json:"profesionales"`
 		Galeria       []any                  `json:"galeria"`
 		Resenas       struct{ Cantidad int } `json:"resenas"`
+		Atencion      []disponibilidad.Franja `json:"horarioAtencion"`
 	}
 	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/p/el-corte"}, &pag)
-	if pag.Negocio.Nombre != "El Corte" || len(pag.Servicios) != 1 || len(pag.Profesionales) != 2 || pag.Galeria == nil || pag.Resenas.Cantidad != 0 {
+	if pag.Negocio.Nombre != "El Corte" || len(pag.Servicios) != 1 || len(pag.Profesionales) != 2 || pag.Galeria == nil || pag.Resenas.Cantidad != 0 ||
+		len(pag.Atencion) != 1 || pag.Atencion[0] != (disponibilidad.Franja{Dia: 1, Desde: "09:00", Hasta: "11:00"}) {
 		t.Fatalf("página: %+v", pag)
 	}
 	if _, ok := pag.Profesionales[0]["email"]; ok {
@@ -140,7 +144,8 @@ func TestReservaDePuntaAPunta(t *testing.T) {
 	// El link del cliente: lo ve, lo reprograma y lo cancela.
 	var tc turnos.TurnoCliente
 	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/t/" + t1.Codigo}, &tc)
-	if !tc.PuedeCancelar || tc.Negocio.Nombre != "El Corte" || tc.Cliente.ID != "" {
+	if !tc.PuedeCancelar || tc.Negocio.Nombre != "El Corte" || tc.Cliente.ID != "" || tc.Sena != nil || tc.ConMembresia ||
+		tc.Referencia != strings.ToUpper(t1.ID[:6]) || strings.Contains(t1.Codigo, tc.Referencia) {
 		t.Fatalf("link: %+v", tc)
 	}
 	a.Esperar(409, P{Metodo: "POST", Ruta: "/v1/t/" + t1.Codigo + "/reprogramar",
@@ -279,4 +284,20 @@ func TestBloqueosYAjustesCambianLosLibres(t *testing.T) {
 	// Horarios que se pisan no se guardan.
 	quien("PUT", "/v1/panel/profesionales/"+ana+"/horario", map[string]any{"horario": []map[string]any{
 		{"dia": 1, "desde": "09:00", "hasta": "12:00"}, {"dia": 1, "desde": "11:00", "hasta": "13:00"}}}, 400)
+}
+
+func TestHorarioAtencion(t *testing.T) {
+	ps := []catalogo.Profesional{
+		{Activo: true, Horario: []disponibilidad.Franja{{Dia: 1, Desde: "09:00", Hasta: "13:00"}, {Dia: 1, Desde: "16:00", Hasta: "20:00"}}},
+		{Activo: true, Horario: []disponibilidad.Franja{{Dia: 1, Desde: "12:00:00", Hasta: "14:00:00"}, {Dia: 2, Desde: "10:00", Hasta: "18:00"}}},
+		{Activo: false, Horario: []disponibilidad.Franja{{Dia: 0, Desde: "10:00", Hasta: "12:00"}}},
+	}
+	got := turnos.HorarioAtencion(ps)
+	quiero := []disponibilidad.Franja{{Dia: 1, Desde: "09:00", Hasta: "14:00"}, {Dia: 1, Desde: "16:00", Hasta: "20:00"}, {Dia: 2, Desde: "10:00", Hasta: "18:00"}}
+	if fmt.Sprint(got) != fmt.Sprint(quiero) {
+		t.Fatalf("horario: %v, quería %v", got, quiero)
+	}
+	if got := turnos.HorarioAtencion(nil); got == nil || len(got) != 0 {
+		t.Fatalf("sin profesionales: %v", got)
+	}
 }

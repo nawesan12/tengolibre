@@ -160,6 +160,9 @@ type Publica struct {
 	Rol      string `json:"rol"`
 	Vencida  bool   `json:"vencida"`
 	Aceptada bool   `json:"aceptada"`
+	// InvitadoPor: el nombre de quien la mandó (vacío si ya no está en el equipo o no tiene nombre).
+	InvitadoPor string    `json:"invitadoPor,omitempty"`
+	VenceEn     time.Time `json:"venceEn"`
 }
 
 type fila struct {
@@ -177,11 +180,13 @@ func (s *Servicio) conInvitacion(ctx context.Context, token string, fn func(tx p
 	}
 	f.negocio = negocio
 	err = s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
-		if err := tx.QueryRow(ctx, `SELECT i.id::text, n.nombre, n.slug, i.email, i.rol, i.vence_en, i.aceptada_en IS NOT NULL
+		if err := tx.QueryRow(ctx, `SELECT i.id::text, n.nombre, n.slug, i.email, i.rol, i.vence_en, i.aceptada_en IS NOT NULL,
+				coalesce((SELECT m.nombre FROM miembros m WHERE m.clerk_id = i.invito AND i.invito <> '' AND m.activo LIMIT 1), '')
 			FROM invitaciones i JOIN negocios n ON n.id = i.negocio_id WHERE i.token = $1 FOR UPDATE OF i`, token).
-			Scan(&f.id, &f.Negocio, &f.Slug, &f.Email, &f.Rol, &f.vence, &f.Aceptada); err != nil {
+			Scan(&f.id, &f.Negocio, &f.Slug, &f.Email, &f.Rol, &f.vence, &f.Aceptada, &f.InvitadoPor); err != nil {
 			return err
 		}
+		f.VenceEn = f.vence
 		f.Vencida = !f.vence.After(s.ahora())
 		return fn(tx, &f)
 	})

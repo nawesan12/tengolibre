@@ -1,8 +1,11 @@
 package admin_test
 
 import (
+	"context"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/admin"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/arranque"
@@ -160,6 +163,101 @@ func TestArranque(t *testing.T) {
 	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/panel/arranque", Quien: beto, Negocio: dos}, &e)
 	if e.Reservable {
 		t.Fatal("dos no tiene nada cargado")
+	}
+}
+
+func sql(t *testing.T, a *prueba.API, q string, args ...any) {
+	t.Helper()
+	conn, err := pgx.Connect(context.Background(), a.Bases.AdminURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(context.Background())
+	if _, err := conn.Exec(context.Background(), q, args...); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// El estado de cada cuenta (prueba, plan, cobro fallido, sólo lectura), el pulso de hoy y la plata.
+// Ahora: domingo 1/11/2026 a las 10.
+func TestAdminEstadosYPlata(t *testing.T) {
+	a := armar(t)
+	uno, dos := alta(a, ana, "uno"), alta(a, beto, "dos")
+	tres, cuatro := alta(a, "user_carla00001", "tres"), alta(a, "user_dani000001", "cuatro")
+	dia := 24 * time.Hour
+	prueba := func(id string, d time.Duration) {
+		sql(t, a, "UPDATE negocios SET prueba_hasta = $2 WHERE id = $1", id, a.Ahora.Add(d))
+	}
+	prueba(uno, 2*dia)   // en prueba, por vencer
+	prueba(dos, -10*dia) // pagando
+	prueba(tres, -5*dia) // el cobro no pasó
+	prueba(cuatro, -dia) // sólo lectura
+	sql(t, a, `INSERT INTO suscripciones (negocio_id, referencia, plan, estado, monto, proximo_cobro) VALUES ($1, md5(random()::text), 'completo', 'autorizada', 15000, $2)`,
+		dos, a.Ahora.Add(20*dia))
+	sql(t, a, `INSERT INTO suscripciones (negocio_id, referencia, plan, estado, monto, gracia_hasta) VALUES ($1, md5(random()::text), 'inicial', 'pausada', 7000, $2)`,
+		tres, a.Ahora.Add(3*dia))
+	// Hoy: dos turnos por la web y uno del panel (y uno cancelado, que no cuenta).
+	sql(t, a, `WITH c AS (INSERT INTO clientes (negocio_id, nombre, telefono) VALUES ($1, 'Cliente', '1111') RETURNING id, negocio_id)
+		INSERT INTO turnos (negocio_id, codigo, servicio, profesional, cliente_id, inicio, fin, precio, estado, origen)
+		SELECT c.negocio_id, md5(random()::text), 'Corte', 'Ana', c.id, $2::timestamptz, $2::timestamptz + interval '30 minutes', 1000, x.estado, x.origen
+		FROM c, (VALUES ('confirmado', 'web'), ('pendiente', 'web'), ('confirmado', 'panel'), ('cancelado', 'web')) x (estado, origen)`,
+		uno, a.Ahora.Add(5*time.Hour))
+
+	var est struct {
+		TurnosHoy          int  `json:"turnosHoy"`
+		PorcentajeWeb      *int `json:"porcentajeWeb"`
+		SuscripcionesPagas int  `json:"suscripcionesPagas"`
+		Mrr                int  `json:"mrr"`
+		PruebasPorVencer   int  `json:"pruebasPorVencer"`
+		Conversion         *int `json:"conversion"`
+	}
+	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/admin/estadisticas", Quien: equipo}, &est)
+	if est.TurnosHoy != 3 || est.PorcentajeWeb == nil || *est.PorcentajeWeb != 67 || est.SuscripcionesPagas != 1 || est.Mrr != 15000 ||
+		est.PruebasPorVencer != 1 || est.Conversion == nil || *est.Conversion != 67 {
+		t.Fatalf("estadísticas: %+v", est)
+	}
+
+	type fila struct {
+		Slug       string `json:"slug"`
+		Rubro      string `json:"rubro"`
+		Estado     string `json:"estado"`
+		GraciaDias *int   `json:"graciaDias"`
+	}
+	var l struct {
+		Total    int            `json:"total"`
+		Conteos  map[string]int `json:"conteos"`
+		Negocios []fila         `json:"negocios"`
+	}
+	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/admin/negocios", Quien: equipo}, &l)
+	estados := map[string]fila{}
+	for _, n := range l.Negocios {
+		estados[n.Slug] = n
+	}
+	if estados["uno"].Estado != "prueba" || estados["dos"].Estado != "completo" || estados["tres"].Estado != "cobro_fallido" ||
+		estados["cuatro"].Estado != "solo_lectura" || estados["tres"].GraciaDias == nil || *estados["tres"].GraciaDias != 3 ||
+		estados["dos"].GraciaDias != nil {
+		t.Fatalf("estados: %+v", estados)
+	}
+	if l.Conteos["prueba"] != 1 || l.Conteos["completo"] != 1 || l.Conteos["cobro_fallido"] != 1 || l.Conteos["solo_lectura"] != 1 {
+		t.Fatalf("conteos: %+v", l.Conteos)
+	}
+	// El filtro deja los conteos como están (son las pastillas de la búsqueda).
+	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/admin/negocios?estado=cobro_fallido", Quien: equipo}, &l)
+	if l.Total != 1 || len(l.Negocios) != 1 || l.Negocios[0].Slug != "tres" || l.Conteos["prueba"] != 1 {
+		t.Fatalf("filtro por estado: %+v", l)
+	}
+	l.Conteos = nil // el JSON se suma a un mapa que ya existe
+	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/admin/negocios?estado=prueba&q=dos", Quien: equipo}, &l)
+	if l.Total != 0 || l.Conteos["completo"] != 1 || len(l.Conteos) != 1 {
+		t.Fatalf("filtro con búsqueda: %+v", l)
+	}
+	a.Esperar(400, P{Metodo: "GET", Ruta: "/v1/admin/negocios?estado=oro", Quien: equipo}, nil)
+
+	// Pasada la gracia, el cobro fallido queda en sólo lectura.
+	a.Ahora = a.Ahora.Add(4 * dia)
+	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/admin/negocios?q=tres", Quien: equipo}, &l)
+	if l.Negocios[0].Estado != "solo_lectura" || l.Negocios[0].GraciaDias != nil {
+		t.Fatalf("sin gracia: %+v", l.Negocios[0])
 	}
 }
 
