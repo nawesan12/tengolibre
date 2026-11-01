@@ -1,5 +1,38 @@
 # Estado
 
+## 31/10/2026 (noche): diseño v2 en toda la web y todas las funciones del diseño
+
+Toda la web se rehízo con el handoff v2 (`docs/handoff/design_handoff_tengolibre_v2/`, fiel al
+píxel): tokens, Lato y Material Symbols en `apps/web/src/app.css` y `app.html`, la marca en
+`static/marca/` y las firmas en `src/lib/ui/` (Talon, Hueco, Icono, Logo). Por área:
+- Landing, alta y onboarding de 8 pasos (`src/lib/landing`, `src/lib/alta`, `/empezar`, cartel A5 con QR).
+- Web pública con 6 plantillas × estilo × colores (`src/lib/publico/PaginaNegocio.svelte`), reserva en
+  una pantalla, Mi turno como talón (repetir, confirmar, .ics), reseña, `/espera/{token}`.
+- Panel: armazón (sidebar con «El día», buscador en vivo, campanita, pestañas en el teléfono), Inicio,
+  Turnos (WhatsApp, oferta del hueco, caja, para reprogramar), Calendario, Lista de espera, Clientes
+  (recordatorios), y toda la gestión: Mi web, Plantillas (vista previa en vivo por iframe `?vista=1`),
+  Integraciones e IA, servicios y productos, equipo y días libres, pagos, membresías, cupones,
+  reseñas, referidos, reportes (horas muertas, reporte mensual imprimible), configuración, suscripción.
+- Cuenta: ingreso (equipo y socio), `/conectar` (OAuth del MCP), invitación, Mi cuenta, preferencias
+  de mails, Explorar, admin.
+
+Funciones nuevas de la API (Nahuel decidió construir todas las del diseño; contratos en `docs/api/`):
+| Migración | Qué |
+|---|---|
+| 00012 | Estilo publicado de la web (plantilla, portada, fondo, títulos, forma; luego secciones) |
+| 00013 | Ofrecer el hueco solo a la lista de espera (con vencimiento) y pedir días libres |
+| 00014 | Confirmación y recordatorio por WhatsApp (Cloud API de Meta) y push web (VAPID) con preferencias |
+| 00015 | Turno fijo (series), volver a reservar desde Mi turno, caja y productos |
+| 00016 | Servidor MCP del negocio (claves, permisos, registro de acciones) |
+| 00017 | Horas muertas con cupón por franja, cumpleaños y «hace mucho que no venís», reporte mensual |
+| 00018 | OAuth 2.1 del MCP (registro dinámico, PKCE) para claude.ai y ChatGPT |
+| 00019 | Datos de cuenta, explorar (puntaje, próximo libre) y admin; preferencias de mails separadas |
+| 00020 | IA de los clientes (MCP público `/v1/mcp/publico`), reportes y suscripción que faltaban |
+
+Lo que necesita configuración externa para prenderse (sin eso queda apagado, sin romper nada):
+WhatsApp (`TENGOLIBRE_WHATSAPP_*`, cuenta de Meta y dos plantillas: ver `docs/api/whatsapp.md`),
+push web (`TENGOLIBRE_VAPID_*`, se generan con `go run ./cmd/vapid`), Mercado Pago (`TENGOLIBRE_MP_*`).
+
 ## 31/10/2026 (tarde): front publicado
 
 https://tengolibre.com.ar sirve el front (SvelteKit, `apps/web`, contenedor `tengolibre-web-1` en
@@ -75,7 +108,7 @@ sólo lectura), `web`, `problema`, `archivos`, `correo`, `auditoria`, `trabajos`
 - Registro común de todas las apps: `/opt/VPS.md`.
 
 ### Pendiente
-1. UI final del front: aplicar el handoff del rediseño (fiel al handoff) sobre las pantallas que ya andan.
+1. App de iPhone (handoff en ~/Trabajo/vimo/tengolibreiphone.zip; App Store Connect 6829332747).
 2. Credenciales de Mercado Pago de TengoLibre: App ID y secreto (marketplace con PKCE), clave de
    webhooks y token de la cuenta de la plataforma (`TENGOLIBRE_MP_*`). Sin eso, cobrar y suscribirse
    responden que falta configurarlo.
