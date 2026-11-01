@@ -10,7 +10,7 @@
 	const o = $derived(data.oferta);
 	const n = $derived(o.negocio);
 	const z = $derived(n.zonaHoraria);
-	const tm = $derived(tema(completar(n.estilo), n.colorPrimario, n.colorAcento));
+	const tm = $derived(tema(completar(data.web?.estilo), data.web?.colorPrimario, data.web?.colorAcento));
 	const vars = $derived(variables(tm));
 	const f = $derived(dia(o.inicio, z));
 	const esHoy = $derived(f === dia(new Date(), z));
@@ -20,10 +20,10 @@
 		const id = setInterval(() => (ahora = Date.now()), 15_000);
 		return () => clearInterval(id);
 	});
-	const quedan = $derived(Math.max(0, Math.ceil((Date.parse(o.venceEn) - ahora) / 60_000)));
-	const vencida = $derived(o.estado === 'vencida' || o.estado === 'pasada' || quedan === 0);
-	const pasada = $derived(!!form && 'pasada' in form);
-	const tomadaPorOtro = $derived(!!form && 'codigo' in form && (form.codigo === 'oferta_tomada' || form.codigo === 'horario_ocupado' || form.codigo === 'oferta_vencida'));
+	const quedan = $derived(o.venceEn ? Math.max(0, Math.ceil((Date.parse(o.venceEn) - ahora) / 60_000)) : null);
+	const vencida = $derived(o.estado !== 'ofrecida' || quedan === 0);
+	const pasada = $derived((!!form && 'pasada' in form) || o.estado === 'paso');
+	const tomadaPorOtro = $derived(!!form && 'codigo' in form && (form.codigo === 'oferta_cerrada' || form.codigo === 'horario_ocupado' || form.codigo === 'oferta_vencida'));
 </script>
 
 <svelte:head>
@@ -61,10 +61,12 @@
 				</div>
 			</section>
 			{#if form && 'error' in form && form.error}<p class="aviso rojo" role="alert"><Icono nombre="error" tam={20} lleno /><span>{form.error}</span></p>{/if}
-			<p class="aviso ambar">
-				<Icono nombre="timer" tam={20} lleno />
-				<span>Es tuyo si lo tomás en los próximos <b class="tl-num">{quedan} min</b>. Después pasa a la&nbsp;siguiente.</span>
-			</p>
+			{#if quedan !== null}
+				<p class="aviso ambar">
+					<Icono nombre="timer" tam={20} lleno />
+					<span>Es tuyo si lo tomás en los próximos <b class="tl-num">{quedan} min</b>. Después pasa a la&nbsp;siguiente.</span>
+				</p>
+			{/if}
 			<div class="acciones">
 				<form method="POST" action="?/tomar" use:enhance>
 					<button class="cta">Tomar el lugar</button>

@@ -3,7 +3,7 @@ import { apiPublica } from '#lib/server/api.ts';
 import { intentar } from '#lib/server/acciones.ts';
 import { cobro, codigoValido, o404, opcional } from '#lib/publico/api.server.ts';
 import { esFecha } from '#lib/publico/calendario.ts';
-import type { Dia, Horario, MiReferido, Sugerencia, TurnoCliente, Web } from '#lib/publico/tipos.ts';
+import type { Dia, Horario, HorarioRepetir, MiReferido, Repetir, Sugerencia, Turno, TurnoCliente, Web } from '#lib/publico/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 const ACTIVOS = ['pendiente', 'confirmado', 'pendiente_pago'];
@@ -40,15 +40,23 @@ export const load: PageServerLoad = async ({ params, url, fetch, setHeaders }) =
 	}
 
 	// El color y el estilo del negocio (el talón se pinta con su marca) y la seña si falta pagarla.
-	const [web, conf] = await Promise.all([
+	const [web, conf, repetir] = await Promise.all([
 		opcional(api.get<Web>(`/v1/p/${turno.negocio.slug}/web`), null),
-		turno.estado === 'pendiente_pago' ? cobro(fetch, turno.negocio.slug) : null
+		turno.estado === 'pendiente_pago' ? cobro(fetch, turno.negocio.slug) : null,
+		// Atendido: el próximo turno armado (docs/api/repetir.md). Sin servicio o profesional, nada.
+		turno.estado === 'atendido' ? opcional(api.get<Repetir>(`/v1/t/${c}/repetir`), null) : null
 	]);
+	// La fecha elegida entre la sugerencia y las alternativas (?repetir=AAAA-MM-DD).
+	const opciones = repetir ? [repetir.sugerencia, ...repetir.alternativas].filter((x): x is HorarioRepetir => !!x).sort((a, b) => a.inicio.localeCompare(b.inicio)) : [];
+	const repetirElegido = opciones.find((o) => o.fecha === url.searchParams.get('repetir')) ?? repetir?.sugerencia ?? null;
 
 	return {
 		turno,
 		web,
 		cobro: conf,
+		repetir,
+		opcionesRepetir: opciones,
+		repetirElegido,
 		cancelar: activo(turno.estado) && turno.puedeCancelar && url.searchParams.has('cancelar') && !cambiar,
 		referido,
 		sugerencias: sugerencias.sugerencias,
@@ -81,6 +89,20 @@ export const actions: Actions = {
 		if (!('ok' in r)) return r;
 		if (!/^https:\/\//.test(r.datos.url)) return fail(502, { error: 'No pudimos armar el link de pago. Probá en un rato.', codigo: 'sin_link', campos: {} });
 		redirect(303, r.datos.url);
+	},
+	confirmar: async ({ params, fetch }) => {
+		const r = await intentar(() => apiPublica(fetch).post(`/v1/t/${params.codigo}/confirmar`));
+		if (!('ok' in r)) return r;
+		return { confirmado: true };
+	},
+	repetir: async ({ params, fetch, request }) => {
+		const f = await request.formData();
+		const inicio = String(f.get('inicio') ?? '');
+		if (isNaN(Date.parse(inicio))) return fail(400, { error: 'Elegí un día.', codigo: 'invalido', campos: {} });
+		const r = await intentar(() => apiPublica(fetch).post<Turno>(`/v1/t/${params.codigo}/repetir`, { inicio }));
+		if (!('ok' in r)) return r;
+		if (r.datos.pago?.url && /^https:\/\//.test(r.datos.pago.url)) redirect(303, r.datos.pago.url);
+		redirect(303, `/turno/${r.datos.codigo}?nuevo=1`);
 	},
 	referido: async ({ params, fetch }) => {
 		const r = await intentar(() => apiPublica(fetch).post<MiReferido>(`/v1/t/${params.codigo}/referido`));

@@ -135,7 +135,12 @@ export const actions: Actions = {
 				servicioId: texto(f, 'servicioId'),
 				profesionalId: profesionalId === CUALQUIERA ? '' : profesionalId,
 				inicio: texto(f, 'inicio'),
-				cliente: { nombre: texto(f, 'nombre'), telefono: texto(f, 'telefono'), email: texto(f, 'email') },
+				cliente: {
+					nombre: texto(f, 'nombre'),
+					telefono: texto(f, 'telefono'),
+					email: texto(f, 'email'),
+					nacimiento: texto(f, 'nacimiento') || undefined
+				},
 				nota: texto(f, 'nota'),
 				cupon: texto(f, 'cupon') || undefined,
 				referido: texto(f, 'referido') || undefined,
@@ -173,7 +178,8 @@ export const actions: Actions = {
 				email: texto(f, 'email'),
 				telefono: texto(f, 'telefono'),
 				desde: texto(f, 'desde'),
-				hasta: texto(f, 'hasta')
+				hasta: texto(f, 'hasta'),
+				momento: texto(f, 'momento') || 'cualquiera'
 			})
 		);
 		if (!('ok' in r)) return fail(r.status, { ...r.data, valores, enEspera: true });

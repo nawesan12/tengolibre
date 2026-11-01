@@ -63,3 +63,24 @@ export async function socio(a: Armado, email: string) {
 	const plan = await p<{ id: string }>('POST', '/v1/panel/membresias/planes', { nombre: 'Un corte', precio: 9000, visitas: 1, duracionDias: 30 });
 	await p('POST', '/v1/panel/membresias/socios', { planId: plan.id, nombre: 'Socia', telefono: '11 5555 0000', email });
 }
+
+/** Un pedido a la API pública (sin sesión), como lo hace el navegador de un cliente. */
+export const publica = <T>(metodo: string, ruta: string, cuerpo?: unknown) => pedir<T>(metodo, ruta, cuerpo);
+
+/** Un turno reservado por la página pública con Ana, el primer horario de un día después de hoy. */
+export async function reservarConAna(a: Armado, nombre = 'Cliente E2E') {
+	const ana = sql(`SELECT id FROM profesionales WHERE negocio_id = :'p1' AND nombre = 'Ana'`, a.negocio);
+	const q = new URLSearchParams({ servicio: a.servicio, profesional: ana });
+	const { dias } = await publica<{ dias: { fecha: string; libres: number }[] }>('GET', `/v1/p/${a.slug}/dias?${q}`);
+	const manana = new Date(Date.parse(hoy() + 'T12:00:00Z') + 86_400_000).toISOString().slice(0, 10);
+	const fecha = dias.find((d) => d.libres > 0 && d.fecha > manana)!.fecha;
+	q.set('fecha', fecha);
+	const { horarios } = await publica<{ horarios: { inicio: string }[] }>('GET', `/v1/p/${a.slug}/libres?${q}`);
+	const t = await publica<{ codigo: string; inicio: string }>('POST', `/v1/p/${a.slug}/turnos`, {
+		servicioId: a.servicio,
+		profesionalId: ana,
+		inicio: horarios[0].inicio,
+		cliente: { nombre, telefono: '11 5555 0202', email: `cli${unico()}@prueba.com` }
+	});
+	return { ...t, fecha, ana };
+}

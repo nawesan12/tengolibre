@@ -102,6 +102,12 @@
 				<label class="campo-w">Nombre <input name="nombre" required maxlength="80" autocomplete="name" value={v.nombre ?? borrador.nombre} /></label>
 				<label class="campo-w">Email <input name="email" type="email" required maxlength="120" autocomplete="email" value={v.email ?? borrador.email} /></label>
 				<label class="campo-w">Teléfono (opcional) <input name="telefono" type="tel" maxlength="30" autocomplete="tel" value={v.telefono ?? borrador.telefono} /></label>
+				<fieldset class="momento">
+					<legend>¿Qué momento te sirve?</legend>
+					{#each [['cualquiera', 'Cualquiera'], ['manana', 'Mañana'], ['tarde', 'Tarde']] as [valor, nombre] (valor)}
+						<label class="opcion"><input type="radio" name="momento" value={valor} checked={(v.momento ?? 'cualquiera') === valor} />{nombre}</label>
+					{/each}
+				</fieldset>
 				<div class="dos">
 					<label class="campo-w">Desde <input name="desde" type="date" required min={hoy} value={v.desde ?? desde} /></label>
 					<label class="campo-w">Hasta <input name="hasta" type="date" required min={hoy} value={v.hasta ?? hasta} /></label>
@@ -311,7 +317,7 @@
 								/>
 								<span id="ayuda-contacto" class="chico sub">Teléfono o email: con uno alcanza. Ahí te llega la&nbsp;confirmación.</span>
 							{/if}
-							<details {...abierto(!!(v.cupon || v.referido || v.nota || data.referido))}>
+							<details {...abierto(!!(v.cupon || v.referido || v.nota || v.nacimiento || data.referido || form?.campos?.["cliente.nacimiento"]))}>
 								<summary class="extra">
 									<Icono nombre="sell" tam={18} lleno />Cupón, nota o código de referido
 									{#if descuento > 0}<span class="ok tl-num">− {pesos(descuento)}</span>{/if}
@@ -332,6 +338,11 @@
 										Código de referido
 										<input name="referido" maxlength="40" autocomplete="off" autocapitalize="characters" value={v.referido ?? data.referido} />
 										<span class="chico sub">Si te recomendó alguien, poné su&nbsp;código.</span>
+									</label>
+									<label class="campo-w">
+										Tu cumpleaños (opcional)
+										<input name="nacimiento" type="date" min="1900-01-01" max={hoy} value={v.nacimiento ?? ''} aria-describedby="ayuda-cumple" />
+										<span id="ayuda-cumple" class="chico sub">Para saludarte ese&nbsp;día.</span>
 									</label>
 									<label class="campo-w">
 										Algo que {n.nombre} tenga que saber
@@ -565,6 +576,40 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
+	}
+	.momento {
+		border: 0;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		min-width: 0;
+	}
+	.momento legend {
+		width: 100%;
+		margin-bottom: 6px;
+		font-size: 14px;
+		font-weight: 700;
+	}
+	.momento .opcion {
+		position: relative;
+		cursor: pointer;
+	}
+	.momento input {
+		position: absolute;
+		opacity: 0;
+		width: 1px;
+		height: 1px;
+	}
+	.momento .opcion:has(input:checked) {
+		background: var(--w-pri);
+		color: var(--w-on);
+		box-shadow: none;
+	}
+	.momento .opcion:has(input:focus-visible) {
+		outline: 3px solid var(--tl-menta);
+		outline-offset: 2px;
 	}
 	.dos {
 		display: grid;

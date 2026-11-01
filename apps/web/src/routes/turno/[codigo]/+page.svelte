@@ -87,6 +87,7 @@
 		{#if data.pago && mensajesPago[data.pago]}
 			<p class="aviso-w tinte" role="status"><Icono nombre="paid" lleno /><span>{mensajesPago[data.pago]}</span></p>
 		{/if}
+		{#if form && 'confirmado' in form}<p class="aviso-w tinte" role="status"><Icono nombre="check_circle" lleno /><span>¡Gracias! Le avisamos a {n.nombre} que&nbsp;venís.</span></p>{/if}
 		{#if form?.error}<p class="aviso-w rojo" role="alert"><Icono nombre="error" lleno /><span>{form.error}</span></p>{/if}
 
 		{#if t.estado === 'pendiente_pago'}
@@ -124,6 +125,38 @@
 					</form>
 				</section>
 			{/if}
+		{/if}
+
+		{#if t.estado === 'atendido' && data.repetir && data.repetirElegido}
+			{@const r = data.repetir}
+			{@const e = data.repetirElegido}
+			<section class="repetir" aria-labelledby="t-repetir">
+				<span class="atendido"><Icono nombre="done_all" tam={15} lleno />Atendido · {diaTexto(f)}</span>
+				<h2 id="t-repetir" class="grande">¿Repetimos en {r.semanas} {r.semanas === 1 ? 'semana' : 'semanas'}?</h2>
+				<div class="talon-hueco grande-h">
+					<span class="th-cuando"><span class="tl-num">{diaCorto(e.fecha)} {mesCorto(e.fecha)}</span><b class="tl-num">{e.hora}</b></span>
+					<span class="th-datos">
+						<b>{r.servicio.nombre}</b>
+						<span class="sub">Con {r.profesional.nombre} · {pesos(r.servicio.precio)}</span>
+						<span class="nota-marca">{e.mismoHorario ? (e.fecha.length && new Date(e.fecha + 'T12:00:00Z').getUTCDay() === new Date(f + 'T12:00:00Z').getUTCDay() ? 'Mismo día y hora' : 'Misma hora') : 'La hora más parecida'}</span>
+					</span>
+				</div>
+				{#if data.opcionesRepetir.length > 1}
+					<div class="fechas" role="group" aria-label="Otras fechas">
+						{#each data.opcionesRepetir as o (o.inicio)}
+							<a class="fecha-op tl-num" href={`${base}?repetir=${o.fecha}`} data-sveltekit-reset="false" aria-current={o.fecha === e.fecha ? 'true' : undefined}>{diaCorto(o.fecha)}</a>
+						{/each}
+					</div>
+				{/if}
+				<span class="chico sub">
+					Tus datos ya los tenemos.{#if r.pago?.monto}{' '}{r.pago.modo === 'total' ? 'Se paga por adelantado' : 'La seña es la misma'}: <span class="tl-num">{pesos(r.pago.monto)}</span>.{/if}
+				</span>
+				<form method="POST" action="?/repetir" use:enhance class="pila">
+					<input type="hidden" name="inicio" value={e.inicio} />
+					<button class="cta">{r.pago?.monto ? (r.pago.modo === 'total' ? 'Reservar y pagar' : 'Reservar y pagar seña') : 'Reservar'}</button>
+				</form>
+				<a class="cta-2" href={reservarDeNuevo}>Elegir otro día u hora</a>
+			</section>
 		{/if}
 
 		<!-- El talón del turno -->
@@ -169,6 +202,13 @@
 		</section>
 
 		{#if activo}
+			{#if t.estado === 'pendiente'}
+				<form method="POST" action="?/confirmar" use:enhance class="pila">
+					<button class="cta">Confirmo que voy</button>
+				</form>
+			{:else if t.confirmadoEn && (t.confirmadoPor === 'web' || t.confirmadoPor === 'whatsapp')}
+				<span class="confirmado"><Icono nombre="check_circle" tam={18} lleno />Confirmaste{t.confirmadoPor === 'whatsapp' ? ' por WhatsApp' : ''} · <span class="tl-num">{hora(t.confirmadoEn, z)}</span></span>
+			{/if}
 			<div class="dos">
 				<a class="boton-w" href={`${base}/turno.ics`} download="turno.ics"><Icono nombre="calendar_add_on" tam={20} lleno />Agendar</a>
 				{#if mapa}<a class="boton-w" href={mapa} target="_blank" rel="noopener"><Icono nombre="directions" tam={20} lleno />Cómo llegar</a>{/if}
@@ -239,11 +279,11 @@
 				</p>
 				<a class="cta" href={reservarDeNuevo}>Reservar de nuevo</a>
 			</section>
-		{:else}
+		{:else if !data.repetir}
 			<a class="cta" href={`/${n.slug}/reservar`}>Sacar otro turno</a>
 		{/if}
 
-		{#if data.sugerencias.length && t.servicioId}
+		{#if data.sugerencias.length && t.servicioId && !data.repetir}
 			<section class="proximo" aria-labelledby="t-sug">
 				<h2 id="t-sug">Tu próximo turno</h2>
 				{#each data.sugerencias.slice(0, 3) as s, i (i)}
@@ -686,6 +726,91 @@
 		margin: 0;
 		padding: 0;
 		min-width: 0;
+	}
+
+	.repetir {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+		padding-bottom: 10px;
+	}
+	.atendido {
+		display: inline-flex;
+		align-self: flex-start;
+		align-items: center;
+		gap: 5px;
+		height: 28px;
+		padding: 0 11px 0 8px;
+		border-radius: 999px;
+		background: var(--tl-petroleo);
+		color: #fff;
+		font-size: 12px;
+		font-weight: 700;
+	}
+	.repetir h2.grande {
+		font-size: 30px;
+		letter-spacing: -0.045em;
+	}
+	.grande-h {
+		grid-template-columns: 100px minmax(0, 1fr);
+		min-height: 96px;
+		border-radius: 20px;
+		background:
+			radial-gradient(circle at 100px 0, var(--w-bg) 9px, transparent 9.5px),
+			radial-gradient(circle at 100px 100%, var(--w-bg) 9px, transparent 9.5px),
+			repeating-linear-gradient(-45deg, var(--w-raya) 0 2px, transparent 2px 10px),
+			var(--w-tint);
+		box-shadow: inset 0 0 0 1.5px var(--w-troquel);
+	}
+	.grande-h .th-cuando {
+		padding: 0 16px;
+	}
+	.grande-h .th-cuando b {
+		font-size: 26px;
+		letter-spacing: -0.05em;
+	}
+	.th-datos {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		gap: 2px;
+		padding: 8px 16px;
+		font-size: 14px;
+		min-width: 0;
+	}
+	.nota-marca {
+		font-size: 12px;
+		font-weight: 700;
+		color: var(--w-marca);
+	}
+	.fechas {
+		display: flex;
+		gap: 6px;
+	}
+	.fecha-op {
+		flex: 1;
+		display: grid;
+		place-items: center;
+		height: 48px;
+		border-radius: 12px;
+		box-shadow: inset 0 0 0 1.5px var(--w-line2);
+		color: var(--w-ink);
+		font: 700 13px var(--tl-font);
+		text-decoration: none;
+	}
+	.fecha-op[aria-current] {
+		background: var(--w-pri);
+		color: var(--w-on);
+		box-shadow: none;
+	}
+	.confirmado {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		font-size: 13px;
+		font-weight: 700;
+		color: var(--w-ok);
 	}
 
 	/* Próximo turno: talón rayado */

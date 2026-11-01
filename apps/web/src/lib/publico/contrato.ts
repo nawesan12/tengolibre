@@ -8,32 +8,10 @@
  *
  * 2. GET /v1/t/{codigo} → `sena`: PagoTurno | null (lo cobrado por adelantado), `referencia`
  *    (código corto para mostrar en el local; el `codigo` del link es secreto) y `conMembresia`.
- *    Con eso Mi turno muestra el sello «SEÑA OK» / «SOCIA», «Seña pagada» y «En el local».
- *
- * 3. Hueco ofrecido a la lista de espera (rutas /espera/[token]):
- *    GET  /v1/espera/ofertas/{token}         → OfertaHueco
- *    POST /v1/espera/ofertas/{token}/tomar   → { codigo: string; pago?: { url?: string } }
- *         (el turno queda a nombre de quien esperaba; si hay seña, `pago.url` es Mercado Pago)
- *    POST /v1/espera/ofertas/{token}/pasar   → 204 (no le sirve: pasa al siguiente de la lista)
- *    Errores con código: `oferta_vencida`, `oferta_tomada`, `horario_ocupado`.
+ *    Con eso Mi turno muestra el sello «SEÑA OK» / «MEMBRESÍA», «Seña pagada» y «En el local».
  */
-import type { Estilo } from './estilo.ts';
 
 /** Una franja del horario de atención: dia 0 = domingo; horas "HH:MM". */
 export type FranjaAtencion = { dia: number; desde: string; hasta: string };
 
 export type PagoTurno = { monto: number; estado: 'aprobado' | 'pendiente' | 'devuelto' | 'rechazado' };
-
-export type OfertaHueco = {
-	estado: 'ofrecida' | 'tomada' | 'vencida' | 'pasada';
-	negocio: { nombre: string; slug: string; logo: string | null; colorPrimario: string; colorAcento: string; estilo?: Estilo; zonaHoraria: string };
-	servicio: string;
-	profesional: string;
-	inicio: string;
-	fin: string;
-	precio: number;
-	/** Hasta cuándo lo puede tomar (después pasa al siguiente). */
-	venceEn: string;
-	/** Si ya lo tomó: el código de su turno. */
-	turnoCodigo?: string | null;
-};

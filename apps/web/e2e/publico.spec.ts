@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './base.ts';
 import { unico } from './ayuda.ts';
-import { hoy, idPersona, invitar, negocioConAgenda, socio, sql } from './publico-ayuda.ts';
+import { hoy, idPersona, invitar, negocioConAgenda, publica, reservarConAna, socio, sql } from './publico-ayuda.ts';
 
 /** Elige en el calendario el primer día con lugar que no sea hoy (así hay plazo para cancelar). */
 async function elegirDia(page: Page, distintoDe = '') {
@@ -68,6 +68,11 @@ test('reserva completa, reprogramar, cancelar y reseña', async ({ page }) => {
 	await expect(page.getByText('Con Ana')).toBeVisible();
 	await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
 	const codigo = new URL(page.url()).pathname.split('/').pop()!;
+
+	// Confirmar desde el link (lo mismo que el botón de WhatsApp).
+	await page.getByRole('button', { name: 'Confirmo que voy' }).click();
+	await expect(page.getByText(/Le avisamos a .* que.venís/)).toBeVisible();
+	await expect(page.getByText(/Confirmaste ·/)).toBeVisible();
 
 	// Reprogramar a otro día.
 	await page.getByRole('link', { name: 'Cambiar día u hora' }).click();
@@ -218,4 +223,45 @@ test('dominio propio: /_host traduce el host al slug', async ({ request }) => {
 	sql(`INSERT INTO dominios (negocio_id, nombre, token, estado, verificado_en) VALUES (:'p1', :'p2', :'p3', 'verificado', now())`,
 		a.negocio, host, 'a'.repeat(24));
 	expect(await (await request.get(`/_host?host=${host}`)).json()).toEqual({ slug: a.slug });
+});
+
+test('se libera un lugar: la persona de la lista lo toma desde su link', async ({ page }) => {
+	const a = await negocioConAgenda();
+	const t = await reservarConAna(a);
+	await publica('POST', `/v1/p/${a.slug}/espera`, {
+		servicioId: a.servicio,
+		profesionalId: '',
+		nombre: 'Martina',
+		email: `martina${unico()}@prueba.com`,
+		desde: t.fecha,
+		hasta: t.fecha,
+		momento: 'cualquiera'
+	});
+	await publica('POST', `/v1/t/${t.codigo}/cancelar`);
+	// El link lo manda el mail; acá se lee de la base.
+	const tk = sql(`SELECT token FROM oferta_intentos WHERE negocio_id = :'p1' AND estado = 'ofrecida'`, a.negocio);
+	await page.goto(`/espera/${tk}`);
+	await expect(page.getByText('SE LIBERÓ LO QUE ESPERABAS')).toBeVisible();
+	await expect(page.getByText(/Es tuyo si lo tomás en los próximos/)).toBeVisible();
+	await sinDesborde(page);
+	await page.getByRole('button', { name: 'Tomar el lugar' }).click();
+	await expect(page).toHaveURL(/\/turno\/[\w-]+\?nuevo=1/);
+	await expect(page.getByText('A nombre de Martina')).toBeVisible();
+	// El link ya usado lleva a su turno.
+	await page.goto(`/espera/${tk}`);
+	await expect(page).toHaveURL(/\/turno\/[\w-]+/);
+});
+
+test('turno atendido: repetir en un toque', async ({ page }) => {
+	const a = await negocioConAgenda();
+	const t = await reservarConAna(a, 'Sofía Méndez');
+	sql(`UPDATE turnos SET estado = 'atendido' WHERE codigo = :'p1'`, t.codigo);
+	await page.goto(`/turno/${t.codigo}`);
+	await expect(page.getByRole('heading', { name: /¿Repetimos en \d+ semanas?\?/ })).toBeVisible();
+	await expect(page.getByText('Tus datos ya los tenemos.')).toBeVisible();
+	await sinDesborde(page);
+	await page.getByRole('button', { name: 'Reservar', exact: true }).click();
+	await expect(page).toHaveURL(/\/turno\/[\w-]+\?nuevo=1/);
+	await expect(page.getByText('¡Listo! Guardá este link')).toBeVisible();
+	await expect(page.getByText('Con Ana')).toBeVisible();
 });
