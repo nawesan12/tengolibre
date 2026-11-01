@@ -52,10 +52,11 @@
 		{/if}
 
 		{#if grupo}
+			<section class="g-col" aria-label={`Grupo ${grupo.nombre}`}>
 			{#if grupo.sucursales.length === 0}
 				<div class="g-bloque"><p class="g-nota">Este grupo todavía no tiene negocios. Sumá el primero&nbsp;abajo.</p></div>
 			{:else}
-				<ul class="locales">
+				<ul class="locales" aria-label="Negocios del grupo">
 					{#each grupo.sucursales as s, i (s.id)}
 						{@const n = numerosDe(s.id)}
 						<li class="local">
@@ -133,6 +134,7 @@
 					<button class="g-accion peligro"><span class="icono" aria-hidden="true">delete</span>Borrar el grupo</button>
 				</form>
 			</details>
+			</section>
 		{/if}
 
 		{#if esDuenia}
@@ -155,7 +157,7 @@
 	</div>
 
 	{#if grupo}
-		<div class="derecha g-col" id="reporte">
+		<section class="derecha g-col" id="reporte" aria-label={`Reporte de ${grupo.nombre}`}>
 			{#if data.errorReporte}
 				<p class="aviso error" role="alert">{data.errorReporte}</p>
 			{:else if r}
@@ -197,7 +199,7 @@
 				<label class="g-campo">Hasta <input type="date" name="hasta" value={data.hasta} required /></label>
 				<button class="g-boton oscuro">Ver reporte</button>
 			</form>
-		</div>
+		</section>
 	{/if}
 </div>
 

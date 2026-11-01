@@ -52,39 +52,49 @@ test('sucursales: un grupo con dos negocios y su reporte', async ({ page }) => {
 	await page.getByRole('button', { name: 'Crear grupo' }).click();
 	const grupo = page.getByRole('region', { name: 'Grupo Cadena' });
 	await expect(grupo).toBeVisible();
+	await expect(grupo.getByText('Este grupo todavía no tiene negocios.')).toBeVisible();
 
+	const locales = grupo.getByRole('list', { name: 'Negocios del grupo' });
+	await grupo.getByText('Sumar un negocio al grupo').click();
 	for (const n of [primero, segundo]) {
 		await grupo.getByLabel('Sumar un negocio a Cadena').selectOption({ label: n });
 		await grupo.getByRole('button', { name: 'Sumar' }).click();
-		await expect(grupo.getByRole('button', { name: `Sacar ${n} de Cadena` })).toBeVisible();
+		await expect(locales.getByText(n, { exact: true })).toBeVisible();
 	}
+	await expect(page.getByText('Grupo «Cadena» · 2 negocios')).toBeVisible();
 
 	// Renombrar.
+	await grupo.getByText('Administrar el grupo').click();
 	await grupo.getByRole('button', { name: 'Renombrar' }).click();
 	await grupo.getByLabel('Nombre del grupo').fill('Cadena Norte');
 	await grupo.getByRole('button', { name: 'Guardar' }).click();
 	const norte = page.getByRole('region', { name: 'Grupo Cadena Norte' });
 	await expect(norte).toBeVisible();
 
-	// El reporte consolidado, con las dos sucursales y el total.
-	await norte.getByRole('link', { name: 'Ver reporte' }).click();
-	const tabla = page.getByRole('table', { name: 'Turnos e ingresos por sucursal' });
-	await expect(tabla.getByRole('rowheader', { name: primero })).toBeVisible();
-	await expect(tabla.getByRole('rowheader', { name: segundo })).toBeVisible();
-	await expect(tabla.getByRole('rowheader', { name: 'Total' })).toBeVisible();
+	// El reporte consolidado, al lado: el total de las dos y la comparación entre ellas.
+	const reporte = page.getByRole('region', { name: 'Reporte de Cadena Norte' });
+	await expect(reporte.getByRole('heading', { name: /^Entre los dos, del / })).toBeVisible();
+	const tabla = reporte.getByRole('region', { name: 'Comparación entre locales' }).getByRole('table');
+	await expect(tabla.getByRole('columnheader', { name: primero })).toBeVisible();
+	await expect(tabla.getByRole('columnheader', { name: segundo })).toBeVisible();
+	await expect(tabla.getByRole('rowheader', { name: 'Facturación' })).toBeVisible();
 
 	// Un rango al revés vuelve con el mensaje de la API.
-	await page.getByLabel('Desde').fill('2026-10-20');
-	await page.getByLabel('Hasta').fill('2026-10-01');
-	await page.getByRole('button', { name: 'Ver reporte' }).click();
+	await reporte.getByLabel('Desde').fill('2026-10-20');
+	await reporte.getByLabel('Hasta').fill('2026-10-01');
+	await reporte.getByRole('button', { name: 'Ver reporte' }).click();
 	await expect(page.getByRole('alert')).toContainText('fechas');
 
 	// Sacar uno y borrar el grupo: los negocios quedan sueltos.
+	if (!(await norte.getByRole('button', { name: 'Renombrar' }).isVisible())) await norte.getByText('Administrar el grupo').click();
 	await norte.getByRole('button', { name: `Sacar ${segundo} de Cadena Norte` }).click();
 	await expect(norte.getByRole('button', { name: `Sacar ${segundo} de Cadena Norte` })).toHaveCount(0);
+	await expect(locales.getByText(segundo, { exact: true })).toHaveCount(0);
 	page.once('dialog', (d) => d.accept());
-	await norte.getByRole('button', { name: 'Borrar' }).click();
-	await expect(page.getByText('Todavía no armaste ningún grupo.')).toBeVisible();
+	await norte.getByRole('button', { name: 'Borrar el grupo' }).click();
+	await expect(norte).toHaveCount(0);
+	await expect(page.getByText(/^Sin grupo: /)).toContainText(primero);
+	await expect(page.getByText(/^Sin grupo: /)).toContainText(segundo);
 });
 
 test('el admin es un 404 para una persona común, y sin sesión manda a ingresar', async ({ page }) => {

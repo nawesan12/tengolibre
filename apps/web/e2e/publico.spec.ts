@@ -212,7 +212,8 @@ test('invitación: sin sesión pide ingresar y al volver la acepta', async ({ pa
 	await page.getByLabel('Id de la persona').fill(persona);
 	await page.getByRole('button', { name: 'Entrar' }).click();
 	await expect(page).toHaveURL(/\/panel/);
-	await expect(page.getByText(a.nombre).first()).toBeVisible();
+	// En el teléfono el nombre del negocio va en la barra de arriba, no en el menú lateral.
+	await expect(page.locator('[data-negocio-actual]:visible')).toHaveText(a.nombre);
 	await page.goto(`/invitacion/${tk}`);
 	await expect(page.getByRole('heading', { name: 'Ya la usaste' })).toBeVisible();
 });
@@ -247,7 +248,11 @@ test('se libera un lugar: la persona de la lista lo toma desde su link', async (
 	await sinDesborde(page);
 	await page.getByRole('button', { name: 'Tomar el lugar' }).click();
 	await expect(page).toHaveURL(/\/turno\/[\w-]+\?nuevo=1/);
-	await expect(page.getByText('A nombre de Martina')).toBeVisible();
+	// El talón muestra la referencia para decir en el local; el turno quedó a nombre de Martina.
+	const codigo = new URL(page.url()).pathname.split('/').pop() ?? '';
+	const id = sql(`SELECT id FROM turnos WHERE codigo = :'p1'`, codigo);
+	await expect(page.getByText(id.slice(0, 6).toUpperCase(), { exact: true })).toBeVisible();
+	expect(sql(`SELECT c.nombre FROM turnos t JOIN clientes c ON c.id = t.cliente_id WHERE t.codigo = :'p1'`, codigo)).toBe('Martina');
 	// El link ya usado lleva a su turno.
 	await page.goto(`/espera/${tk}`);
 	await expect(page).toHaveURL(/\/turno\/[\w-]+/);

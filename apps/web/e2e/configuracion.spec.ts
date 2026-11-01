@@ -213,7 +213,8 @@ test('con la prueba vencida, todo el panel avisa que está en sólo lectura', as
 		await abrir(page, ruta);
 		await expect(page.getByText('Tu prueba gratis terminó')).toBeVisible();
 	}
-	await page.getByRole('link', { name: 'elegí un plan' }).click();
+	// Al dueño, el aviso le ofrece elegir el plan ahí mismo.
+	await page.getByRole('status').filter({ hasText: 'Tu prueba gratis terminó' }).getByRole('link', { name: 'Elegir un plan' }).click();
 	await expect(page).toHaveURL(/\/panel\/suscripcion$/);
 });
 
