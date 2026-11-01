@@ -34,7 +34,15 @@ Funciones nuevas de la API (Nahuel decidió construir todas las del diseño; con
 
 Lo que necesita configuración externa para prenderse (sin eso queda apagado, sin romper nada):
 WhatsApp (`TENGOLIBRE_WHATSAPP_*`, cuenta de Meta y dos plantillas: ver `docs/api/whatsapp.md`),
-push web (`TENGOLIBRE_VAPID_*`, se generan con `go run ./cmd/vapid`), Mercado Pago (`TENGOLIBRE_MP_*`).
+push web (`TENGOLIBRE_VAPID_*`, se generan con `go run ./cmd/vapid`).
+
+Mercado Pago, configurado el 1/11: app «TengoLibre» 6161498246914243 en la cuenta de Nahuel
+(Checkout Pro con API de Preferencias, OAuth con PKCE). Vuelta del OAuth en
+`https://tengolibre.com.ar/panel/mercadopago/vuelta` y webhook de producción en
+`https://api.tengolibre.com.ar/v1/webhooks/mercadopago` (pagos, planes y suscripciones, vinculación).
+`TENGOLIBRE_MP_*` está en `/opt/tengolibre/api.conf` y en CREDENCIALES.md. Mercado Pago avisa que la
+API de Preferencias se va a discontinuar: hay que pasar las señas (`internal/integraciones/mercadopago/cobros.go`)
+a la API de Orders.
 
 ## 31/10/2026 (tarde): front publicado
 
@@ -112,9 +120,7 @@ sólo lectura), `web`, `problema`, `archivos`, `correo`, `auditoria`, `trabajos`
 
 ### Pendiente
 1. App de iPhone (handoff en ~/Trabajo/vimo/tengolibreiphone.zip; App Store Connect 6829332747).
-2. Credenciales de Mercado Pago de TengoLibre: App ID y secreto (marketplace con PKCE), clave de
-   webhooks y token de la cuenta de la plataforma (`TENGOLIBRE_MP_*`). Sin eso, cobrar y suscribirse
-   responden que falta configurarlo.
+2. Pasar las señas de la API de Preferencias (se discontinúa) a la API de Orders de Mercado Pago.
 3. Admin: listo por email (`TENGOLIBRE_ADMINS_EMAILS` con nsantillandev@gmail.com y nahuel@grupovimo.com.ar); `TENGOLIBRE_ADMINS` (IDs) queda vacío.
 4. Dominios propios: el DNS `dominios.tengolibre.com.ar` ya existe (sin proxy). Falta correr
    `infra/vps/dominios.sh` después de la primera verificación (coordinar con las otras apps, que
