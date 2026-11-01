@@ -9,7 +9,7 @@
 	import Mensaje from '#lib/configuracion/Mensaje.svelte';
 	import ListaEquipo from '#lib/gestion/equipo/ListaEquipo.svelte';
 	import GrillaSemana from '#lib/gestion/equipo/GrillaSemana.svelte';
-	import { MOTIVOS_LIBRES, NOMBRE_MOTIVO } from '#lib/gestion/api-equipo.ts';
+	import { MOTIVOS_LIBRES, NOMBRE_MOTIVO } from '#lib/gestion/dias-libres.ts';
 	import {
 		DIA_CORTO,
 		diasAgrupados,

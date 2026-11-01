@@ -10,31 +10,8 @@
 import type { Api } from '#lib/server/api.ts';
 import { ErrorApi } from '#lib/server/api.ts';
 
-export const MOTIVOS_LIBRES = ['vacaciones', 'tramite', 'salud', 'otro'] as const;
-export type MotivoLibre = (typeof MOTIVOS_LIBRES)[number];
-export const NOMBRE_MOTIVO: Record<MotivoLibre, string> = {
-	vacaciones: 'Vacaciones',
-	tramite: 'Trámite',
-	salud: 'Salud',
-	otro: 'Otro'
-};
-
-export type PedidoLibre = {
-	id: string;
-	profesionalId: string;
-	profesional: string;
-	desde: string;
-	hasta: string;
-	motivo: MotivoLibre;
-	nota: string;
-	estado: 'pendiente' | 'aprobado' | 'rechazado' | 'cancelado';
-	/** Los turnos activos que hay ahora esos días («3 turnos para mover»). */
-	afectados: number;
-	turnos: number;
-	respuesta: string;
-	respondidoEn: string | null;
-	creadoEn: string;
-};
+import type { MotivoLibre, PedidoLibre } from './dias-libres.ts';
+export { MOTIVOS_LIBRES, NOMBRE_MOTIVO, type MotivoLibre, type PedidoLibre } from './dias-libres.ts';
 
 /** Los pedidos pendientes de un profesional. Si el rol no puede verlos, lista vacía. */
 export async function pedidosLibres(api: Api, profesional: string): Promise<PedidoLibre[]> {
