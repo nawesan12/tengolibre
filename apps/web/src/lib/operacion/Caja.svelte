@@ -3,6 +3,8 @@
 	menos la seña pagada), lo que se llevó y cómo paga. «Cobrar después» sólo lo marca atendido.
 -->
 <script lang="ts">
+	import { page } from '$app/state';
+	import { accion } from './ui.ts';
 	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
 	import Icono from '#lib/ui/Icono.svelte';
@@ -55,7 +57,7 @@
 		<b class="total tl-num">{pesos(total)}</b>
 	</div>
 	<div class="troquel" aria-hidden="true"><span></span></div>
-	<form method="POST" action="?/cobrar" class="cuerpo" id="form-caja" use:enhance={cerrarAl}>
+	<form method="POST" action={accion(page.url, 'cobrar')} class="cuerpo" id="form-caja" use:enhance={cerrarAl}>
 		<input type="hidden" name="id" value={t.id} />
 		<input type="hidden" name="estado" value={t.estado} />
 		{#each lineas as l, i (i)}

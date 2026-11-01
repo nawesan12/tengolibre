@@ -3,6 +3,8 @@
 	los días que le sirven y, si hay un hueco que le sirve, el horario sugerido + Avisar / Quitar.
 -->
 <script lang="ts">
+	import { page } from '$app/state';
+	import { accion } from '#lib/operacion/ui.ts';
 	import { enhance } from '$app/forms';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { dia, fechaHora, hora } from '#lib/formato.ts';
@@ -32,7 +34,7 @@
 	{#if !data.prohibido}
 		<nav class="tabs" aria-label="Estado">
 			{#each TABS_ESPERA as t (t.clave)}
-				<a href={t.clave === 'esperando' ? '?' : `?tab=${t.clave}`} class:on={data.tab === t.clave} aria-current={data.tab === t.clave ? 'page' : undefined} data-sveltekit-noscroll
+				<a href={t.clave === 'esperando' ? '?' : `?tab=${t.clave}`} class:on={data.tab === t.clave} aria-current={data.tab === t.clave ? 'page' : undefined} data-sveltekit-reset="false"
 					>{t.nombre}<span class="tl-num">{cuenta[t.clave]}</span></a
 				>
 			{/each}
@@ -63,7 +65,7 @@
 				</div>
 				<div class="acciones">
 					{#if data.tab === 'esperando'}
-						<form method="POST" action="?/avisar" use:enhance class="avisar">
+						<form method="POST" action={accion(page.url, 'avisar')} use:enhance class="avisar">
 							<input type="hidden" name="id" value={a.id} />
 							{#if sug.length}
 								<label class="match">
@@ -80,7 +82,7 @@
 						</form>
 						<form
 							method="POST"
-							action="?/borrar"
+							action={accion(page.url, 'borrar')}
 							use:enhance={({ cancel }) => {
 								if (!confirm(`¿Sacar a ${a.nombre} de la lista?`)) cancel();
 							}}

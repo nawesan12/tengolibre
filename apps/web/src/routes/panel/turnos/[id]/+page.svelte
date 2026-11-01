@@ -10,7 +10,7 @@
 	import { fechaHora, hora, pesos } from '#lib/formato.ts';
 	import { nombreDia } from '#lib/operacion/fechas.ts';
 	import { ESTILO, ICONO_ACCION, accionPrincipal, accionesRapidas, estadoVisible } from '#lib/operacion/estados.ts';
-	import { cuandoCorto } from '#lib/operacion/ui.ts';
+	import { accion, cuandoCorto } from '#lib/operacion/ui.ts';
 	import Caja from '#lib/operacion/Caja.svelte';
 	import { iniciales, primerNombre } from '#lib/panel/dia.ts';
 
@@ -86,7 +86,7 @@
 					<Icono nombre="call" tam={20} />
 					<span><b>Para llamar:</b> {MOTIVO_L[t.llamarMotivo ?? ''] ?? 'pendiente'}.</span>
 					{#if puedeActuar}
-						<form method="POST" action="?/llamado" use:enhance><button>Ya lo llamé</button></form>
+						<form method="POST" action={accion(page.url, 'llamado')} use:enhance><button>Ya lo llamé</button></form>
 					{/if}
 				</div>
 			{/if}
@@ -116,7 +116,7 @@
 		<section class="bloque">
 			<form
 				method="POST"
-				action="?/nota"
+				action={accion(page.url, 'nota')}
 				class="nota"
 				use:enhance={() =>
 					async ({ update }) => {
@@ -151,7 +151,7 @@
 							Mail «{a.tipo.replaceAll('_', ' ')}»{a.para ? ` a ${a.para}` : ''} · {ESTADO_AVISO[a.estado] ?? a.estado}
 							{#if a.ultimoError}<span class="error-a">· {a.ultimoError}</span>{/if}
 							{#if a.estado !== 'pendiente'}
-								<form method="POST" action="?/reenviar" use:enhance class="reenviar">
+								<form method="POST" action={accion(page.url, 'reenviar')} use:enhance class="reenviar">
 									<input type="hidden" name="id" value={a.id} />
 									<button>Reenviar</button>
 								</form>
@@ -166,7 +166,7 @@
 		{#if vivo && puedeActuar}
 			<section class="bloque" id="reprogramar" aria-labelledby="t-reprogramar">
 				<h2 id="t-reprogramar" class="tl-rotulo rot">Reprogramar</h2>
-				<form method="GET" class="elegir" data-sveltekit-reset="false" data-sveltekit-noscroll aria-label="Día y profesional para reprogramar">
+				<form method="GET" class="elegir" data-sveltekit-reset="false" aria-label="Día y profesional para reprogramar">
 					<label class="campo">Día <input type="date" name="fecha" value={data.fecha} onchange={(e) => e.currentTarget.form?.requestSubmit()} /></label>
 					<label class="campo">
 						Profesional
@@ -176,7 +176,7 @@
 					</label>
 					<noscript><button class="boton">Ver horarios</button></noscript>
 				</form>
-				<form method="POST" action="?/reprogramar" use:enhance class="pila-r">
+				<form method="POST" action={accion(page.url, 'reprogramar')} use:enhance class="pila-r">
 					<input type="hidden" name="profesionalId" value={data.profesional} />
 					<input type="hidden" name="fecha" value={data.fecha} />
 					{#if !forzar}
@@ -207,13 +207,13 @@
 				{#if principal.estado === 'atendido'}
 					<button class="primaria" onclick={() => (caja = true)}><Icono nombre={principal.icono} tam={20} />{principal.texto}</button>
 				{:else}
-					<form method="POST" action="?/estado" use:enhance={trabajar} class="crece-f">
+					<form method="POST" action={accion(page.url, 'estado')} use:enhance={trabajar} class="crece-f">
 						<input type="hidden" name="id" value={t.id} />
 						<button class="primaria" name="estado" value={principal.estado} disabled={enviando}><Icono nombre={principal.icono} tam={20} />{principal.texto}</button>
 					</form>
 				{/if}
 			{/if}
-			<form method="POST" action="?/estado" use:enhance={trabajar} class="otras">
+			<form method="POST" action={accion(page.url, 'estado')} use:enhance={trabajar} class="otras">
 				<input type="hidden" name="id" value={t.id} />
 				{#each otras as a (a.estado)}
 					{#if a.estado === 'atendido'}
@@ -235,7 +235,7 @@
 			{#if t.serieId && vivo}
 				<form
 					method="POST"
-					action="?/cancelarSiguientes"
+					action={accion(page.url, 'cancelarSiguientes')}
 					use:enhance={({ cancel }) => {
 						if (!confirm('¿Cancelar este turno y los siguientes de su turno fijo? Se le avisa al cliente.')) cancel();
 						return trabajar();

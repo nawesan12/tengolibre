@@ -3,6 +3,8 @@
 	falló y «Reenviar». Mismo lenguaje que los avisos (filas papel sobre crema, rótulos, ícono+palabra).
 -->
 <script lang="ts">
+	import { page } from '$app/state';
+	import { accion } from '#lib/operacion/ui.ts';
 	import { enhance } from '$app/forms';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { fechaHora } from '#lib/formato.ts';
@@ -51,7 +53,7 @@
 						{#if a.turnoId}<a href={`/panel/turnos/${a.turnoId}`}>Ver el turno</a>{/if}
 					</span>
 					{#if a.estado !== 'pendiente'}
-						<form method="POST" action="?/reenviar" use:enhance>
+						<form method="POST" action={accion(page.url, 'reenviar')} use:enhance>
 							<input type="hidden" name="id" value={a.id} />
 							<button>Reenviar</button>
 						</form>

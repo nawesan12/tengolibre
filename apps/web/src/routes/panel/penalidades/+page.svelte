@@ -3,12 +3,13 @@
 	cuánto falta y «Levantar»; las levantadas, apagadas; y las reglas de ausencias.
 -->
 <script lang="ts">
+	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { dia } from '#lib/formato.ts';
 	import Cabecera from '#lib/operacion/Cabecera.svelte';
 	import { GESTION } from '#lib/operacion/secciones.ts';
-	import { fechaCorta } from '#lib/operacion/ui.ts';
+	import { accion, fechaCorta } from '#lib/operacion/ui.ts';
 
 	let { data, form } = $props();
 	const gestiona = $derived(GESTION.includes(data.negocio.rol));
@@ -47,7 +48,7 @@
 					<span>{p.motivo === 'ausencias' ? `${p.ausencias} ${MOTIVOS.ausencias}` : MOTIVOS[p.motivo] ?? p.motivo}{p.nota ? ` · ${p.nota}` : ''}</span>
 				</span>
 				{#if gestiona}
-					<form method="POST" action="?/levantar" use:enhance>
+					<form method="POST" action={accion(page.url, 'levantar')} use:enhance>
 						<input type="hidden" name="id" value={p.id} />
 						<button aria-label={`Levantar la penalidad de ${p.cliente}`}>Levantar</button>
 					</form>
@@ -80,13 +81,13 @@
 {#if data.ajustes && gestiona}
 	<section class="reglas" aria-labelledby="t-reglas">
 		<h2 id="t-reglas">Reglas de ausencias</h2>
-		<form method="POST" action="?/ajustes" use:enhance={() => async ({ update }) => update({ reset: false })} class="form-r">
+		<form method="POST" action={accion(page.url, 'ajustes')} use:enhance={() => async ({ update }) => update({ reset: false })} class="form-r">
 			<label class="campo">Penalizar con tantas ausencias en 90 días (0&nbsp;apaga) <input type="number" name="umbralAusencias" min="0" max="20" value={data.ajustes.umbralAusencias} /></label>
 			<label class="campo">Días sin reservar <input type="number" name="diasPenalidad" min="1" max="365" value={data.ajustes.diasPenalidad} /></label>
 			<label class="check"><input type="checkbox" name="marcarAusentes" checked={data.ajustes.marcarAusentes} />Marcar solos como «no vino» los turnos que&nbsp;pasaron</label>
 			<button class="boton oscuro">Guardar</button>
 		</form>
-		<form method="POST" action="?/marcar" use:enhance>
+		<form method="POST" action={accion(page.url, 'marcar')} use:enhance>
 			<button class="boton"><Icono nombre="person_off" tam={18} />Marcar ausentes ahora</button>
 		</form>
 	</section>

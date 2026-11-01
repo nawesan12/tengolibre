@@ -4,6 +4,8 @@
 	(el teléfono) se apila en dos columnas. Toda acción tiene su botón.
 -->
 <script lang="ts">
+	import { accion } from './ui.ts';
+	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { hora, pesos } from '#lib/formato.ts';
@@ -59,7 +61,7 @@
 
 <svelte:window onclick={fuera} onkeydown={(e) => e.key === 'Escape' && (abierto = false)} />
 
-<li class="turno" data-turno={t.id} class:cancelado={t.estado === 'cancelado'} class:atendido={t.estado === 'atendido'}>
+<li class="turno" data-turno={t.id} class:cancelado={t.estado === 'cancelado'} class:atendido={t.estado === 'atendido'} class:abierto>
 	<div class="talon" class:en-curso={est === 'en_curso'} class:recien class:confirmo-wa={t.confirmadoPor === 'whatsapp' && !llamar} class:llamar>
 		<a class="stub tl-num" href={`/panel/turnos/${t.id}`} aria-label={`${hora(t.inicio)}, ${t.cliente.nombre}: abrir el turno`}>
 			<b>{hora(t.inicio)}</b><span>{hora(t.fin)}</span>
@@ -83,7 +85,7 @@
 				{#if principal.estado === 'atendido' && alAtender}
 					<button class="accion" onclick={() => alAtender(t)}><Icono nombre={principal.icono} tam={16} />{principal.texto}</button>
 				{:else}
-					<form method="POST" action="?/estado" use:enhance={trabajar}>
+					<form method="POST" action={accion(page.url, 'estado')} use:enhance={trabajar}>
 						<input type="hidden" name="id" value={t.id} />
 						<button class="accion" name="estado" value={principal.estado} disabled={enviando}><Icono nombre={principal.icono} tam={16} />{principal.texto}</button>
 					</form>
@@ -96,13 +98,13 @@
 				<div class="menu" role="menu">
 					<a role="menuitem" href={`/panel/turnos/${t.id}`}><Icono nombre="open_in_full" tam={20} />Abrir detalle</a>
 					{#if llamar && puedeActuar}
-						<form method="POST" action="?/llamado" use:enhance={trabajar}>
+						<form method="POST" action={accion(page.url, 'llamado')} use:enhance={trabajar}>
 							<input type="hidden" name="id" value={t.id} />
 							<button role="menuitem"><Icono nombre="phone_callback" tam={20} />Ya lo llamé</button>
 						</form>
 					{/if}
 					{#if menu.length}
-						<form method="POST" action="?/estado" use:enhance={trabajar}>
+						<form method="POST" action={accion(page.url, 'estado')} use:enhance={trabajar}>
 							<input type="hidden" name="id" value={t.id} />
 							{#each menu as a (a.estado)}
 								{#if a.estado === 'atendido' && alAtender}
@@ -136,8 +138,13 @@
 
 <style>
 	.turno {
+		position: relative;
 		list-style: none;
 		animation: tl-gin var(--tl-entrar) var(--tl-ease) both;
+	}
+	/* El menú abierto va por encima de las filas de abajo. */
+	.turno.abierto {
+		z-index: 10;
 	}
 	.talon {
 		--x: 112px;

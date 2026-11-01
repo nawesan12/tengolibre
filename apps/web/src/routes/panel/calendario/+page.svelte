@@ -129,16 +129,16 @@
 <div class="cabeza">
 	<h1>Calendario</h1>
 	<div class="pastilla nav-fecha">
-		<a href={enlace({ fecha: sumarDias(data.fecha, -paso) })} aria-label={data.vista === 'semana' ? 'Semana anterior' : 'Día anterior'} data-sveltekit-noscroll><Icono nombre="chevron_left" tam={20} /></a>
-		<a class="hoy tl-num" href={enlace({ fecha: hoy })} title="Ir a hoy" data-sveltekit-noscroll>{titulo}</a>
-		<a href={enlace({ fecha: sumarDias(data.fecha, paso) })} aria-label={data.vista === 'semana' ? 'Semana siguiente' : 'Día siguiente'} data-sveltekit-noscroll><Icono nombre="chevron_right" tam={20} /></a>
+		<a href={enlace({ fecha: sumarDias(data.fecha, -paso) })} aria-label={data.vista === 'semana' ? 'Semana anterior' : 'Día anterior'} data-sveltekit-reset="false"><Icono nombre="chevron_left" tam={20} /></a>
+		<a class="hoy tl-num" href={enlace({ fecha: hoy })} title="Ir a hoy" data-sveltekit-reset="false">{titulo}</a>
+		<a href={enlace({ fecha: sumarDias(data.fecha, paso) })} aria-label={data.vista === 'semana' ? 'Semana siguiente' : 'Día siguiente'} data-sveltekit-reset="false"><Icono nombre="chevron_right" tam={20} /></a>
 	</div>
 	<div class="pastilla vistas" role="group" aria-label="Vista">
 		<a href={enlace({ vista: 'dia' })} class:on={data.vista === 'dia'} aria-current={data.vista === 'dia' ? 'page' : undefined}>Día</a>
 		<a href={enlace({ vista: 'semana' })} class:on={data.vista === 'semana'} aria-current={data.vista === 'semana' ? 'page' : undefined}>Semana</a>
 	</div>
 	<span class="crece"></span>
-	<a class="cancelados" class:on={data.cancelados} href={enlace({ cancelados: !data.cancelados })} aria-current={data.cancelados ? "true" : undefined} data-sveltekit-noscroll>
+	<a class="cancelados" class:on={data.cancelados} href={enlace({ cancelados: !data.cancelados })} aria-current={data.cancelados ? "true" : undefined} data-sveltekit-reset="false">
 		<Icono nombre={data.cancelados ? 'visibility' : 'visibility_off'} tam={18} />Cancelados
 	</a>
 	<a class="ical" href="/panel/calendario/suscribirse"><img src="/logos/google.svg" alt="" width="16" height="16" />Verlo en tu calendario</a>

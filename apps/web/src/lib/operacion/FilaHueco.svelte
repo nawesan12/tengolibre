@@ -4,6 +4,8 @@
 	regresiva, a quién y quién sigue, con «Frenar».
 -->
 <script lang="ts">
+	import { page } from '$app/state';
+	import { accion } from './ui.ts';
 	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
 	import Icono from '#lib/ui/Icono.svelte';
@@ -59,11 +61,11 @@
 		</span>
 		{#if puedeActuar}
 			<span class="fin">
-				<form method="POST" action="?/cargar" use:enhance>
+				<form method="POST" action={accion(page.url, 'cargar')} use:enhance>
 					<input type="hidden" name="id" value={oferta.id} />
 					<button class="yo">Cargarlo yo</button>
 				</form>
-				<form method="POST" action="?/frenar" use:enhance>
+				<form method="POST" action={accion(page.url, 'frenar')} use:enhance>
 					<input type="hidden" name="id" value={oferta.id} />
 					<button class="frenar">Frenar</button>
 				</form>
@@ -74,7 +76,7 @@
 		<span class="texto"><b>{titulo}</b>{#if sub}<span>{sub}</span>{/if}</span>
 		{#if puedeActuar}
 			{#if ofrecer?.servicioId && esperan > 0}
-				<form method="POST" action="?/ofrecer" use:enhance>
+				<form method="POST" action={accion(page.url, 'ofrecer')} use:enhance>
 					<input type="hidden" name="profesionalId" value={ofrecer.profesionalId} />
 					<input type="hidden" name="inicio" value={ofrecer.inicio} />
 					{#if ofrecer.servicioId}<input type="hidden" name="servicioId" value={ofrecer.servicioId} />{/if}

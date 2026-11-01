@@ -3,6 +3,8 @@
 	sigue (talones con la línea de ahora y un hueco), los huecos de hoy y los primeros pasos.
 -->
 <script lang="ts">
+	import { accion } from '#lib/operacion/ui.ts';
+	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
 	import Icono from '#lib/ui/Icono.svelte';
@@ -257,8 +259,8 @@
 			<span class="tl-num">{diaCorto(p.desde)}{p.hasta !== p.desde ? ` → ${diaCorto(p.hasta)}` : ''} · {MOTIVO_DIAS[p.motivo] ?? p.motivo}</span>
 			{#if p.afectados}<span class="mover">{p.afectados}&nbsp;{p.afectados === 1 ? 'turno para mover' : 'turnos para mover'}</span>{/if}
 		</span>
-		<form method="POST" action="?/aprobar" use:enhance><input type="hidden" name="id" value={p.id} /><button class="aprobar">Aprobar y ver turnos</button></form>
-		<form method="POST" action="?/rechazar" use:enhance><input type="hidden" name="id" value={p.id} /><button class="rechazar">Rechazar</button></form>
+		<form method="POST" action={accion(page.url, 'aprobar')} use:enhance><input type="hidden" name="id" value={p.id} /><button class="aprobar">Aprobar y ver turnos</button></form>
+		<form method="POST" action={accion(page.url, 'rechazar')} use:enhance><input type="hidden" name="id" value={p.id} /><button class="rechazar">Rechazar</button></form>
 	</section>
 {/each}
 

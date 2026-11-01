@@ -3,6 +3,8 @@
 	servicio, con quién y cuándo, si se repite, y abajo el resumen con «Reservar».
 -->
 <script lang="ts">
+	import { page } from '$app/state';
+	import { accion } from '#lib/operacion/ui.ts';
 	import { enhance } from '$app/forms';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { dia, pesos } from '#lib/formato.ts';
@@ -119,7 +121,7 @@
 				<span class="tl-rotulo rot">Servicio</span>
 				<div class="chips">
 					{#each data.servicios as s (s.id)}
-						<a class="chip" class:on={s.id === data.servicio} href={enlace({ servicio: s.id, profesional: '' })} data-sveltekit-noscroll data-sveltekit-replacestate>{s.nombre}</a>
+						<a class="chip" class:on={s.id === data.servicio} href={enlace({ servicio: s.id, profesional: '' })} data-sveltekit-reset="false" data-sveltekit-replacestate>{s.nombre}</a>
 					{/each}
 				</div>
 				{#if servicio}<span class="nota tl-num">{servicio.duracion} min · {pesos(servicio.precio)}</span>{/if}
@@ -128,18 +130,18 @@
 			<section class="sec">
 				<span class="tl-rotulo rot">Con quién y cuándo</span>
 				<div class="chips">
-					<a class="chip" class:on={!data.profesional} href={enlace({ profesional: '' })} data-sveltekit-noscroll data-sveltekit-replacestate>Cualquiera</a>
+					<a class="chip" class:on={!data.profesional} href={enlace({ profesional: '' })} data-sveltekit-reset="false" data-sveltekit-replacestate>Cualquiera</a>
 					{#each data.profesionales as p (p.id)}
-						<a class="chip" class:on={p.id === data.profesional} href={enlace({ profesional: p.id })} data-sveltekit-noscroll data-sveltekit-replacestate>{p.nombre}</a>
+						<a class="chip" class:on={p.id === data.profesional} href={enlace({ profesional: p.id })} data-sveltekit-reset="false" data-sveltekit-replacestate>{p.nombre}</a>
 					{/each}
 				</div>
 				<div class="dias">
 					{#each dias as d (d)}
-						<a class="dia" class:on={d === data.fecha} href={enlace({ fecha: d })} data-sveltekit-noscroll data-sveltekit-replacestate>
+						<a class="dia" class:on={d === data.fecha} href={enlace({ fecha: d })} data-sveltekit-reset="false" data-sveltekit-replacestate>
 							<span>{d === dia() ? 'hoy' : dow(d)}</span><b class="tl-num">{d.slice(8)}</b>
 						</a>
 					{/each}
-					<form method="GET" class="otro-dia" data-sveltekit-noscroll>
+					<form method="GET" class="otro-dia" data-sveltekit-reset="false">
 						{#each Object.entries({ servicio: data.servicio, profesional: data.profesional, cliente: data.cliente.id }) as [k, v] (k)}
 							{#if v}<input type="hidden" name={k} value={v} />{/if}
 						{/each}
@@ -152,7 +154,7 @@
 
 			<form
 				method="POST"
-				action="?/crear"
+				action={accion(page.url, 'crear')}
 				id="form-nuevo"
 				class="pila-f"
 				use:enhance={() => {

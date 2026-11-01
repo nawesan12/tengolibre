@@ -3,6 +3,8 @@
 	por profesional que se actualiza solo en Google Calendar, Apple u Outlook.
 -->
 <script lang="ts">
+	import { page } from '$app/state';
+	import { accion } from '#lib/operacion/ui.ts';
 	import { enhance } from '$app/forms';
 	import Icono from '#lib/ui/Icono.svelte';
 	import Mensaje from '#lib/configuracion/Mensaje.svelte';
@@ -56,19 +58,19 @@
 						<button type="button" class="b" onclick={() => copiar(c.url!)}>{copiado === c.url ? 'Copiado' : 'Copiar'}</button>
 					</div>
 					<div class="links">
-						<form method="POST" action="?/crear" use:enhance>
+						<form method="POST" action={accion(page.url, 'crear')} use:enhance>
 							<input type="hidden" name="profesionalId" value={c.profesionalId ?? ''} />
 							<input type="hidden" name="nuevo" value="1" />
 							<button class="verde">Generar uno nuevo</button>
 						</form>
-						<form method="POST" action="?/borrar" use:enhance>
+						<form method="POST" action={accion(page.url, 'borrar')} use:enhance>
 							<input type="hidden" name="id" value={c.id} />
 							<input type="hidden" name="profesionalId" value={c.profesionalId ?? ''} />
 							<button class="rojo">Desactivar</button>
 						</form>
 					</div>
 				{:else}
-					<form method="POST" action="?/crear" use:enhance>
+					<form method="POST" action={accion(page.url, 'crear')} use:enhance>
 						<input type="hidden" name="profesionalId" value={c.profesionalId ?? ''} />
 						<button class="b oscuro ancho">Crear link</button>
 					</form>

@@ -3,12 +3,13 @@
 	cliente (iniciales, etiquetas, visitas y su próximo turno). Etiquetas y Penalidades arriba.
 -->
 <script lang="ts">
+	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { fecha } from '#lib/formato.ts';
 	import Chip from '#lib/operacion/Chip.svelte';
 	import { ATENCION } from '#lib/operacion/secciones.ts';
-	import { colorEtiqueta, cuandoCorto } from '#lib/operacion/ui.ts';
+	import { accion, colorEtiqueta, cuandoCorto } from '#lib/operacion/ui.ts';
 	import { iniciales } from '#lib/panel/dia.ts';
 
 	let { data, form } = $props();
@@ -51,7 +52,7 @@
 {#if form?.error}<p class="aviso error" role="alert">{form.error}</p>{/if}
 
 {#if alta}
-	<form method="POST" action="?/crear" use:enhance class="alta" aria-label="Nuevo cliente">
+	<form method="POST" action={accion(page.url, 'crear')} use:enhance class="alta" aria-label="Nuevo cliente">
 		<label class="campo">Nombre <input name="nombre" required maxlength="80" /></label>
 		<label class="campo">Teléfono <input name="telefono" type="tel" maxlength="30" /></label>
 		<label class="campo">Email <input name="email" type="email" maxlength="120" /></label>
@@ -59,7 +60,7 @@
 	</form>
 {/if}
 
-<form method="GET" role="search" class="buscar" data-sveltekit-reset="false" data-sveltekit-keepfocus>
+<form method="GET" role="search" class="buscar" data-sveltekit-reset="false">
 	<label class="caja">
 		<Icono nombre="search" tam={22} />
 		<span class="visualmente-oculto">Buscar clientes</span>
@@ -138,7 +139,7 @@
 						<Icono nombre={r.tipo === 'cumpleanios' ? 'cake' : 'history'} tam={24} />
 						<h3>{r.titulo}</h3>
 						{#if gestiona}
-							<form method="POST" action="?/recordatorio" use:enhance>
+							<form method="POST" action={accion(page.url, 'recordatorio')} use:enhance>
 								<input type="hidden" name="tipo" value={r.tipo} />
 								<input type="hidden" name="activo" value={r.activo ? '0' : '1'} />
 								<button class="interruptor" role="switch" aria-checked={r.activo} aria-label={`${r.titulo}: ${r.activo ? 'prendido' : 'apagado'}`}>

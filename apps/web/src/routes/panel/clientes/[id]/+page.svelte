@@ -3,12 +3,13 @@
 	contacto, la penalidad, las notas del equipo, las etiquetas y sus turnos como talones.
 -->
 <script lang="ts">
+	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { fecha, fechaHora, hora, pesos } from '#lib/formato.ts';
 	import EstadoTurno from '#lib/operacion/EstadoTurno.svelte';
 	import { ATENCION, GESTION } from '#lib/operacion/secciones.ts';
-	import { colorEtiqueta, fechaCorta } from '#lib/operacion/ui.ts';
+	import { accion, colorEtiqueta, fechaCorta } from '#lib/operacion/ui.ts';
 	import { iniciales, primerNombre } from '#lib/panel/dia.ts';
 
 	let { data, form } = $props();
@@ -39,7 +40,7 @@
 		{#if editando}
 			<form
 				method="POST"
-				action="?/editar"
+				action={accion(page.url, 'editar')}
 				class="editar"
 				use:enhance={() =>
 					async ({ result, update }) => {
@@ -62,7 +63,7 @@
 					<span class="tags">
 						{#each c.etiquetas as e (e.id)}
 							{@const col = colorEtiqueta(e.color)}
-							<form method="POST" action="?/etiqueta" use:enhance class="tag" style:background={col.fondo} style:color={col.texto}>
+							<form method="POST" action={accion(page.url, 'etiqueta')} use:enhance class="tag" style:background={col.fondo} style:color={col.texto}>
 								<input type="hidden" name="etiqueta" value={e.id} />
 								<input type="hidden" name="quitar" value="1" />
 								{e.nombre}
@@ -79,7 +80,7 @@
 			</div>
 			{#if poniendo}
 				{#if sinPoner.length}
-					<form method="POST" action="?/etiqueta" use:enhance={recargar} class="poner">
+					<form method="POST" action={accion(page.url, 'etiqueta')} use:enhance={recargar} class="poner">
 						<label class="campo">
 							<span class="visualmente-oculto">Etiqueta para agregar</span>
 							<select name="etiqueta" aria-label="Etiqueta para agregar">
@@ -117,7 +118,7 @@
 						<span><b>No puede reservar online hasta el {fechaLarga(c.penalidad.hasta)}.</b> {MOTIVOS[c.penalidad.motivo] ?? c.penalidad.motivo}{c.penalidad.nota ? `: ${c.penalidad.nota}` : ''}. Vos sí podés cargarle turnos desde el&nbsp;panel.</span>
 					</span>
 					{#if gestiona}
-						<form method="POST" action="?/levantar" use:enhance>
+						<form method="POST" action={accion(page.url, 'levantar')} use:enhance>
 							<input type="hidden" name="id" value={c.penalidad.id} />
 							<button class="levantar">Levantar la penalidad</button>
 						</form>
@@ -127,7 +128,7 @@
 				<p class="claro-c">Sin penalidad vigente.</p>
 				{#if gestiona}
 					{#if penalizando}
-						<form method="POST" action="?/penalizar" use:enhance={recargar} class="penalizar">
+						<form method="POST" action={accion(page.url, 'penalizar')} use:enhance={recargar} class="penalizar">
 							<label class="campo">Días sin reservar <input type="number" name="dias" min="1" max="365" value="30" required /></label>
 							<label class="campo">Motivo <input name="nota" maxlength="500" placeholder="Opcional" /></label>
 							<button class="boton peligro">Penalizar</button>
@@ -157,7 +158,7 @@
 						<p>{n.texto}</p>
 						<span class="quien-nota tl-num">
 							{(n.autor || 'Alguien del equipo').toUpperCase()} · {fechaCorta(n.creadoEn)}
-							<form method="POST" action="?/borrarNota" use:enhance>
+							<form method="POST" action={accion(page.url, 'borrarNota')} use:enhance>
 								<input type="hidden" name="nota" value={n.id} />
 								<button aria-label="Borrar nota">Borrar</button>
 							</form>
@@ -165,7 +166,7 @@
 					</li>
 				{/each}
 			</ul>
-			<form method="POST" action="?/nota" use:enhance class="nueva-nota">
+			<form method="POST" action={accion(page.url, 'nota')} use:enhance class="nueva-nota">
 				<label class="visualmente-oculto" for="nota-nueva">Nota nueva</label>
 				<input id="nota-nueva" name="texto" required maxlength="2000" placeholder="Agregar una nota…" autocomplete="off" />
 				<button class="agregar">Agregar nota</button>

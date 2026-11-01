@@ -3,11 +3,12 @@
 	tiene cada una, se renombran o borran en la misma fila, y se crean abajo.
 -->
 <script lang="ts">
+	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
 	import Icono from '#lib/ui/Icono.svelte';
 	import Cabecera from '#lib/operacion/Cabecera.svelte';
 	import { GESTION } from '#lib/operacion/secciones.ts';
-	import { colorEtiqueta } from '#lib/operacion/ui.ts';
+	import { accion, colorEtiqueta } from '#lib/operacion/ui.ts';
 
 	let { data, form } = $props();
 	const gestiona = $derived(GESTION.includes(data.negocio.rol));
@@ -44,7 +45,7 @@
 				{@const c = colorEtiqueta(e.color)}
 				<li>
 					{#if editando === e.id}
-						<form method="POST" action="?/editar" class="editar" use:enhance={cerrar}>
+						<form method="POST" action={accion(page.url, 'editar')} class="editar" use:enhance={cerrar}>
 							<input type="hidden" name="id" value={e.id} />
 							<label class="campo">Nombre <input name="nombre" value={e.nombre} required maxlength="40" /></label>
 							<label class="campo">Color <input name="color" type="color" value={e.color} /></label>
@@ -58,7 +59,7 @@
 							<button class="mini" onclick={() => (editando = e.id)}>Editar</button>
 							<form
 								method="POST"
-								action="?/borrar"
+								action={accion(page.url, 'borrar')}
 								use:enhance={({ cancel }) => {
 									if (!confirm(`¿Borrar la etiqueta ${e.nombre}? Se les saca a todos los clientes.`)) cancel();
 								}}
@@ -74,7 +75,7 @@
 	{/if}
 
 	{#if gestiona}
-		<form method="POST" action="?/crear" use:enhance class="nueva" aria-label="Nueva etiqueta">
+		<form method="POST" action={accion(page.url, 'crear')} use:enhance class="nueva" aria-label="Nueva etiqueta">
 			<label class="campo">Nombre <input name="nombre" required maxlength="40" placeholder="Nueva etiqueta" /></label>
 			<fieldset class="paleta">
 				<legend>Color</legend>

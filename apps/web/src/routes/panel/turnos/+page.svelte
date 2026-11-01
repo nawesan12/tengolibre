@@ -3,9 +3,10 @@
 	lista de talones con la línea de ahora y los huecos que se liberaron (para ofrecer a la lista).
 -->
 <script lang="ts">
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
-	import { cuandoCorto } from '#lib/operacion/ui.ts';
+	import { accion, cuandoCorto } from '#lib/operacion/ui.ts';
 	import { SvelteSet } from 'svelte/reactivity';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { dia } from '#lib/formato.ts';
@@ -147,7 +148,7 @@
 	<h1>Turnos</h1>
 	<nav class="tira" aria-label="Días">
 		{#each tira as d (d.d)}
-			<a href={enlace({ fecha: d.d })} class="dia {d.tipo}" aria-current={d.tipo === 'on' ? 'date' : undefined} aria-label={d.aria} data-sveltekit-noscroll>
+			<a href={enlace({ fecha: d.d })} class="dia {d.tipo}" aria-current={d.tipo === 'on' ? 'date' : undefined} aria-label={d.aria} data-sveltekit-reset="false">
 				<span class="dow">{d.dow}</span><b class="tl-num">{d.n}</b><span class="k tl-num">{d.k}</span>
 			</a>
 		{/each}
@@ -186,7 +187,7 @@
 						<span>{r.turno.cliente.nombre} · {r.turno.servicio} · {primerNombre(r.turno.profesional)}</span>
 					</a>
 					{#if r.turno.cliente.telefono}<a class="tel" href={`tel:${r.turno.cliente.telefono}`} aria-label={`Llamar a ${r.turno.cliente.nombre}`}><Icono nombre="call" tam={18} /></a>{/if}
-					<form method="POST" action="?/resolver" use:enhance>
+					<form method="POST" action={accion(page.url, 'resolver')} use:enhance>
 						<input type="hidden" name="id" value={r.id} />
 						<button>Resuelto</button>
 					</form>
@@ -262,11 +263,11 @@
 {/if}
 
 {#if cancelOcultos > 0}
-	<a class="ver-cancelados" href={enlace({ cancelados: true })} data-sveltekit-noscroll>
+	<a class="ver-cancelados" href={enlace({ cancelados: true })} data-sveltekit-reset="false">
 		<Icono nombre="visibility" tam={18} />Mostrar {cancelOcultos}&nbsp;{cancelOcultos === 1 ? 'cancelado' : 'cancelados'}
 	</a>
 {:else if f.cancelados}
-	<a class="ver-cancelados" href={enlace({ cancelados: false })} data-sveltekit-noscroll><Icono nombre="visibility_off" tam={18} />Ocultar los cancelados</a>
+	<a class="ver-cancelados" href={enlace({ cancelados: false })} data-sveltekit-reset="false"><Icono nombre="visibility_off" tam={18} />Ocultar los cancelados</a>
 {/if}
 
 {#if caja}<Caja t={caja} productos={data.productos} alCerrar={() => (caja = null)} />{/if}

@@ -3,6 +3,8 @@
 	aviso con su ícono y lleva a donde se resuelve; «Marcar todo como leído» y los mails enviados.
 -->
 <script lang="ts">
+	import { page } from '$app/state';
+	import { accion } from '#lib/operacion/ui.ts';
 	import { enhance } from '$app/forms';
 	import Icono from '#lib/ui/Icono.svelte';
 	import Cabecera from '#lib/operacion/Cabecera.svelte';
@@ -41,7 +43,7 @@
 	{/if}
 
 	{#if data.sinLeer > 0}
-		<form method="POST" action="?/vista" use:enhance>
+		<form method="POST" action={accion(page.url, 'vista')} use:enhance>
 			<button class="leido">Marcar todo como leído</button>
 		</form>
 	{/if}

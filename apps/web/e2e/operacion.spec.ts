@@ -146,7 +146,7 @@ test('ficha del cliente con nota y etiqueta', async ({ page, request }) => {
 	await expect(page.getByText('1 en total', { exact: true })).toBeVisible();
 
 	await irA(page, '/panel/buscar?q=55550003');
-	await expect(page.getByRole('link', { name: /Rocío Díaz/ })).toBeVisible();
+	await expect(page.locator('a[href^="/panel/clientes/"]', { hasText: 'Rocío Díaz' })).toBeVisible();
 });
 
 test('el calendario y la campanita se actualizan solos con una reserva online', async ({ page, request }) => {

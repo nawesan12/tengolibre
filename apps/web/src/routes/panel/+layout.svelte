@@ -155,7 +155,7 @@
 	{#if !enNuevo && !bloqueado}
 		<a class="fab" href="/panel/turnos/nuevo"><Icono nombre="add" tam={24} />Nuevo turno</a>
 	{/if}
-	<nav class="tabs" aria-label="Panel en el teléfono" style:--n={pestanias.length + 1}>
+	<nav class="tabs" aria-label="Panel" style:--n={pestanias.length + 1}>
 		{#each pestanias as e (e.clave)}
 			{@const on = !mas && activa(ruta, e)}
 			<a href={e.href} aria-current={on ? 'page' : undefined} class:on>

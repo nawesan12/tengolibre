@@ -17,7 +17,7 @@
 <Cabecera titulo="Buscar" />
 
 <div class="hoja">
-	<form method="GET" role="search" class="caja" data-sveltekit-reset="false" data-sveltekit-keepfocus>
+	<form method="GET" role="search" class="caja" data-sveltekit-reset="false">
 		<Icono nombre="search" tam={22} />
 		<label class="visualmente-oculto" for="q-buscar">Buscar en el panel</label>
 		<input id="q-buscar" type="search" name="q" value={data.q} minlength="2" placeholder="Cliente, teléfono, email o servicio" />

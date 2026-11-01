@@ -12,6 +12,17 @@ export function cuandoCorto(iso: string, conHora = true) {
 	return conHora ? `${base} ${hora(iso)}` : base;
 }
 
+/**
+ * El `action` de un formulario que conserva la consulta de la página (filtros, día, pestaña): con
+ * SvelteKit 3, después de la acción se vuelve a la URL del `action`, y un «?/nombre» suelto la pierde.
+ */
+export function accion(url: { search: string }, nombre: string) {
+	const q = new URLSearchParams(url.search);
+	for (const k of [...q.keys()]) if (k.startsWith('/')) q.delete(k);
+	const s = q.toString();
+	return `?${s ? `${s}&` : ''}/${nombre}`;
+}
+
 /** «14 SEP» */
 export const fechaCorta = (iso: string) =>
 	new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short', timeZone: 'America/Argentina/Buenos_Aires' })

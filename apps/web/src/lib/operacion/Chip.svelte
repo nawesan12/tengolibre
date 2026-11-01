@@ -11,7 +11,7 @@
 	}: { href: string; on?: boolean; cuenta?: string | number; cuentaColor?: string; verde?: boolean; children: Snippet } = $props();
 </script>
 
-<a {href} class="chip" class:on class:verde aria-current={on ? 'true' : undefined} data-sveltekit-noscroll data-sveltekit-replacestate>
+<a {href} class="chip" class:on class:verde aria-current={on ? 'true' : undefined} data-sveltekit-reset="false" data-sveltekit-replacestate>
 	{@render children()}
 	{#if cuenta !== undefined && cuenta !== '' && cuenta !== 0}<span class="k tl-num" style:color={cuentaColor}>{cuenta}</span>{/if}
 </a>
