@@ -45,7 +45,7 @@
 				problema = 'El navegador no dio permiso. Lo podés cambiar en los ajustes del sitio.';
 				return;
 			}
-			const reg = await navigator.serviceWorker.register('/sw-avisos.js');
+			const reg = await navigator.serviceWorker.register('/sw-panel.js', { scope: '/panel' });
 			await navigator.serviceWorker.ready;
 			const sub =
 				(await reg.pushManager.getSubscription()) ??
@@ -64,7 +64,7 @@
 
 	async function apagarLocal() {
 		try {
-			const reg = await navigator.serviceWorker.getRegistration('/sw-avisos.js');
+			const reg = await navigator.serviceWorker.getRegistration('/panel');
 			await (await reg?.pushManager.getSubscription())?.unsubscribe();
 		} catch {
 			/* lo de la API se borra igual */

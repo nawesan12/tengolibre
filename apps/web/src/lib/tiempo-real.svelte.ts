@@ -7,7 +7,9 @@ import { invalidate } from '$app/navigation';
  */
 export type Aviso = { negocio: string; tipo: string; id: string; op: string };
 
-const TIPOS = ['turnos', 'pagos', 'notificaciones', 'espera', 'resenas', 'clientes'] as const;
+const TIPOS = ['turnos', 'pagos', 'notificaciones', 'espera', 'resenas', 'clientes', 'ofertas', 'oferta_intentos', 'caja_cobros', 'dias_libres', 'reprogramar'] as const;
+/** Tipos del SSE que recargan lo mismo que otro (`depends('panel:<destino>')`). */
+const DESTINO: Record<string, string> = { oferta_intentos: 'ofertas', caja_cobros: 'caja' };
 
 export function escucharPanel(alAviso?: (a: Aviso) => void) {
 	const fuente = new EventSource('/panel/eventos');
@@ -24,7 +26,7 @@ export function escucharPanel(alAviso?: (a: Aviso) => void) {
 			} catch {
 				/* aviso ilegible: igual se recarga */
 			}
-			pendientes.add(tipo);
+			pendientes.add(DESTINO[tipo] ?? tipo);
 			clearTimeout(reloj);
 			reloj = setTimeout(recargar, 300);
 		});

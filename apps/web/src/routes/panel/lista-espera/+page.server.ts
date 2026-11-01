@@ -1,7 +1,8 @@
 import { apiDe, type Api } from '#lib/server/api.ts';
 import { intentar } from '#lib/server/acciones.ts';
 import { dia } from '#lib/formato.ts';
-import { esDia, sumarDias } from '#lib/operacion/fechas.ts';
+import { sumarDias } from '#lib/operacion/fechas.ts';
+import { TABS_ESPERA, tabDe, type TabEspera } from '#lib/operacion/espera.ts';
 import { enc, param, siSePuede } from '#lib/operacion/servidor.ts';
 import type { Anotado, HorarioLibre } from '#lib/operacion/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -21,16 +22,20 @@ async function sugeridos(api: Api, a: Anotado, hoy: string): Promise<HorarioLibr
 	return [];
 }
 
+const TABS = TABS_ESPERA.map((t) => t.clave) as string[];
+
 export const load: PageServerLoad = async (event) => {
 	event.depends('panel:espera', 'panel:turnos');
 	const api = apiDe(event);
-	const todos = param(event.url, 'todos') === '1';
-	const r = await siSePuede(api.get<{ espera: Anotado[] }>(`/v1/panel/espera${todos ? '?todos=1' : ''}`));
-	if (!r) return { prohibido: true as const, todos, espera: [], sugeridos: {} as Record<string, HorarioLibre[]> };
+	// Compatibilidad: ?todos=1 era «ver también avisados y vencidos».
+	const pedida = param(event.url, 'tab');
+	const tab: TabEspera = TABS.includes(pedida) ? (pedida as TabEspera) : param(event.url, 'todos') === '1' ? 'avisados' : 'esperando';
+	const r = await siSePuede(api.get<{ espera: Anotado[] }>('/v1/panel/espera?todos=1'));
+	if (!r) return { prohibido: true as const, tab, espera: [], hoy: dia(), sugeridos: {} as Record<string, HorarioLibre[]> };
 	const hoy = dia();
-	const pendientes = r.espera.filter((a) => !a.avisadoEn && esDia(a.hasta) && a.hasta >= hoy).slice(0, 30);
+	const pendientes = r.espera.filter((a) => tabDe(a, hoy) === 'esperando').slice(0, 30);
 	const pares = await Promise.all(pendientes.map(async (a) => [a.id, await sugeridos(api, a, hoy)] as const));
-	return { prohibido: false as const, todos, espera: r.espera, sugeridos: Object.fromEntries(pares) as Record<string, HorarioLibre[]> };
+	return { prohibido: false as const, tab, hoy, espera: r.espera, sugeridos: Object.fromEntries(pares) as Record<string, HorarioLibre[]> };
 };
 
 export const actions: Actions = {

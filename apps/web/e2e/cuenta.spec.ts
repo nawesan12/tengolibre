@@ -25,11 +25,11 @@ test('mi cuenta: dos negocios y cambiar entre ellos', async ({ page }) => {
 
 	await page.getByRole('button', { name: `Entrar a ${primero}` }).click();
 	await expect(page).toHaveURL(/\/panel$/);
-	await expect(page.locator('header strong')).toHaveText(primero);
+	await expect(page.locator('[data-negocio-actual]:visible')).toHaveText(primero);
 
 	await page.goto('/mi-cuenta');
 	await page.getByRole('button', { name: `Entrar a ${segundo}` }).click();
-	await expect(page.locator('header strong')).toHaveText(segundo);
+	await expect(page.locator('[data-negocio-actual]:visible')).toHaveText(segundo);
 
 	await page.goto('/mi-cuenta');
 	await expect(page.getByRole('link', { name: 'Crear otro negocio' })).toHaveAttribute('href', '/empezar');

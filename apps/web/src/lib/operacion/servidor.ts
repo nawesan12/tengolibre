@@ -16,6 +16,19 @@ export async function siSePuede<T>(p: Promise<T>): Promise<T | null> {
 	}
 }
 
+/**
+ * Una lectura de las funciones nuevas (lib/operacion/contrato.ts): mientras la API no las tenga
+ * (404, 405, 501) o el rol no las vea (403), vuelve null y la pantalla sigue sin ese dato.
+ */
+export async function siExiste<T>(p: Promise<T>): Promise<T | null> {
+	try {
+		return await p;
+	} catch (e) {
+		if (e instanceof ErrorApi && [403, 404, 405, 501].includes(e.estado)) return null;
+		throw e;
+	}
+}
+
 /** Profesionales y servicios para los selectores (los activos primero, en su orden). */
 export async function catalogo(api: Api) {
 	const [{ profesionales }, { servicios }] = await Promise.all([
@@ -29,6 +42,26 @@ export async function catalogo(api: Api) {
 export async function cambiarEstado(event: RequestEvent) {
 	const f = await event.request.formData();
 	return intentar(() => apiDe(event).patch(`/v1/panel/turnos/${enc(f.get('id'))}`, { estado: String(f.get('estado') ?? '') }));
+}
+
+/**
+ * La acción `cobrar` de la caja (caja.md): deja el turno atendido y registra el cobro con el medio y
+ * los productos elegidos (`medio: "despues"` = «Cobrar después», queda debiendo).
+ */
+export async function cobrar(event: RequestEvent) {
+	const f = await event.request.formData();
+	const id = enc(f.get('id'));
+	const api = apiDe(event);
+	// «Cobrar después» manda medio=despues además del medio elegido: gana ése.
+	const medios = f.getAll('medio').map(String);
+	const medio = medios.includes('despues') ? 'despues' : (medios[0] ?? 'efectivo');
+	return intentar(async () => {
+		if (f.get('estado') !== 'atendido') await api.patch(`/v1/panel/turnos/${id}`, { estado: 'atendido' });
+		return api.post(`/v1/panel/turnos/${id}/caja`, {
+			medio,
+			productos: f.getAll('productos').map((p) => ({ productoId: String(p), cantidad: 1 }))
+		});
+	});
 }
 
 /** Un id de la ruta o del formulario, seguro para ir en la URL de la API. */

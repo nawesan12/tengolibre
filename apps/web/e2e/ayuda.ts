@@ -26,7 +26,7 @@ export async function crearNegocio(page: Page, nombre: string) {
 	await page.getByRole('button', { name: 'Seguir' }).click();
 	await page.waitForURL(/paso=servicios/);
 	await page.goto('/panel');
-	await expect(page.getByRole('heading', { name: /Hola/ })).toBeVisible();
+	await expect(page.getByRole('heading', { name: /Buen día|Buenas tardes|Buenas noches/ })).toBeVisible();
 }
 
 /** Entra y da de alta un negocio; devuelve su slug. */
