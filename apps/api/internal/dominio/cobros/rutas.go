@@ -36,8 +36,9 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	// Página pública y link del turno.
 	mux.HandleFunc("GET /v1/p/{slug}/cobro", web.Envolver(s.configPublica))
 	mux.HandleFunc("POST /v1/t/{codigo}/pagar", web.Envolver(s.pagar))
-	// Webhook: pagos de los negocios y, si están, las suscripciones.
-	receptores := map[string]mercadopago.Receptor{"payment": s.recibirPago}
+	// Webhook: órdenes de los negocios («order», las señas nuevas), pagos («payment», las señas creadas
+	// con preferencias) y, si están, las suscripciones.
+	receptores := map[string]mercadopago.Receptor{"order": s.recibirOrden, "payment": s.recibirPago}
 	for k, v := range s.OtrosAvisos {
 		receptores[k] = v
 	}
@@ -220,14 +221,15 @@ func (s *Servicio) devolver(w http.ResponseWriter, r *http.Request) error {
 	var turnoID, estado string
 	var monto, devuelto int64
 	var mpPago *int64
+	var mpOrden, mpTransaccion *string
 	err := s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, "SELECT turno_id::text, estado, monto, devuelto, mp_pago FROM pagos WHERE id = $1", r.PathValue("id")).
-			Scan(&turnoID, &estado, &monto, &devuelto, &mpPago)
+		return tx.QueryRow(ctx, "SELECT turno_id::text, estado, monto, devuelto, mp_pago, mp_orden, mp_transaccion FROM pagos WHERE id = $1", r.PathValue("id")).
+			Scan(&turnoID, &estado, &monto, &devuelto, &mpPago, &mpOrden, &mpTransaccion)
 	})
 	if err != nil {
 		return err
 	}
-	if estado != "aprobado" || mpPago == nil {
+	if estado != "aprobado" || (mpPago == nil && mpOrden == nil) {
 		return problema.Conflicto("estado", "Sólo se devuelve un pago aprobado.")
 	}
 	resta := monto - devuelto
@@ -246,7 +248,30 @@ func (s *Servicio) devolver(w http.ResponseWriter, r *http.Request) error {
 		parcial = in.Monto
 	}
 	clave := r.PathValue("id") + ":" + strconv.FormatInt(devuelto, 10) + ":" + strconv.FormatInt(in.Monto, 10)
-	if err := s.cliente().Devolver(ctx, token, *mpPago, parcial, clave); err != nil {
+	if mpOrden != nil {
+		// Seña cobrada con una orden: se devuelve por /v1/orders/{id}/refund. El parcial necesita la
+		// transacción (PAY…), que sale de la orden si todavía no se guardó.
+		transaccion := ""
+		if mpTransaccion != nil {
+			transaccion = *mpTransaccion
+		}
+		if parcial > 0 && transaccion == "" {
+			o, err := s.cliente().LeerOrden(ctx, token, *mpOrden)
+			if err != nil {
+				return s.traducir(err)
+			}
+			t, ok := o.Relevante()
+			if !ok {
+				return problema.Conflicto("estado", "Mercado Pago no tiene el pago de esta orden.")
+			}
+			transaccion = t.ID
+		}
+		err = s.cliente().DevolverOrden(ctx, token, *mpOrden, transaccion, parcial, clave)
+	} else {
+		// Seña creada con una preferencia (antes de pasar a Orders): se devuelve por /v1/payments.
+		err = s.cliente().Devolver(ctx, token, *mpPago, parcial, clave)
+	}
+	if err != nil {
 		return s.traducir(err)
 	}
 	total := devuelto+in.Monto >= monto

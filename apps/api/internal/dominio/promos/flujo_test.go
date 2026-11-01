@@ -41,8 +41,8 @@ func TestCuponAplicadoEnLaReserva(t *testing.T) {
 		t.Fatalf("el precio guardado: %d", x.Precio)
 	}
 	ref := strings.TrimPrefix(tu.Pago.URL, "https://mp.falso/checkout/")
-	if e.MP.Preferencias[ref].Items[0].UnitPrice != 6400 {
-		t.Fatalf("Mercado Pago cobra %d", e.MP.Preferencias[ref].Items[0].UnitPrice)
+	if e.MP.Ordenes[ref].Pedido.TotalAmount != "6400.00" {
+		t.Fatalf("Mercado Pago cobra %s", e.MP.Ordenes[ref].Pedido.TotalAmount)
 	}
 
 	// Ya se usó la única vez: otra reserva con el cupón falla entera (el horario sigue libre).

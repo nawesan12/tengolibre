@@ -11,7 +11,6 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/cobros/cobrosprueba"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/turnos"
-	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago/mpfalso"
 )
 
@@ -54,25 +53,28 @@ func TestReservaConSenaYWebhook(t *testing.T) {
 		t.Fatalf("config pública: %+v", cfg)
 	}
 
-	// La reserva queda esperando el pago por 15 minutos, con el link de Checkout Pro por la seña.
+	// La reserva queda esperando el pago por 15 minutos, con el checkout_url de la orden de Checkout Pro por la seña.
 	tu := e.Reservar(201, "09:00", "1111", nil)
 	if tu.Estado != "pendiente_pago" || tu.VenceEn == nil || !tu.VenceEn.Equal(e.Ahora.Add(15*time.Minute)) ||
 		tu.Pago.Monto != 4000 || tu.Pago.Modo != "porcentaje" {
 		t.Fatalf("reserva con seña: %+v %+v", tu, tu.Pago)
 	}
 	ref := referencia(t, tu)
-	pref := e.MP.Preferencias[ref]
-	if e.MP.TokenDePreferencia[ref] != "APP_USR-777" || pref.Items[0].UnitPrice != 4000 || !pref.Expires ||
-		pref.ExpirationDateTo != mercadopago.Vencimiento(*tu.VenceEn) {
-		t.Fatalf("preferencia: %+v con %q", pref, e.MP.TokenDePreferencia[ref])
+	orden := e.MP.Ordenes[ref]
+	cfgO := orden.Pedido.Config
+	if orden.Token != "APP_USR-777" || orden.Pedido.TotalAmount != "4000.00" || orden.Pedido.Items[0].UnitPrice != "4000.00" ||
+		orden.Pedido.ExpirationTime != "PT15M" || orden.Clave == "" || cfgO.PaymentMethod.MaxInstallments != 1 ||
+		cfgO.Online.SuccessURL != "https://tengolibre.com.ar/turno/"+tu.Codigo+"?pago=ok" ||
+		cfgO.Online.FailureURL != "https://tengolibre.com.ar/turno/"+tu.Codigo+"?pago=error" || cfgO.Online.AutoReturn != "approved" {
+		t.Fatalf("orden: %+v con %q", orden.Pedido, orden.Token)
 	}
-	// Pedir el link otra vez reusa la preferencia.
+	// Pedir el link otra vez reusa la orden.
 	var link struct {
 		URL   string `json:"url"`
 		Monto int64  `json:"monto"`
 	}
 	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/t/" + tu.Codigo + "/pagar"}, &link)
-	if link.URL != tu.Pago.URL || link.Monto != 4000 || len(e.MP.Preferencias) != 1 {
+	if link.URL != tu.Pago.URL || link.Monto != 4000 || len(e.MP.Ordenes) != 1 {
 		t.Fatalf("link de nuevo: %+v", link)
 	}
 	// Mientras espera el pago, el horario está tomado.
@@ -83,7 +85,7 @@ func TestReservaConSenaYWebhook(t *testing.T) {
 	}
 
 	// Un aviso sin firma no entra.
-	req := mpfalso.Aviso("payment", "1001", e.MP.Usuario, e.Ahora)
+	req := mpfalso.Aviso("order", orden.ID, e.MP.Usuario, e.Ahora)
 	req.Header.Set("x-signature", "ts=1,v1=00")
 	rec := httptestRecorder(e, req)
 	if rec != http.StatusUnauthorized {
@@ -91,16 +93,40 @@ func TestReservaConSenaYWebhook(t *testing.T) {
 	}
 
 	// Rechazado: el turno sigue esperando (el comprador puede reintentar hasta que venza).
-	e.MP.Pagar(1001, ref, "rejected", 4000)
-	if c := e.Avisar("payment", "1001"); c != 200 {
+	rechazada := e.MP.PagarOrden(ref, "failed", "rejected_by_issuer", 4000, 0)
+	if c := e.Avisar("order", rechazada); c != 200 {
 		t.Fatalf("aviso: %d", c)
 	}
 	if x := e.Turno(tu.ID); x.Estado != "pendiente_pago" {
 		t.Fatalf("rechazado no cambia el turno: %s", x.Estado)
 	}
+	var ps pagos
+	e.Panel(200, "GET", "/v1/panel/pagos", nil, &ps)
+	if ps.Pagos[0].Estado != "rechazado" {
+		t.Fatalf("pago rechazado: %+v", ps.Pagos[0])
+	}
+	// Una orden con un intento rechazado no admite otro: pedir el link crea una orden nueva.
+	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/t/" + tu.Codigo + "/pagar"}, &link)
+	if link.URL == tu.Pago.URL || len(e.MP.OrdenesID) != 2 || e.MP.Ordenes[ref].ID == rechazada {
+		t.Fatalf("reintento: %+v con %d órdenes", link, len(e.MP.OrdenesID))
+	}
+	// Y esa es la que se reusa.
+	var otra struct {
+		URL string `json:"url"`
+	}
+	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/t/" + tu.Codigo + "/pagar"}, &otra)
+	if otra.URL != link.URL || len(e.MP.OrdenesID) != 2 {
+		t.Fatalf("la orden nueva se reusa: %+v", otra)
+	}
+	// El aviso atrasado de la orden vieja no pisa a la nueva.
+	e.Avisar("order", rechazada)
+	e.Panel(200, "GET", "/v1/panel/pagos", nil, &ps)
+	if ps.Pagos[0].Estado != "pendiente" {
+		t.Fatalf("el aviso viejo pisó la orden nueva: %+v", ps.Pagos[0])
+	}
 	// Aprobado: confirmado, sin vencimiento, y se avisa.
-	e.MP.Pagar(1002, ref, "approved", 4000)
-	if c := e.Avisar("payment", "1002"); c != 200 {
+	aprobada := e.MP.PagarOrden(ref, "processed", "accredited", 4000, 1002)
+	if c := e.Avisar("order", aprobada); c != 200 {
 		t.Fatalf("aviso: %d", c)
 	}
 	if x := e.Turno(tu.ID); x.Estado != "confirmado" || x.VenceEn != nil {
@@ -116,9 +142,8 @@ func TestReservaConSenaYWebhook(t *testing.T) {
 		t.Fatalf("avisos del turno: %v", ev)
 	}
 	// El mismo aviso otra vez no cambia nada; un rechazo posterior no pisa el aprobado.
-	e.Avisar("payment", "1002")
-	e.Avisar("payment", "1001")
-	var ps pagos
+	e.Avisar("order", aprobada)
+	e.Avisar("order", rechazada)
 	e.Panel(200, "GET", "/v1/panel/pagos", nil, &ps)
 	if len(ps.Pagos) != 1 || ps.Pagos[0].Estado != "aprobado" || ps.Pagos[0].Monto != 4000 || *ps.Pagos[0].MPPago != 1002 {
 		t.Fatalf("pagos: %+v", ps.Pagos)
@@ -138,17 +163,20 @@ func TestReservaConSenaYWebhook(t *testing.T) {
 	if dev.Devuelto != 4000 || dev.Estado != "devuelto" {
 		t.Fatalf("devolución total: %+v", dev)
 	}
-	if d := e.MP.Devoluciones[1002]; len(d) != 2 || d[0] != 1000 || d[1] != 3000 {
-		t.Fatalf("devoluciones en Mercado Pago: %v", d)
+	// Se devuelve por la orden, indicando la transacción: primero 1000 y después el resto.
+	trans := e.MP.OrdenesID[aprobada].Pagos[0].ID
+	if d := e.MP.DevolucionesOrden[aprobada]; len(d) != 2 || d[0] != (mpfalso.ReembolsoOrden{Transaccion: trans, Monto: 1000}) ||
+		d[1] != (mpfalso.ReembolsoOrden{Transaccion: trans, Monto: 3000}) || len(e.MP.Devoluciones) != 0 {
+		t.Fatalf("devoluciones en Mercado Pago: %v %v", d, e.MP.Devoluciones)
 	}
 	if x := e.Turno(tu.ID); x.Estado != "cancelado" {
 		t.Fatalf("devuelto entero, el turno se cancela: %s", x.Estado)
 	}
 	e.Panel(409, "POST", "/v1/panel/pagos/"+ps.Pagos[0].ID+"/devolver", nil, nil)
 	// El aviso de la devolución que manda Mercado Pago no lo revive.
-	e.Avisar("payment", "1002")
+	e.Avisar("order", aprobada)
 	e.Panel(200, "GET", "/v1/panel/pagos", nil, &ps)
-	if ps.Pagos[0].Estado != "devuelto" {
+	if ps.Pagos[0].Estado != "devuelto" || ps.Pagos[0].Devuelto != 4000 {
 		t.Fatalf("después del aviso de devolución: %+v", ps.Pagos[0])
 	}
 }
@@ -244,8 +272,8 @@ func TestRenovacionDeTokens(t *testing.T) {
 	// Con el token nuevo se cobra.
 	e.Panel(200, "PUT", "/v1/panel/cobros", map[string]any{"modo": "total"}, nil)
 	tu := e.Reservar(201, "09:00", "1111", nil)
-	if e.MP.TokenDePreferencia[referencia(t, tu)] != "APP_USR-renovado-1" || tu.Pago.Monto != 8000 {
-		t.Fatalf("cobró con %q por %d", e.MP.TokenDePreferencia[referencia(t, tu)], tu.Pago.Monto)
+	if e.MP.Ordenes[referencia(t, tu)].Token != "APP_USR-renovado-1" || tu.Pago.Monto != 8000 {
+		t.Fatalf("cobró con %q por %d", e.MP.Ordenes[referencia(t, tu)].Token, tu.Pago.Monto)
 	}
 	// Si la renovación falla, queda para reconectar y no se cobra más (nunca con otro token).
 	e.MP.FallarRenovacion = true
@@ -305,4 +333,83 @@ func TestAislamientoEntreNegocios(t *testing.T) {
 	e.Panel(201, "POST", "/v1/panel/equipo", map[string]string{"clerkId": "user_recepcion01", "rol": "recepcion"}, nil)
 	e.Esperar(403, P{Metodo: "PUT", Ruta: "/v1/panel/cobros", Quien: "user_recepcion01", Negocio: e.Negocio,
 		Cuerpo: map[string]any{"modo": "sin_cobro"}}, nil)
+}
+
+// Una seña cobrada con una orden se devuelve entera con un reembolso sin cuerpo, y el aviso de la
+// devolución (que manda Mercado Pago) deja el pago como devuelto.
+func TestDevolucionTotalDeOrden(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.ConectarMP()
+	e.Panel(200, "PUT", "/v1/panel/cobros", map[string]any{"modo": "total"}, nil)
+	tu := e.Reservar(201, "09:00", "1111", nil)
+	ref := referencia(t, tu)
+	orden := e.MP.PagarOrden(ref, "processed", "accredited", 8000, 5001)
+	e.Avisar("order", orden)
+	var ps pagos
+	e.Panel(200, "GET", "/v1/panel/pagos", nil, &ps)
+	if ps.Pagos[0].Estado != "aprobado" || ps.Pagos[0].MPPago == nil || *ps.Pagos[0].MPPago != 5001 {
+		t.Fatalf("pago: %+v", ps.Pagos[0])
+	}
+	var dev cobros.Pago
+	e.Panel(200, "POST", "/v1/panel/pagos/"+ps.Pagos[0].ID+"/devolver", nil, &dev)
+	if d := e.MP.DevolucionesOrden[orden]; dev.Estado != "devuelto" || dev.Devuelto != 8000 || len(d) != 1 || d[0] != (mpfalso.ReembolsoOrden{}) {
+		t.Fatalf("devolución total: %+v %v", dev, e.MP.DevolucionesOrden[orden])
+	}
+	e.Avisar("order", orden)
+	e.Panel(200, "GET", "/v1/panel/pagos", nil, &ps)
+	if ps.Pagos[0].Estado != "devuelto" {
+		t.Fatalf("después del aviso: %+v", ps.Pagos[0])
+	}
+}
+
+// Una orden que vence sin pagarse deja el pago cancelado, y el aviso de otro vendedor se ignora.
+func TestOrdenVencidaYOrdenAjena(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.ConectarMP()
+	e.Panel(200, "PUT", "/v1/panel/cobros", map[string]any{"modo": "fija", "senaFija": 2000}, nil)
+	tu := e.Reservar(201, "09:00", "1111", nil)
+	orden := e.MP.Ordenes[referencia(t, tu)].ID
+	if c := mpfalso.Avisar(e.Handler, "order", orden, 999, e.Ahora); c != 200 {
+		t.Fatalf("aviso ajeno: %d", c)
+	}
+	e.MP.Expirar(orden)
+	e.Avisar("order", orden)
+	var ps pagos
+	e.Panel(200, "GET", "/v1/panel/pagos", nil, &ps)
+	if ps.Pagos[0].Estado != "cancelado" {
+		t.Fatalf("orden vencida: %+v", ps.Pagos[0])
+	}
+}
+
+// Mientras existan señas creadas con preferencias (antes de pasar a Orders), el tópico payment las
+// concilia y la devolución va por /v1/payments.
+func TestSenaViejaConPreferencia(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.ConectarMP()
+	e.Panel(200, "PUT", "/v1/panel/cobros", map[string]any{"modo": "total"}, nil)
+	tu := e.Reservar(201, "09:00", "1111", nil)
+	ref := referencia(t, tu)
+	// Como si se hubiera creado antes: con el init_point de una preferencia y sin orden.
+	e.SQL("UPDATE pagos SET mp_orden = NULL, link = 'https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=viejo-1'")
+	var link struct {
+		URL string `json:"url"`
+	}
+	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/t/" + tu.Codigo + "/pagar"}, &link)
+	if link.URL != "https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=viejo-1" || len(e.MP.OrdenesID) != 1 {
+		t.Fatalf("el link viejo se reusa: %+v", link)
+	}
+	e.MP.Pagar(9001, ref, "approved", 8000)
+	if c := e.Avisar("payment", "9001"); c != 200 {
+		t.Fatalf("aviso: %d", c)
+	}
+	if x := e.Turno(tu.ID); x.Estado != "confirmado" {
+		t.Fatalf("pago viejo aprobado: %s", x.Estado)
+	}
+	var ps pagos
+	e.Panel(200, "GET", "/v1/panel/pagos", nil, &ps)
+	var dev cobros.Pago
+	e.Panel(200, "POST", "/v1/panel/pagos/"+ps.Pagos[0].ID+"/devolver", nil, &dev)
+	if d := e.MP.Devoluciones[9001]; dev.Estado != "devuelto" || len(d) != 1 || len(e.MP.DevolucionesOrden) != 0 {
+		t.Fatalf("devolución del pago viejo: %+v %v", dev, d)
+	}
 }

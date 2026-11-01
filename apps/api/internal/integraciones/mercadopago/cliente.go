@@ -1,5 +1,5 @@
 // Package mercadopago habla con la API de Mercado Pago: el OAuth con que cada negocio conecta su
-// cuenta (marketplace, con PKCE), las preferencias de Checkout Pro, los pagos y sus devoluciones, las
+// cuenta (marketplace, con PKCE), las órdenes de Checkout Pro (API de Orders) con sus devoluciones, los pagos de las preferencias viejas, las
 // suscripciones (preapproval) de la plataforma y la firma de los webhooks. No toca la base: lo que se
 // guarda (tokens cifrados, cobros) es de los dominios. Calca la integración de Tu Local Web
 // (mostrador-v2), ya probada en producción.

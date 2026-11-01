@@ -37,12 +37,27 @@ WhatsApp (`TENGOLIBRE_WHATSAPP_*`, cuenta de Meta y dos plantillas: ver `docs/ap
 push web (`TENGOLIBRE_VAPID_*`, se generan con `go run ./cmd/vapid`).
 
 Mercado Pago, configurado el 1/11: app «TengoLibre» 6161498246914243 en la cuenta de Nahuel
-(Checkout Pro con API de Preferencias, OAuth con PKCE). Vuelta del OAuth en
+(Checkout Pro, OAuth con PKCE). Vuelta del OAuth en
 `https://tengolibre.com.ar/panel/mercadopago/vuelta` y webhook de producción en
 `https://api.tengolibre.com.ar/v1/webhooks/mercadopago` (pagos, planes y suscripciones, vinculación).
-`TENGOLIBRE_MP_*` está en `/opt/tengolibre/api.conf` y en CREDENCIALES.md. Mercado Pago avisa que la
-API de Preferencias se va a discontinuar: hay que pasar las señas (`internal/integraciones/mercadopago/cobros.go`)
-a la API de Orders.
+`TENGOLIBRE_MP_*` está en `/opt/tengolibre/api.conf` y en CREDENCIALES.md.
+
+Señas con la API de Orders (31/10): Mercado Pago discontinúa la API de Preferencias, así que la seña
+se cobra con Checkout Pro vía Orders (`internal/integraciones/mercadopago/ordenes.go`):
+`POST /v1/orders` con el token del negocio (`type: online`, `processing_mode: manual`, `total_amount`
+e importes en texto con dos decimales, `external_reference` = referencia del pago, `expiration_time`
+`PT{n}M` hasta `vence_en`, `config.online` con las URLs de vuelta, `max_installments: 1`,
+`X-Idempotency-Key`); la respuesta trae `checkout_url`, que va a `pagos.link`, y el id de la orden a
+`pagos.mp_orden` (migración 00021; `mp_transaccion` es la PAY… y `mp_pago` el id numérico de
+`payments[].reference.id`). El webhook procesa los dos tópicos: `order` (consulta `GET /v1/orders/{id}`
+con el token del negocio y aplica la transacción relevante) y `payment` (pagos de preferencias
+viejas, mientras existan). La devolución va por `POST /v1/orders/{id}/refund` (total sin cuerpo,
+parcial con `transactions[{id, amount}]`) si el pago tiene `mp_orden`, y por `/v1/payments/{id}/refunds`
+si no. Una orden cuyo intento fue rechazado no admite otro (`retries.allowed: false` de fábrica): el
+siguiente pedido de link crea una orden nueva. Para que Mercado Pago avise las órdenes hay que tener
+tildado el evento «Order (Mercado Pago)» (tópico `order`) en Webhooks del panel, además de «Pagos
+(legacy)». Verificado sólo contra el falso (`mpfalso`): falta una seña real en producción para
+confirmar el formato `PT15M` de `expiration_time` y el redirect de vuelta.
 
 ## 31/10/2026 (tarde): front publicado
 
@@ -120,7 +135,7 @@ sólo lectura), `web`, `problema`, `archivos`, `correo`, `auditoria`, `trabajos`
 
 ### Pendiente
 1. App de iPhone (handoff en ~/Trabajo/vimo/tengolibreiphone.zip; App Store Connect 6829332747).
-2. Pasar las señas de la API de Preferencias (se discontinúa) a la API de Orders de Mercado Pago.
+2. Mercado Pago: tildar «Order (Mercado Pago)» en el webhook, desplegar y probar una seña real (ver arriba). Cuando no queden señas con preferencias, sacar `LeerPago`/`Devolver` y el tópico `payment`.
 3. Admin: listo por email (`TENGOLIBRE_ADMINS_EMAILS` con nsantillandev@gmail.com y nahuel@grupovimo.com.ar); `TENGOLIBRE_ADMINS` (IDs) queda vacío.
 4. Dominios propios: el DNS `dominios.tengolibre.com.ar` ya existe (sin proxy). Falta correr
    `infra/vps/dominios.sh` después de la primera verificación (coordinar con las otras apps, que
