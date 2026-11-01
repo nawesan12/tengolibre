@@ -2,6 +2,9 @@
 
 ## 31/10/2026 (noche): diseño v2 en toda la web y todas las funciones del diseño
 
+En producción desde el 1/11 a la 1:20 (versión 81af42c, migraciones hasta 00020, con copia previa
+`/var/backups/tengolibre/antes-202611010121.sql.gz`). Suite e2e completa: 70/70.
+
 Toda la web se rehízo con el handoff v2 (`docs/handoff/design_handoff_tengolibre_v2/`, fiel al
 píxel): tokens, Lato y Material Symbols en `apps/web/src/app.css` y `app.html`, la marca en
 `static/marca/` y las firmas en `src/lib/ui/` (Talon, Hueco, Icono, Logo). Por área:
