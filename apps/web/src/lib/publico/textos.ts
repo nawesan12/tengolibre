@@ -59,3 +59,64 @@ export const linkInstagram = (u: string) =>
 export const linkExterno = (u: string) => (!u ? '' : /^https?:\/\//.test(u) ? u : `https://${u}`);
 
 export const estrellas = (n: number) => '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n));
+
+const DIAS_RANGO = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+const horaCorta = (h: string) => h.replace(/:00$/, '').replace(/^0(\d)/, '$1');
+
+/**
+ * El horario de atención en renglones cortos: días seguidos con el mismo horario se juntan
+ * ("LUN–VIE 10–20", "SÁB 10–14"). La semana empieza el lunes.
+ */
+export function renglonesAtencion(franjas: { dia: number; desde: string; hasta: string }[]) {
+	const porDia = new Map<number, string>();
+	for (const f of [...franjas].sort((a, b) => a.desde.localeCompare(b.desde))) {
+		const r = `${horaCorta(f.desde)}–${horaCorta(f.hasta)}`;
+		porDia.set(f.dia, porDia.has(f.dia) ? `${porDia.get(f.dia)}, ${r}` : r);
+	}
+	const orden = [1, 2, 3, 4, 5, 6, 0];
+	const out: string[] = [];
+	let i = 0;
+	while (i < orden.length) {
+		const h = porDia.get(orden[i]);
+		if (!h) {
+			i++;
+			continue;
+		}
+		let j = i;
+		while (j + 1 < orden.length && porDia.get(orden[j + 1]) === h) j++;
+		const dias = i === j ? DIAS_RANGO[orden[i]] : `${DIAS_RANGO[orden[i]]}–${DIAS_RANGO[orden[j]]}`;
+		out.push(`${dias} ${h}`);
+		i = j + 1;
+	}
+	return out;
+}
+
+/** "Abierto hasta las 20" o "Cerrado ahora" (con el día y la hora del negocio). */
+export function estadoAtencion(franjas: { dia: number; desde: string; hasta: string }[], ahora: Date, zona: string) {
+	const p = new Intl.DateTimeFormat('en-US', { timeZone: zona, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(ahora);
+	const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.find((x) => x.type === 'weekday')?.value ?? '');
+	const hm = `${p.find((x) => x.type === 'hour')?.value}:${p.find((x) => x.type === 'minute')?.value}`;
+	const f = franjas.find((x) => x.dia === dow && x.desde <= hm && hm < x.hasta);
+	return f ? { abierto: true, texto: `Abierto hasta las ${horaCorta(f.hasta)}` } : { abierto: false, texto: 'Cerrado ahora' };
+}
+
+/** La seña de un precio con la configuración de cobro (la misma cuenta que la API, cobros.Monto). */
+export function montoSena(precio: number, c: { modo: string; senaPorcentaje: number; senaFija: number } | null) {
+	if (!c || precio <= 0) return 0;
+	if (c.modo === 'total') return precio;
+	if (c.modo === 'porcentaje') return Math.floor((precio * c.senaPorcentaje + 50) / 100);
+	if (c.modo === 'fija') return Math.min(c.senaFija, precio);
+	return 0;
+}
+
+/** Iniciales para el círculo de una persona: "Carla Ruiz" → "CR". */
+export const iniciales = (n: string) =>
+	n
+		.split(/\s+/)
+		.filter(Boolean)
+		.slice(0, 2)
+		.map((p) => p[0]!.toUpperCase())
+		.join('');
+
+/** El link para compartir por WhatsApp un texto (sin número: elige la persona). */
+export const compartirWhatsapp = (texto: string) => `https://wa.me/?text=${encodeURIComponent(texto)}`;

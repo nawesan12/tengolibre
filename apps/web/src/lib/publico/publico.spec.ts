@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fechaLarga, semanas, sumarDias } from './calendario.ts';
+import { diaCorto, fechaLarga, mesesCortos, semanas, sumarDias } from './calendario.ts';
+import { completar, contraste, tema, textoSobre, variables } from './estilo.ts';
 import { cacheDeHosts, esHostPropio, rutaPara } from './dominio.ts';
 import { urlDePaso } from './reserva.ts';
-import { duracion, linkMapa, linkWhatsapp, sinViuda } from './textos.ts';
+import { duracion, estadoAtencion, iniciales, linkMapa, linkWhatsapp, montoSena, renglonesAtencion, sinViuda } from './textos.ts';
 
 describe('calendario', () => {
 	it('arma semanas de lunes a domingo con huecos', () => {
@@ -66,5 +67,54 @@ describe('textos', () => {
 		expect(linkMapa(null, null)).toBe('');
 		expect(linkWhatsapp('11 2345-6789')).toBe('https://wa.me/541123456789');
 		expect(sinViuda('Sacá tu turno')).toBe('Sacá tu turno');
+	});
+});
+
+describe('estilo de la web', () => {
+	it('completa el estilo con los valores por defecto y descarta lo que no existe', () => {
+		expect(completar(null)).toEqual({ plantilla: 'carta', portada: 'foto', fondo: 'crema', titulos: 'grandes', forma: 'redondos' });
+		expect(completar({ plantilla: 'galeria', fondo: 'otro' })).toMatchObject({ plantilla: 'galeria', fondo: 'crema' });
+	});
+
+	it('el texto sobre el color del negocio es blanco o tinta según el contraste', () => {
+		expect(textoSobre('#7a3b5e')).toBe('#ffffff');
+		expect(textoSobre('#f5c518')).toBe('#14181a');
+	});
+
+	it('el color de marca como texto llega a 4,5:1 y en Noche se aclara', () => {
+		const claro = tema(completar({}), '#f5c518', '#1d3557');
+		expect(contraste(claro.marca, '#ffffff')).toBeGreaterThanOrEqual(4.5);
+		const noche = tema(completar({ fondo: 'noche' }), '#7a3b5e', null);
+		expect(noche.bg).toBe('#14221f');
+		expect(contraste(noche.marca, noche.bg)).toBeGreaterThanOrEqual(4.5);
+		expect(variables(noche)).toContain('--w-pri:#7a3b5e');
+	});
+
+	it('un color inválido usa el de por defecto', () => {
+		expect(tema(completar({}), 'rojo', '').pri).toBe('#7a3b5e');
+	});
+});
+
+describe('textos de la web', () => {
+	it('horario de atención en renglones cortos', () => {
+		const f = [1, 2, 3, 4, 5].map((dia) => ({ dia, desde: '10:00', hasta: '20:00' }));
+		expect(renglonesAtencion([...f, { dia: 6, desde: '10:00', hasta: '14:00' }])).toEqual(['LUN–VIE 10–20', 'SÁB 10–14']);
+		// Martes 3 de noviembre de 2026, 15:00 en Buenos Aires.
+		expect(estadoAtencion(f, new Date('2026-11-03T18:00:00Z'), 'America/Argentina/Buenos_Aires').texto).toBe('Abierto hasta las 20');
+		expect(estadoAtencion(f, new Date('2026-11-03T01:00:00Z'), 'America/Argentina/Buenos_Aires').abierto).toBe(false);
+	});
+
+	it('la seña, como la cuenta la API', () => {
+		expect(montoSena(22000, { modo: 'porcentaje', senaPorcentaje: 30, senaFija: 0 })).toBe(6600);
+		expect(montoSena(5000, { modo: 'fija', senaPorcentaje: 0, senaFija: 8000 })).toBe(5000);
+		expect(montoSena(9000, { modo: 'total', senaPorcentaje: 0, senaFija: 0 })).toBe(9000);
+		expect(montoSena(9000, { modo: 'sin_cobro', senaPorcentaje: 0, senaFija: 0 })).toBe(0);
+		expect(montoSena(9000, null)).toBe(0);
+	});
+
+	it('rótulos cortos de días e iniciales', () => {
+		expect(diaCorto('2026-11-02')).toBe('LUN 02');
+		expect(mesesCortos(['2026-10-31', '2026-11-02'])).toBe('OCT · NOV');
+		expect(iniciales('Carla Ruiz')).toBe('CR');
 	});
 });

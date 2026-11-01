@@ -1,7 +1,8 @@
 import { error, fail } from '@sveltejs/kit';
 import { apiPublica } from '#lib/server/api.ts';
 import { intentar } from '#lib/server/acciones.ts';
-import { codigoValido, o404 } from '#lib/publico/api.server.ts';
+import { codigoValido, o404, opcional } from '#lib/publico/api.server.ts';
+import type { Web } from '#lib/publico/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export type PedidoResena = {
@@ -18,7 +19,10 @@ export type PedidoResena = {
 export const load: PageServerLoad = async ({ params, fetch, setHeaders }) => {
 	if (!codigoValido(params.token)) error(404, 'Ese link no existe o ya no sirve.');
 	setHeaders({ 'cache-control': 'no-store' });
-	return { pedido: await o404(apiPublica(fetch).get<PedidoResena>(`/v1/resenas/${params.token}`), 'Ese link no existe o ya no sirve.') };
+	const pedido = await o404(apiPublica(fetch).get<PedidoResena>(`/v1/resenas/${params.token}`), 'Ese link no existe o ya no sirve.');
+	// Los colores del negocio (el talón y las estrellas van con su marca).
+	const web = await opcional(apiPublica(fetch).get<Web>(`/v1/p/${pedido.slug}/web`), null);
+	return { pedido, web };
 };
 
 export const actions: Actions = {

@@ -1,12 +1,13 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { apiPublica } from '#lib/server/api.ts';
 import { intentar } from '#lib/server/acciones.ts';
-import { codigoValido, o404, opcional } from '#lib/publico/api.server.ts';
+import { cobro, codigoValido, o404, opcional } from '#lib/publico/api.server.ts';
 import { esFecha } from '#lib/publico/calendario.ts';
-import type { Dia, Horario, MiReferido, Sugerencia, TurnoCliente } from '#lib/publico/tipos.ts';
+import type { Dia, Horario, HorarioRepetir, MiReferido, Repetir, Sugerencia, Turno, TurnoCliente, Web } from '#lib/publico/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 const ACTIVOS = ['pendiente', 'confirmado', 'pendiente_pago'];
+const activo = (e: string) => ACTIVOS.includes(e);
 
 export const load: PageServerLoad = async ({ params, url, fetch, setHeaders }) => {
 	if (!codigoValido(params.codigo)) error(404, 'No encontramos ese turno.');
@@ -22,7 +23,7 @@ export const load: PageServerLoad = async ({ params, url, fetch, setHeaders }) =
 	// Reprogramar: el mismo servicio y profesional, en otro día y horario (las mismas reglas que cancelar).
 	const puedeCambiar = turno.puedeCancelar && !!turno.servicioId && ACTIVOS.includes(turno.estado);
 	const cambiar = puedeCambiar && url.searchParams.has('cambiar');
-	const fecha = esFecha(url.searchParams.get('fecha')) ? url.searchParams.get('fecha')! : '';
+	let fecha = esFecha(url.searchParams.get('fecha')) ? url.searchParams.get('fecha')! : '';
 	let dias: Dia[] = [];
 	let horarios: Horario[] = [];
 	if (cambiar) {
@@ -30,14 +31,33 @@ export const load: PageServerLoad = async ({ params, url, fetch, setHeaders }) =
 		if (turno.profesionalId) q.set('profesional', turno.profesionalId);
 		const slug = turno.negocio.slug;
 		dias = (await opcional(api.get<{ dias: Dia[] }>(`/v1/p/${slug}/dias?${q}`), { dias: [] })).dias;
+		// Sin día elegido: el primero con lugar (las horas se ven de una, como en el diseño).
+		if (!fecha) fecha = dias.find((d) => d.libres > 0)?.fecha ?? '';
 		if (fecha) {
 			q.set('fecha', fecha);
 			horarios = (await opcional(api.get<{ horarios: Horario[] }>(`/v1/p/${slug}/libres?${q}`), { horarios: [] })).horarios;
 		}
 	}
 
+	// El color y el estilo del negocio (el talón se pinta con su marca) y la seña si falta pagarla.
+	const [web, conf, repetir] = await Promise.all([
+		opcional(api.get<Web>(`/v1/p/${turno.negocio.slug}/web`), null),
+		turno.estado === 'pendiente_pago' ? cobro(fetch, turno.negocio.slug) : null,
+		// Atendido: el próximo turno armado (docs/api/repetir.md). Sin servicio o profesional, nada.
+		turno.estado === 'atendido' ? opcional(api.get<Repetir>(`/v1/t/${c}/repetir`), null) : null
+	]);
+	// La fecha elegida entre la sugerencia y las alternativas (?repetir=AAAA-MM-DD).
+	const opciones = repetir ? [repetir.sugerencia, ...repetir.alternativas].filter((x): x is HorarioRepetir => !!x).sort((a, b) => a.inicio.localeCompare(b.inicio)) : [];
+	const repetirElegido = opciones.find((o) => o.fecha === url.searchParams.get('repetir')) ?? repetir?.sugerencia ?? null;
+
 	return {
 		turno,
+		web,
+		cobro: conf,
+		repetir,
+		opcionesRepetir: opciones,
+		repetirElegido,
+		cancelar: activo(turno.estado) && turno.puedeCancelar && url.searchParams.has('cancelar') && !cambiar,
 		referido,
 		sugerencias: sugerencias.sugerencias,
 		puedeCambiar,
@@ -69,6 +89,20 @@ export const actions: Actions = {
 		if (!('ok' in r)) return r;
 		if (!/^https:\/\//.test(r.datos.url)) return fail(502, { error: 'No pudimos armar el link de pago. Probá en un rato.', codigo: 'sin_link', campos: {} });
 		redirect(303, r.datos.url);
+	},
+	confirmar: async ({ params, fetch }) => {
+		const r = await intentar(() => apiPublica(fetch).post(`/v1/t/${params.codigo}/confirmar`));
+		if (!('ok' in r)) return r;
+		return { confirmado: true };
+	},
+	repetir: async ({ params, fetch, request }) => {
+		const f = await request.formData();
+		const inicio = String(f.get('inicio') ?? '');
+		if (isNaN(Date.parse(inicio))) return fail(400, { error: 'Elegí un día.', codigo: 'invalido', campos: {} });
+		const r = await intentar(() => apiPublica(fetch).post<Turno>(`/v1/t/${params.codigo}/repetir`, { inicio }));
+		if (!('ok' in r)) return r;
+		if (r.datos.pago?.url && /^https:\/\//.test(r.datos.pago.url)) redirect(303, r.datos.pago.url);
+		redirect(303, `/turno/${r.datos.codigo}?nuevo=1`);
 	},
 	referido: async ({ params, fetch }) => {
 		const r = await intentar(() => apiPublica(fetch).post<MiReferido>(`/v1/t/${params.codigo}/referido`));
