@@ -16,6 +16,7 @@
 	import { MOTIVO_DIAS, MOTIVO_LLAMAR } from '#lib/operacion/contrato.ts';
 	import { armarDia, cargarEn, duracion, hhmm, iniciales, libresTexto, minutosAhora, primerNombre, profesionalesDelDia, rangoDelDia } from '#lib/panel/dia.ts';
 	import { activarAvisos } from '#lib/panel/push.ts';
+	import TuLink from '#lib/panel/TuLink.svelte';
 
 	let { data, form } = $props();
 
@@ -274,6 +275,10 @@
 	</section>
 {/if}
 
+<section class="tu-link" aria-label="El link de tu página">
+	<TuLink nombre={data.negocio.nombre} slug={data.negocio.slug} origen={page.url.origin} titulo="Tu página de reservas" ver />
+</section>
+
 <div class="dos">
 	<section class="sigue" aria-labelledby="t-sigue">
 		<div class="cabeza">
@@ -302,6 +307,7 @@
 				<Icono nombre="event_available" tam={28} />
 				<b>{vivos.length ? 'Ya no quedan turnos por hoy' : 'Todavía no hay turnos hoy'}</b>
 				<span>{vivos.length ? 'Mirá mañana en Turnos o cargá uno nuevo.' : 'Tu página ya está tomando reservas. Compartí el link o cargá uno vos.'}</span>
+				{#if !vivos.length}<button class="copiar-vacio" onclick={copiarLink}>{copiado ? 'Copiado' : 'Copiar el link'}</button>{/if}
 			</div>
 		{/each}
 	</section>
@@ -366,6 +372,20 @@
 </div>
 
 <style>
+	.tu-link {
+		margin-top: 4px;
+	}
+	.copiar-vacio {
+		margin-top: 4px;
+		min-height: 40px;
+		padding: 0 16px;
+		border: 0;
+		border-radius: 999px;
+		background: #3ccc90;
+		color: #102b31;
+		font: 700 14px var(--tl-font);
+		cursor: pointer;
+	}
 	.saludo {
 		margin: 4px 0 0;
 		font-size: 50px;

@@ -74,6 +74,24 @@
 		mas = false;
 		buscando = false;
 	});
+
+	// El link de la página desde la barra del teléfono: el menú de compartir del sistema o, si no hay, copiarlo.
+	async function compartirPagina() {
+		const url = `${location.origin}/${data.negocio.slug}`;
+		if (typeof navigator.share === 'function') {
+			try {
+				await navigator.share({ title: data.negocio.nombre, text: `Reservá tu turno en ${data.negocio.nombre}`, url });
+			} catch {
+				// Cerró el menú sin elegir.
+			}
+			return;
+		}
+		try {
+			await navigator.clipboard.writeText(url);
+		} catch {
+			window.open(`/${data.negocio.slug}`, '_blank', 'noopener');
+		}
+	}
 </script>
 
 <div class="panel">
@@ -126,6 +144,7 @@
 
 		<header class="barra-tel tl-petroleo">
 			<SelectorNegocio negocio={data.negocio} negocios={data.negocios} persona={data.persona} compacto sub={`${fechaCorta} · ${ahoraTexto}`} />
+			<button class="icono-tel" aria-label="Compartir tu página" onclick={compartirPagina}><Icono nombre="ios_share" tam={24} /></button>
 			<button class="icono-tel" aria-label="Buscar" onclick={() => (buscando = true)}><Icono nombre="search" tam={24} /></button>
 			<Campanita avisos={data.avisos} sinLeer={data.sinLeer} {verEnvios} compacto />
 		</header>
