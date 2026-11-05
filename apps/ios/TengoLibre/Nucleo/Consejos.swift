@@ -4,7 +4,7 @@ import TipKit
 /// Los consejos nativos (TipKit): aparecen la primera vez que se ve cada gesto, una vez y listo.
 enum Consejos {
     static func configurar() {
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil || ProcessInfo.processInfo.arguments.contains("-modoPrueba") {
             Tips.hideAllTipsForTesting()
         }
         try? Tips.configure([.displayFrequency(.hourly), .datastoreLocation(.applicationDefault)])

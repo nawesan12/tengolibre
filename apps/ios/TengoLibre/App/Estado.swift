@@ -105,6 +105,10 @@ final class Estado {
     }
 
     init(api: Api? = nil) {
+        #if DEBUG
+        ModoPrueba.preparar()
+        let api = api ?? (ModoPrueba.activo ? ModoPrueba.api() : nil)
+        #endif
         self.api = api ?? Api(base: Api.urlConfigurada(), token: Llavero.leer("token"))
         self.api.negocio = UserDefaults.standard.string(forKey: "negocio")
         self.api.alPerderSesion = { [weak self] in self?.sesionPerdida() }

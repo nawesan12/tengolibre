@@ -146,7 +146,26 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+  TengoLibreUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [TengoLibreUITests]
+    dependencies:
+      - target: TengoLibre
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: TengoLibre
 schemes:
+  # Los recorridos de punta a punta (XCUITest) con la app en modo prueba: en Debug.
+  Recorridos:
+    build:
+      targets:
+        TengoLibre: all
+        TengoLibreUITests: [test]
+    test:
+      config: Debug
+      targets: [TengoLibreUITests]
   TengoLibre:
     build:
       targets:

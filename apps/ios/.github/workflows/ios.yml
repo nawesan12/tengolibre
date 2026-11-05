@@ -49,6 +49,26 @@ jobs:
             | tee probar.log | xcbeautify --renderer github-actions
       - if: failure()
         run: grep -E -B2 -A30 'Fatal error|crashed|Thread 0 Crashed|error:' probar.log | head -150
+      - name: Recorridos
+        id: recorridos
+        # No frena TestFlight: los recorridos se revisan (capturas) y se corrigen en la tanda siguiente.
+        continue-on-error: true
+        env:
+          # Una captura por paso de cada recorrido (como Playwright), para revisarlas.
+          TEST_RUNNER_CAPTURAS: ${{ runner.temp }}/recorridos
+        run: |
+          set -o pipefail
+          xcodebuild test -project TengoLibre.xcodeproj -scheme Recorridos -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO \
+            | tee recorridos.log | xcbeautify --renderer github-actions
+      - if: steps.recorridos.outcome == 'failure'
+        run: grep -E -B2 -A20 'error:|failed|Fatal error|crashed' recorridos.log | head -150
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recorridos
+          path: ${{ runner.temp }}/recorridos
+          if-no-files-found: ignore
       - if: failure()
         name: Reportes de crash del simulador
         run: |
