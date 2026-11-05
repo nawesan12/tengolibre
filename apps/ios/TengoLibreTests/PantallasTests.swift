@@ -191,7 +191,7 @@ final class PantallasTests: XCTestCase {
                                    .membresias, .cupones, .referidos, .penalidades, .etiquetas, .caja, .reportes, .miWeb, .plantillas, .dominio,
                                    .integraciones, .configuracion, .avisosClientes, .whatsapp, .auditoria, .sucursales, .cuenta]
         for d in todas {
-            montar(NavigationLinkDirecto(destino: d), segundos: 1, nombre: "Seccion-\(d)")
+            montar(NavigationLinkDirecto(destino: d), segundos: 1, nombre: "Seccion-\(String(describing: d).filter { $0.isLetter || $0.isNumber })")
         }
     }
     func testIngreso() { montar(Ingreso(), segundos: 1) }
