@@ -131,6 +131,7 @@ struct Resenas: View {
             respuestas[r.id] = nil
             if let i = resenas.firstIndex(where: { $0.id == r.id }) { resenas[i].respuesta = texto; resenas[i].respondidaEn = Date() }
             Haptico.exito()
+            Momentos.resenaBuena(estado, r)
         } catch { estado.avisar(error) }
     }
 

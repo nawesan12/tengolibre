@@ -1,4 +1,5 @@
 import SwiftUI
+import TipKit
 
 /// 07 Agenda · día y 08 Agenda · semana.
 struct Agenda: View {
@@ -57,7 +58,7 @@ struct Agenda: View {
                 withAnimation(Movimiento.entrar) { indice = (indice + (v.translation.width < 0 ? 1 : -1) + dias.count + 1) % (dias.count + 1) }
                 Haptico.seleccion()
             })
-            if modo == "dia" && dias.count > 1 { capsula.padding(.bottom, 16) }
+            if modo == "dia" && dias.count > 1 { capsula.popoverTip(ConsejoCapsula(), arrowEdge: .bottom).padding(.bottom, 16) }
         }
         .background(C.fondo)
         .toolbar(.hidden, for: .navigationBar)
@@ -186,7 +187,7 @@ struct Agenda: View {
         }
         ForEach(turnos) { t in
             VistaTalon(turno: t, ahora: ahora, alTocar: { nav.turno = t },
-                       alDeslizar: estado.soloLectura ? nil : { e in Task { await datos.cambiar(estado, t, a: e) } })
+                       alDeslizar: estado.soloLectura ? nil : { e in Task { await datos.cambiar(estado, t, a: e); Momentos.cambioDeEstado(estado, nav, t, a: e) } })
         }
         if !huecos.isEmpty {
             Rotulo("LIBRES")

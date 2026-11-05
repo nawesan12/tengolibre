@@ -8,6 +8,7 @@ import SwiftUI
 struct NuevoTurno: View {
     var inicio: NuevoTurnoInicio
     @Environment(Estado.self) private var estado
+    @Environment(Navegacion.self) private var nav
     @Environment(\.dismiss) private var cerrar
 
     @State private var servicios: [Servicio] = []
@@ -380,6 +381,7 @@ struct NuevoTurno: View {
             estado.avisar(Toast(simbolo: "checkmark", titulo: "Turno guardado", texto: "Le mandamos la confirmación a \(nombre)", accion: "Deshacer")) {
                 try? await estado.api.hacer("PATCH", "/v1/panel/turnos/\(t.id)", AccionesTurno.CambioEstado(estado: "cancelado"))
             }
+            Momentos.cargaManual(estado, nav)
             cerrar()
         } catch let e as ErrorApi {
             fallar(e.detalle)

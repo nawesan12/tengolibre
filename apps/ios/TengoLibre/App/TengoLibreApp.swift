@@ -5,6 +5,8 @@ import UserNotifications
 @main
 struct TengoLibreApp: App {
     @UIApplicationDelegateAdaptor(Delegado.self) private var delegado
+
+    init() { Consejos.configurar() }
     @State private var estado = Estado()
     @Environment(\.scenePhase) private var fase
     @AppStorage("tema") private var tema = "sistema"
@@ -15,7 +17,7 @@ struct TengoLibreApp: App {
                 .environment(estado)
                 .preferredColorScheme(tema == "claro" ? .light : (tema == "oscuro" ? .dark : nil))
                 .tint(C.mentaTexto)
-                .onAppear { delegado.estado = estado }
+                .onAppear { delegado.estado = estado; AtajosSiri.estado = estado }
                 .onOpenURL { url in
                     if let r = Ruta(texto: url.absoluteString) { estado.rutaPendiente = r }
                 }

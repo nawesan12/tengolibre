@@ -1,4 +1,5 @@
 import SwiftUI
+import TipKit
 
 struct EtiquetaConUso: Codable, Identifiable, Equatable, Hashable { var id: String; var nombre: String; var color: String; var clientes: Int }
 
@@ -299,6 +300,7 @@ struct FichaCliente: View {
             .background(C.ausenteFondo, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         if let s = socio { membresia(s) }
+        SugerenciaMembresia(ficha: f, conMembresia: socio != nil)
         if let pr = f.turnos.first(where: { $0.inicio > Date() && $0.estado != "cancelado" }) {
             Rotulo("PRÓXIMO TURNO")
             filaTurno(pr).tarjeta()
@@ -306,6 +308,7 @@ struct FichaCliente: View {
         // Etiquetas
         VStack(alignment: .leading, spacing: 10) {
             Text("ETIQUETAS").rotulo()
+            TipView(ConsejoEtiquetas()).tipBackground(C.fondo).tint(C.mentaTexto)
             FlujoEtiquetas(items: etiquetas.map { e in (e.id, e.nombre, f.etiquetas.contains { $0.id == e.id }) }) { id, puesta in
                 Task { await etiqueta(id, quitar: puesta) }
             }

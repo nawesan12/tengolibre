@@ -368,6 +368,7 @@ struct DetalleTurno: View {
             turno.estado = nuevo
             Haptico.exito()
             estado.version += 1
+            Momentos.cambioDeEstado(estado, nav, turno, a: nuevo)
             if nuevo == "cancelado" || nuevo == "ausente" {
                 let t = turno
                 estado.avisar(Toast(simbolo: "checkmark", titulo: nuevo == "cancelado" ? "Turno cancelado" : "Marcado ausente", texto: "\(t.cliente.nombre) · \(Formato.horaDe(t.inicio))", accion: "Deshacer")) {
@@ -398,6 +399,7 @@ struct Cobrar: View {
     var caja: CuentaCaja?
     var listo: () async -> Void
     @Environment(Estado.self) private var estado
+    @Environment(Navegacion.self) private var nav
     @Environment(\.dismiss) private var cerrar
     @State private var medio = "efectivo"
     @State private var productos: [Producto] = []
@@ -492,6 +494,7 @@ struct Cobrar: View {
             estado.avisar(m == "despues" ? "Atendido · queda debiendo" : "Atendido y cobrado", texto: m == "despues" ? "Lo cobrás desde la caja cuando pague." : Formato.pesos(total))
             await listo()
             cerrar()
+            if m != "despues" { Momentos.cobro(estado, nav) }
         } catch {
             estado.avisar(error)
         }

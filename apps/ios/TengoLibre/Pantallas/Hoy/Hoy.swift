@@ -1,4 +1,5 @@
 import SwiftUI
+import TipKit
 
 /// 05 Hoy (y «Tu día» de la profesional): la cabecera de petróleo con el negocio, compartir, avisos y
 /// el día; abajo, «Para atender» y la pila con lo próximo primero. Estados 20–25: vacío que enseña,
@@ -27,6 +28,7 @@ struct Hoy: View {
                             AccionCabecera(simbolo: "square.and.arrow.up", etiqueta: "Compartir tu link") { nav.compartir = true },
                             AccionCabecera(simbolo: "bell", etiqueta: "Avisos", numero: estado.sinLeer) { nav.avisos = true }
                          ]) {
+                    CampoBuscar()
                     if datos.carga == .cargando && datos.turnos.isEmpty {
                         Esqueleto(alto: 118, radio: 20).opacity(0.4)
                     } else if !dias.isEmpty {
@@ -40,6 +42,7 @@ struct Hoy: View {
         .background(C.fondo)
         .toolbar(.hidden, for: .navigationBar)
         .refreshable { await cargar() }
+        .task { await Consejos.abrioHoy.donate() }
         .task(id: "\(estado.version)-\(estado.negocio?.id ?? "")") { await cargar() }
         .task {
             // El minuto corre: «Ahora», lo en curso y los huecos se acomodan solos.
@@ -59,6 +62,7 @@ struct Hoy: View {
     private func cargar() async {
         await datos.cargar(estado, desde: hoy, hasta: hoy)
         ActividadTurno.sincronizar(delDia)
+        await estado.vivo.cargar(estado)
     }
 
     @ViewBuilder private var contenido: some View {
@@ -72,13 +76,18 @@ struct Hoy: View {
         default:
             if delDia.filter(\.ocupa).isEmpty {
                 vacio
+                BarraAvance()
+                PlataHoy()
                 AtajosHoy()
                 DescubrirHoy()
             } else {
                 paraAtender
+                PlataHoy()
                 AtajosHoy()
                 pila
+                BarraAvance()
                 DescubrirHoy()
+                TipView(ConsejoWidget()).tipBackground(C.tarjeta).tint(C.mentaTexto)
             }
         }
     }
@@ -99,14 +108,6 @@ struct Hoy: View {
         if estado.sinConexion {
             let h = estado.guardadoEn.map { " de las \(Formato.horaDe($0))" } ?? ""
             out.append(.init(simbolo: "icloud.slash", titulo: "Sin conexión · tu día\(h)", texto: "Podés ver los turnos y llamar. Para cargar o cambiar algo necesitás conexión.", accion: "", petroleo: false) {})
-        }
-        if let a = datos.arranque, !a.completo, estado.esDuena {
-            let faltan = a.pasos.filter { !$0.listo }
-            if let p = faltan.first {
-                out.append(.init(simbolo: "flag.checkered", titulo: "Te faltan \(faltan.count) \(faltan.count == 1 ? "paso" : "pasos") para que te reserven", texto: p.titulo, accion: "Seguir", petroleo: true) {
-                    nav.pestana = .mas; nav.pilaMas.append(DestinoMas.primerosPasos)
-                })
-            }
         }
         return out
     }
@@ -232,8 +233,16 @@ struct Hoy: View {
         return out
     }
 
+    private var primerHueco: String? {
+        for it in items { if case .hueco(let h) = it { return h.id } }
+        return nil
+    }
+
     @ViewBuilder private var pila: some View {
         let lectura = estado.soloLectura || estado.sinConexion
+        if !lectura && items.contains(where: { if case .talon = $0 { true } else { false } }) {
+            TipView(ConsejoDeslizar()).tipBackground(C.tarjeta).tint(C.mentaTexto)
+        }
         ForEach(items) { it in
             switch it {
             case .sep(let s): Rotulo(s)
@@ -247,7 +256,7 @@ struct Hoy: View {
                 .accessibilityElement(children: .combine)
             case .talon(let t):
                 VistaTalon(turno: t, mostrarProfesional: !estado.esProfesional, ahora: ahora, alTocar: { nav.turno = t },
-                           alDeslizar: lectura ? nil : { e in Task { await datos.cambiar(estado, t, a: e) } })
+                           alDeslizar: lectura ? nil : { e in Task { await datos.cambiar(estado, t, a: e); Momentos.cambioDeEstado(estado, nav, t, a: e) } })
                     .transition(datos.recien.contains(t.id) ? .move(edge: .top).combined(with: .opacity) : .identity)
             case .hueco(let h):
                 let n = datos.esperanPara(h).count
@@ -260,6 +269,8 @@ struct Hoy: View {
                     if lectura { return }
                     if n > 0 { ofrecer = h } else { cargarEn(h) }
                 })
+                .consejo(h.id == primerHueco && !lectura && n > 0, ConsejoAvisar())
+                .consejo(h.id == primerHueco && !lectura && n == 0, ConsejoHueco())
             case .plegado(let t, let pasados):
                 Button { withAnimation(Movimiento.entrar) { verTemprano.toggle() } } label: {
                     HStack(spacing: 10) {
@@ -274,7 +285,7 @@ struct Hoy: View {
                 if verTemprano {
                     ForEach(pasados) { t in
                         VistaTalon(turno: t, mostrarProfesional: !estado.esProfesional, ahora: ahora, alTocar: { nav.turno = t },
-                                   alDeslizar: lectura ? nil : { e in Task { await datos.cambiar(estado, t, a: e) } })
+                                   alDeslizar: lectura ? nil : { e in Task { await datos.cambiar(estado, t, a: e); Momentos.cambioDeEstado(estado, nav, t, a: e) } })
                     }
                 }
             }

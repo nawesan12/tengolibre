@@ -16,7 +16,7 @@ extension View {
         navigationDestination(for: DestinoMas.self) { d in
             Group {
                 switch d {
-                case .primerosPasos: PrimerosPasos()
+                case .primerosPasos: Potencia()
                 case .resenas: Resenas()
                 case .suscripcion: SuscripcionVista()
                 case .diasLibres: DiasLibres()
@@ -60,7 +60,27 @@ struct Mas: View {
     @Environment(Estado.self) private var estado
     @Environment(Navegacion.self) private var nav
 
-    private struct Item: Identifiable { var destino: DestinoMas; var simbolo: String; var titulo: String; var detalle = ""; var id: String { titulo } }
+    private struct Item: Identifiable { var destino: DestinoMas; var simbolo: String; var titulo: String; var detalle = ""; var pendiente = false; var id: String { titulo } }
+
+    /// El estado de cada sección, en vivo («Sin conectar», «3 socias activas», «IA apagada»…).
+    private func conEstado(_ it: Item) -> Item {
+        let v = estado.vivo
+        let t: (String, Bool)?
+        switch it.destino {
+        case .cobros: t = v.textoCobros
+        case .integraciones: t = estado.esProfesional ? nil : v.textoIA
+        case .membresias: t = v.textoMembresias
+        case .cupones: t = v.textoCupones
+        case .avisosClientes: t = v.textoRecordatorios
+        case .miWeb: t = v.textoWeb
+        case .dominio: t = v.textoDominio
+        case .whatsapp: t = v.textoWhatsApp
+        default: t = nil
+        }
+        var x = it
+        if let t, !t.0.isEmpty { x.detalle = t.0; x.pendiente = t.1 }
+        return x
+    }
 
     private var grupos: [(String, [Item])] {
         let g = estado.gestiona
@@ -122,11 +142,16 @@ struct Mas: View {
         ScrollView {
             VStack(spacing: 0) {
                 Cabecera(titulo: "Más", subtitulo: estado.negocio.map { "\($0.nombre) · \($0.rolTexto)" } ?? "", conNegocio: true,
-                         acciones: [AccionCabecera(simbolo: "square.and.arrow.up", etiqueta: "Compartir tu link") { nav.compartir = true }])
+                         acciones: [AccionCabecera(simbolo: "square.and.arrow.up", etiqueta: "Compartir tu link") { nav.compartir = true }]) {
+                    CampoBuscar()
+                }
                 Cuerpo {
-                    if estado.esDuena, !estado.esProfesional {
+                    if estado.gestiona {
+                        let avance = estado.vivo.avance(estado)
                         NavigationLink(value: DestinoMas.primerosPasos) {
-                            FilaLista(simbolo: "flag.checkered", titulo: "Primeros pasos", detalle: "Lo que falta para que te reserven")
+                            FilaLista(simbolo: "chart.line.uptrend.xyaxis", titulo: "Potenciá tu negocio",
+                                      detalle: estado.vivo.cargado ? (avance >= 1 ? "Estás usando todo" : "Al \(Int((avance * 100).rounded())) % · ver lo que falta") : "Lo que te trae más reservas y más plata",
+                                      pendiente: estado.vivo.cargado && avance < 1)
                         }
                         .buttonStyle(.plain).tarjeta()
                     }
@@ -137,9 +162,9 @@ struct Mas: View {
                     ForEach(grupos, id: \.0) { g in
                         Rotulo(g.0)
                         VStack(spacing: 0) {
-                            ForEach(Array(g.1.enumerated()), id: \.element.id) { i, it in
+                            ForEach(Array(g.1.map(conEstado).enumerated()), id: \.element.id) { i, it in
                                 if i > 0 { Rectangle().fill(C.linea).frame(height: 1).padding(.leading, 56) }
-                                NavigationLink(value: it.destino) { FilaLista(simbolo: it.simbolo, titulo: it.titulo, detalle: it.detalle) }
+                                NavigationLink(value: it.destino) { FilaLista(simbolo: it.simbolo, titulo: it.titulo, detalle: it.detalle, pendiente: it.pendiente) }
                                     .buttonStyle(.plain)
                             }
                         }
@@ -153,6 +178,7 @@ struct Mas: View {
         .scrollIndicators(.hidden)
         .background(C.fondo)
         .toolbar(.hidden, for: .navigationBar)
+        .task(id: estado.version) { await estado.vivo.cargar(estado) }
     }
 }
 

@@ -127,6 +127,13 @@ final class PantallasTests: XCTestCase {
              "foto": null, "orden": 1, "activo": true}], "profesionales": [{"id": "p1", "nombre": "Carla", "especialidad": "", "foto": null, "servicios": []}],
              "diasVista": 30, "politicaCancelacion": "", "web": {"portada": null, "colorPrimario": "#183c44", "acerca": "", "rubro": "Estética"}, "resenas": {"promedio": 4.8, "cantidad": 3}}
             """,
+            "/v1/panel/buscar": "{\"clientes\": [{\"id\": \"c1\", \"nombre\": \"Sofía Méndez\", \"telefono\": \"1144712290\", \"email\": \"\"}], \"turnos\": [], \"servicios\": []}",
+            "/v1/panel/ia/publico": "{\"activo\": false, \"reservasMes\": 0, \"ultimas\": [], \"url\": \"https://x\"}",
+            "/v1/panel/mcp": "{\"url\": \"https://api.prueba/mcp\", \"tokens\": [], \"permisos\": []}",
+            "/v1/panel/reportes": """
+            {"desde": "2026-11-02", "hasta": "2026-11-04", "resumen": {"turnos": 20, "atendidos": 17, "ingresos": 310000, "ticketPromedio": 18000, "clientes": 15,
+             "tasaAusencias": 5.0, "ocupacion": 72.5}, "porEstado": {}, "porProfesional": [], "porServicio": [], "porDia": [], "clientesNuevos": 3, "clientesRecurrentes": 12}
+            """,
             "/v1/explorar": "{\"negocios\": [{\"slug\": \"lumi\", \"nombre\": \"Lumi\", \"descripcion\": \"\", \"logo\": null, \"portada\": null, \"ciudad\": \"CABA\", \"provincia\": \"\", \"rubro\": \"Estética\", \"servicios\": [], \"desde\": 18000}]}"
         ]
     }
@@ -196,6 +203,13 @@ final class PantallasTests: XCTestCase {
     }
     func testRecorrido() { montar(Recorrido {}, segundos: 1) }
     func testRecorridoProfesional() { montar(Recorrido {}, rol: "profesional", segundos: 1) }
+    func testBuscar() { montar(Buscar(), segundos: 1) }
+    func testPotencia() { montar(Potencia()) }
+    func testPlataHoy() { montar(ScrollView { PlataHoy() }) }
+    func testFichaFiel() {
+        ApiFalsa.respuestas["/v1/panel/membresias/planes"] = "{\"planes\": []}"
+        montar(FichaCliente(id: "c1"))
+    }
     func testIngreso() { montar(Ingreso(), segundos: 1) }
     func testElegirModo() { montar(ElegirModo(), segundos: 1) }
     func testElegirNegocio() { montar(ElegirNegocio(), segundos: 1) }
@@ -219,7 +233,7 @@ private struct NavigationLinkDirecto: View {
     }
     @ViewBuilder private var vista: some View {
         switch destino {
-        case .primerosPasos: PrimerosPasos()
+        case .primerosPasos: Potencia()
         case .resenas: Resenas()
         case .suscripcion: SuscripcionVista()
         case .diasLibres: DiasLibres()

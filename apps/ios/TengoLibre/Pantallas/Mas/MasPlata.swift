@@ -319,6 +319,9 @@ struct EditarPlan: View {
 
 struct NuevaSocia: View {
     var planes: [PlanMembresia]
+    var nombreInicial = ""
+    var telefonoInicial = ""
+    var emailInicial = ""
     var listo: () async -> Void
     @Environment(Estado.self) private var estado
     @State private var planId = ""
@@ -347,7 +350,10 @@ struct NuevaSocia: View {
             }
             Button { contactos = true } label: { Label("Traer de Contactos", systemImage: "person.crop.circle") }.buttonStyle(BotonTexto())
         }
-        .onAppear { planId = planes.first?.id ?? "" }
+        .onAppear {
+            planId = planes.first?.id ?? ""
+            if nombre.isEmpty { nombre = nombreInicial; telefono = telefonoInicial; email = emailInicial }
+        }
         .sheet(isPresented: $contactos) { SelectorContacto { n, t, e in nombre = n; telefono = t; email = e }.ignoresSafeArea() }
     }
 }

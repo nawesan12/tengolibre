@@ -14,6 +14,9 @@ enum Ruta: Hashable {
     case resenas
     case nuevoTurno
     case suscripcion
+    case caja
+    case buscar
+    case agenda
 
     /// `turnos/{id}` (el `ruta` del push) o `tengolibre://turno/{id}`.
     init?(texto: String) {
@@ -31,6 +34,9 @@ enum Ruta: Hashable {
         case "resenas": self = .resenas
         case "nuevo": self = .nuevoTurno
         case "suscripcion": self = .suscripcion
+        case "caja": self = .caja
+        case "buscar": self = .buscar
+        case "agenda": self = .agenda
         default: return nil
         }
     }
@@ -70,6 +76,8 @@ final class Estado {
     var guardadoEn: Date?
     /// El SSE del panel (en vivo).
     let enVivo = EnVivo()
+    /// Qué tiene conectado y prendido el negocio (Más, Hoy, «Potenciá tu negocio»).
+    let vivo = EstadoNegocio()
     private(set) var tokenPush: String?
     private var toastTarea: Task<Void, Never>?
     private var deshacer: (() async -> Void)?

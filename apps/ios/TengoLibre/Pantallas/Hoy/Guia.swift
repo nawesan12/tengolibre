@@ -69,7 +69,6 @@ struct AtajosHoy: View {
 struct DescubrirHoy: View {
     @Environment(Estado.self) private var estado
     @Environment(Navegacion.self) private var nav
-    @State private var ideas: [Idea] = []
     @AppStorage("descubrirDescartadas") private var descartadas = ""
 
     struct Idea: Identifiable, Equatable {
@@ -109,15 +108,12 @@ struct DescubrirHoy: View {
                 .id(i.id)
             }
         }
-        .task(id: estado.version) { await cargar() }
+        .animation(Movimiento.entrar, value: visibles.first?.id)
     }
 
     private func abrir(_ i: Idea) {
         Haptico.suave()
-        if i.id == "widget" {
-            descartar(i)
-            nav.pilaHoy.append(DestinoMas.recorrido)
-        } else if let d = i.destino {
+        if let d = i.destino {
             nav.pilaHoy.append(d)
         } else if i.id == "compartir" {
             nav.compartir = true
@@ -126,48 +122,49 @@ struct DescubrirHoy: View {
 
     private func descartar(_ i: Idea) { descartadas = (descartadas.split(separator: ",").map(String.init) + [i.id]).joined(separator: ",") }
 
-    private struct MP: Decodable { var disponible: Bool; var conectada: Bool }
-    private struct IA: Decodable { var activo: Bool }
-    private struct Planes: Decodable { var planes: [PlanMembresia] }
-    private struct Recs: Decodable { struct R: Decodable { var activo: Bool }; var recordatorios: [R] }
-    private struct Cups: Decodable { var cupones: [Cupon] }
-    private struct Fotos: Decodable { var fotos: [FotoGaleria] }
-
-    private func cargar() async {
+    /// Lo que todavía no usa, según el estado vivo del negocio (EstadoNegocio).
+    private var ideas: [Idea] {
+        let v = estado.vivo
         var out: [Idea] = []
         if estado.esProfesional {
             out.append(Idea(id: "calendario", simbolo: "calendar.badge.plus", titulo: "Tus turnos en tu calendario", texto: "Suscribite desde Google o Apple y te aparecen solos.", accion: "Conectar", destino: .integraciones))
-            out.append(Idea(id: "widget", simbolo: "apps.iphone", titulo: "Tu próximo turno, sin abrir la app", texto: "Sumá el widget de Tengo Libre a tu pantalla de inicio.", accion: "Cómo se hace", destino: nil))
-            ideas = out
-            return
+            if !v.widget { out.append(Idea(id: "widget", simbolo: "apps.iphone", titulo: "Tu próximo turno, sin abrir la app", texto: "Sumá el widget de Tengo Libre a tu pantalla de inicio.", accion: "Cómo se hace", destino: .recorrido)) }
+            return out
         }
+        guard v.cargado else { return [] }
         if estado.gestiona {
-            if let m: MP = try? await estado.api.get("/v1/panel/mercadopago"), m.disponible, !m.conectada {
+            if let m = v.mp, m.disponible, !m.conectada {
                 out.append(Idea(id: "mp", simbolo: "creditcard", titulo: "Cobrá señas al reservar", texto: "Con Mercado Pago nadie reserva y no viene. La plata va directo a tu cuenta.", accion: "Conectar", destino: .cobros))
             }
-            if let i: IA = try? await estado.api.get("/v1/panel/ia/publico"), !i.activo {
+            if v.iaActiva == false {
                 out.append(Idea(id: "ia", simbolo: "sparkles", titulo: "Que te reserven desde ChatGPT y Claude", texto: "Tus horarios libres quedan a mano de los asistentes de IA.", accion: "Activar", destino: .integraciones))
             }
-            out.append(Idea(id: "mcp", simbolo: "bubble.left.and.text.bubble.right", titulo: "Manejá tu agenda hablando", texto: "Conectá Claude o ChatGPT y pediles «¿qué tengo mañana?» o «mové a Sofía al jueves».", accion: "Ver cómo", destino: .integraciones))
-            if let f: Fotos = try? await estado.api.get("/v1/panel/mi-web/galeria"), f.fotos.isEmpty {
-                out.append(Idea(id: "fotos", simbolo: "photo.on.rectangle", titulo: "Sumá fotos a tu página", texto: "Las páginas con fotos reciben más reservas.", accion: "Subir fotos", destino: .miWeb))
+            if v.clavesIA == 0 {
+                out.append(Idea(id: "mcp", simbolo: "bubble.left.and.text.bubble.right", titulo: "Manejá tu agenda hablando", texto: "Conectá Claude o ChatGPT y pediles «¿qué tengo mañana?» o «mové a Sofía al jueves».", accion: "Ver cómo", destino: .integraciones))
+            }
+            if v.fotos == 0 || !v.logo {
+                out.append(Idea(id: "fotos", simbolo: "photo.on.rectangle", titulo: "Sumá logo y fotos a tu página", texto: "Las páginas con fotos reciben más reservas.", accion: "Subir fotos", destino: .miWeb))
+            }
+            if v.whatsapp == false {
+                out.append(Idea(id: "wa", simbolo: "message", titulo: "Que confirmen solas por WhatsApp", texto: "El día antes les pedimos que confirmen; si no contestan, te avisamos.", accion: "Prender", destino: .whatsapp))
             }
         }
         if estado.gestiona || estado.rol == "recepcion" {
-            if let p: Planes = try? await estado.api.get("/v1/panel/membresias/planes"), p.planes.isEmpty {
+            if v.planes == 0 {
                 out.append(Idea(id: "membresias", simbolo: "ticket", titulo: "Vendé membresías", texto: "Un abono mensual con visitas incluidas: plata fija todos los meses.", accion: "Crear un plan", destino: .membresias))
             }
-            if let r: Recs = try? await estado.api.get("/v1/panel/recordatorios"), !r.recordatorios.contains(where: \.activo) {
+            if v.recordatorios == 0 {
                 out.append(Idea(id: "recordatorios", simbolo: "envelope.badge", titulo: "Que vuelvan solas", texto: "Un mail en su cumpleaños y otro si hace mucho que no vienen.", accion: "Prender", destino: .avisosClientes))
             }
-            if let c: Cups = try? await estado.api.get("/v1/panel/cupones"), c.cupones.isEmpty {
-                out.append(Idea(id: "cupones", simbolo: "tag", titulo: "Llená las horas flojas", texto: "Un cupón para los días que siempre quedan vacíos.", accion: "Ver mis horas muertas", destino: .reportes))
+            if v.cupones == 0 {
+                out.append(Idea(id: "cupones", simbolo: "tag", titulo: "Llená las horas flojas", texto: "Mirá qué horarios quedan siempre vacíos y armá un cupón para esos.", accion: "Ver mis horas muertas", destino: .reportes))
             }
         }
-        out.append(Idea(id: "caja", simbolo: "banknote", titulo: "Tu caja, en el bolsillo", texto: "Cobrás cada turno desde la app y ves cuánto entró hoy, por medio de pago.", accion: "Ver la caja", destino: .caja))
-        out.append(Idea(id: "widget", simbolo: "apps.iphone", titulo: "Tu día en la pantalla de inicio", texto: "El widget te muestra el próximo turno sin abrir la app.", accion: "Cómo se hace", destino: nil))
+        if !v.widget {
+            out.append(Idea(id: "widget", simbolo: "apps.iphone", titulo: "Tu día en la pantalla de inicio", texto: "El widget te muestra el próximo turno sin abrir la app.", accion: "Cómo se hace", destino: .recorrido))
+        }
         out.append(Idea(id: "compartir", simbolo: "qrcode", titulo: "Que te reserven solos", texto: "Poné tu link en Instagram y WhatsApp, o imprimí el QR para el mostrador.", accion: "Compartir mi link", destino: nil))
-        withAnimation(Movimiento.entrar) { ideas = out }
+        return out
     }
 }
 

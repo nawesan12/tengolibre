@@ -36,6 +36,7 @@ final class Navegacion {
     var nuevo: NuevoTurnoInicio?
     var compartir = false
     var avisos = false
+    var buscar = false
     var pilaHoy = NavigationPath()
     var pilaAgenda = NavigationPath()
     var pilaEspera = NavigationPath()
@@ -98,6 +99,9 @@ struct Principal: View {
             NavigationStack { Compartir() }
                 .presentationCornerRadius(Radio.hoja)
         }
+        .sheet(isPresented: $nav.buscar) {
+            Buscar().environment(nav)
+        }
         .sheet(isPresented: $nav.avisos) {
             NavigationStack { Avisos() }
                 .presentationCornerRadius(Radio.hoja)
@@ -137,6 +141,11 @@ struct Principal: View {
             if estado.esProfesional { nav.pestana = .resenas } else { nav.pestana = .mas; nav.pilaMas.append(DestinoMas.resenas) }
         case .nuevoTurno: nav.nuevo = NuevoTurnoInicio()
         case .suscripcion: nav.pestana = .mas; nav.pilaMas.append(DestinoMas.suscripcion)
+        case .caja:
+            nav.pestana = .hoy
+            if estado.vePrecios && !estado.esProfesional { nav.pilaHoy.append(DestinoMas.caja) }
+        case .buscar: nav.buscar = true
+        case .agenda: nav.pestana = .agenda
         }
     }
 }

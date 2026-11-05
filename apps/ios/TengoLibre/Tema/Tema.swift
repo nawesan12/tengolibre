@@ -437,15 +437,20 @@ struct FilaLista: View {
     var detalle: String = ""
     var final: String = "chevron.right"
     var tinta: Color = C.tinta
+    /// Algo para hacer ahí (Mercado Pago sin conectar, IA apagada…): punto menta y el detalle en menta.
+    var pendiente = false
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: simbolo).font(.system(size: 17, weight: .semibold))
                 .frame(width: 32, height: 32)
                 .background(C.chip, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                 .foregroundStyle(tinta)
+                .overlay(alignment: .topTrailing) {
+                    if pendiente { Circle().fill(C.menta).frame(width: 10, height: 10).overlay(Circle().stroke(C.tarjeta, lineWidth: 2)).offset(x: 3, y: -3) }
+                }
             VStack(alignment: .leading, spacing: 1) {
                 Text(titulo).font(Tipo.lato(16)).foregroundStyle(tinta)
-                if !detalle.isEmpty { Text(detalle).font(Tipo.lato(12)).foregroundStyle(C.sub) }
+                if !detalle.isEmpty { Text(detalle).font(Tipo.lato(12, pendiente ? .bold : .regular)).foregroundStyle(pendiente ? C.mentaTexto : C.sub) }
             }
             Spacer(minLength: 0)
             if !final.isEmpty { Image(systemName: final).font(.system(size: 15, weight: .semibold)).foregroundStyle(C.sub) }
