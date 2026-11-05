@@ -243,11 +243,13 @@ struct Hoy: View {
         if !lectura && items.contains(where: { if case .talon = $0 { true } else { false } }) {
             TipView(ConsejoDeslizar()).tipBackground(C.tarjeta).tint(C.mentaTexto)
         }
-        ForEach(items) { it in
+        ForEach(Array(items.enumerated()), id: \.element.id) { i, it in
+            Group {
             switch it {
             case .sep(let s): Rotulo(s)
             case .ahora(let h):
                 HStack(spacing: 8) {
+                    Pulso(tam: 8)
                     Text("AHORA · \(h)").font(Tipo.lato(12, .black)).tracking(0.5).monospacedDigit()
                         .foregroundStyle(C.petroleoHondo).padding(.horizontal, 10).frame(height: 26).background(C.menta, in: Capsule())
                     Capsule().fill(C.menta).frame(height: 2)
@@ -289,6 +291,8 @@ struct Hoy: View {
                     }
                 }
             }
+            }
+            .entrada(i)
         }
         .animation(Movimiento.entrar, value: datos.turnos)
     }

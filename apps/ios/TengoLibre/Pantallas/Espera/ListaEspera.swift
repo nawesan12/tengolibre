@@ -36,7 +36,7 @@ struct ListaEspera: View {
                                        titulo: tab == "esperando" ? "Nadie está esperando un lugar" : (tab == "avisados" ? "Todavía no avisaste a nadie" : "No hay pedidos vencidos"),
                                        texto: "Cuando un día está lleno, en tu página aparece «Avisame si se libera». Si alguien cancela, se lo ofrecemos solos.") { EmptyView() }
                     } else {
-                        ForEach(lista) { a in tarjeta(a) }
+                        ForEach(Array(lista.enumerated()), id: \.element.id) { i, a in tarjeta(a).entrada(i) }
                     }
                 }
             }

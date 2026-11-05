@@ -196,6 +196,7 @@ final class EstadoNegocio {
 /// Más › «Potenciá tu negocio»: el anillo de avance, lo básico y lo que hace crecer, cada uno con su botón.
 struct Potencia: View {
     @Environment(Estado.self) private var estado
+    @State private var llenado: Double = 0
 
     var body: some View {
         let vivo = estado.vivo
@@ -206,11 +207,12 @@ struct Potencia: View {
             HStack(spacing: 18) {
                 ZStack {
                     Circle().stroke(C.chip, lineWidth: 10)
-                    Circle().trim(from: 0, to: avance).stroke(C.menta, style: StrokeStyle(lineWidth: 10, lineCap: .round)).rotationEffect(.degrees(-90))
-                    Text("\(Int((avance * 100).rounded())) %").font(Tipo.lato(20, .black)).monospacedDigit()
+                    Circle().trim(from: 0, to: llenado).stroke(C.menta, style: StrokeStyle(lineWidth: 10, lineCap: .round)).rotationEffect(.degrees(-90))
+                    Text("\(Int((llenado * 100).rounded())) %").font(Tipo.lato(20, .black)).monospacedDigit().contentTransition(.numericText())
                 }
                 .frame(width: 88, height: 88)
-                .animation(Movimiento.entrar, value: avance)
+                .onAppear { withAnimation(.spring(response: 1.1, dampingFraction: 0.8).delay(0.2)) { llenado = avance } }
+                .onChange(of: avance) { _, v in withAnimation(Movimiento.entrar) { llenado = v } }
                 VStack(alignment: .leading, spacing: 4) {
                     Text(avance >= 1 ? "Estás usando todo" : "Sacale todo el jugo").font(Tipo.lato(19, .black))
                     Text(avance >= 1 ? "Tu negocio tiene todo prendido. ¡Bien ahí!" : "Cada paso te trae más reservas o más plata.").font(Tipo.lato(14)).foregroundStyle(C.sub)

@@ -159,8 +159,8 @@ struct Mas: View {
                         FilaLista(simbolo: "safari", titulo: "Ver mi página", detalle: Web.pagina(estado.negocio?.slug ?? "").absoluteString.replacingOccurrences(of: "https://", with: ""), final: "arrow.up.right")
                     }
                     .buttonStyle(.plain).tarjeta()
-                    ForEach(grupos, id: \.0) { g in
-                        Rotulo(g.0)
+                    ForEach(Array(grupos.enumerated()), id: \.element.0) { gi, g in
+                        Rotulo(g.0).entrada(gi)
                         VStack(spacing: 0) {
                             ForEach(Array(g.1.map(conEstado).enumerated()), id: \.element.id) { i, it in
                                 if i > 0 { Rectangle().fill(C.linea).frame(height: 1).padding(.leading, 56) }
@@ -169,6 +169,7 @@ struct Mas: View {
                             }
                         }
                         .tarjeta()
+                        .entrada(gi)
                     }
                     Text("Tengo Libre \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""))")
                         .font(Tipo.lato(12)).foregroundStyle(C.sub).frame(maxWidth: .infinity).padding(.top, 8)

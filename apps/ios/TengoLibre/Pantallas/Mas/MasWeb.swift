@@ -1,3 +1,4 @@
+import Charts
 import PhotosUI
 import SwiftUI
 import UserNotifications
@@ -11,7 +12,7 @@ struct Reportes: View {
     struct Reporte: Codable { var desde: String; var hasta: String; var resumen: Resumen; var porEstado: [String: Int]; var porProfesional: [Fila]; var porServicio: [Fila]; var porDia: [DiaR]; var clientesNuevos: Int; var clientesRecurrentes: Int }
     struct Peor: Codable { var texto: String }
     struct Sugerencia: Codable { var porcentaje: Int; var texto: String; var destinatarios: Int; var codigo: String }
-    struct HorasMuertas: Codable { var peor: Peor?; var sugerencia: Sugerencia? }
+    struct HorasMuertas: Codable { var peor: Peor?; var sugerencia: Sugerencia?; var mapa: MapaCalor.Mapa? }
 
     @Environment(Estado.self) private var estado
     @State private var periodo = "mes"
@@ -35,19 +36,21 @@ struct Reportes: View {
         } contenido: {
             if let r {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                    cifra("Ingresos", Formato.pesos(r.resumen.ingresos), antes.map { cambio(r.resumen.ingresos, $0.resumen.ingresos) })
-                    cifra("Turnos atendidos", "\(r.resumen.atendidos)", antes.map { cambio(r.resumen.atendidos, $0.resumen.atendidos) })
-                    cifra("Ticket promedio", Formato.pesos(r.resumen.ticketPromedio), nil)
-                    cifra("Ocupación", r.resumen.ocupacion.map { Formato.porcentaje($0) } ?? "—", nil)
-                    cifra("Clientas", "\(r.resumen.clientes)", "\(r.clientesNuevos) nuevas")
-                    cifra("Ausencias", r.resumen.tasaAusencias.map { Formato.porcentaje($0) } ?? "—", nil)
+                    cifra("Ingresos", Formato.pesos(r.resumen.ingresos), antes.map { cambio(r.resumen.ingresos, $0.resumen.ingresos) }).entrada(0)
+                    cifra("Turnos atendidos", "\(r.resumen.atendidos)", antes.map { cambio(r.resumen.atendidos, $0.resumen.atendidos) }).entrada(1)
+                    cifra("Ticket promedio", Formato.pesos(r.resumen.ticketPromedio), nil).entrada(2)
+                    cifra("Ocupación", r.resumen.ocupacion.map { Formato.porcentaje($0) } ?? "—", nil).entrada(3)
+                    cifra("Clientas", "\(r.resumen.clientes)", "\(r.clientesNuevos) nuevas · \(r.clientesRecurrentes) vuelven").entrada(4)
+                    cifra("Ausencias", r.resumen.tasaAusencias.map { Formato.porcentaje($0) } ?? "—", nil).entrada(5)
                 }
-                if !r.porDia.isEmpty { grafico(r.porDia) }
-                tabla("Por profesional", r.porProfesional)
-                tabla("Por servicio", r.porServicio)
+                if !r.porDia.isEmpty { grafico(r.porDia).entrada(6) }
+                estados(r).entrada(7)
+                tabla("Por profesional", r.porProfesional).entrada(8)
+                tabla("Por servicio", r.porServicio).entrada(8)
                 if let hm, let p = hm.peor {
                     Bloque(titulo: "Horas muertas") {
                         Renglon(titulo: p.texto, simbolo: "moon.zzz")
+                        if let m = hm.mapa, !m.celdas.isEmpty { MapaCalor(mapa: m).padding(16) }
                         if let s = hm.sugerencia {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(s.texto).font(Tipo.lato(14)).foregroundStyle(C.sub)
@@ -74,37 +77,57 @@ struct Reportes: View {
     private func cifra(_ t: String, _ v: String, _ d: String?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(t.uppercased()).rotulo()
-            Text(v).font(Tipo.lato(24, .black)).monospacedDigit().minimumScaleFactor(0.6).lineLimit(1)
+            Text(v).font(Tipo.lato(24, .black)).monospacedDigit().minimumScaleFactor(0.6).lineLimit(1).numeroAnimado(v)
             if let d, !d.isEmpty { Text(d).font(Tipo.lato(12, .bold)).foregroundStyle(d.hasPrefix("▼") ? C.ausenteTinta : C.mentaTexto) }
         }
         .foregroundStyle(C.tinta).padding(14).frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading).tarjeta(18)
     }
 
     private func grafico(_ dias: [DiaR]) -> some View {
-        let maximo = max(1, dias.map(\.ingresos).max() ?? 1)
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("INGRESOS POR DÍA").rotulo()
-            HStack(alignment: .bottom, spacing: 2) {
-                ForEach(dias, id: \.fecha) { d in
-                    RoundedRectangle(cornerRadius: 2).fill(d.ingresos > 0 ? C.menta : C.chip)
-                        .frame(maxWidth: .infinity).frame(height: max(3, 110 * CGFloat(d.ingresos) / CGFloat(maximo)))
-                        .accessibilityLabel("\(d.fecha): \(Formato.pesos(d.ingresos))")
-                }
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("INGRESOS POR DÍA").rotulo()
+                Spacer()
+                Text("Tocá una barra").font(Tipo.lato(11)).foregroundStyle(C.sub)
             }
-            .frame(height: 110, alignment: .bottom)
+            GraficoIngresos(dias: dias.compactMap { d in Fecha.iso(d.fecha).map { GraficoIngresos.Dia(fecha: $0, monto: d.ingresos) } })
         }
         .padding(16).tarjeta()
+        .id(periodo)
+    }
+
+    /// Cómo terminaron los turnos del período (dona).
+    @ViewBuilder private func estados(_ r: Reporte) -> some View {
+        let nombres: [(String, String, Color)] = [("atendido", "Atendidos", C.menta), ("confirmado", "Por venir", C.petroleo), ("pendiente", "Sin confirmar", Color(hex: 0xE8A317)),
+                                                   ("ausente", "No vinieron", C.ausenteTinta), ("cancelado", "Cancelados", C.sub)]
+        let partes = nombres.map { GraficoDona.Parte(nombre: $0.1, valor: r.porEstado[$0.0] ?? 0, color: $0.2) }.filter { $0.valor > 0 }
+        if !partes.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("CÓMO TERMINARON LOS TURNOS").rotulo()
+                GraficoDona(partes: partes, centro: "\(r.resumen.turnos)", pie: "turnos", mostrarPesos: false)
+            }
+            .padding(16).tarjeta()
+            .id("estados-\(periodo)")
+        }
     }
 
     @ViewBuilder private func tabla(_ t: String, _ f: [Fila]) -> some View {
         if !f.isEmpty {
-            Bloque(titulo: t) {
-                ForEach(f.sorted { $0.ingresos > $1.ingresos }, id: \.self) { x in
-                    Renglon(titulo: x.nombre, detalle: "\(x.atendidos) atendidos\(x.ausentes > 0 ? " · \(x.ausentes) no vinieron" : "")\(x.ocupacion.map { " · \(Formato.porcentaje($0)) ocupado" } ?? "")") {
-                        Text(Formato.pesos(x.ingresos)).font(Tipo.lato(15, .bold)).monospacedDigit()
+            let orden = f.sorted { $0.ingresos > $1.ingresos }
+            VStack(alignment: .leading, spacing: 12) {
+                Text(t.uppercased()).rotulo()
+                GraficoBarras(filas: orden.prefix(8).map { GraficoBarras.Fila(nombre: $0.nombre, valor: $0.ingresos) }, formato: { Formato.pesosCortos($0) })
+                    .id("\(t)-\(periodo)")
+                ForEach(orden.prefix(8), id: \.self) { x in
+                    HStack {
+                        Text(x.nombre).font(Tipo.lato(13, .bold)).lineLimit(1)
+                        Spacer()
+                        Text("\(x.atendidos) atendidos\(x.ausentes > 0 ? " · \(x.ausentes) no vinieron" : "")\(x.ocupacion.map { " · \(Formato.porcentaje($0))" } ?? "")")
+                            .font(Tipo.lato(12)).foregroundStyle(C.sub)
                     }
                 }
             }
+            .foregroundStyle(C.tinta).padding(16).tarjeta()
         }
     }
 

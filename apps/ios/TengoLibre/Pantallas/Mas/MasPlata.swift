@@ -148,10 +148,22 @@ struct CajaDelDia: View {
             if let r {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("TOTAL DEL DÍA").rotulo()
-                    Text(Formato.pesos(r.total)).font(Tipo.lato(40, .black)).monospacedDigit()
+                    Text(Formato.pesos(r.total)).font(Tipo.lato(40, .black)).monospacedDigit().numeroAnimado(r.total)
                     Text("\(Formato.pesos(r.caja)) en el local · \(Formato.pesos(r.senas)) de señas").font(Tipo.lato(14)).foregroundStyle(C.sub)
                 }
                 .foregroundStyle(C.tinta).padding(16).frame(maxWidth: .infinity, alignment: .leading).tarjeta()
+                if r.total > 0 {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("CÓMO TE PAGARON").rotulo()
+                        GraficoDona(partes: ["efectivo", "transferencia", "mercadopago", "debito", "credito"].enumerated().map { i, m in
+                            GraficoDona.Parte(nombre: mediosPago[m] ?? m, valor: r.porMedio[m] ?? 0, color: Paleta.color(i))
+                        } + (r.senas > 0 ? [GraficoDona.Parte(nombre: "Señas online", valor: r.senas, color: Paleta.color(5))] : []),
+                                    centro: Formato.pesosCortos(r.total), pie: "en total")
+                    }
+                    .padding(16).tarjeta()
+                    .id(r.fecha)
+                    .entrada(1)
+                }
                 Bloque(titulo: "Por medio de pago") {
                     ForEach(["efectivo", "transferencia", "mercadopago", "debito", "credito"], id: \.self) { m in
                         Renglon(titulo: mediosPago[m] ?? m) { Text(Formato.pesos(r.porMedio[m] ?? 0)).font(Tipo.lato(15, .bold)).monospacedDigit() }

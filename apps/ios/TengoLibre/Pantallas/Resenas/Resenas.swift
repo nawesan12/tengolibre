@@ -21,15 +21,15 @@ struct Resenas: View {
                     Segmentado(opciones: [("todas", "Todas"), ("sin", "Sin responder"), ("ocultas", "Ocultas")], elegido: $filtro)
                 }
                 Cuerpo {
-                    if cantidad > 0 && filtro == "todas" { resumen }
+                    if cantidad > 0 && filtro == "todas" { resumen.entrada(0) }
                     if cargando && resenas.isEmpty {
                         ForEach(0..<3, id: \.self) { _ in Esqueleto(alto: 140, radio: 20) }
                     } else if resenas.isEmpty {
                         VacioQueEnsena(rayas: "Sin reseñas", titulo: filtro == "sin" ? "Respondiste todas" : "Todavía no hay reseñas",
                                        texto: "Después de cada turno atendido le pedimos la reseña a la clienta. Las buenas se muestran en tu página.") { EmptyView() }
                     } else {
-                        ForEach(resenas) { r in
-                            tarjeta(r).onAppear { if r.id == resenas.last?.id && resenas.count < cantidad && filtro == "todas" { Task { await cargar(mas: true) } } }
+                        ForEach(Array(resenas.enumerated()), id: \.element.id) { i, r in
+                            tarjeta(r).entrada(i + 1).onAppear { if r.id == resenas.last?.id && resenas.count < cantidad && filtro == "todas" { Task { await cargar(mas: true) } } }
                         }
                     }
                 }
@@ -49,22 +49,9 @@ struct Resenas: View {
                 Text(String(format: "%.1f", promedio).replacingOccurrences(of: ".", with: ",")).font(Tipo.lato(40, .black)).monospacedDigit()
                 Estrellas(puntaje: Int(promedio.rounded()), tam: 14)
             }
-            VStack(spacing: 4) {
-                ForEach((1...5).reversed(), id: \.self) { n in
-                    let c = distribucion["\(n)"] ?? 0
-                    HStack(spacing: 6) {
-                        Text("\(n)").font(Tipo.lato(12, .bold)).monospacedDigit().frame(width: 10)
-                        GeometryReader { g in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(C.chip)
-                                Capsule().fill(C.menta).frame(width: g.size.width * CGFloat(c) / CGFloat(max(1, cantidad)))
-                            }
-                        }
-                        .frame(height: 6)
-                        Text("\(c)").font(Tipo.lato(12)).monospacedDigit().foregroundStyle(C.sub).frame(width: 28, alignment: .trailing)
-                    }
-                }
-            }
+            GraficoBarras(filas: (1...5).reversed().map { n in GraficoBarras.Fila(nombre: "\(n) ★", valor: distribucion["\(n)"] ?? 0) },
+                          formato: { "\($0)" }, color: Color(hex: 0xE8A317))
+                .frame(maxWidth: .infinity)
         }
         .foregroundStyle(C.tinta).padding(16).tarjeta()
     }

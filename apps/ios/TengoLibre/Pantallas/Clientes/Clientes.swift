@@ -103,7 +103,7 @@ struct Clientes: View {
                         VStack(spacing: 0) {
                             ForEach(Array(clientes.enumerated()), id: \.element.id) { i, c in
                                 if i > 0 { Rectangle().fill(C.linea).frame(height: 1).padding(.leading, 72) }
-                                NavigationLink(value: DestinoClientes.ficha(c.id)) { fila(c) }.buttonStyle(.plain)
+                                NavigationLink(value: DestinoClientes.ficha(c.id)) { fila(c) }.buttonStyle(.plain).entrada(i)
                                     .onAppear { if c.id == clientes.last?.id && clientes.count < total { Task { await cargar(mas: true) } } }
                             }
                         }
@@ -301,6 +301,7 @@ struct FichaCliente: View {
         }
         if let s = socio { membresia(s) }
         SugerenciaMembresia(ficha: f, conMembresia: socio != nil)
+        visitas(f).entrada(1)
         if let pr = f.turnos.first(where: { $0.inicio > Date() && $0.estado != "cancelado" }) {
             Rotulo("PRÓXIMO TURNO")
             filaTurno(pr).tarjeta()
@@ -358,6 +359,41 @@ struct FichaCliente: View {
             Label("Clienta desde el \(Formato.dia(f.creadoEn))", systemImage: "calendar").font(Tipo.lato(14))
         }
         .foregroundStyle(C.sub).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 4)
+    }
+
+    /// Las visitas de los últimos 12 meses (atendidas), con lo que gastó y cada cuánto viene.
+    @ViewBuilder private func visitas(_ f: Ficha) -> some View {
+        let cal = Formato.calendario
+        let atendidos = f.turnos.filter { $0.estado == "atendido" }
+        if !atendidos.isEmpty {
+            let hoy = cal.date(from: cal.dateComponents([.year, .month], from: Date())) ?? Date()
+            let meses = (0..<12).reversed().compactMap { cal.date(byAdding: .month, value: -$0, to: hoy) }.map { m in
+                GraficoVisitas.Mes(mes: m, visitas: atendidos.filter { cal.isDate($0.inicio, equalTo: m, toGranularity: .month) }.count)
+            }
+            let fechas = atendidos.map(\.inicio).sorted()
+            let cada: Int? = fechas.count > 1 ? Int((fechas.last!.timeIntervalSince(fechas.first!) / 86400 / Double(fechas.count - 1)).rounded()) : nil
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("VISITAS · ÚLTIMO AÑO").rotulo()
+                    Spacer()
+                    if let cada { Text("viene cada \(cada) días").font(Tipo.lato(12, .bold)).foregroundStyle(C.mentaTexto) }
+                }
+                GraficoVisitas(meses: meses)
+                HStack(spacing: 18) {
+                    dato("\(f.visitas)", "visitas")
+                    if estado.vePrecios { dato(Formato.pesosCortos(f.gastado), "gastó en total") }
+                    if f.visitas > 0 && estado.vePrecios { dato(Formato.pesosCortos(f.gastado / max(1, f.visitas)), "por visita") }
+                }
+            }
+            .foregroundStyle(C.tinta).padding(16).frame(maxWidth: .infinity, alignment: .leading).tarjeta()
+        }
+    }
+
+    private func dato(_ v: String, _ t: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(v).font(Tipo.lato(18, .black)).monospacedDigit()
+            Text(t).font(Tipo.lato(11)).foregroundStyle(C.sub)
+        }
     }
 
     private func botonContacto(_ t: String, _ s: String, menta: Bool, _ a: @escaping () -> Void) -> some View {

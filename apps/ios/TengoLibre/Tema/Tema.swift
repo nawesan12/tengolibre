@@ -310,6 +310,7 @@ struct BotonRedondo: View {
     var body: some View {
         Button(action: accion) {
             Image(systemName: simbolo).font(.system(size: 19, weight: .semibold))
+                .symbolEffect(.bounce, value: numero)
                 .frame(width: 44, height: 44)
                 .foregroundStyle(sobrePetroleo ? .white : C.tinta)
                 .background(sobrePetroleo ? Color.white.opacity(0.1) : C.chip, in: Circle())

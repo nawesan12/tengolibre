@@ -9,6 +9,7 @@ struct PlataHoy: View {
     @State private var semana: Int?
     @State private var antes: Int?
     @State private var ocupacion: Double?
+    @State private var dias: [Int] = []
 
     var body: some View {
         if estado.vePrecios && !estado.esProfesional {
@@ -17,6 +18,7 @@ struct PlataHoy: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("COBRADO HOY").font(Tipo.lato(11, .black)).tracking(0.8).foregroundStyle(C.menta)
                         Text(caja.map { Formato.pesos($0.total) } ?? "—").font(Tipo.lato(26, .black)).monospacedDigit().minimumScaleFactor(0.6).lineLimit(1)
+                            .numeroAnimado(caja?.total)
                         Text(textoHoy).font(Tipo.lato(12)).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding(16)
@@ -28,6 +30,8 @@ struct PlataHoy: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("ESTA SEMANA").font(Tipo.lato(11, .black)).tracking(0.8).foregroundStyle(C.menta)
                         Text(semana.map { Formato.pesos($0) } ?? "—").font(Tipo.lato(26, .black)).monospacedDigit().minimumScaleFactor(0.6).lineLimit(1)
+                            .numeroAnimado(semana)
+                        if dias.count > 1 { Sparkline(valores: dias).frame(height: 22).padding(.vertical, 2) }
                         Text(textoSemana).font(Tipo.lato(12, .bold)).foregroundStyle(colorSemana).lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding(16)
@@ -63,7 +67,8 @@ struct PlataHoy: View {
     }
 
     private struct Resumen: Decodable { var ingresos: Int; var ocupacion: Double? }
-    private struct Rep: Decodable { var resumen: Resumen }
+    private struct DiaR: Decodable { var fecha: String; var ingresos: Int }
+    private struct Rep: Decodable { var resumen: Resumen; var porDia: [DiaR]? }
 
     private func cargar() async {
         let cal = Formato.calendario, hoy = cal.startOfDay(for: Date())
@@ -74,6 +79,7 @@ struct PlataHoy: View {
         caja = try? await estado.api.get("/v1/panel/caja", query: [URLQueryItem(name: "fecha", value: Formato.diaISO(hoy))])
         let r: Rep? = try? await estado.api.get("/v1/panel/reportes", query: [URLQueryItem(name: "desde", value: Formato.diaISO(lunes)), URLQueryItem(name: "hasta", value: Formato.diaISO(hoy))])
         semana = r?.resumen.ingresos
+        dias = (r?.porDia ?? []).sorted { $0.fecha < $1.fecha }.map(\.ingresos)
         ocupacion = r?.resumen.ocupacion
         // La semana anterior, hasta el mismo día (lunes a hoy contra lunes a «hoy» de la otra semana).
         let a: Rep? = try? await estado.api.get("/v1/panel/reportes", query: [URLQueryItem(name: "desde", value: Formato.diaISO(lunesAntes)), URLQueryItem(name: "hasta", value: Formato.diaISO(hastaAntes))])

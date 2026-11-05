@@ -42,7 +42,7 @@ struct AtajosHoy: View {
             .padding(.horizontal, 4)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(atajos) { a in
+                    ForEach(Array(atajos.enumerated()), id: \.element.id) { i, a in
                         Button {
                             Haptico.suave()
                             if let d = a.destino { nav.pilaHoy.append(d) } else { a.accion?() }
@@ -56,6 +56,7 @@ struct AtajosHoy: View {
                             .tarjeta(18)
                         }
                         .buttonStyle(.plain)
+                        .entrada(i)
                     }
                 }
                 .padding(.horizontal, 1).padding(.vertical, 2)
