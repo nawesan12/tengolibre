@@ -150,12 +150,12 @@ struct Servicios: View {
 
     private func cargar() async {
         do {
-            async let s: S = estado.api.get("/v1/panel/servicios")
-            async let c: Cs? = try? estado.api.get("/v1/panel/categorias")
-            async let p: Ps? = try? estado.api.get("/v1/panel/productos")
-            servicios = try await s.servicios
-            categorias = await c?.categorias ?? []
-            productos = await p?.productos ?? []
+            let s: S = try await estado.api.get("/v1/panel/servicios")
+            let c: Cs? = try? await estado.api.get("/v1/panel/categorias")
+            let p: Ps? = try? await estado.api.get("/v1/panel/productos")
+            servicios = s.servicios
+            categorias = c?.categorias ?? []
+            productos = p?.productos ?? []
             error = ""
         } catch let e as ErrorApi { error = e.detalle } catch { self.error = "Probá de nuevo." }
         cargando = false
@@ -344,14 +344,14 @@ struct Equipo: View {
 
     private func cargar() async {
         do {
-            async let p: P = estado.api.get("/v1/panel/profesionales")
-            async let m: M? = estado.gestiona ? try? estado.api.get("/v1/panel/equipo") : nil
-            async let i: I? = estado.gestiona ? try? estado.api.get("/v1/panel/invitaciones") : nil
-            async let s: S? = try? estado.api.get("/v1/panel/servicios")
-            profesionales = try await p.profesionales
-            miembros = await m?.miembros ?? []
-            invitaciones = await i?.invitaciones ?? []
-            servicios = await s?.servicios ?? []
+            let p: P = try await estado.api.get("/v1/panel/profesionales")
+            let m: M? = estado.gestiona ? (try? await estado.api.get("/v1/panel/equipo")) : nil
+            let i: I? = estado.gestiona ? (try? await estado.api.get("/v1/panel/invitaciones")) : nil
+            let s: S? = try? await estado.api.get("/v1/panel/servicios")
+            profesionales = p.profesionales
+            miembros = m?.miembros ?? []
+            invitaciones = i?.invitaciones ?? []
+            servicios = s?.servicios ?? []
             error = ""
         } catch let e as ErrorApi { error = e.detalle } catch { self.error = "Probá de nuevo." }
         cargando = false
@@ -536,15 +536,15 @@ struct FichaProfesional: View {
 
     private func cargar() async {
         do {
-            async let ps: Ps = estado.api.get("/v1/panel/profesionales")
-            async let ss: Ss? = try? estado.api.get("/v1/panel/servicios")
-            async let bs: Bs? = try? estado.api.get("/v1/panel/profesionales/\(id)/bloqueos")
-            async let ds: Ds? = try? estado.api.get("/v1/panel/dias-libres")
-            guard let x = try await ps.profesionales.first(where: { $0.id == id }) else { error = "No encontramos a esa profesional."; return }
+            let ps: Ps = try await estado.api.get("/v1/panel/profesionales")
+            let ss: Ss? = try? await estado.api.get("/v1/panel/servicios")
+            let bs: Bs? = try? await estado.api.get("/v1/panel/profesionales/\(id)/bloqueos")
+            let ds: Ds? = try? await estado.api.get("/v1/panel/dias-libres")
+            guard let x = ps.profesionales.first(where: { $0.id == id }) else { error = "No encontramos a esa profesional."; return }
             p = x
-            servicios = await ss?.servicios ?? []
-            bloqueos = await bs?.bloqueos ?? []
-            pedidos = await ds?.pedidos ?? []
+            servicios = ss?.servicios ?? []
+            bloqueos = bs?.bloqueos ?? []
+            pedidos = ds?.pedidos ?? []
             error = ""
         } catch let e as ErrorApi { error = e.detalle } catch { self.error = "Probá de nuevo." }
     }

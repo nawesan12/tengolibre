@@ -256,7 +256,8 @@ struct ElDia: View {
                                             .frame(width: g.size.width * CGFloat(f.largo) / total)
                                             .offset(x: g.size.width * CGFloat(f.desde - desde) / total)
                                     }
-                                    ForEach(d.ocupado, id: \.turno.id) { o in
+                                    ForEach(d.ocupado.indices, id: \.self) { i in
+                                        let o = d.ocupado[i]
                                         RoundedRectangle(cornerRadius: 4).fill(C.crema.opacity(0.88))
                                             .frame(width: max(2, g.size.width * CGFloat(o.tramo.largo) / total - 2))
                                             .offset(x: g.size.width * CGFloat(o.tramo.desde - desde) / total)

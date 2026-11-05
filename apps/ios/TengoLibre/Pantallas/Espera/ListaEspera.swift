@@ -142,10 +142,10 @@ struct ListaEspera: View {
     private struct Pros: Decodable { var profesionales: [Profesional] }
 
     private func cargar() async {
-        async let e: Espera? = try? estado.api.get("/v1/panel/espera", query: [URLQueryItem(name: "todos", value: "1")])
-        async let o: Ofertas? = try? estado.api.get("/v1/panel/espera/ofertas")
-        async let p: Pros? = try? estado.api.get("/v1/panel/profesionales")
-        let (ee, oo, pp) = await (e, o, p)
+        let e: Espera? = try? await estado.api.get("/v1/panel/espera", query: [URLQueryItem(name: "todos", value: "1")])
+        let o: Ofertas? = try? await estado.api.get("/v1/panel/espera/ofertas")
+        let p: Pros? = try? await estado.api.get("/v1/panel/profesionales")
+        let (ee, oo, pp) = (e, o, p)
         espera = ee?.espera ?? espera
         ofertas = (oo?.ofertas ?? []).filter { $0.estado == "ofreciendo" }
         profesionales = pp?.profesionales ?? profesionales

@@ -349,9 +349,9 @@ struct DetalleTurno: View {
     private struct Avisos: Decodable { var avisos: [RegistroAviso] }
 
     private func cargar() async {
-        async let c: CuentaCaja? = try? estado.api.get("/v1/panel/turnos/\(turno.id)/caja")
-        async let a: Avisos? = try? estado.api.get("/v1/panel/avisos", query: [URLQueryItem(name: "turno", value: turno.id)])
-        let (cc, aa) = await (c, a)
+        let c: CuentaCaja? = try? await estado.api.get("/v1/panel/turnos/\(turno.id)/caja")
+        let a: Avisos? = try? await estado.api.get("/v1/panel/avisos", query: [URLQueryItem(name: "turno", value: turno.id)])
+        let (cc, aa) = (c, a)
         caja = cc
         avisos = aa?.avisos ?? []
         await recargarTurno()

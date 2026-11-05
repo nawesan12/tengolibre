@@ -118,18 +118,18 @@ final class DatosDia {
         let mostrador = !estado.esProfesional
         let q = [URLQueryItem(name: "desde", value: Formato.diaISO(desde)), URLQueryItem(name: "hasta", value: Formato.diaISO(hasta))]
         do {
-            async let t: Turnos = api.get("/v1/panel/turnos", query: q)
-            async let p: Profesionales = api.get("/v1/panel/profesionales")
-            async let s: Servicios? = try? api.get("/v1/panel/servicios")
-            async let e: Espera? = mostrador ? try? api.get("/v1/panel/espera") : nil
-            async let o: Ofertas? = mostrador ? try? api.get("/v1/panel/espera/ofertas") : nil
-            async let l: Llamar? = mostrador ? try? api.get("/v1/panel/para-llamar") : nil
-            async let r: Reprog? = mostrador ? try? api.get("/v1/panel/reprogramar") : nil
-            async let ar: Arranque? = try? api.get("/v1/panel/arranque")
-            async let rs: Resenas? = estado.rol == "recepcion" ? nil : try? api.get("/v1/panel/resenas")
-            async let pd: Pedidos? = estado.gestiona ? try? api.get("/v1/panel/dias-libres", query: [URLQueryItem(name: "estado", value: "pendiente")]) : nil
-            async let mp: MP? = estado.gestiona ? try? api.get("/v1/panel/mercadopago") : nil
-            let (tt, pp) = try await (t, p)
+            let t: Turnos = try await api.get("/v1/panel/turnos", query: q)
+            let p: Profesionales = try await api.get("/v1/panel/profesionales")
+            let s: Servicios? = try? await api.get("/v1/panel/servicios")
+            let e: Espera? = mostrador ? (try? await api.get("/v1/panel/espera")) : nil
+            let o: Ofertas? = mostrador ? (try? await api.get("/v1/panel/espera/ofertas")) : nil
+            let l: Llamar? = mostrador ? (try? await api.get("/v1/panel/para-llamar")) : nil
+            let r: Reprog? = mostrador ? (try? await api.get("/v1/panel/reprogramar")) : nil
+            let ar: Arranque? = try? await api.get("/v1/panel/arranque")
+            let rs: Resenas? = estado.rol == "recepcion" ? nil : (try? await api.get("/v1/panel/resenas"))
+            let pd: Pedidos? = estado.gestiona ? (try? await api.get("/v1/panel/dias-libres", query: [URLQueryItem(name: "estado", value: "pendiente")])) : nil
+            let mp: MP? = estado.gestiona ? (try? await api.get("/v1/panel/mercadopago")) : nil
+            let (tt, pp) = (t, p)
             let antes = Set(turnos.map(\.id))
             if carga == .listo {
                 let nuevos = tt.turnos.filter { !antes.contains($0.id) && $0.origen != "panel" }
@@ -137,15 +137,15 @@ final class DatosDia {
             }
             turnos = tt.turnos
             profesionales = pp.profesionales.sorted { $0.orden < $1.orden }
-            servicios = await s?.servicios ?? servicios
-            espera = await e?.espera ?? []
-            ofertas = (await o?.ofertas ?? []).filter { $0.estado == "ofreciendo" }
-            paraLlamar = await l?.turnos ?? []
-            reprogramar = (await r?.turnos ?? []).filter { $0.resueltoEn == nil }
-            arranque = await ar
-            resenaSinResponder = (await rs?.resenas ?? []).first { $0.respondidaEn == nil && $0.respuesta.isEmpty }
-            pedidos = await pd?.pedidos ?? []
-            if let m = await mp, m.disponible { mpConectado = m.conectada } else { mpConectado = nil }
+            servicios = s?.servicios ?? servicios
+            espera = e?.espera ?? []
+            ofertas = (o?.ofertas ?? []).filter { $0.estado == "ofreciendo" }
+            paraLlamar = l?.turnos ?? []
+            reprogramar = (r?.turnos ?? []).filter { $0.resueltoEn == nil }
+            arranque = ar
+            resenaSinResponder = (rs?.resenas ?? []).first { $0.respondidaEn == nil && $0.respuesta.isEmpty }
+            pedidos = pd?.pedidos ?? []
+            if let m = mp, m.disponible { mpConectado = m.conectada } else { mpConectado = nil }
             carga = .listo
             estado.sinConexion = false
             Guardado.guardar(Todo(turnos: turnos, profesionales: profesionales, servicios: servicios, espera: espera), clave: clave)

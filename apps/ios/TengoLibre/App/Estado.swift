@@ -122,9 +122,9 @@ final class Estado {
     }
 
     func cargarSesion() async throws {
-        async let p: Persona = api.get("/v1/auth/persona")
-        async let y: Yo = api.get("/v1/yo")
-        let (pp, yy) = try await (p, y)
+        let p: Persona = try await api.get("/v1/auth/persona")
+        let y: Yo = try await api.get("/v1/yo")
+        let (pp, yy) = (p, y)
         persona = pp
         negocios = yy.negocios
         Guardado.guardar(pp, clave: "persona")
@@ -176,9 +176,9 @@ final class Estado {
     /// El acceso (prueba, sólo lectura) y la campanita.
     func refrescar() async {
         guard negocio != nil else { return }
-        async let a: Acceso? = try? api.get("/v1/panel/acceso")
-        async let c: SinLeer? = try? api.get("/v1/panel/campanita/sin-leer")
-        let (aa, cc) = await (a, c)
+        let a: Acceso? = try? await api.get("/v1/panel/acceso")
+        let c: SinLeer? = try? await api.get("/v1/panel/campanita/sin-leer")
+        let (aa, cc) = (a, c)
         if let aa { acceso = aa }
         if let cc {
             sinLeer = cc.sinLeer

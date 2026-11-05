@@ -317,9 +317,9 @@ struct NuevoTurno: View {
     private struct Servs: Decodable { var servicios: [Servicio] }
 
     private func cargar() async {
-        async let p: Pros? = try? estado.api.get("/v1/panel/profesionales")
-        async let s: Servs? = try? estado.api.get("/v1/panel/servicios")
-        let (pp, ss) = await (p, s)
+        let p: Pros? = try? await estado.api.get("/v1/panel/profesionales")
+        let s: Servs? = try? await estado.api.get("/v1/panel/servicios")
+        let (pp, ss) = (p, s)
         profesionales = (pp?.profesionales ?? []).sorted { $0.orden < $1.orden }
         servicios = ss?.servicios ?? []
         if let c = inicio.cliente { cliente = c }

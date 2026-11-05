@@ -219,7 +219,7 @@ extension View {
     /// Un bloque libre: rayas + contorno menta de 1,5 pt + letra del hueco.
     func hueco(_ radio: CGFloat = Radio.talon, quieto: Bool = false) -> some View {
         self.foregroundStyle(C.huecoTinta)
-            .background(Rayas(quieto: quieto), in: RoundedRectangle(cornerRadius: radio, style: .continuous))
+            .background { Rayas(quieto: quieto) }
             .clipShape(RoundedRectangle(cornerRadius: radio, style: .continuous))
             .contorno(radio, color: C.huecoLinea)
     }

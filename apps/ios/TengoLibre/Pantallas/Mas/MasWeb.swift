@@ -290,7 +290,7 @@ struct MiWeb: View {
             try await estado.api.hacer("PATCH", "/v1/panel/negocio", CuerpoNegocio(nombre: n.nombre, descripcion: n.descripcion, direccion: n.direccion, ciudad: n.ciudad, telefono: n.telefono, whatsapp: n.whatsapp, instagram: n.instagram))
             try await estado.api.hacer("PATCH", "/v1/panel/mi-web", CuerpoWeb(rubro: w.rubro, provincia: w.provincia, acerca: w.acerca, colorPrimario: w.colorPrimario, colorAcento: w.colorAcento, email: w.email, sitioWeb: w.sitioWeb, facebook: w.facebook, tiktok: w.tiktok))
         }
-        if ok { await estado.cargarSesion() }
+        if ok { try? await estado.cargarSesion() }
     }
 
     private func ordenar(_ f: FotoGaleria, primero: Bool) async {

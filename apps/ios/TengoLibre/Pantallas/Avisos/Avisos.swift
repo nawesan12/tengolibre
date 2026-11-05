@@ -111,7 +111,7 @@ struct Avisos: View {
             if r.sinLeer > 0 {
                 _ = try? await estado.api.pedir("POST", "/v1/panel/campanita/vista")
                 estado.sinLeer = 0
-                UNUserNotificationCenter.current().setBadgeCount(0)
+                try? await UNUserNotificationCenter.current().setBadgeCount(0)
             }
         } catch { estado.avisar(error) }
         cargando = false

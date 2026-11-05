@@ -437,16 +437,16 @@ struct FichaCliente: View {
 
     private func cargar() async {
         do {
-            async let f: Ficha = estado.api.get("/v1/panel/clientes/\(id)")
-            async let n: Notas? = try? estado.api.get("/v1/panel/clientes/\(id)/notas")
-            async let e: Etiquetas? = try? estado.api.get("/v1/panel/etiquetas")
-            async let p: Penalidades? = try? estado.api.get("/v1/panel/clientes/\(id)/penalidades")
-            async let s: Socios? = try? estado.api.get("/v1/panel/membresias/socios", query: [URLQueryItem(name: "estado", value: "activa")])
-            ficha = try await f
-            notas = await n?.notas ?? []
-            etiquetas = await e?.etiquetas ?? []
-            penalidades = await p?.penalidades ?? []
-            socio = await s?.socios.first { $0.clienteId == id }
+            let f: Ficha = try await estado.api.get("/v1/panel/clientes/\(id)")
+            let n: Notas? = try? await estado.api.get("/v1/panel/clientes/\(id)/notas")
+            let e: Etiquetas? = try? await estado.api.get("/v1/panel/etiquetas")
+            let p: Penalidades? = try? await estado.api.get("/v1/panel/clientes/\(id)/penalidades")
+            let s: Socios? = try? await estado.api.get("/v1/panel/membresias/socios", query: [URLQueryItem(name: "estado", value: "activa")])
+            ficha = f
+            notas = n?.notas ?? []
+            etiquetas = e?.etiquetas ?? []
+            penalidades = p?.penalidades ?? []
+            socio = s?.socios.first { $0.clienteId == id }
             error = ""
         } catch let e as ErrorApi { error = e.detalle } catch { self.error = "Probá de nuevo." }
     }

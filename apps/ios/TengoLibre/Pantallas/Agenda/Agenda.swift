@@ -117,7 +117,8 @@ struct Agenda: View {
                 }
                 .offset(y: y(h))
             }
-            ForEach(p.ocupado, id: \.turno.id) { o in
+            ForEach(p.ocupado.indices, id: \.self) { i in
+                let o = p.ocupado[i]
                 bloqueTalon(o.turno).frame(height: max(30, y(o.tramo.hasta) - y(o.tramo.desde)) - 4)
                     .padding(.leading, 48).offset(y: y(o.tramo.desde) + 2)
             }
@@ -259,7 +260,8 @@ struct Agenda: View {
                                             Rayas(quieto: true, paso: 6, color: C.menta, fondo: .clear).clipShape(RoundedRectangle(cornerRadius: 3))
                                                 .frame(width: g.size.width * CGFloat(f.largo) / total).offset(x: g.size.width * CGFloat(f.desde - desde) / total)
                                         }
-                                        ForEach(p.ocupado, id: \.turno.id) { o in
+                                        ForEach(p.ocupado.indices, id: \.self) { i in
+                                            let o = p.ocupado[i]
                                             RoundedRectangle(cornerRadius: 3).fill(C.ocupado)
                                                 .frame(width: max(2, g.size.width * CGFloat(o.tramo.largo) / total - 2)).offset(x: g.size.width * CGFloat(o.tramo.desde - desde) / total)
                                         }
