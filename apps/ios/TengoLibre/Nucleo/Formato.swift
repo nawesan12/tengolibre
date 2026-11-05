@@ -64,6 +64,7 @@ enum Formato {
         var c = Calendar(identifier: .gregorian)
         c.timeZone = zona
         c.locale = argentina
+        c.firstWeekday = 2
         return c
     }
 

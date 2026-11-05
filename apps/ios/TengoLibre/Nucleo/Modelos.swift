@@ -345,13 +345,6 @@ extension Formato {
         return String(format: "%04d-%02d-%02d", c.year ?? 2026, c.month ?? 1, c.day ?? 1)
     }
 
-    static var calendario: Calendar {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = zona
-        cal.locale = argentina
-        cal.firstWeekday = 2
-        return cal
-    }
 
     /// «lunes 2 de noviembre, 10:30».
     static func diaYHora(_ f: Date) -> String { "\(fechaLarga(f)), \(horaDe(f))" }
