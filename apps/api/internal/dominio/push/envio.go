@@ -108,13 +108,24 @@ func PayloadAPNs(a Aviso) []byte {
 		Alert    alerta `json:"alert"`
 		Sound    string `json:"sound"`
 		ThreadID string `json:"thread-id"`
+		Category string `json:"category,omitempty"`
 	}
 	b, _ := json.Marshal(struct {
 		Aps     aps    `json:"aps"`
 		Ruta    string `json:"ruta"`
 		Negocio string `json:"negocio"`
-	}{aps{alerta{a.Titulo, a.Cuerpo}, "default", "negocio-" + a.Negocio}, a.Ruta, a.Negocio})
+		Tipo    string `json:"tipo,omitempty"`
+	}{aps{alerta{a.Titulo, a.Cuerpo}, "default", "negocio-" + a.Negocio, CategoriasAPNs[a.Tipo]}, a.Ruta, a.Negocio, a.Tipo})
 	return b
+}
+
+// CategoriasAPNs: las acciones de cada aviso en el iPhone (UNNotificationCategory de la app, handoff
+// de iOS › Avisos push). Los tipos sin categoría se abren al tocarlos y nada más.
+var CategoriasAPNs = map[string]string{
+	"reserva":     "TL_RESERVA", // Confirmar · Ver turno
+	"cancelacion": "TL_CANCELO", // Avisar a la lista · Cargar un turno
+	"espera":      "TL_HUECO",   // Avisar a la lista
+	"resena":      "TL_RESENA",  // Responder (con texto)
 }
 
 // destino es un teléfono o un navegador de un miembro activo del negocio, con lo que eligió que le

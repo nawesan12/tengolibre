@@ -1,0 +1,7 @@
+// Configuración común. La app no tiene secretos: la clave publicable de Clerk (la instancia de Grupo
+// Vimo, clerk.grupovimo.com.ar) es pública. Para apuntar a otra API sin tocar esto, creá
+// Local.xcconfig (no se versiona) con, por ejemplo, TL_API = http:/$()/192.168.0.10:4200.
+TL_API = https:/$()/api.tengolibre.com.ar
+TL_WEB = https:/$()/tengolibre.com.ar
+TL_CLERK = pk_live_Y2xlcmsuZ3J1cG92aW1vLmNvbS5hciQ
+#include? "Local.xcconfig"

@@ -38,3 +38,23 @@ func TestPayloadAPNs(t *testing.T) {
 		t.Fatalf("payload: %v", p)
 	}
 }
+
+func TestPayloadAPNsConCategoria(t *testing.T) {
+	var p struct {
+		Aps struct {
+			Category string `json:"category"`
+		} `json:"aps"`
+		Tipo string `json:"tipo"`
+	}
+	_ = json.Unmarshal(PayloadAPNs(Aviso{Tipo: "reserva", Titulo: "Nueva reserva", Ruta: "turnos/1", Negocio: "n1"}), &p)
+	if p.Aps.Category != "TL_RESERVA" || p.Tipo != "reserva" {
+		t.Fatalf("la reserva lleva su categoría y su tipo: %+v", p)
+	}
+	var q struct {
+		Aps map[string]any `json:"aps"`
+	}
+	_ = json.Unmarshal(PayloadAPNs(Aviso{Tipo: "equipo", Titulo: "x", Negocio: "n1"}), &q)
+	if _, hay := q.Aps["category"]; hay {
+		t.Fatal("un tipo sin acciones no lleva categoría")
+	}
+}
