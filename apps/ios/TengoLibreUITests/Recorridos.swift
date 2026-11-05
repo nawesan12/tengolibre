@@ -13,7 +13,7 @@ final class Recorridos: XCTestCase {
 
     private func abrir(_ extra: [String] = [], oscuro: Bool = false) {
         app = XCUIApplication()
-        app.launchArguments = ["-modoPrueba"] + extra + (oscuro ? ["-AppleInterfaceStyle", "Dark"] : [])
+        app.launchArguments = ["-modoPrueba"] + extra + (oscuro ? ["-tema", "oscuro"] : [])
         app.launch()
         paso = 0
     }
@@ -208,6 +208,23 @@ final class Recorridos: XCTestCase {
             if volver.exists { volver.tap() } else { app.swipeRight() }
             sleep(1)
         }
+    }
+
+    func testSuscripcion() {
+        abrir()
+        let b = contiene("¿qué querés hacer?")
+        esperar(b)
+        b.tap()
+        let campo = app.searchFields.firstMatch
+        esperar(campo)
+        campo.typeText("suscrip")
+        esperar(boton("Suscripción"))
+        boton("Suscripción").tap()
+        esperar(contiene("Estás en la prueba gratis"))
+        sleep(3)
+        foto("suscripcion")
+        app.swipeUp()
+        foto("suscripcion-abajo")
     }
 
     func testAvisosYCompartir() {

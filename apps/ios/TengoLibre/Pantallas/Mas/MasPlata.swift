@@ -1,3 +1,4 @@
+import StoreKit
 import SwiftUI
 
 struct ConexionMP: Codable, Equatable { var disponible: Bool; var conectada: Bool; var desde: Date?; var venceEn: Date?; var reautorizar: Bool; var ultimoError: String?; var cuenta: String? }
@@ -695,57 +696,225 @@ struct EditarEtiqueta: View {
 
 // MARK: - Suscripción
 
+/// Suscripción: se adapta a dónde se contrató. Desde el iPhone se paga con la App Store (StoreKit 2,
+/// se administra en Ajustes del iPhone); desde la web, con Mercado Pago (se maneja en la web). Sin
+/// suscripción, los planes de la App Store con su precio, la renovación automática y los términos.
 struct SuscripcionVista: View {
     struct PlanVenta: Codable, Hashable { var clave: String; var nombre: String; var precio: Int }
-    struct Sus: Codable { var id: String; var plan: String; var estado: String; var monto: Int; var proximoCobro: Date?; var ultimoCobro: Date?; var graciaHasta: Date?; var canceladaEn: Date? }
+    struct Sus: Codable { var id: String; var plan: String; var estado: String; var monto: Int; var proximoCobro: Date?; var ultimoCobro: Date?; var graciaHasta: Date?; var canceladaEn: Date?; var origen: String? }
     struct EstadoS: Codable { var bloqueado: Bool; var pruebaHasta: Date?; var diasDePrueba: Int; var conSuscripcion: Bool; var plan: String; var nombrePlan: String; var catalogo: [PlanVenta]; var suscripcion: Sus? }
     @Environment(Estado.self) private var estado
     @State private var s: EstadoS?
     @State private var error = ""
-    @State private var cancelar = false
+    @State private var productos: [Product] = []
+    @State private var cargoTienda = false
+    @State private var comprando: String?
+    @State private var administrar = false
+    @State private var restaurando = false
+
+    /// Qué trae cada plan (las mismas filas que la web).
+    private let filas: [(String, String, String)] = [
+        ("Turnos online y agenda", "Sí", "Sí"), ("Recordatorios por mail", "Sí", "Sí"), ("Profesionales", "Hasta 2", "Sin límite"),
+        ("Señas y pagos con Mercado Pago", "No", "Sí"), ("Membresías, cupones y referidos", "No", "Sí"), ("Reportes", "Básicos", "Completos"),
+        ("Dominio propio y plantillas", "No", "Sí"), ("Integraciones con IA", "No", "Sí"), ("Sucursales", "No", "Sí")
+    ]
+
+    private var vigente: Sus? { s?.suscripcion.flatMap { ["autorizada", "pausada"].contains($0.estado) ? $0 : nil } }
 
     var body: some View {
-        PantallaMas(titulo: "Suscripción", subtitulo: s.map { $0.conSuscripcion ? "Plan \($0.nombrePlan)" : ($0.bloqueado ? "La prueba terminó" : "Prueba gratis · quedan \($0.diasDePrueba) días") } ?? "",
-                    cargando: s == nil && error.isEmpty, error: error, recargar: cargar) {
+        PantallaMas(titulo: "Suscripción", subtitulo: subtitulo, cargando: s == nil && error.isEmpty, error: error, recargar: cargar) {
             if let s {
-                if let sus = s.suscripcion {
-                    Bloque(titulo: "Tu plan") {
-                        Renglon(titulo: s.nombrePlan, detalle: estadoTexto(sus.estado), simbolo: "crown") { Text("\(Formato.pesos(sus.monto))/mes").font(Tipo.lato(15, .bold)).monospacedDigit() }
-                        if let p = sus.proximoCobro { Renglon(titulo: "Próximo cobro", detalle: Formato.fechaLarga(p)) }
-                        if let g = sus.graciaHasta { Renglon(titulo: "El último cobro falló", detalle: "Tenés hasta el \(Formato.dia(g)) para pagarlo", simbolo: "exclamationmark.triangle") }
-                    }
-                    if sus.estado != "cancelada" {
-                        Button(role: .destructive) { cancelar = true } label: { Text("Cancelar la suscripción") }
-                            .buttonStyle(BotonContorno(alto: 48, tam: 15)).foregroundStyle(C.error)
-                    }
+                if let v = vigente {
+                    if v.origen == "apple" { deApple(v, s) } else { deMercadoPago(v, s) }
                 } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(s.bloqueado ? "Tu prueba terminó" : "Estás en la prueba gratis").font(Tipo.lato(20, .black))
-                        if let h = s.pruebaHasta, !s.bloqueado { Text("Hasta el \(Formato.fechaLarga(h)).").font(Tipo.lato(15)).foregroundStyle(C.sub) }
-                    }
-                    .foregroundStyle(C.tinta).padding(16).frame(maxWidth: .infinity, alignment: .leading).tarjeta()
-                }
-                Bloque(titulo: "Planes", pie: "La suscripción se elige y se paga desde tengolibre.com.ar en la compu. Acá ves en qué plan estás.") {
-                    ForEach(s.catalogo, id: \.self) { p in
-                        Renglon(titulo: p.nombre, simbolo: p.clave == s.plan && s.conSuscripcion ? "checkmark.circle.fill" : "circle") {
-                            Text("\(Formato.pesos(p.precio))/mes").font(Tipo.lato(15, .bold)).monospacedDigit()
-                        }
+                    estadoSinPlan(s)
+                    if estado.esDuena { planesTienda } else {
+                        Text("La suscripción la elige la dueña o el dueño del negocio.").font(Tipo.lato(14)).foregroundStyle(C.sub)
                     }
                 }
             }
         }
         .task(id: estado.version) { await cargar() }
-        .confirmationDialog("¿Cancelar la suscripción?", isPresented: $cancelar, titleVisibility: .visible) {
-            Button("Cancelar la suscripción", role: .destructive) {
-                Task { await estado.intentar("Cancelamos la suscripción") { _ = try await estado.api.pedir("POST", "/v1/panel/suscripcion/cancelar", cuerpo: Data("{}".utf8)) }; await cargar() }
-            }
-        } message: { Text("Seguís usando todo hasta el final del período pagado.") }
+        .manageSubscriptionsSheet(isPresented: $administrar)
+        .onChange(of: administrar) { _, abierto in if !abierto { Task { await cargar(); await estado.refrescar() } } }
     }
 
-    private func estadoTexto(_ e: String) -> String { ["activa": "Activa", "pendiente": "Esperando el primer pago", "en_mora": "Con un pago pendiente", "cancelada": "Cancelada", "pausada": "Pausada"][e] ?? e }
+    private var subtitulo: String {
+        guard let s else { return "" }
+        if let v = vigente { return "Plan \(s.nombrePlan) · \(v.origen == "apple" ? "App Store" : "Mercado Pago")" }
+        return s.bloqueado ? "La prueba terminó" : "Prueba gratis · quedan \(s.diasDePrueba) días"
+    }
+
+    // MARK: Contratada desde el iPhone
+
+    @ViewBuilder private func deApple(_ v: Sus, _ s: EstadoS) -> some View {
+        Bloque(titulo: "Tu plan") {
+            Renglon(titulo: "Plan \(s.nombrePlan)", detalle: v.estado == "pausada" ? "La App Store no pudo cobrar" : "Se paga con la App Store", simbolo: "apple.logo")
+            if let p = v.proximoCobro {
+                Renglon(titulo: v.canceladaEn == nil ? "Se renueva" : "Termina", detalle: Formato.fechaLarga(p), simbolo: "calendar")
+            }
+            if v.estado == "pausada", let g = v.graciaHasta {
+                Renglon(titulo: "Revisá tu medio de pago en Apple", detalle: "Todo sigue andando hasta el \(Formato.dia(g))", simbolo: "exclamationmark.triangle")
+            }
+        }
+        if estado.esDuena {
+            Button { administrar = true } label: { Label("Cambiar o cancelar en la App Store", systemImage: "gearshape") }
+                .buttonStyle(BotonContorno(alto: 52, tam: 16))
+            botonRestaurar
+        }
+        Text("Se renueva sola cada mes. Para cambiar de plan o cancelar: Ajustes › tu nombre › Suscripciones › Tengo Libre, o el botón de arriba.")
+            .font(Tipo.lato(13)).foregroundStyle(C.sub)
+    }
+
+    // MARK: Contratada desde la web
+
+    @ViewBuilder private func deMercadoPago(_ v: Sus, _ s: EstadoS) -> some View {
+        Bloque(titulo: "Tu plan") {
+            Renglon(titulo: "Plan \(s.nombrePlan)", detalle: "Se paga con Mercado Pago, desde la web", simbolo: "creditcard")
+            if let p = v.proximoCobro, v.estado == "autorizada" {
+                Renglon(titulo: "Próximo cobro", detalle: "\(Formato.fechaLarga(p)) · \(Formato.pesos(v.monto))", simbolo: "calendar")
+            }
+            if v.estado == "pausada" {
+                Renglon(titulo: v.canceladaEn == nil ? "Mercado Pago no pudo cobrar" : "Cancelada", detalle: v.graciaHasta.map { "Todo sigue andando hasta el \(Formato.dia($0))" } ?? "", simbolo: "exclamationmark.triangle")
+            }
+        }
+        Text("La contrataste desde la web: el plan, la tarjeta y la cancelación se manejan desde el panel en la compu, en Suscripción.")
+            .font(Tipo.lato(14)).foregroundStyle(C.sub)
+    }
+
+    // MARK: Sin suscripción
+
+    @ViewBuilder private func estadoSinPlan(_ s: EstadoS) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(s.bloqueado ? "Tu prueba terminó" : "Estás en la prueba gratis").font(Tipo.lato(22, .black))
+            Text(s.bloqueado ? "Podés ver todo, pero para cargar o cambiar turnos hace falta un plan. Tu página sigue tomando reservas."
+                 : "Hasta el \(s.pruebaHasta.map { Formato.fechaLarga($0) } ?? "") tenés todo el plan Completo.")
+                .font(Tipo.lato(15)).foregroundStyle(C.sub)
+            if s.suscripcion?.estado == "cancelada", s.suscripcion?.origen == "apple" {
+                Text("Tu suscripción de la App Store venció o se canceló.").font(Tipo.lato(14, .bold)).foregroundStyle(C.ausenteTinta)
+            }
+        }
+        .foregroundStyle(C.tinta).padding(16).frame(maxWidth: .infinity, alignment: .leading).tarjeta()
+    }
+
+    @ViewBuilder private var planesTienda: some View {
+        if !cargoTienda {
+            ForEach(0..<2, id: \.self) { _ in Esqueleto(alto: 160, radio: 20) }
+        } else if productos.isEmpty {
+            VacioQueEnsena(rayas: "Pronto", titulo: "Los planes no cargaron", texto: "La App Store no respondió. Probá de nuevo en un rato.") {
+                Button("Reintentar") { Task { await cargarTienda() } }.buttonStyle(BotonContorno(alto: 48, tam: 15))
+            }
+        } else {
+            ForEach(productos, id: \.id) { p in tarjetaPlan(p) }
+            botonRestaurar
+            legales
+        }
+    }
+
+    private func tarjetaPlan(_ p: Product) -> some View {
+        let clave = Compras.productos[p.id] ?? ""
+        let completo = clave == "completo"
+        let col = completo ? 2 : 1
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(p.displayName.isEmpty ? (completo ? "Completo" : "Inicial") : p.displayName).font(Tipo.lato(22, .black))
+                if completo {
+                    Text("RECOMENDADO").font(Tipo.lato(10, .black)).tracking(0.8).padding(.horizontal, 8).frame(height: 22)
+                        .foregroundStyle(C.petroleoHondo).background(C.menta, in: Capsule())
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(p.displayPrice).font(Tipo.lato(22, .black)).monospacedDigit()
+                    Text("por mes").font(Tipo.lato(12)).foregroundStyle(C.sub)
+                }
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(filas, id: \.0) { f in
+                    let v = col == 1 ? f.1 : f.2
+                    HStack(spacing: 8) {
+                        Image(systemName: v == "No" ? "minus.circle" : "checkmark.circle.fill").foregroundStyle(v == "No" ? C.linea : C.mentaTexto)
+                        Text(f.0).font(Tipo.lato(14)).foregroundStyle(v == "No" ? C.sub : C.tinta)
+                        Spacer(minLength: 0)
+                        if v != "Sí" && v != "No" { Text(v).font(Tipo.lato(13, .bold)).foregroundStyle(C.sub) }
+                    }
+                }
+            }
+            Button {
+                Task { await comprar(p) }
+            } label: { Text(comprando == p.id ? "Abriendo la App Store…" : "Suscribirme por \(p.displayPrice)/mes") }
+            .buttonStyle(completo ? AnyButtonStyle(BotonMenta(alto: 52, conSombra: false)) : AnyButtonStyle(BotonContorno(alto: 52, tam: 16)))
+            .disabled(comprando != nil)
+        }
+        .foregroundStyle(C.tinta).padding(16).tarjeta()
+        .overlay { if completo { RoundedRectangle(cornerRadius: Radio.tarjeta, style: .continuous).strokeBorder(C.menta, lineWidth: 2) } }
+    }
+
+    private var botonRestaurar: some View {
+        Button(restaurando ? "Buscando tus compras…" : "Restaurar compras") {
+            Task {
+                restaurando = true
+                defer { restaurando = false }
+                do {
+                    let n = try await Compras.restaurar(estado: estado)
+                    estado.avisar(n == 0 ? "No encontramos compras para restaurar" : "Listo, recuperamos tu suscripción", ok: n > 0)
+                    await cargar()
+                } catch { estado.avisar(error) }
+            }
+        }
+        .buttonStyle(BotonTexto()).frame(maxWidth: .infinity).disabled(restaurando)
+    }
+
+    private var legales: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("La suscripción se cobra a tu cuenta de Apple al confirmar y se renueva sola cada mes, al mismo precio, salvo que la canceles al menos 24 horas antes del fin del período. Se administra y cancela en Ajustes › tu nombre › Suscripciones.")
+                .font(Tipo.lato(12)).foregroundStyle(C.sub)
+            HStack(spacing: 16) {
+                Link("Términos de uso", destination: URL(string: "https://tengolibre.com.ar/terminos")!)
+                Link("Privacidad", destination: URL(string: "https://tengolibre.com.ar/privacidad")!)
+                Link("EULA de Apple", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+            }
+            .font(Tipo.lato(12, .bold)).foregroundStyle(C.mentaTexto)
+        }
+        .padding(.horizontal, 4)
+    }
+
+    // MARK: Datos
+
+    private func comprar(_ p: Product) async {
+        comprando = p.id
+        defer { comprando = nil }
+        do {
+            switch try await Compras.comprar(p, estado: estado) {
+            case .listo:
+                Haptico.exito()
+                estado.avisar("¡Listo! Ya tenés el plan \(p.displayName)", texto: "Gracias por sumarte a Tengo Libre.")
+                await cargar()
+            case .pendiente:
+                estado.avisar("La compra quedó pendiente", texto: "Cuando la App Store la apruebe, se activa sola.")
+            case .cancelado:
+                break
+            }
+        } catch {
+            estado.avisar(error)
+        }
+    }
 
     private func cargar() async {
         do { s = try await estado.api.get("/v1/panel/suscripcion"); error = "" }
         catch let e as ErrorApi { error = e.detalle } catch { self.error = "Probá de nuevo." }
+        if vigente == nil && estado.esDuena && !cargoTienda { await cargarTienda() }
     }
+
+    private func cargarTienda() async {
+        cargoTienda = false
+        productos = await Compras.planes()
+        cargoTienda = true
+    }
+}
+
+/// Un estilo de botón u otro según el caso (ButtonStyle no es intercambiable en un ternario).
+struct AnyButtonStyle: ButtonStyle {
+    private let hacer: (Configuration) -> AnyView
+    init<S: ButtonStyle>(_ s: S) { hacer = { AnyView(s.makeBody(configuration: $0)) } }
+    func makeBody(configuration: Configuration) -> some View { hacer(configuration) }
 }

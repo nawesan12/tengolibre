@@ -36,6 +36,11 @@ targets:
           - $(AppIdentifierPrefix)ar.com.tengolibre.app
         com.apple.developer.applesignin:
           - Default
+        # Universal Links: el link del turno, las invitaciones y los turnos del panel abren la app
+        # (la web sirve /.well-known/apple-app-site-association).
+        com.apple.developer.associated-domains:
+          - applinks:tengolibre.com.ar
+          - webcredentials:tengolibre.com.ar
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ar.com.tengolibre.app
@@ -84,6 +89,9 @@ targets:
           UIImageName: SimboloBlanco
           UIImageRespectsSafeAreaInsets: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        # La barra de estado sobre petróleo (todas las pantallas arrancan con la cabecera): hora en blanco.
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UIViewControllerBasedStatusBarAppearance: false
         UIBackgroundModes: [remote-notification]
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: "Para sacar la foto de tu negocio, de tu equipo o de tus servicios."

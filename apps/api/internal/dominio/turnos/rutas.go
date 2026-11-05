@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,6 +32,8 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/p/{slug}/turnos", s.Sesion.Opcional(web.Envolver(s.reservarPublico)))
 	// Link del cliente (el código es el secreto).
 	mux.HandleFunc("GET /v1/t/{codigo}", web.Envolver(s.verTurno))
+	mux.HandleFunc("POST /v1/t/{codigo}/dispositivo", web.Envolver(s.seguirTurno))
+	mux.HandleFunc("DELETE /v1/t/{codigo}/dispositivo", web.Envolver(s.dejarDeSeguir))
 	mux.HandleFunc("POST /v1/t/{codigo}/cancelar", web.Envolver(s.cancelarCliente))
 	mux.HandleFunc("POST /v1/t/{codigo}/reprogramar", web.Envolver(s.reprogramarCliente))
 	mux.HandleFunc("GET /v1/t/{codigo}/repetir", web.Envolver(s.verRepetir))
@@ -614,5 +617,59 @@ func (s *Servicio) reprogramarPanel(w http.ResponseWriter, r *http.Request) erro
 	}
 	s.avisar(ctx, negocio, t.ID, "reprogramado")
 	web.JSON(w, http.StatusOK, t)
+	return nil
+}
+
+var tokenIPhone = regexp.MustCompile(`^[0-9a-f]{64,200}$`)
+
+// seguirTurno: el iPhone de la clienta (la app en modo clienta) se anota para que le lleguen los
+// avisos de este turno: {"token": hex de APNs, "entorno": "sandbox|produccion"}. Tener el código
+// alcanza (es el mismo link que recibe por mail).
+func (s *Servicio) seguirTurno(w http.ResponseWriter, r *http.Request) error {
+	var in struct {
+		Token   string `json:"token"`
+		Entorno string `json:"entorno"`
+	}
+	if err := web.Leer(w, r, &in); err != nil {
+		return err
+	}
+	in.Token = strings.ToLower(strings.TrimSpace(in.Token))
+	if !tokenIPhone.MatchString(in.Token) {
+		return problema.Invalido("El token del iPhone no es válido.", problema.Campo{Ruta: "token", Mensaje: "hexadecimal"})
+	}
+	if in.Entorno != "sandbox" {
+		in.Entorno = "produccion"
+	}
+	ctx := r.Context()
+	_, _, err := s.delCliente(ctx, r.PathValue("codigo"), func(tx pgx.Tx, t *TurnoCliente) error {
+		_, err := tx.Exec(ctx, `INSERT INTO turno_dispositivos (negocio_id, turno_id, token, entorno)
+			VALUES (app.negocio_actual(), $1, $2, $3) ON CONFLICT (turno_id, token) DO UPDATE SET entorno = excluded.entorno`,
+			t.ID, in.Token, in.Entorno)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+// dejarDeSeguir: {"token": hex} deja de mandarle los avisos de este turno a ese iPhone.
+func (s *Servicio) dejarDeSeguir(w http.ResponseWriter, r *http.Request) error {
+	var in struct {
+		Token string `json:"token"`
+	}
+	if err := web.Leer(w, r, &in); err != nil {
+		return err
+	}
+	ctx := r.Context()
+	_, _, err := s.delCliente(ctx, r.PathValue("codigo"), func(tx pgx.Tx, t *TurnoCliente) error {
+		_, err := tx.Exec(ctx, "DELETE FROM turno_dispositivos WHERE turno_id = $1 AND token = $2", t.ID, strings.ToLower(strings.TrimSpace(in.Token)))
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	w.WriteHeader(http.StatusNoContent)
 	return nil
 }

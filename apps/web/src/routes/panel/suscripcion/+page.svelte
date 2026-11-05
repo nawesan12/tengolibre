@@ -12,6 +12,9 @@
 	const esDuenio = $derived(data.negocio.rol === 'duenio');
 	const enPrueba = $derived(e.pruebaHasta !== null && !e.conSuscripcion);
 	const vigente = $derived(!!s && (s.estado === 'autorizada' || s.estado === 'pausada'));
+	// Contratada desde el iPhone: la cobra la App Store y se cambia o cancela desde ahí.
+	const deApple = $derived(s?.origen === 'apple');
+	const COMO_APPLE = 'En el iPhone: Ajustes › tu nombre › Suscripciones › Tengo Libre.';
 	const DIA = 86_400_000;
 	const PRUEBA = 7;
 
@@ -99,6 +102,13 @@
 				<span class="visualmente-oculto">{e.diasDePrueba === 1 ? 'Te queda 1 día' : `Te quedan ${e.diasDePrueba} días`} de prueba</span>
 			</div>
 		</section>
+	{:else if s?.estado === 'pausada' && deApple}
+		<section class="g-bloque estado" aria-labelledby="t-estado">
+			<h2 id="t-estado" class="g-bloque-titulo grande">La App Store no pudo cobrar el plan {e.nombrePlan}</h2>
+			<p class="g-nota">
+				{#if s.graciaHasta}Todo sigue andando hasta el {fechaLarga(s.graciaHasta)}.{/if} Revisá el medio de pago de tu cuenta de Apple. {COMO_APPLE}
+			</p>
+		</section>
 	{:else if s?.estado === 'pausada'}
 		<section class="fallo" aria-labelledby="t-fallo">
 			<p class="banda"><span class="icono" aria-hidden="true">credit_card_off</span>No pudimos cobrar el plan {e.nombrePlan}</p>
@@ -142,10 +152,18 @@
 	{:else if s?.estado === 'autorizada'}
 		<section class="g-bloque estado" aria-labelledby="t-estado">
 			<h2 id="t-estado" class="g-bloque-titulo grande">Plan {e.nombrePlan}</h2>
-			<p class="g-nota">
-				{#if s.proximoCobro}Próximo cobro el {fechaLarga(s.proximoCobro)}: {pesos(s.monto)}.{:else}{pesos(s.monto)} por mes, con débito automático.{/if}
-			</p>
-			{#if esDuenio}
+			{#if deApple}
+				<p class="g-nota">
+					<span class="icono" aria-hidden="true">phone_iphone</span>
+					Contratada desde el iPhone: la cobra la App Store{#if s.proximoCobro}{s.canceladaEn ? ' y termina' : ' y se renueva'} el {fechaLarga(s.proximoCobro)}{/if}.
+					Para cambiar de plan o cancelarla: {COMO_APPLE}
+				</p>
+			{:else}
+				<p class="g-nota">
+					{#if s.proximoCobro}Próximo cobro el {fechaLarga(s.proximoCobro)}: {pesos(s.monto)}.{:else}{pesos(s.monto)} por mes, con débito automático.{/if}
+				</p>
+			{/if}
+			{#if esDuenio && !deApple}
 				<div class="fila acciones">
 					<a class="g-accion" href="#planes">Cambiar de plan</a>
 					<form method="POST" action="?/cancelar" use:enhance={confirmar('¿Cancelar la suscripción? Si el mes ya está pago, sigue andando hasta el próximo cobro.')}>
@@ -160,7 +178,8 @@
 				{cancelHasta ? `Seguís con todo hasta el ${fechaLarga(cancelHasta)}` : 'Tu suscripción está cancelada'}
 			</h2>
 			<p class="g-nota">No se te vuelve a cobrar. Tus datos quedan&nbsp;guardados.</p>
-			{#if esDuenio}
+			{#if deApple}<p class="g-nota">Se contrató desde el iPhone: para volver, suscribite otra vez desde la app o elegí un plan acá abajo.</p>{/if}
+			{#if esDuenio && !deApple}
 				<form method="POST" action="?/reactivar"><button class="g-accion">Reactivar</button></form>
 			{/if}
 		</section>
@@ -210,7 +229,7 @@
 						</tr>
 					{/each}
 				</tbody>
-				{#if esDuenio && s?.estado !== 'pausada'}
+				{#if esDuenio && s?.estado !== 'pausada' && !(deApple && vigente)}
 					<tfoot>
 						<tr>
 							<td class="que"></td>
@@ -237,6 +256,7 @@
 				{/if}
 			</table>
 			{#if !esDuenio}<p class="g-nota pad">La suscripción la elige la dueña o el dueño del&nbsp;negocio.</p>{/if}
+			{#if esDuenio && deApple && vigente}<p class="g-nota pad">Tu plan se paga con la App Store. Para cambiarlo: {COMO_APPLE}</p>{/if}
 		</section>
 
 		<div class="g-col lado">

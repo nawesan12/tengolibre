@@ -16,6 +16,8 @@ export type Suscripcion = {
 	graciaHasta: string | null;
 	canceladaEn: string | null;
 	creadoEn: string;
+	/** mercadopago (la web) o apple (la App Store, contratada desde el iPhone). */
+	origen?: 'mercadopago' | 'apple';
 };
 export type Estado = {
 	bloqueado: boolean;

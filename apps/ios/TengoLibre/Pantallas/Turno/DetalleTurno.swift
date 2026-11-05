@@ -315,7 +315,7 @@ struct DetalleTurno: View {
             }
         }
         .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 8)
-        .background(C.hoja.overlay(alignment: .top) { Rectangle().fill(C.linea).frame(height: 1) })
+        .background { C.hoja.ignoresSafeArea(edges: .bottom).overlay(alignment: .top) { Rectangle().fill(C.linea).frame(height: 1) } }
     }
 
     @ViewBuilder private var menu: some View {

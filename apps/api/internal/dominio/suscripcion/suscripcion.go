@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/appstore"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
@@ -57,6 +58,8 @@ type Servicio struct {
 	TokenPlataforma string
 	// Sitio del panel, para la vuelta de Mercado Pago.
 	Sitio string
+	// Apple verifica lo que firma la App Store (nil: con la raíz de Apple).
+	Apple *appstore.Verificador
 	Ahora func() time.Time
 	Log   *slog.Logger
 }
@@ -129,7 +132,10 @@ func LeerAcceso(ctx context.Context, tx pgx.Tx, ahora time.Time) (Acceso, error)
 	var a Acceso
 	var hasta *time.Time
 	var plan string
-	err := tx.QueryRow(ctx, `SELECT n.prueba_hasta, n.plan, EXISTS (SELECT 1 FROM suscripciones s WHERE s.estado = 'autorizada'
+	// Una de Apple autorizada vale hasta que vence (más un día, por si la renovación llega tarde): si
+	// la App Store no avisó que renovó, no sigue abierta para siempre.
+	err := tx.QueryRow(ctx, `SELECT n.prueba_hasta, n.plan, EXISTS (SELECT 1 FROM suscripciones s WHERE
+			(s.estado = 'autorizada' AND (s.origen <> 'apple' OR s.proximo_cobro > $1::timestamptz - interval '1 day'))
 			OR (s.estado = 'pausada' AND (s.gracia_hasta IS NULL OR s.gracia_hasta > $1)))
 		FROM negocios n WHERE n.id = app.negocio_actual()`, ahora).Scan(&hasta, &plan, &a.ConSuscripcion)
 	if err != nil {
@@ -204,12 +210,15 @@ type Suscripcion struct {
 	GraciaHasta  *time.Time `json:"graciaHasta"`
 	CanceladaEn  *time.Time `json:"canceladaEn"`
 	CreadoEn     time.Time  `json:"creadoEn"`
+	// Origen: mercadopago (la web) o apple (la App Store, desde el iPhone). Cada una se maneja donde se
+	// contrató.
+	Origen string `json:"origen"`
 }
 
-const columnas = `id::text, plan, estado, monto, link, proximo_cobro, ultimo_cobro, gracia_hasta, cancelada_en, creado_en`
+const columnas = `id::text, plan, estado, monto, link, proximo_cobro, ultimo_cobro, gracia_hasta, cancelada_en, creado_en, origen`
 
 func escanear(f pgx.Row, x *Suscripcion) error {
-	return f.Scan(&x.ID, &x.Plan, &x.Estado, &x.Monto, &x.Link, &x.ProximoCobro, &x.UltimoCobro, &x.GraciaHasta, &x.CanceladaEn, &x.CreadoEn)
+	return f.Scan(&x.ID, &x.Plan, &x.Estado, &x.Monto, &x.Link, &x.ProximoCobro, &x.UltimoCobro, &x.GraciaHasta, &x.CanceladaEn, &x.CreadoEn, &x.Origen)
 }
 
 // vigente: la última autorizada, pausada o pendiente, en ese orden (un alta que reemplaza a otra

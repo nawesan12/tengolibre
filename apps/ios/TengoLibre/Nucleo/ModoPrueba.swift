@@ -160,6 +160,10 @@ final class ApiDePrueba: URLProtocol {
                 """,
                 "/v1/panel/reportes/horas-muertas": "{\"peor\": {\"texto\": \"Los martes de 14 a 16 casi siempre quedan vacíos.\"}, \"sugerencia\": null}",
                 "/v1/panel/push/preferencias": "{\"rol\": \"duenio\", \"porDefecto\": true, \"apagados\": [], \"tipos\": [{\"tipo\": \"reserva\", \"nombre\": \"Reservas nuevas\", \"activo\": true}]}",
+                "/v1/panel/suscripcion": """
+                {"bloqueado": false, "pruebaHasta": "\(iso(4000))", "diasDePrueba": 3, "conSuscripcion": false, "plan": "completo", "nombrePlan": "Completo",
+                 "catalogo": [{"clave": "inicial", "nombre": "Inicial", "precio": 7000}, {"clave": "completo", "nombre": "Completo", "precio": 15000}], "suscripcion": null}
+                """,
                 "/v1/panel/buscar": "{\"clientes\": [{\"id\": \"c1\", \"nombre\": \"Sofía Méndez\", \"telefono\": \"1144712290\", \"email\": \"\"}], \"turnos\": [], \"servicios\": []}",
                 // Modo clienta: su turno, el lugar y el directorio.
                 "/v1/t/ABC123": """

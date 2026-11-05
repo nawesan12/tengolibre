@@ -109,6 +109,9 @@ func (s *Servicio) cambiar(w http.ResponseWriter, r *http.Request) error {
 		if x, err = vigente(ctx, tx, false); err != nil || x == nil {
 			return err
 		}
+		if x.Origen == "apple" {
+			return ProblemaDeApple()
+		}
 		return tx.QueryRow(ctx, "SELECT mp_id FROM suscripciones WHERE id = $1", x.ID).Scan(&mpID)
 	})
 	if err != nil {
@@ -169,6 +172,9 @@ func (s *Servicio) reemplazo(elegir func(x *Suscripcion, ahora time.Time) (dias 
 		}
 		if x == nil {
 			return problema.NoEncontrado("No hay una suscripción. Elegí un plan para suscribirte.")
+		}
+		if x.Origen == "apple" {
+			return ProblemaDeApple()
 		}
 		dias, reemplaza, err := elegir(x, s.ahora())
 		if err != nil {

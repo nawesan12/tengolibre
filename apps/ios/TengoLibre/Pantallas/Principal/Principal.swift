@@ -146,6 +146,7 @@ struct Principal: View {
             if estado.vePrecios && !estado.esProfesional { nav.pilaHoy.append(DestinoMas.caja) }
         case .buscar: nav.buscar = true
         case .agenda: nav.pestana = .agenda
+        case .turnoCliente, .invitacion: break // los abre Raiz (valen en cualquier modo)
         }
     }
 }

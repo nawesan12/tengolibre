@@ -167,7 +167,13 @@ type Envio struct {
 	Colapso string
 	// Vence: hasta cuándo APNs guarda el aviso si el iPhone está apagado. Cero: una hora.
 	Vence time.Time
+	// Tipo: "" (un aviso común) o "liveactivity" (actualizar o terminar una Live Activity: otro topic
+	// y otro apns-push-type).
+	Tipo string
 }
+
+// TipoLiveActivity es el Tipo de un envío a una Live Activity.
+const TipoLiveActivity = "liveactivity"
 
 func (c *Cliente) cli() *http.Client {
 	if c.HTTP != nil {
@@ -225,8 +231,13 @@ func (c *Cliente) enviar(ctx context.Context, e Envio) error {
 		vence = c.ahora().Add(time.Hour)
 	}
 	req.Header.Set("authorization", "bearer "+jwt)
-	req.Header.Set("apns-topic", c.Topic)
-	req.Header.Set("apns-push-type", "alert")
+	if e.Tipo == TipoLiveActivity {
+		req.Header.Set("apns-topic", c.Topic+".push-type.liveactivity")
+		req.Header.Set("apns-push-type", "liveactivity")
+	} else {
+		req.Header.Set("apns-topic", c.Topic)
+		req.Header.Set("apns-push-type", "alert")
+	}
 	req.Header.Set("apns-priority", "10")
 	req.Header.Set("apns-expiration", strconv.FormatInt(vence.Unix(), 10))
 	if e.Colapso != "" {

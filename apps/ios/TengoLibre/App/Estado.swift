@@ -17,12 +17,22 @@ enum Ruta: Hashable {
     case caja
     case buscar
     case agenda
+    /// El turno de una clienta, por su código (link del mail o aviso al iPhone de la clienta).
+    case turnoCliente(String)
+    /// Una invitación al equipo de un negocio.
+    case invitacion(String)
 
     /// `turnos/{id}` (el `ruta` del push) o `tengolibre://turno/{id}`.
     init?(texto: String) {
         var t = texto
         if let u = URL(string: texto), u.scheme == "tengolibre" {
             t = ([u.host ?? ""] + u.pathComponents.filter { $0 != "/" }).joined(separator: "/")
+        } else if let u = URL(string: texto), u.scheme == "https" || u.scheme == "http" {
+            // Universal Links de tengolibre.com.ar: /turno/<código>, /invitacion/<token>, /panel/turnos/<id>.
+            var p = u.pathComponents.filter { $0 != "/" }
+            if p.first == "panel" { p.removeFirst() }
+            if p.first == "turno", p.count > 1 { self = .turnoCliente(p[1]); return }
+            t = p.joined(separator: "/")
         }
         let partes = t.split(separator: "/").map(String.init)
         guard let primera = partes.first else { return nil }
@@ -37,6 +47,8 @@ enum Ruta: Hashable {
         case "caja": self = .caja
         case "buscar": self = .buscar
         case "agenda": self = .agenda
+        case "turno-cliente": guard partes.count > 1 else { return nil }; self = .turnoCliente(partes[1])
+        case "invitacion": guard partes.count > 1 else { return nil }; self = .invitacion(partes[1])
         default: return nil
         }
     }
@@ -69,6 +81,10 @@ final class Estado {
     var sinLeer = 0
     var toast: Toast?
     var rutaPendiente: Ruta?
+    /// El turno de una clienta para abrir (link o aviso), y una invitación al equipo para aceptar: los
+    /// abre Raiz, en cualquier modo y fase (la invitación espera al ingreso si hace falta).
+    var turnoClienteAbierto: String?
+    var invitacionPendiente: String?
     /// Para que las listas se vuelvan a pedir después de un cambio.
     var version = 0
     /// Sin conexión: se ve lo guardado (handoff 23).
@@ -249,6 +265,16 @@ final class Estado {
         avisar(Toast(simbolo: "lock", titulo: "Tu sesión venció", texto: "Entrá de nuevo para seguir."))
     }
 
+    /// Abre una ruta: las del panel quedan pendientes para Principal; el turno de una clienta y las
+    /// invitaciones las abre Raiz.
+    func abrir(_ r: Ruta) {
+        switch r {
+        case .turnoCliente(let c): turnoClienteAbierto = c
+        case .invitacion(let t): invitacionPendiente = t
+        default: rutaPendiente = r
+        }
+    }
+
     // MARK: Avisos de arriba
 
     func avisar(_ t: Toast, deshacer: (() async -> Void)? = nil) {
@@ -289,6 +315,48 @@ final class Estado {
         }
     }
 
+    /// Modo clienta: el permiso de avisos se pide una vez (para los recordatorios de sus turnos); si ya
+    /// estaba dado, sólo se registra el teléfono.
+    func pedirAvisosClienta() async {
+        let ajustes = await UNUserNotificationCenter.current().notificationSettings()
+        switch ajustes.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            UIApplication.shared.registerForRemoteNotifications()
+        case .notDetermined:
+            guard !UserDefaults.standard.bool(forKey: "avisosClientaPedidos") else { return }
+            UserDefaults.standard.set(true, forKey: "avisosClientaPedidos")
+            _ = await pedirPermisoPush()
+        default:
+            break
+        }
+    }
+
+    static var entornoPush: String {
+        #if DEBUG
+        "sandbox"
+        #else
+        "produccion"
+        #endif
+    }
+
+    /// Anota este iPhone en cada turno (por su código) para que le lleguen sus avisos: confirmación,
+    /// recordatorio, cambios. Una vez por turno y por token.
+    func seguirTurnos(_ codigos: [String]) async {
+        guard let token = tokenPush else { return }
+        let clave = "seguidos-\(token.prefix(16))"
+        var hechos = Set(UserDefaults.standard.stringArray(forKey: clave) ?? [])
+        for c in codigos where !hechos.contains(c) {
+            if (try? await api.hacer("POST", "/v1/t/\(c)/dispositivo", ["token": token, "entorno": Self.entornoPush])) != nil { hechos.insert(c) }
+        }
+        UserDefaults.standard.set(Array(hechos), forKey: clave)
+    }
+
+    /// Deja de mandarle a este iPhone los avisos de un turno (lo sacó de su lista).
+    func dejarDeSeguir(_ codigo: String) async {
+        guard let token = tokenPush else { return }
+        try? await api.hacer("DELETE", "/v1/t/\(codigo)/dispositivo", ["token": token])
+    }
+
     func pedirPermisoPush() async -> Bool {
         let ok = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])) ?? false
         if ok { UIApplication.shared.registerForRemoteNotifications() }
@@ -300,11 +368,7 @@ final class Estado {
         guard hex != tokenPush, api.token != nil else { return }
         tokenPush = hex
         struct Cuerpo: Encodable { var plataforma = "ios"; var token: String; var entorno: String; var modelo: String; var version: String }
-        #if DEBUG
-        let entorno = "sandbox"
-        #else
-        let entorno = "produccion"
-        #endif
+        let entorno = Self.entornoPush
         let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
         try? await api.hacer("POST", "/v1/yo/dispositivos", Cuerpo(token: hex, entorno: entorno, modelo: UIDevice.current.model, version: v))
     }

@@ -81,14 +81,12 @@ struct PrincipalCliente: View {
                 pestana = .turnos
             }
         }
-        .onOpenURL { url in
-            // tengolibre.com.ar/turno/CODIGO o tengolibre://turno/CODIGO
-            let p = url.pathComponents.filter { $0 != "/" }
-            if let i = p.firstIndex(of: "turno") ?? (url.host == "turno" ? -1 : nil) {
-                let c = i == -1 ? p.first : (p.indices.contains(i + 1) ? p[i + 1] : nil)
-                if let c { MisTurnos.sumar(c); Task { await cargar() } }
-            }
+        // Los avisos de sus turnos al iPhone: se pide el permiso una vez y se anota cada turno activo.
+        .task(id: "\(estado.tokenPush ?? "")-\(turnos.filter(\.activo).map(\.codigo).joined())") {
+            await estado.pedirAvisosClienta()
+            await estado.seguirTurnos(turnos.filter(\.activo).map(\.codigo))
         }
+        .onChange(of: estado.version) { _, _ in Task { await cargar() } }
     }
 
     private var barra: some View {
@@ -330,7 +328,7 @@ struct TurnoClienteHoja: View {
                     ShareLink(item: Web.base.appendingPathComponent("turno/\(turno.codigo)")) { Label("Compartir el turno", systemImage: "square.and.arrow.up") }
                         .buttonStyle(BotonTexto())
                     if !turno.activo {
-                        Button("Sacarlo de la lista") { MisTurnos.sacar(turno.codigo); Task { await listo() }; cerrar() }.buttonStyle(BotonTexto(color: C.error))
+                        Button("Sacarlo de la lista") { MisTurnos.sacar(turno.codigo); Task { await estado.dejarDeSeguir(turno.codigo); await listo() }; cerrar() }.buttonStyle(BotonTexto(color: C.error))
                     }
                 }
                 .foregroundStyle(C.tinta).padding(16)

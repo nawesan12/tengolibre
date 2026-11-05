@@ -61,7 +61,7 @@ struct Hoy: View {
 
     private func cargar() async {
         await datos.cargar(estado, desde: hoy, hasta: hoy)
-        ActividadTurno.sincronizar(delDia)
+        ActividadTurno.sincronizar(delDia, estado: estado)
         await estado.vivo.cargar(estado)
     }
 

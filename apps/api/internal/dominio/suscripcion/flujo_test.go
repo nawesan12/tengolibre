@@ -296,3 +296,59 @@ type grabador struct{ estado int }
 func (g *grabador) Header() http.Header         { return http.Header{} }
 func (g *grabador) Write(b []byte) (int, error) { return len(b), nil }
 func (g *grabador) WriteHeader(c int)           { g.estado = c }
+
+// TestSuscripcionDesdeElIPhone: la compra en la App Store abre el panel, Mercado Pago no la pisa, las
+// notificaciones la renuevan, la apagan y la vencen, y una compra de otro negocio no sirve.
+func TestSuscripcionDesdeElIPhone(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.SQL("UPDATE negocios SET prueba_hasta = $1", e.Ahora.Add(-time.Hour))
+	if s := leer(e); !s.Bloqueado {
+		t.Fatalf("sin prueba ni suscripción tendría que estar bloqueado: %+v", s)
+	}
+	vence := e.Ahora.AddDate(0, 1, 0)
+	compra := e.Apple.Transaccion("2000001", "ar.com.tengolibre.completo.mensual", e.Negocio, vence)
+
+	// Una firma que no es de la App Store, y una compra hecha para otro negocio, no sirven.
+	e.Panel(400, "POST", "/v1/panel/suscripcion/apple", map[string]string{"transaccion": "a.b.c"}, nil)
+	otro := e.Apple.Transaccion("2000002", "ar.com.tengolibre.completo.mensual", "00000000-0000-0000-0000-000000000000", vence)
+	e.Panel(409, "POST", "/v1/panel/suscripcion/apple", map[string]string{"transaccion": otro}, nil)
+
+	var x suscripcion.Suscripcion
+	e.Panel(200, "POST", "/v1/panel/suscripcion/apple", map[string]string{"transaccion": compra}, &x)
+	if x.Origen != "apple" || x.Estado != "autorizada" || x.Plan != "completo" {
+		t.Fatalf("la compra no quedó: %+v", x)
+	}
+	if s := leer(e); s.Bloqueado || !s.ConSuscripcion || s.Plan != "completo" || s.Suscripcion == nil || s.Suscripcion.Origen != "apple" {
+		t.Fatalf("con la compra tendría que estar abierto: %+v", s)
+	}
+	// Mandarla dos veces (restaurar compras) no duplica.
+	e.Panel(200, "POST", "/v1/panel/suscripcion/apple", map[string]string{"transaccion": compra}, nil)
+	// Mercado Pago no la pisa: suscribir, cancelar y cambiar responden que se maneja desde el iPhone.
+	e.Panel(409, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "inicial"}, nil)
+	e.Panel(409, "POST", "/v1/panel/suscripcion/cancelar", nil, nil)
+	e.Panel(409, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "inicial"}, nil)
+
+	webhook := func(cuerpo string) {
+		e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/webhooks/appstore", Cuerpo: map[string]string{"signedPayload": cuerpo}}, nil)
+	}
+	// Apagó la renovación: sigue valiendo hasta que vence.
+	ren := e.Apple.Firmar(map[string]any{"originalTransactionId": "2000001", "autoRenewStatus": 0, "autoRenewProductId": "ar.com.tengolibre.completo.mensual"})
+	webhook(e.Apple.Notificacion("DID_CHANGE_RENEWAL_STATUS", "AUTO_RENEW_DISABLED", compra, ren))
+	if s := leer(e); s.Bloqueado || s.Suscripcion.CanceladaEn == nil {
+		t.Fatalf("con la renovación apagada sigue valiendo hasta el vencimiento: %+v", s)
+	}
+	// Renovó (otro mes).
+	renovo := e.Apple.Transaccion("2000001", "ar.com.tengolibre.completo.mensual", e.Negocio, vence.AddDate(0, 1, 0))
+	webhook(e.Apple.Notificacion("DID_RENEW", "", renovo, ""))
+	if s := leer(e); s.Bloqueado || s.Suscripcion.ProximoCobro == nil || !s.Suscripcion.ProximoCobro.After(vence) {
+		t.Fatalf("renovada: %+v", s)
+	}
+	// Una notificación firmada por otro no hace nada (400).
+	e.Esperar(400, P{Metodo: "POST", Ruta: "/v1/webhooks/appstore", Cuerpo: map[string]string{"signedPayload": "a.b.c"}}, nil)
+	// Venció: el panel vuelve a sólo lectura.
+	vencida := e.Apple.Transaccion("2000001", "ar.com.tengolibre.completo.mensual", e.Negocio, e.Ahora.Add(-2*time.Hour))
+	webhook(e.Apple.Notificacion("EXPIRED", "VOLUNTARY", vencida, ""))
+	if s := leer(e); !s.Bloqueado || s.Plan != "sin_plan" {
+		t.Fatalf("vencida tendría que bloquear: %+v", s)
+	}
+}

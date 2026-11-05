@@ -35,6 +35,9 @@ type Dispositivo struct {
 var (
 	tokenAPNs = regexp.MustCompile(`^[0-9a-f]{64,200}$`)
 	tokenFCM  = regexp.MustCompile(`^[A-Za-z0-9_:-]{20,}$`)
+	// El token de push de una Live Activity (hexadecimal, más largo que el del dispositivo).
+	tokenActividad = regexp.MustCompile(`^[0-9a-f]{64,400}$`)
+	uuidRE         = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 )
 
 func limpiar(s string, max int) string {
@@ -97,6 +100,7 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/yo/dispositivos", s.Sesion.Persona(web.Envolver(s.registrar)))
 	mux.HandleFunc("DELETE /v1/yo/dispositivos", s.Sesion.Persona(web.Envolver(s.baja)))
 	s.rutasWeb(mux)
+	s.rutasTurnos(mux)
 	s.rutasPreferencias(mux)
 }
 

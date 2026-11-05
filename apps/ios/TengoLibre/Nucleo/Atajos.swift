@@ -6,7 +6,7 @@ import Foundation
 @MainActor
 enum AtajosSiri {
     static weak var estado: Estado?
-    static func ir(_ r: Ruta) { estado?.rutaPendiente = r }
+    static func ir(_ r: Ruta) { estado?.abrir(r) }
 }
 
 struct AbrirHoy: AppIntent {

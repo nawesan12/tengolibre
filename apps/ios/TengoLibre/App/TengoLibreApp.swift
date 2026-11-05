@@ -18,8 +18,10 @@ struct TengoLibreApp: App {
                 .preferredColorScheme(tema == "claro" ? .light : (tema == "oscuro" ? .dark : nil))
                 .tint(C.mentaTexto)
                 .onAppear { delegado.estado = estado; AtajosSiri.estado = estado }
+                // Renovaciones y compras aprobadas de la App Store, mientras la app está abierta.
+                .task { Compras.escuchar(estado: estado) }
                 .onOpenURL { url in
-                    if let r = Ruta(texto: url.absoluteString) { estado.rutaPendiente = r }
+                    if let r = Ruta(texto: url.absoluteString) { estado.abrir(r) }
                 }
                 .onChange(of: fase) { _, nueva in
                     if nueva == .active, estado.fase == .adentro {
@@ -58,6 +60,19 @@ struct Raiz: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: estado.fase)
+        // La barra de estado, petróleo como la cabecera (la hora en blanco: UIStatusBarStyle): el
+        // contenido que sube con el scroll pasa por debajo, nunca por detrás de la hora.
+        .overlay(alignment: .top) {
+            C.cabecera.frame(height: 0).ignoresSafeArea(edges: .top).allowsHitTesting(false)
+        }
+        // Un turno de clienta (link o aviso) y una invitación al equipo: en cualquier modo.
+        .sheet(item: Binding(get: { estado.turnoClienteAbierto.map { IdTexto(id: $0) } }, set: { estado.turnoClienteAbierto = $0?.id })) { c in
+            TurnoClienteCargar(codigo: c.id).environment(estado)
+        }
+        .sheet(item: Binding(get: { estado.persona == nil || estado.fase == .arrancando ? nil : estado.invitacionPendiente.map { IdTexto(id: $0) } },
+                             set: { estado.invitacionPendiente = $0?.id })) { i in
+            InvitacionVista(token: i.id).environment(estado)
+        }
         // En vivo mientras se ve el panel, con el negocio elegido.
         .onChange(of: "\(estado.fase)-\(estado.negocio?.id ?? "")") { _, _ in
             if estado.fase == .adentro { estado.enVivo.arrancar(estado) } else { estado.enVivo.parar() }
@@ -133,7 +148,7 @@ final class Delegado: NSObject, UIApplicationDelegate, UNUserNotificationCenterD
         default:
             await MainActor.run {
                 if info["tipo"] as? String == "resena" { estado.rutaPendiente = .resenas }
-                else if let r = Ruta(texto: ruta) { estado.rutaPendiente = r }
+                else if let r = Ruta(texto: ruta) { estado.abrir(r) }
             }
         }
     }
