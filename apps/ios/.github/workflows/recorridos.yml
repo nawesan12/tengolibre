@@ -37,7 +37,7 @@ jobs:
               | tee recorridos.log | xcbeautify --renderer github-actions
           }
           correr || { grep -q 'failed to initialize' recorridos.log && { sleep 30; correr; }; }
-      - if: steps.recorridos.outcome == 'failure'
+      - if: failure()
         run: grep -E -B2 -A20 'error:|failed|Fatal error|crashed' recorridos.log | head -150
       - if: always()
         uses: actions/upload-artifact@v4
