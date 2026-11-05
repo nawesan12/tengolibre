@@ -58,9 +58,19 @@ jobs:
           TEST_RUNNER_CAPTURAS: ${{ runner.temp }}/recorridos
         run: |
           set -o pipefail
-          xcodebuild test -project TengoLibre.xcodeproj -scheme Recorridos -configuration Debug \
-            -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO \
-            | tee recorridos.log | xcbeautify --renderer github-actions
+          # En los runners Intel el simulador tarda: se arranca de cero y se espera a que esté listo, y si
+          # XCUITest no llega a iniciar («AX loaded notification») se reintenta una vez.
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print([x['udid'] for v in d.values() for x in v if x['name']=='iPhone 16'][0])")
+          xcrun simctl shutdown all || true
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          sleep 20
+          correr() {
+            xcodebuild test -project TengoLibre.xcodeproj -scheme Recorridos -configuration Debug \
+              -destination "platform=iOS Simulator,id=$UDID" CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO \
+              | tee recorridos.log | xcbeautify --renderer github-actions
+          }
+          correr || { grep -q 'failed to initialize' recorridos.log && { sleep 30; correr; }; }
       - if: steps.recorridos.outcome == 'failure'
         run: grep -E -B2 -A20 'error:|failed|Fatal error|crashed' recorridos.log | head -150
       - if: always()
