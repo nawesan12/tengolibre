@@ -16,6 +16,17 @@
 	const deApple = $derived(s?.origen === 'apple');
 	const COMO_APPLE = 'En el iPhone: Ajustes › tu nombre › Suscripciones › Tengo Libre.';
 	const DIA = 86_400_000;
+
+	// El carrito: el plan elegido, cuánto se paga hoy, cuándo es el primer cobro y cuánto después.
+	let elegido = $state('completo');
+	const plan = $derived(e.catalogo.find((p) => p.clave === elegido) ?? e.catalogo[0]);
+	const conPrueba = $derived(!!e.pruebaHasta && new Date(e.pruebaHasta).getTime() > Date.now());
+	const primerCobro = $derived(conPrueba ? new Date(e.pruebaHasta!) : new Date());
+	const fechaCorta = (d: Date) => new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long', timeZone: ZONA }).format(d);
+	const DESCRIPCION: Record<string, string> = {
+		inicial: 'Para empezar: turnos online, agenda y recordatorios, hasta 2 profesionales.',
+		completo: 'Todo Tengo Libre: señas, membresías, reportes, IA y sin límite de equipo.'
+	};
 	const PRUEBA = 7;
 
 	// Qué incluye cada plan, fila por fila (ícono + palabra en cada celda).
@@ -229,19 +240,13 @@
 						</tr>
 					{/each}
 				</tbody>
-				{#if esDuenio && s?.estado !== 'pausada' && !(deApple && vigente)}
+				{#if esDuenio && vigente && s?.estado !== 'pausada' && !deApple}
 					<tfoot>
 						<tr>
 							<td class="que"></td>
 							{#each e.catalogo as p (p.clave)}
 								<td class:rec={p.clave === 'completo'}>
-									{#if !vigente}
-										<!-- Sin enhance: la respuesta es una redirección a Mercado Pago. -->
-										<form method="POST" action="?/suscribir">
-											<input type="hidden" name="plan" value={p.clave} />
-											<button class={p.clave === 'completo' ? 'g-cta' : 'g-cta claro'}>Elegir {p.nombre}</button>
-										</form>
-									{:else if s?.plan === p.clave}
+									{#if s?.plan === p.clave}
 										<span class="g-pildora actual"><span class="icono lleno" aria-hidden="true">check_circle</span>Tu plan</span>
 									{:else}
 										<form method="POST" action="?/cambiar" use:enhance={confirmar(`¿Pasarte al plan ${p.nombre}? El precio nuevo rige desde el próximo cobro.`)}>
@@ -255,6 +260,65 @@
 					</tfoot>
 				{/if}
 			</table>
+			{#if esDuenio && !vigente && s?.estado !== 'pausada'}
+				<div class="carrito" id="elegir">
+					<fieldset class="opciones">
+						<legend class="rotulo">1 · Elegí tu plan</legend>
+						{#each e.catalogo as p (p.clave)}
+							<label class="opcion" class:on={elegido === p.clave}>
+								<input type="radio" name="plan-vista" value={p.clave} bind:group={elegido} />
+								<span class="opcion-marca" aria-hidden="true"><span class="icono lleno">{elegido === p.clave ? 'radio_button_checked' : 'radio_button_unchecked'}</span></span>
+								<span class="opcion-cuerpo">
+									<span class="opcion-titulo">
+										{p.nombre}
+										{#if p.clave === 'completo'}<span class="recomendado">Recomendado</span>{/if}
+									</span>
+									<span class="opcion-texto">{DESCRIPCION[p.clave] ?? ''}</span>
+								</span>
+								<span class="opcion-precio"><b class="num">{pesos(p.precio)}</b><small>por mes</small></span>
+							</label>
+						{/each}
+					</fieldset>
+
+					<section class="resumen" aria-labelledby="t-resumen">
+						<h3 id="t-resumen" class="rotulo">2 · Tu suscripción</h3>
+						<div class="linea-plan">
+							<span class="icono lleno" aria-hidden="true">workspace_premium</span>
+							<span>
+								<b>Plan {plan.nombre}</b>
+								<small>Mensual · se renueva sola · cancelás cuando quieras</small>
+							</span>
+							<b class="num">{pesos(plan.precio)}</b>
+						</div>
+						<dl class="cuentas">
+							{#if conPrueba}
+								<div><dt>Prueba gratis</dt><dd class="menta">hasta el {fechaCorta(primerCobro)}</dd></div>
+								<div><dt>Primer cobro</dt><dd>{fechaLarga(primerCobro.toISOString())}</dd></div>
+							{:else}
+								<div><dt>Primer cobro</dt><dd>hoy, al confirmar</dd></div>
+							{/if}
+							<div><dt>Después</dt><dd><b class="num">{pesos(plan.precio)}</b> cada mes, el día {primerCobro.getDate()}</dd></div>
+							<div><dt>Medio de pago</dt><dd>Mercado Pago · tarjeta o dinero en cuenta</dd></div>
+						</dl>
+						<div class="total">
+							<span>Hoy pagás</span>
+							<b class="num">{conPrueba ? pesos(0) : pesos(plan.precio)}</b>
+						</div>
+						<!-- Sin enhance: la respuesta es una redirección a Mercado Pago. -->
+						<form method="POST" action="?/suscribir">
+							<input type="hidden" name="plan" value={plan.clave} />
+							<button class="g-cta pagar">
+								<span class="icono" aria-hidden="true">lock</span>
+								{conPrueba ? `Suscribirme · ${pesos(0)} hoy` : `Pagar ${pesos(plan.precio)}`}
+							</button>
+						</form>
+						<p class="letra-chica">
+							{conPrueba ? `No se cobra nada hasta que termine la prueba. ` : ''}Te lleva a Mercado Pago para cargar el medio de pago. Precios finales en pesos, con
+							impuestos incluidos. <a href="/terminos">Términos</a> · <a href="/privacidad">Privacidad</a>
+						</p>
+					</section>
+				</div>
+			{/if}
 			{#if !esDuenio}<p class="g-nota pad">La suscripción la elige la dueña o el dueño del&nbsp;negocio.</p>{/if}
 			{#if esDuenio && deApple && vigente}<p class="g-nota pad">Tu plan se paga con la App Store. Para cambiarlo: {COMO_APPLE}</p>{/if}
 		</section>
@@ -435,7 +499,205 @@
 		gap: 20px;
 		align-items: start;
 	}
+	.carrito {
+		display: grid;
+		grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+		gap: 18px;
+		padding: 20px;
+		border-top: 1px solid #f0e8d8;
+		background: #fbf7ef;
+		border-radius: 0 0 22px 22px;
+	}
+	.rotulo {
+		display: block;
+		margin: 0 0 10px;
+		font: var(--tl-rotulo);
+		letter-spacing: var(--tl-rotulo-ls);
+		text-transform: uppercase;
+		color: var(--tl-sub);
+	}
+	.opciones {
+		border: 0;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 10px;
+		align-content: start;
+	}
+	.opciones legend {
+		padding: 0;
+	}
+	.opcion {
+		position: relative;
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		gap: 12px;
+		align-items: center;
+		padding: 16px;
+		border-radius: 18px;
+		background: var(--tl-papel);
+		border: 2px solid var(--tl-linea);
+		cursor: pointer;
+		transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+	}
+	.opcion:hover {
+		border-color: var(--tl-linea-2);
+	}
+	.opcion.on {
+		border-color: var(--tl-menta);
+		box-shadow: 0 14px 30px -22px rgba(23, 128, 90, 0.8);
+	}
+	.opcion input {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+	.opcion:has(input:focus-visible) {
+		outline: 3px solid var(--tl-menta);
+		outline-offset: 2px;
+	}
+	.opcion-marca .icono {
+		font-size: 24px;
+		color: var(--tl-sub);
+	}
+	.opcion.on .opcion-marca .icono {
+		color: var(--tl-menta-texto);
+	}
+	.opcion-titulo {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 18px;
+		font-weight: 900;
+		letter-spacing: -0.02em;
+	}
+	.opcion-titulo .recomendado {
+		margin: 0;
+	}
+	.opcion-texto {
+		display: block;
+		margin-top: 2px;
+		font-size: 13px;
+		line-height: 1.4;
+		color: var(--tl-sub);
+		text-wrap: pretty;
+	}
+	.opcion-precio {
+		text-align: right;
+		display: flex;
+		flex-direction: column;
+	}
+	.opcion-precio b {
+		font-size: 22px;
+		letter-spacing: -0.03em;
+	}
+	.opcion-precio small {
+		font-size: 12px;
+		color: var(--tl-sub);
+	}
+	.resumen {
+		align-self: start;
+		position: sticky;
+		top: 16px;
+		padding: 18px;
+		border-radius: 20px;
+		background: var(--tl-papel);
+		box-shadow: 0 24px 48px -34px rgba(15, 35, 40, 0.55);
+		border: 1px solid var(--tl-linea);
+	}
+	.linea-plan {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		gap: 12px;
+		align-items: center;
+		padding-bottom: 14px;
+		border-bottom: 2px dashed var(--tl-linea-2);
+	}
+	.linea-plan > .icono {
+		width: 40px;
+		height: 40px;
+		display: grid;
+		place-items: center;
+		border-radius: 12px;
+		background: var(--tl-menta);
+		color: var(--tl-petroleo-hondo);
+	}
+	.linea-plan b {
+		display: block;
+		font-size: 16px;
+	}
+	.linea-plan small {
+		display: block;
+		font-size: 12px;
+		color: var(--tl-sub);
+	}
+	.linea-plan > b.num {
+		font-size: 18px;
+	}
+	.cuentas {
+		margin: 12px 0;
+		display: grid;
+		gap: 8px;
+	}
+	.cuentas div {
+		display: flex;
+		justify-content: space-between;
+		gap: 12px;
+		font-size: 14px;
+	}
+	.cuentas dt {
+		color: var(--tl-sub);
+		white-space: nowrap;
+	}
+	.cuentas dd {
+		margin: 0;
+		text-align: right;
+		color: var(--tl-tinta);
+	}
+	.cuentas dd.menta {
+		color: var(--tl-menta-texto);
+		font-weight: 700;
+	}
+	.total {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		padding: 14px 0;
+		border-top: 2px dashed var(--tl-linea-2);
+		font-weight: 700;
+	}
+	.total b {
+		font-size: 32px;
+		font-weight: 900;
+		letter-spacing: -0.04em;
+	}
+	.pagar {
+		width: 100%;
+		justify-content: center;
+		gap: 8px;
+	}
+	.letra-chica {
+		margin: 10px 0 0;
+		font-size: 12px;
+		line-height: 1.5;
+		color: var(--tl-sub);
+		text-wrap: pretty;
+	}
+	.letra-chica a {
+		color: var(--tl-menta-texto);
+	}
+	/* El carrito se acomoda a su columna (no a la pantalla): angosta, el resumen va abajo. */
+	@container planes (max-width: 720px) {
+		.carrito {
+			grid-template-columns: 1fr;
+			padding: 16px;
+		}
+		.resumen {
+			position: static;
+		}
+	}
 	.planes {
+		container: planes / inline-size;
 		border-radius: 22px;
 		box-shadow: 0 20px 40px -30px rgba(15, 35, 40, 0.5);
 	}

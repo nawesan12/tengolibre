@@ -711,6 +711,7 @@ struct SuscripcionVista: View {
     @State private var comprando: String?
     @State private var administrar = false
     @State private var restaurando = false
+    @State private var elegido = ""
 
     /// Qué trae cada plan (las mismas filas que la web).
     private let filas: [(String, String, String)] = [
@@ -799,54 +800,150 @@ struct SuscripcionVista: View {
 
     @ViewBuilder private var planesTienda: some View {
         if !cargoTienda {
-            ForEach(0..<2, id: \.self) { _ in Esqueleto(alto: 160, radio: 20) }
+            ForEach(0..<2, id: \.self) { _ in Esqueleto(alto: 96, radio: 18) }
+            Esqueleto(alto: 260, radio: 20)
         } else if productos.isEmpty {
             VacioQueEnsena(rayas: "Pronto", titulo: "Los planes no cargaron", texto: "La App Store no respondió. Probá de nuevo en un rato.") {
                 Button("Reintentar") { Task { await cargarTienda() } }.buttonStyle(BotonContorno(alto: 48, tam: 15))
             }
         } else {
-            ForEach(productos, id: \.id) { p in tarjetaPlan(p) }
+            Text("1 · ELEGÍ TU PLAN").rotulo().padding(.horizontal, 4)
+            ForEach(productos, id: \.id) { p in opcionPlan(p) }
+            if let p = elegidoProducto { incluye(p) }
+            Text("2 · TU SUSCRIPCIÓN").rotulo().padding(.horizontal, 4).padding(.top, 6)
+            if let p = elegidoProducto { carrito(p) }
             botonRestaurar
             legales
         }
     }
 
-    private func tarjetaPlan(_ p: Product) -> some View {
+    private static let descripcion: [String: String] = [
+        "inicial": "Para empezar: turnos online, agenda y recordatorios, hasta 2 profesionales.",
+        "completo": "Todo Tengo Libre: señas, membresías, reportes, IA y sin límite de equipo."
+    ]
+
+    private var elegidoProducto: Product? {
+        productos.first { $0.id == elegido } ?? productos.first { Compras.productos[$0.id] == "completo" } ?? productos.first
+    }
+
+    private func opcionPlan(_ p: Product) -> some View {
         let clave = Compras.productos[p.id] ?? ""
-        let completo = clave == "completo"
-        let col = completo ? 2 : 1
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(p.displayName.isEmpty ? (completo ? "Completo" : "Inicial") : p.displayName).font(Tipo.lato(22, .black))
-                if completo {
-                    Text("RECOMENDADO").font(Tipo.lato(10, .black)).tracking(0.8).padding(.horizontal, 8).frame(height: 22)
-                        .foregroundStyle(C.petroleoHondo).background(C.menta, in: Capsule())
+        let on = elegidoProducto?.id == p.id
+        return Button {
+            withAnimation(Movimiento.tocar) { elegido = p.id }
+            Haptico.seleccion()
+        } label: {
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: on ? "largecircle.fill.circle" : "circle").font(.system(size: 24))
+                    .foregroundStyle(on ? C.mentaTexto : C.sub)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(p.displayName.isEmpty ? Formato.mayuscula(clave) : p.displayName).font(Tipo.lato(19, .black)).tracking(-0.4)
+                        if clave == "completo" {
+                            Text("RECOMENDADO").font(Tipo.lato(10, .black)).tracking(0.8).padding(.horizontal, 7).frame(height: 20)
+                                .foregroundStyle(C.petroleoHondo).background(C.menta, in: Capsule())
+                        }
+                    }
+                    Text(Self.descripcion[clave] ?? p.description).font(Tipo.lato(13)).foregroundStyle(C.sub).multilineTextAlignment(.leading)
                 }
-                Spacer()
+                Spacer(minLength: 4)
                 VStack(alignment: .trailing, spacing: 0) {
-                    Text(p.displayPrice).font(Tipo.lato(22, .black)).monospacedDigit()
+                    Text(p.displayPrice).font(Tipo.lato(20, .black)).monospacedDigit()
                     Text("por mes").font(Tipo.lato(12)).foregroundStyle(C.sub)
                 }
             }
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(filas, id: \.0) { f in
-                    let v = col == 1 ? f.1 : f.2
-                    HStack(spacing: 8) {
-                        Image(systemName: v == "No" ? "minus.circle" : "checkmark.circle.fill").foregroundStyle(v == "No" ? C.linea : C.mentaTexto)
-                        Text(f.0).font(Tipo.lato(14)).foregroundStyle(v == "No" ? C.sub : C.tinta)
-                        Spacer(minLength: 0)
-                        if v != "Sí" && v != "No" { Text(v).font(Tipo.lato(13, .bold)).foregroundStyle(C.sub) }
-                    }
+            .foregroundStyle(C.tinta).padding(16)
+            .background(C.tarjeta, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(on ? C.menta : C.linea, lineWidth: 2))
+            .shadow(color: on ? Color(hex: 0x17805A, alfa: 0.25) : .clear, radius: 14, y: 10)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    private func incluye(_ p: Product) -> some View {
+        let col = Compras.productos[p.id] == "completo" ? 2 : 1
+        return VStack(alignment: .leading, spacing: 7) {
+            Text("QUÉ INCLUYE").rotulo()
+            ForEach(filas, id: \.0) { f in
+                let v = col == 1 ? f.1 : f.2
+                HStack(spacing: 8) {
+                    Image(systemName: v == "No" ? "minus.circle" : "checkmark.circle.fill").foregroundStyle(v == "No" ? C.linea : C.mentaTexto)
+                    Text(f.0).font(Tipo.lato(14)).foregroundStyle(v == "No" ? C.sub : C.tinta).strikethrough(v == "No", color: C.sub)
+                    Spacer(minLength: 0)
+                    if v != "Sí" && v != "No" { Text(v).font(Tipo.lato(13, .bold)).foregroundStyle(C.sub) }
                 }
             }
+        }
+        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+        .background(C.fondo, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .animation(Movimiento.tocar, value: p.id)
+    }
+
+    /// El «carrito»: el plan, cuándo y cuánto se cobra, el medio de pago y el total de hoy.
+    private func carrito(_ p: Product) -> some View {
+        let nombre = p.displayName.isEmpty ? Formato.mayuscula(Compras.productos[p.id] ?? "") : p.displayName
+        let dia = Formato.calendario.component(.day, from: Date())
+        let quedanPrueba = (s?.pruebaHasta).map { $0 > Date() } ?? false
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Image(systemName: "crown.fill").font(.system(size: 18, weight: .bold)).foregroundStyle(C.petroleoHondo)
+                    .frame(width: 40, height: 40).background(C.menta, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Plan \(nombre)").font(Tipo.lato(16, .bold))
+                    Text("Mensual · se renueva sola · cancelás cuando quieras").font(Tipo.lato(12)).foregroundStyle(C.sub)
+                }
+                Spacer(minLength: 4)
+                Text(p.displayPrice).font(Tipo.lato(17, .black)).monospacedDigit()
+            }
+            .padding(.bottom, 14)
+            Troquel(vertical: false)
+            VStack(spacing: 9) {
+                fila("Primer cobro", "hoy, al confirmar")
+                fila("Después", "\(p.displayPrice) cada mes, el día \(dia)")
+                fila("Medio de pago", "tu cuenta de Apple")
+                if quedanPrueba {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "info.circle").foregroundStyle(C.pagoTinta)
+                        Text("Te quedan \(s?.diasDePrueba ?? 0) días de prueba. Si te suscribís desde el iPhone, Apple cobra hoy.")
+                            .font(Tipo.lato(12)).foregroundStyle(C.pagoTinta)
+                    }
+                    .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(C.pagoFondo, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+            }
+            .padding(.vertical, 14)
+            Troquel(vertical: false)
+            HStack(alignment: .firstTextBaseline) {
+                Text("Hoy pagás").font(Tipo.lato(16, .bold))
+                Spacer()
+                Text(p.displayPrice).font(Tipo.lato(32, .black)).tracking(-1).monospacedDigit()
+                    .contentTransition(.numericText()).animation(Movimiento.tocar, value: p.id)
+            }
+            .padding(.vertical, 14)
             Button {
                 Task { await comprar(p) }
-            } label: { Text(comprando == p.id ? "Abriendo la App Store…" : "Suscribirme por \(p.displayPrice)/mes") }
-            .buttonStyle(completo ? AnyButtonStyle(BotonMenta(alto: 52, conSombra: false)) : AnyButtonStyle(BotonContorno(alto: 52, tam: 16)))
+            } label: {
+                HStack(spacing: 8) {
+                    if comprando == p.id { ProgressView().tint(C.petroleoHondo) } else { Image(systemName: "apple.logo") }
+                    Text(comprando == p.id ? "Abriendo la App Store…" : "Pagar \(p.displayPrice) con Apple")
+                }
+            }
+            .buttonStyle(BotonMenta(alto: 56, conSombra: true))
             .disabled(comprando != nil)
         }
-        .foregroundStyle(C.tinta).padding(16).tarjeta()
-        .overlay { if completo { RoundedRectangle(cornerRadius: Radio.tarjeta, style: .continuous).strokeBorder(C.menta, lineWidth: 2) } }
+        .foregroundStyle(C.tinta).padding(18)
+        .background(C.tarjeta, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(C.linea, lineWidth: 1))
+        .shadow(color: Color(hex: 0x0F2328, alfa: 0.12), radius: 20, y: 14)
+    }
+
+    private func fila(_ a: String, _ b: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(a).font(Tipo.lato(14)).foregroundStyle(C.sub)
+            Spacer(minLength: 12)
+            Text(b).font(Tipo.lato(14, .bold)).multilineTextAlignment(.trailing)
+        }
     }
 
     private var botonRestaurar: some View {
