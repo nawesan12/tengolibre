@@ -73,9 +73,9 @@ struct PlataHoy: View {
     private func cargar() async {
         let cal = Formato.calendario, hoy = cal.startOfDay(for: Date())
         let lunes = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: hoy)) ?? hoy
-        let dias = cal.dateComponents([.day], from: lunes, to: hoy).day ?? 0
+        let transcurridos = cal.dateComponents([.day], from: lunes, to: hoy).day ?? 0
         let lunesAntes = cal.date(byAdding: .day, value: -7, to: lunes) ?? lunes
-        let hastaAntes = cal.date(byAdding: .day, value: dias, to: lunesAntes) ?? lunesAntes
+        let hastaAntes = cal.date(byAdding: .day, value: transcurridos, to: lunesAntes) ?? lunesAntes
         caja = try? await estado.api.get("/v1/panel/caja", query: [URLQueryItem(name: "fecha", value: Formato.diaISO(hoy))])
         let r: Rep? = try? await estado.api.get("/v1/panel/reportes", query: [URLQueryItem(name: "desde", value: Formato.diaISO(lunes)), URLQueryItem(name: "hasta", value: Formato.diaISO(hoy))])
         semana = r?.resumen.ingresos
