@@ -136,6 +136,7 @@ sólo lectura), `web`, `problema`, `archivos`, `correo`, `auditoria`, `trabajos`
 - Registro común de todas las apps: `/opt/VPS.md`.
 
 ### Pendiente
+- **Suscripciones de Apple (5/11):** el acuerdo de apps pagas está firmado, pero en «Información del usuario pendiente». Faltan la cuenta bancaria y el W-8BEN, que Apple habilita después de procesar la entidad legal. Cuando quede activo, correr `asc_suscripciones.py` (credenciales-apple/tengolibre-scripts) para la URL de sandbox y los planes, que hoy están en MISSING_METADATA. TestFlight externo: grupo «Socios» con link público en las cuatro apps (`asc_socios.py`).
 1. App de iPhone (handoff en ~/Trabajo/vimo/tengolibreiphone.zip; App Store Connect 6829332747).
 2. Mercado Pago: tildar «Order (Mercado Pago)» en el webhook, desplegar y probar una seña real (ver arriba). Cuando no queden señas con preferencias, sacar `LeerPago`/`Devolver` y el tópico `payment`.
 3. Admin: listo por email (`TENGOLIBRE_ADMINS_EMAILS` con nsantillandev@gmail.com y nahuel@grupovimo.com.ar); `TENGOLIBRE_ADMINS` (IDs) queda vacío.
