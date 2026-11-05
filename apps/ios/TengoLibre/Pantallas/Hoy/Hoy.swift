@@ -70,7 +70,16 @@ struct Hoy: View {
         case .error(let m):
             ErrorConSalida(titulo: "No pudimos traer tu día", texto: "Tus turnos están a salvo. \(m)") { Task { await cargar() } }
         default:
-            if delDia.filter(\.ocupa).isEmpty { vacio } else { paraAtender; pila }
+            if delDia.filter(\.ocupa).isEmpty {
+                vacio
+                AtajosHoy()
+                DescubrirHoy()
+            } else {
+                paraAtender
+                AtajosHoy()
+                pila
+                DescubrirHoy()
+            }
         }
     }
 

@@ -57,6 +57,7 @@ struct NuevoTurnoInicio: Identifiable, Equatable {
 struct Principal: View {
     @Environment(Estado.self) private var estado
     @State private var nav = Navegacion()
+    @AppStorage("recorridoVisto") private var recorridoVisto = false
 
     private var pestanas: [Pestana] {
         estado.esProfesional ? [.hoy, .agenda, .resenas, .mas] : [.hoy, .agenda, .espera, .clientes, .mas]
@@ -103,6 +104,10 @@ struct Principal: View {
                 .environment(nav)
         }
         .task(id: estado.rutaPendiente) { await abrirRuta() }
+        // La primera vez: el recorrido por todo lo que trae la app.
+        .fullScreenCover(isPresented: Binding(get: { !recorridoVisto }, set: { if !$0 { recorridoVisto = true } })) {
+            Recorrido { recorridoVisto = true }.environment(estado)
+        }
     }
 
     @ViewBuilder

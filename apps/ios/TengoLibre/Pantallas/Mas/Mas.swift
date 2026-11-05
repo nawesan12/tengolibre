@@ -7,7 +7,7 @@ enum DestinoMas: Hashable {
     case servicios, equipo, profesional(String), miHorario
     case membresias, cupones, referidos, penalidades, etiquetas, caja
     case reportes, miWeb, plantillas, dominio, integraciones
-    case configuracion, avisosClientes, whatsapp, auditoria, sucursales, cuenta
+    case configuracion, avisosClientes, whatsapp, auditoria, sucursales, cuenta, recorrido
 }
 
 extension View {
@@ -42,6 +42,7 @@ extension View {
                 case .auditoria: Auditoria()
                 case .sucursales: Sucursales()
                 case .cuenta: Cuenta()
+                case .recorrido: RecorridoOtraVez()
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -112,7 +113,8 @@ struct Mas: View {
                 out.append(("AJUSTES", ajustes))
             }
         }
-        out.append(("CUENTA", [Item(destino: .cuenta, simbolo: "person.crop.circle", titulo: "Tu cuenta", detalle: estado.persona?.email ?? "")]))
+        out.append(("CUENTA", [Item(destino: .recorrido, simbolo: "play.circle", titulo: "Qué podés hacer", detalle: "El recorrido y cómo sumar el widget"),
+                               Item(destino: .cuenta, simbolo: "person.crop.circle", titulo: "Tu cuenta", detalle: estado.persona?.email ?? "")]))
         return out
     }
 

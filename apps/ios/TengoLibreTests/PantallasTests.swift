@@ -189,11 +189,13 @@ final class PantallasTests: XCTestCase {
     func testSecciones() {
         let todas: [DestinoMas] = [.primerosPasos, .resenas, .suscripcion, .diasLibres, .cobros, .servicios, .equipo, .profesional("p1"), .miHorario,
                                    .membresias, .cupones, .referidos, .penalidades, .etiquetas, .caja, .reportes, .miWeb, .plantillas, .dominio,
-                                   .integraciones, .configuracion, .avisosClientes, .whatsapp, .auditoria, .sucursales, .cuenta]
+                                   .integraciones, .configuracion, .avisosClientes, .whatsapp, .auditoria, .sucursales, .cuenta, .recorrido]
         for d in todas {
             montar(NavigationLinkDirecto(destino: d), segundos: 1, nombre: "Seccion-\(String(describing: d).filter { $0.isLetter || $0.isNumber })")
         }
     }
+    func testRecorrido() { montar(Recorrido {}, segundos: 1) }
+    func testRecorridoProfesional() { montar(Recorrido {}, rol: "profesional", segundos: 1) }
     func testIngreso() { montar(Ingreso(), segundos: 1) }
     func testElegirModo() { montar(ElegirModo(), segundos: 1) }
     func testElegirNegocio() { montar(ElegirNegocio(), segundos: 1) }
@@ -243,6 +245,7 @@ private struct NavigationLinkDirecto: View {
         case .auditoria: Auditoria()
         case .sucursales: Sucursales()
         case .cuenta: Cuenta()
+        case .recorrido: RecorridoOtraVez()
         }
     }
 }
