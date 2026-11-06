@@ -1,4 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Tengo Libre</string>
+    <string name="widget_dia_descripcion">El próximo turno y lo que sigue.</string>
+    <string name="atajo_proximo">Mi próximo turno</string>
+    <string name="atajo_proximo_largo">Qué tengo hoy</string>
+    <string name="atajo_cargar">Cargar un turno</string>
+    <string name="atajo_caja">Caja de hoy</string>
+    <string name="atajo_caja_largo">Ver la caja de hoy</string>
+    <string name="atajo_agenda">Agenda</string>
+    <string name="atajo_agenda_largo">Ver la agenda</string>
+    <string name="atajo_espera">Lista de espera</string>
+    <string name="atajo_espera_largo">Ver la lista de espera</string>
 </resources>

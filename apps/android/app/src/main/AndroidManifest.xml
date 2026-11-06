@@ -3,6 +3,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Android 16: el turno en curso como Live Update (la Live Activity de iOS). -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <!-- Guardar el QR en la galería en Android 8 y 9 (desde el 10 no hace falta). -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
@@ -65,6 +67,25 @@
                 <data android:pathPrefix="/invitacion/" />
                 <data android:pathPrefix="/panel/turnos/" />
             </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- Firebase se inicia a mano (push/Push.kt): sin config no hay push. -->
+        <service android:name=".push.ServicioPush" android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Las acciones de los avisos que no abren la app (Confirmar, Avisar a la lista, Responder, Atendido). -->
+        <receiver android:name=".push.AccionesPush" android:exported="false" />
+
+        <!-- «Tu día» (TengoLibreWidgets en iOS). -->
+        <receiver android:name=".widgets.WidgetDiaReceiver" android:exported="true" android:label="Tu día">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_dia" />
+        </receiver>
     </application>
 </manifest>

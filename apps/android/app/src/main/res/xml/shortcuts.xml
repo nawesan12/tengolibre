@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Los atajos (Nucleo/Atajos.swift en iOS: AppShortcutsProvider). Se ven al mantener apretado el ícono y en el
+     Asistente. «Mi próximo turno» abre Hoy: en Android un atajo no puede responder sin abrir la app. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="proximo" android:enabled="true" android:icon="@drawable/atajo_proximo"
+        android:shortcutShortLabel="@string/atajo_proximo" android:shortcutLongLabel="@string/atajo_proximo_largo">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="ar.com.tengolibre.app"
+            android:targetClass="ar.com.tengolibre.app.MainActivity" android:data="tengolibre://hoy" />
+    </shortcut>
+    <shortcut android:shortcutId="cargar" android:enabled="true" android:icon="@drawable/atajo_cargar"
+        android:shortcutShortLabel="@string/atajo_cargar" android:shortcutLongLabel="@string/atajo_cargar">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="ar.com.tengolibre.app"
+            android:targetClass="ar.com.tengolibre.app.MainActivity" android:data="tengolibre://nuevo" />
+    </shortcut>
+    <shortcut android:shortcutId="caja" android:enabled="true" android:icon="@drawable/atajo_caja"
+        android:shortcutShortLabel="@string/atajo_caja" android:shortcutLongLabel="@string/atajo_caja_largo">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="ar.com.tengolibre.app"
+            android:targetClass="ar.com.tengolibre.app.MainActivity" android:data="tengolibre://caja" />
+    </shortcut>
+    <shortcut android:shortcutId="agenda" android:enabled="true" android:icon="@drawable/atajo_agenda"
+        android:shortcutShortLabel="@string/atajo_agenda" android:shortcutLongLabel="@string/atajo_agenda_largo">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="ar.com.tengolibre.app"
+            android:targetClass="ar.com.tengolibre.app.MainActivity" android:data="tengolibre://agenda" />
+    </shortcut>
+    <shortcut android:shortcutId="espera" android:enabled="true" android:icon="@drawable/atajo_espera"
+        android:shortcutShortLabel="@string/atajo_espera" android:shortcutLongLabel="@string/atajo_espera_largo">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="ar.com.tengolibre.app"
+            android:targetClass="ar.com.tengolibre.app.MainActivity" android:data="tengolibre://espera" />
+    </shortcut>
+</shortcuts>

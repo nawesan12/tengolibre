@@ -18,11 +18,16 @@ import ar.com.tengolibre.app.app.LocalEstado
 import ar.com.tengolibre.app.app.Raiz
 import ar.com.tengolibre.app.app.Ruta
 import ar.com.tengolibre.app.nucleo.Clerk
+import ar.com.tengolibre.app.nucleo.Compras
 import ar.com.tengolibre.app.nucleo.Guardado
 import ar.com.tengolibre.app.nucleo.Llavero
 import ar.com.tengolibre.app.nucleo.ModoPrueba
 import ar.com.tengolibre.app.nucleo.Preferencias
+import ar.com.tengolibre.app.pantallas.mas.EstadoNegocio
+import ar.com.tengolibre.app.push.EnPrimerPlano
+import ar.com.tengolibre.app.push.Push
 import ar.com.tengolibre.app.tema.Haptico
+import ar.com.tengolibre.app.widgets.Widgets
 import ar.com.tengolibre.app.tema.TemaTL
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
@@ -53,6 +58,19 @@ class MainActivity : ComponentActivity() {
         estado.alPedirPermisoPush = { pedirPermisoAvisos() }
         estado.compartirTexto = { t -> startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t), null)) }
         estado.abrirLink = { u -> runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u))) } }
+        // Push (FCM), los widgets y lo que mira «Potenciá tu negocio».
+        Push.iniciar(applicationContext)
+        estado.alPedirTokenPush = { Push.registrar(applicationContext, estado) }
+        estado.alPedirAvisosClienta = {
+            if (!Preferencias.bool("avisosClientaPedidos")) { Preferencias.ponerBool("avisosClientaPedidos", true); pedirPermisoAvisos() }
+            Push.registrar(applicationContext, estado)
+        }
+        EstadoNegocio.hayAvisos = { Push.hayPermiso(applicationContext) }
+        EstadoNegocio.hayWidget = { Widgets.hay(applicationContext) }
+        // Con la app abierta, un aviso que llega pone al día la campanita y la pantalla (willPresent en iOS).
+        EnPrimerPlano.alAviso = { lifecycleScope.launch { estado.version += 1; estado.refrescar() } }
+        // Renovaciones y compras de Google Play que quedaron sin registrar.
+        Compras.escuchar(applicationContext, estado)
         atender(intent)
         setContent {
             TemaTL(Preferencias.texto("tema") ?: "auto") {
@@ -86,6 +104,9 @@ class MainActivity : ComponentActivity() {
             estado.vueltaClerk(u.getQueryParameter("rotating_token_nonce"), applicationContext)
             return
         }
+        // Un aviso de otro negocio de la persona: se trabaja con ese.
+        i.getStringExtra("negocio")?.let { id -> if (estado.negocio?.id != id) estado.negocios.firstOrNull { it.id == id }?.let { estado.usar(it) } }
+        if (i.getStringExtra("tipo") == "resena") { estado.abrir(Ruta.resenas); return }
         Ruta.de(u.toString())?.let { estado.abrir(it) }
     }
 
