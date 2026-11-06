@@ -3,12 +3,16 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Guardar el QR en la galería en Android 8 y 9 (desde el 10 no hace falta). -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <!-- Custom Tabs para el ingreso con Clerk (Google y Apple). -->
     <queries>
         <intent>
             <action android:name="android.support.customtabs.action.CustomTabsService" />
         </intent>
+        <package android:name="com.instagram.android" />
+        <package android:name="com.whatsapp" />
     </queries>
 
     <application
@@ -18,6 +22,14 @@
         android:networkSecurityConfig="@xml/red"
         android:supportsRtl="false"
         android:theme="@style/Tema.TengoLibre">
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="ar.com.tengolibre.app.archivos"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/archivos" />
+        </provider>
 
         <activity
             android:name=".MainActivity"
