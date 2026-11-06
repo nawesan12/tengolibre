@@ -1,7 +1,9 @@
 package ar.com.tengolibre.app.pantallas.mas
 
 import android.app.Activity
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -98,6 +101,15 @@ private fun GuardarEnBloque(texto: String = "Guardar", habilitado: Boolean = tru
     Box(Modifier.padding(12.dp)) { BotonGuardar({ alcance.launch { guardando = true; accion(); guardando = false } }, texto, guardando, habilitado) }
 }
 
+/** Un interruptor suelto, sin título (Toggle con .labelsHidden() en iOS). */
+@Composable
+private fun Llave(activo: Boolean, alCambiar: (Boolean) -> Unit) {
+    val x by animateFloatAsState(if (activo) 1f else 0f, Movimiento.tocar(), label = "llave")
+    Box(Modifier.size(51.dp, 31.dp).clip(CircleShape).background(if (activo) C.menta else C.linea).clickable { alCambiar(!activo) }.padding(2.dp)) {
+        Box(Modifier.offset(x = (20 * x).dp).size(27.dp).sombra(CircleShape, Color.Black.copy(alpha = 0.15f), 4.dp, y = 2.dp).clip(CircleShape).background(Color.White))
+    }
+}
+
 /** Un Picker .segmented chico dentro de un renglón. */
 @Composable
 private fun SegmentadoChico(opciones: List<Pair<String, String>>, elegido: String, alElegir: (String) -> Unit) {
@@ -164,6 +176,7 @@ fun Cobros() {
                 if (config.modo == "fija") add { RenglonPesos("Monto", config.senaFija) { config = config.copy(senaFija = it) } }
                 add { GuardarEnBloque(habilitado = habilitado) { estado.intentar("Guardamos cómo cobrás") { estado.api.hacer("PUT", "/v1/panel/cobros", config) } } }
             }.toTypedArray())
+            if (!habilitado) Box(Modifier.matchParentSize().clickable(remember { MutableInteractionSource() }, null) {})
         }
         if (pagos.isNotEmpty()) Bloque("Últimos pagos", "", *pagos.take(40).map { p -> @Composable {
             Renglon("${p.cliente} · ${Formato.pesos(p.monto)}", "${p.servicio} · ${Formato.diaYHora(p.inicio)} · ${estadoPago(p)}") {
@@ -411,7 +424,7 @@ fun Cupones() {
         } else Bloque("", "", *l.map { c -> @Composable {
             Box(Modifier.clickable { editando = c }) {
                 Renglon(c.codigo, "${c.texto} · ${c.usos}${c.maxUsos?.let { " de $it" } ?: ""} usos${c.hasta?.let { " · hasta el ${Formato.dia(it)}" } ?: ""}") {
-                    Interruptor("", c.activo, { v -> alcance.launch { estado.intentar(if (v) "Activamos el cupón" else "Pausamos el cupón") { estado.api.hacer("PATCH", "/v1/panel/cupones/${c.id}", Activo(v)) }; cargar() } })
+                    Llave(c.activo) { v -> alcance.launch { estado.intentar(if (v) "Activamos el cupón" else "Pausamos el cupón") { estado.api.hacer("PATCH", "/v1/panel/cupones/${c.id}", Activo(v)) }; cargar() } }
                 }
             }
         } }.toTypedArray())

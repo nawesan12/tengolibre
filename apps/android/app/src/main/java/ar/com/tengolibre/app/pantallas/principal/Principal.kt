@@ -1,5 +1,6 @@
 package ar.com.tengolibre.app.pantallas.principal
 
+import androidx.compose.runtime.key
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
@@ -46,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
@@ -153,20 +155,30 @@ fun Principal() {
         Box(Modifier.fillMaxSize().background(C.fondo)) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f)) {
-                    val pila = nav.pila
-                    AnimatedContent(nav.pestana to pila.lastOrNull(), transitionSpec = {
-                        if (initialState.first != targetState.first) fadeIn() togetherWith fadeOut()
-                        else if (pila.size > 0 && targetState.second != null) slideInHorizontally { it } togetherWith slideOutHorizontally { -it / 3 }
-                        else slideInHorizontally { -it / 3 } togetherWith slideOutHorizontally { it }
-                    }, label = "pantalla") { (p, arriba) ->
-                        if (arriba == null) Destinos.raiz(p) else Destinos.destino(arriba)
+                    // Como el TabView de iOS: cada pestaña que se abrió sigue viva (su scroll, sus filtros, lo cargado);
+                    // sólo se muestra la elegida. Dentro de cada una, su pila con el deslizamiento de NavigationStack.
+                    val visitadas = remember { mutableStateListOf(nav.pestana) }
+                    if (nav.pestana !in visitadas) visitadas.add(nav.pestana)
+                    pestanas.filter { it in visitadas }.forEach { p ->
+                        key(p) {
+                            val pila = nav.pilas.getValue(p)
+                            Box(Modifier.fillMaxSize().mostrarSi(p == nav.pestana)) {
+                                AnimatedContent(pila.size to pila.lastOrNull(), transitionSpec = {
+                                    if (targetState.first > initialState.first) slideInHorizontally { it } togetherWith slideOutHorizontally { -it / 3 }
+                                    else slideInHorizontally { -it / 3 } togetherWith slideOutHorizontally { it }
+                                }, label = "pila") { (_, arriba) ->
+                                    if (arriba == null) Destinos.raiz(p) else Destinos.destino(arriba)
+                                }
+                            }
+                        }
                     }
                     BackHandler(nav.pila.isNotEmpty()) { nav.pila.removeAt(nav.pila.lastIndex) }
                 }
                 BarraPestanas(pestanas, nav.pestana, { nav.pestana = it }, estado.esProfesional)
             }
-            if (nav.pestana in listOf(Pestana.hoy, Pestana.clientes) && nav.pila.isEmpty()) {
-                Box(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = 49.dp + 16.dp)) { BotonTurnoFlotante() }
+            // Como en iOS, flota en Hoy y Clientes también con una pantalla apilada (la caja, la ficha de una clienta).
+            if (nav.pestana in listOf(Pestana.hoy, Pestana.clientes)) {
+                Box(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = (49 + 16 + 34 - 20).dp)) { BotonTurnoFlotante() }
             }
             Hoja(nav.turno != null, { nav.turno = null }, listOf(Altura.media, Altura.grande)) { nav.turno?.let { Destinos.detalleTurno(it) } }
             Hoja(nav.nuevo != null, { nav.nuevo = null }) { nav.nuevo?.let { Destinos.nuevoTurno(it) } }
@@ -274,7 +286,7 @@ fun Cabecera(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (volver.isNotEmpty()) {
-            Row(Modifier.offset(x = (-6).dp).height(44.dp).clickable { nav?.pila?.let { if (it.isNotEmpty()) it.removeAt(it.lastIndex) } }, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.recortarAlto(8.dp, 8.dp).offset(x = (-6).dp).height(44.dp).clickable { nav?.pila?.let { if (it.isNotEmpty()) it.removeAt(it.lastIndex) } }, verticalAlignment = Alignment.CenterVertically) {
                 Icono("chevron.left", 22f, C.menta)
                 Texto(volver, Tipo.lato(17f), C.menta)
             }
@@ -299,7 +311,7 @@ fun SelectorNegocio(actual: NegocioDeLaPersona) {
     var abierto by remember { mutableStateOf(false) }
     Box {
         Row(
-            Modifier.offset(y = 4.dp).height(36.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))
+            Modifier.recortarAlto(0.dp, 4.dp).height(36.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))
                 .clickable(enabled = estado.negocios.size > 1) { abierto = true }
                 .semantics { contentDescription = "Negocio: ${actual.nombre}. Cambiar de negocio" }
                 .padding(start = 6.dp, end = 12.dp),
@@ -336,4 +348,17 @@ fun Cuerpo(espacio: Dp = 12.dp, contenido: @Composable ColumnScope.() -> Unit) {
             .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 140.dp),
         verticalArrangement = Arrangement.spacedBy(espacio), content = contenido,
     )
+}
+
+/** `.padding(.vertical, -x)` de SwiftUI: la pieza se dibuja entera pero ocupa menos alto en la columna. */
+private fun Modifier.recortarAlto(arriba: Dp, abajo: Dp): Modifier = layout { medible, restricciones ->
+    val p = medible.measure(restricciones)
+    val a = arriba.roundToPx(); val b = abajo.roundToPx()
+    layout(p.width, maxOf(0, p.height - a - b)) { p.place(0, -a) }
+}
+
+/** Compone igual pero sólo ubica (y dibuja y recibe toques) si se muestra: las pestañas ocultas siguen vivas. */
+private fun Modifier.mostrarSi(visible: Boolean): Modifier = layout { m, c ->
+    val p = m.measure(c)
+    layout(p.width, p.height) { if (visible) p.place(0, 0) }
 }

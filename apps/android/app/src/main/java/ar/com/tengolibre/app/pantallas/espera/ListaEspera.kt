@@ -27,6 +27,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -120,7 +121,7 @@ fun ListaEspera() {
         } catch (e: Exception) { estado.avisar(e) }
     }
 
-    Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
+    Refrescable({ cargar() }, Modifier.fillMaxSize().background(C.fondo)) { Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
         Cabecera("Lista de espera", "$esperando esperando${if (conHueco > 0) " · a $conHueco le${if (conHueco == 1) "" else "s"} sirve un hueco" else ""}") {
             Segmentado(listOf("esperando" to "Esperando", "avisados" to "Avisados", "vencidos" to "Vencidos"), tab, { tab = it })
         }
@@ -187,15 +188,16 @@ fun ListaEspera() {
                                             Tipo.lato(13f, Peso.Bold, numeros = true), C.huecoTinta, tracking = 0.8.sp)
                                     }
                                 }
-                                if (!estado.soloLectura) BotonMentaChico("Avisar", { avisar(a, match) })
+                                Box(Modifier.alpha(if (estado.soloLectura) 0.45f else 1f)) { BotonMentaChico("Avisar", { if (!estado.soloLectura) avisar(a, match) }) }
                             }
                         }
                     }
                 }
             }
         }
-    }
-    Confirmacion(borrar != null, "¿Sacar a ${borrar?.nombre.orEmpty()} de la lista?", "", listOf(OpcionConfirmacion("Sacar de la lista", destructiva = true) { borrar?.let { sacar(it) } }), { borrar = null })
+    } }
+    val b = borrar
+    Confirmacion(b != null, "¿Sacar a ${b?.nombre.orEmpty()} de la lista?", "", listOf(OpcionConfirmacion("Sacar de la lista", destructiva = true) { b?.let { sacar(it) } }), { borrar = null }, volver = "Cancelar")
 }
 
 private fun rango(a: Anotado): String {

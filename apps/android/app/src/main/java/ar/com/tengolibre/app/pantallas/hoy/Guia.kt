@@ -170,6 +170,7 @@ private data class Paso(val simbolo: String, val titulo: String, val texto: Stri
 @Composable
 fun Recorrido(alTerminar: () -> Unit) {
     val estado = LocalEstado.current
+    // «La Isla Dinámica» de iOS acá es la notificación en curso.
     val pasos = if (estado.esProfesional) listOf(
         Paso("sun.max", "Tu día, de un vistazo", "Tus turnos de hoy en orden, con el que está pasando arriba.", listOf("Deslizá un turno para marcarlo atendido", "Tocalo para ver la clienta y llamarla")),
         Paso("beach.umbrella", "Tu horario y tus días libres", "Desde Más los pedís y te avisamos cuando los aprueban.", listOf("Bloqueá un rato o un día", "Pedí vacaciones sin mandar mensajes")),
@@ -221,6 +222,7 @@ fun Recorrido(alTerminar: () -> Unit) {
 @Composable
 fun RecorridoOtraVez() {
     var tour by remember { mutableStateOf(false) }
+    // Los pasos del widget y «El turno en curso» (Isla Dinámica en iOS) siguen cómo se hace en Android.
     PantallaMas("Qué podés hacer", "Todo lo que trae Tengo Libre", recargar = {}) {
         Box(Modifier.fillMaxWidth().tarjeta().clickable { tour = true }) { FilaLista("play.circle", "Ver el recorrido", "Un minuto, cinco pantallas") }
         Bloque("Sumar el widget", "Muestra tu próximo turno y lo que sigue.",

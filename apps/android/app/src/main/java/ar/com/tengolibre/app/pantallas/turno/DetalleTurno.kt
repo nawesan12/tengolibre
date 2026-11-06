@@ -325,7 +325,7 @@ fun DetalleTurno(turnoInicial: Turno, cerrar: () -> Unit) {
     Confirmacion(confirmarCancelar, "¿Cancelar el turno de ${turno.cliente.nombre}?", "Le avisamos y el horario queda libre para otra persona.",
         listOf(OpcionConfirmacion("Cancelar el turno", destructiva = true) { cambiar("cancelado") }), { confirmarCancelar = false })
     Confirmacion(confirmarSiguientes, "¿Cancelar este y los siguientes del turno fijo?", "",
-        listOf(OpcionConfirmacion("Cancelar los siguientes", destructiva = true) { cancelarSiguientes() }), { confirmarSiguientes = false })
+        listOf(OpcionConfirmacion("Cancelar los siguientes", destructiva = true) { cancelarSiguientes() }), { confirmarSiguientes = false }, volver = "Cancelar")
 }
 
 
@@ -447,14 +447,9 @@ fun ColumnScope.Reprogramar(turno: Turno, listo: (Turno) -> Unit, cerrar: () -> 
         Box(Modifier.fillMaxWidth().tarjeta().padding(12.dp)) { CalendarioMes(fecha, { fecha = it }, minimo = hoy) }
         TextoRotulo("Con quién")
         val aptas = profesionales.filter { it.activo && (turno.servicioId == null || it.servicios.isEmpty() || turno.servicioId in it.servicios) }
-        Column(Modifier.fillMaxWidth().tarjeta()) {
-            aptas.forEachIndexed { i, p ->
-                if (i > 0) Box(Modifier.padding(start = 16.dp).fillMaxWidth().height(1.dp).background(C.linea))
-                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { profesional = p.id }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Texto(p.nombre, Tipo.lato(16f), C.tinta, Modifier.weight(1f))
-                    if (profesional == p.id) Icono("checkmark", 16f, C.mentaTexto)
-                }
-            }
+        Row(Modifier.fillMaxWidth().tarjeta().heightIn(min = 52.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Texto("Profesional", Tipo.lato(16f), C.tinta, Modifier.weight(1f))
+            SelectorMenu(aptas.map { Pair<String?, String>(it.id, it.nombre) }, profesional, { profesional = it }, "Profesional")
         }
         TextoRotulo(if (forzar) "Hora" else "Horarios libres")
         Column(Modifier.fillMaxWidth().tarjeta().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

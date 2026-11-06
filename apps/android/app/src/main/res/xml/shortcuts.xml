@@ -12,6 +12,11 @@
         <intent android:action="android.intent.action.VIEW" android:targetPackage="ar.com.tengolibre.app"
             android:targetClass="ar.com.tengolibre.app.MainActivity" android:data="tengolibre://nuevo" />
     </shortcut>
+    <shortcut android:shortcutId="hoy" android:enabled="true" android:icon="@drawable/atajo_hoy"
+        android:shortcutShortLabel="@string/atajo_hoy" android:shortcutLongLabel="@string/atajo_hoy_largo">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="ar.com.tengolibre.app"
+            android:targetClass="ar.com.tengolibre.app.MainActivity" android:data="tengolibre://hoy" />
+    </shortcut>
     <shortcut android:shortcutId="caja" android:enabled="true" android:icon="@drawable/atajo_caja"
         android:shortcutShortLabel="@string/atajo_caja" android:shortcutLongLabel="@string/atajo_caja_largo">
         <intent android:action="android.intent.action.VIEW" android:targetPackage="ar.com.tengolibre.app"

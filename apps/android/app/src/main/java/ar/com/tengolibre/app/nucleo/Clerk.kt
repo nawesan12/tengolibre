@@ -109,9 +109,13 @@ class Clerk(private val ctx: Context, private val http: OkHttpClient, publicable
             cliente = ingreso.cliente
             sesion = ingreso.r.response?.created_session_id
         }
-        if (sesion.isNullOrBlank() || !Regex("^sess_[A-Za-z0-9]+$").matches(sesion)) throw ErrorClerk("cancelado")
+        // Sin sesión no es que la persona canceló (eso lo avisa la vuelta de la Custom Tab): Clerk dejó el
+        // intento a medias (por ejemplo, el alta pide algún dato más). Se avisa con su estado.
+        if (sesion.isNullOrBlank() || !Regex("^sess_[A-Za-z0-9]+$").matches(sesion)) {
+            throw ErrorClerk("sin_sesion_" + (ingreso.r.response?.status ?: "desconocido"))
+        }
         val t = pedir("/client/sessions/$sesion/tokens", "POST", cliente = cliente)
-        val jwt = t.r.jwt ?: throw ErrorClerk("clerk_no_responde")
+        val jwt = t.r.jwt?.takeIf { it.isNotEmpty() } ?: throw ErrorClerk("clerk_no_responde")
         // Tengo Libre sigue con su propia sesión: la de Clerk se cierra. Si falla, vence sola.
         runCatching { pedir("/client/sessions/$sesion/remove", "POST", cliente = t.cliente) }
         return jwt

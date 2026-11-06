@@ -110,6 +110,8 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     var guardadoEn by mutableStateOf<Instant?>(null)
     /** Ingresando con Clerk (la Custom Tab está abierta): el botón muestra la espera. */
     var ingresando by mutableStateOf(false)
+    /** Lo que salió mal al volver de Clerk: Ingreso lo muestra abajo de los botones, como en iOS. */
+    var errorIngreso by mutableStateOf("")
     /** El SSE del panel (en vivo). */
     val enVivo = EnVivo(alcance)
     /** Qué tiene conectado y prendido el negocio (Más, Hoy, «Potenciá tu negocio»). */
@@ -170,6 +172,10 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
             } else {
                 olvidarSesion(); fase = Fase.afuera
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            olvidarSesion(); fase = Fase.afuera
         }
     }
 
@@ -256,6 +262,7 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     suspend fun ingresarCon(proveedor: String, contexto: Context) {
         val c = Clerk(contexto, api.http, BuildConfig.CLERK).takeIf { it.disponible } ?: throw Clerk.ErrorClerk("sin_clave")
         clerk = c
+        errorIngreso = ""
         ingresando = true
         try {
             abrirPestana(c.iniciar(proveedor))
@@ -274,10 +281,15 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         alcance.launch {
             try {
                 ingresarCon(c.completar(nonce))
+                Haptico.exito()
             } catch (e: Clerk.ErrorClerk) {
-                if (e.codigo != "cancelado") avisar(Toast("exclamationmark", "No pudimos entrar", "Probá de nuevo en un rato.", error = true))
+                if (e.codigo != "cancelado") { errorIngreso = "No pudimos entrar. Probá de nuevo."; Haptico.error() }
+            } catch (e: ErrorApi) {
+                errorIngreso = e.detalle; Haptico.error()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
-                avisar(e)
+                errorIngreso = "No pudimos entrar. Probá de nuevo."; Haptico.error()
             } finally {
                 ingresando = false
             }

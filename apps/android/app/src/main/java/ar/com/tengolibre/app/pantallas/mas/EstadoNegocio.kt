@@ -166,7 +166,7 @@ class EstadoNegocio {
 
     fun pasos(estado: Estado): List<Paso> {
         val out = mutableListOf<Paso>()
-        for (p in arranque?.pasos ?: emptyList()) out.add(Paso("a-${p.clave}", if (p.listo) "checkmark" else "circle", p.titulo,
+        for (p in arranque?.pasos ?: emptyList()) out.add(Paso("a-${p.clave}", if (p.listo) "checkmark" else "circle.dashed", p.titulo,
             if (p.obligatorio) "Hace falta para que te reserven" else "Recomendado", p.listo, destinoArranque(p.clave), true))
         if (estado.gestiona) {
             out.add(Paso("mp", "creditcard", "Cobrá señas con Mercado Pago", "Menos ausencias, plata directo a tu cuenta", mp?.conectada == true && (cobro?.modo ?: "sin_cobro") != "sin_cobro", DestinoMas.cobros, false))

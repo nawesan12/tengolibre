@@ -79,6 +79,7 @@ fun Ingreso() {
     fun entrar(con: String) {
         entrando = con
         error = ""
+        estado.errorIngreso = ""
         alcance.launch {
             try {
                 if (con == "apple") estado.ingresarConApple(contexto) else estado.ingresarConGoogle(contexto)
@@ -113,7 +114,7 @@ fun Ingreso() {
                 Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(forma).background(Color.Black).clickable(enabled = entrando == null) { entrar("apple") },
                 horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (entrando == "apple") Texto("…", Tipo.lato(17f, Peso.Bold), Color.White) else Image(painterResource(R.drawable.logo_apple), null, Modifier.size(20.dp), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.White))
+                if (entrando == "apple") Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) { Pulso(Color.White) } else Image(painterResource(R.drawable.logo_apple), null, Modifier.size(20.dp), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.White))
                 Spacer(Modifier.width(10.dp))
                 Texto("Continuar con Apple", Tipo.lato(17f, Peso.Bold), Color.White)
             }
@@ -122,11 +123,13 @@ fun Ingreso() {
                     .clickable(enabled = entrando == null) { entrar("google") },
                 horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (entrando == "google") Texto("…", Tipo.lato(17f, Peso.Bold), hex(0x0F2328)) else Image(painterResource(R.drawable.logo_google), null, Modifier.size(20.dp))
+                if (entrando == "google") Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) { Pulso(hex(0x0F2328)) } else Image(painterResource(R.drawable.logo_google), null, Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Texto("Continuar con Google", Tipo.lato(17f, Peso.Bold), hex(0x0F2328))
             }
-            if (error.isNotEmpty()) Texto(error, Tipo.lato(14f, Peso.Bold), C.error, alinear = TextAlign.Center)
+            // El error de la vuelta de Clerk (la Custom Tab vuelve a la app, no a este botón) también va acá.
+            val mensaje = error.ifEmpty { estado.errorIngreso }
+            if (mensaje.isNotEmpty()) Texto(mensaje, Tipo.lato(14f, Peso.Bold), C.error, alinear = TextAlign.Center)
             Texto("Sin contraseñas. Usá la misma cuenta que en la web.", Tipo.lato(13f), C.sub, alinear = TextAlign.Center)
         }
     }

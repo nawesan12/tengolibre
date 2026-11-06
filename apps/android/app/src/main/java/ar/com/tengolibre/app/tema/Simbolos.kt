@@ -122,5 +122,7 @@ internal object Simbolos {
         "xmark.circle" to '\ue888', // cancel
         "camera" to '\ue412', // photo_camera
         "arrow.up.right" to '\uf8ce', // arrow_outward
+        "circle.dashed" to '\ue836', // radio_button_unchecked
+        "largecircle.fill.circle" to '\ue837', // radio_button_checked
     )
 }

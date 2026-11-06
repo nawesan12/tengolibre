@@ -433,12 +433,13 @@ fun BotonMenta(
     val p = presionado(fuente)
     val escala by animateFloatAsState(if (p) 0.98f else 1f, Movimiento.tocar(), label = "escala")
     Row(
+        // La opacidad va antes del fondo y la sombra: deshabilitado se apaga la pastilla entera, como en iOS.
         modifier.scale(escala)
+            .alpha(if (habilitado) (if (p) 0.85f else 1f) else 0.45f)
             .sombra(CircleShape, if (conSombra) hex(0x17805A, 0.6f) else Color.Transparent, 13.dp, y = 12.dp)
             .fillMaxWidth().heightIn(min = alto)
             .clip(CircleShape).background(C.menta)
             .clickable(fuente, null, enabled = habilitado, onClick = alTocar)
-            .alpha(if (habilitado) (if (p) 0.85f else 1f) else 0.45f)
             .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -477,9 +478,9 @@ fun BotonContorno(
     val fuente = remember { MutableInteractionSource() }
     val p = presionado(fuente)
     Row(
-        modifier.then(if (lleno) Modifier.fillMaxWidth() else Modifier).heightIn(min = alto)
+        modifier.alpha(if (habilitado) 1f else 0.45f).then(if (lleno) Modifier.fillMaxWidth() else Modifier).heightIn(min = alto)
             .clip(CircleShape).background(if (p) C.chip else Color.Transparent).contorno(999.dp)
-            .clickable(fuente, null, enabled = habilitado, onClick = alTocar).alpha(if (habilitado) 1f else 0.45f)
+            .clickable(fuente, null, enabled = habilitado, onClick = alTocar)
             .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -625,11 +626,14 @@ fun <T> ListaTarjeta(items: List<T>, modifier: Modifier = Modifier, fila: @Compo
 
 /** El interruptor del handoff (51×31, menta encendido). */
 @Composable
-fun Interruptor(titulo: String, activo: Boolean, alCambiar: (Boolean) -> Unit, detalle: String = "", simbolo: String? = null, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { alCambiar(!activo) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+fun Interruptor(
+    titulo: String, activo: Boolean, alCambiar: (Boolean) -> Unit, detalle: String = "", simbolo: String? = null, modifier: Modifier = Modifier,
+    estiloTitulo: TextStyle = Tipo.lato(16f), colorTitulo: Color = C.tinta, altoMinimo: Dp = 56.dp,
+) {
+    Row(modifier.fillMaxWidth().heightIn(min = altoMinimo).clickable { alCambiar(!activo) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         if (simbolo != null) Icono(simbolo, 20f, C.tinta)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Texto(titulo, Tipo.lato(16f), C.tinta)
+            Texto(titulo, estiloTitulo, colorTitulo)
             if (detalle.isNotEmpty()) Texto(detalle, Tipo.lato(12f), C.sub)
         }
         val x by animateFloatAsState(if (activo) 1f else 0f, Movimiento.tocar(), label = "interruptor")

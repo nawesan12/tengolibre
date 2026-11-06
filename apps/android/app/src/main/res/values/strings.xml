@@ -5,6 +5,8 @@
     <string name="atajo_proximo">Mi próximo turno</string>
     <string name="atajo_proximo_largo">Qué tengo hoy</string>
     <string name="atajo_cargar">Cargar un turno</string>
+    <string name="atajo_hoy">Mi día</string>
+    <string name="atajo_hoy_largo">Ver mi día</string>
     <string name="atajo_caja">Caja de hoy</string>
     <string name="atajo_caja_largo">Ver la caja de hoy</string>
     <string name="atajo_agenda">Agenda</string>

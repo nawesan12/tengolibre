@@ -224,7 +224,7 @@ fun Mas() {
             ItemMas(DestinoMas.cuenta, "person.crop.circle", "Tu cuenta", estado.persona?.email.orEmpty())))
     }
 
-    Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
+    Refrescable({ v.cargar(estado) }, Modifier.fillMaxSize().background(C.fondo)) { Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
         Cabecera("Más", estado.negocio?.let { "${it.nombre} · ${it.rolTexto}" } ?: "", conNegocio = true,
             acciones = listOf(AccionCabecera("square.and.arrow.up", "Compartir tu link") { nav.compartir = true })) { CampoBuscar() }
         Cuerpo {
@@ -249,7 +249,7 @@ fun Mas() {
             }
             Texto("Tengo Libre ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", Tipo.lato(12f), C.sub, Modifier.fillMaxWidth().padding(top = 8.dp), alinear = TextAlign.Center)
         }
-    }
+    } }
 }
 
 /** Una sección de «Más»: cabecera con «‹ Más», cuerpo, cargando / error. */

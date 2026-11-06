@@ -8,7 +8,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -26,6 +31,7 @@ import ar.com.tengolibre.app.pantallas.ingreso.TurnoClienteCargar
 import ar.com.tengolibre.app.tema.Hoja
 import ar.com.tengolibre.app.pantallas.ingreso.*
 import ar.com.tengolibre.app.pantallas.principal.Principal
+import ar.com.tengolibre.app.tema.C
 import ar.com.tengolibre.app.tema.Haptico
 import ar.com.tengolibre.app.tema.Movimiento
 import ar.com.tengolibre.app.tema.Toast
@@ -55,6 +61,9 @@ fun Raiz() {
                 Estado.Fase.cliente -> PrincipalCliente()
             }
         }
+        // La barra de estado, petróleo como la cabecera (la hora en blanco): el contenido que sube con el scroll pasa
+        // por debajo, nunca por detrás de la hora.
+        Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(C.cabecera))
         AnimatedVisibility(
             estado.toast != null, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 6.dp),
             enter = slideInVertically(Movimiento.entrar()) { -it } + fadeIn(), exit = slideOutVertically(Movimiento.entrar()) { -it } + fadeOut(),

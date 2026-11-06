@@ -57,7 +57,7 @@ fun Confirmacion(visible: Boolean, titulo: String, mensaje: String = "", opcione
                 }
                 opciones.forEach { o ->
                     Box(Modifier.fillMaxWidth().height(1.dp).background(C.linea))
-                    Box(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { alCerrar(); o.accion() }, contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { o.accion(); alCerrar() }, contentAlignment = Alignment.Center) {
                         Texto(o.titulo, Tipo.lato(18f), if (o.destructiva) C.error else C.mentaTexto)
                     }
                 }

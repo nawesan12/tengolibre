@@ -84,7 +84,7 @@ fun ColumnScope.Avisos(cerrar: () -> Unit) {
     var preferencias by remember { mutableStateOf(false) }
 
     @Serializable data class Campanita(val notificaciones: List<Notificacion> = emptyList(), val sinLeer: Int = 0)
-    LaunchedEffect(Unit) {
+    suspend fun cargar() {
         try {
             val r: Campanita = estado.api.get("/v1/panel/campanita")
             lista = r.notificaciones
@@ -92,6 +92,7 @@ fun ColumnScope.Avisos(cerrar: () -> Unit) {
         } catch (e: Exception) { estado.avisar(e) }
         cargando = false
     }
+    LaunchedEffect(Unit) { cargar() }
 
     if (preferencias) {
         Box(Modifier.weight(1f)) { PreferenciasPush(volver = { preferencias = false }) }
@@ -118,7 +119,7 @@ fun ColumnScope.Avisos(cerrar: () -> Unit) {
         Box(Modifier.align(Alignment.CenterEnd)) { BotonTexto("Listo", cerrar) }
     }
     val grupos = lista.groupBy { Formato.seccion(it.creadoEn).uppercase() }
-    Column(Modifier.weight(1f).background(C.fondo).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Refrescable({ cargar() }, Modifier.weight(1f).background(C.fondo)) { Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (cargando && lista.isEmpty()) repeat(5) { Esqueleto(72.dp) }
         else if (lista.isEmpty()) VacioQueEnsena("Todo tranquilo", "No hay avisos", "Acá vas a ver las reservas, cancelaciones, reseñas y todo lo que pase en tu negocio.")
         grupos.forEach { (s, ns) ->
@@ -145,7 +146,7 @@ fun ColumnScope.Avisos(cerrar: () -> Unit) {
                 }
             }
         }
-    }
+    } }
 }
 
 /** El QR de un link: petróleo sobre crema (falseColor en iOS), 12 px por módulo. */
@@ -208,9 +209,9 @@ fun ColumnScope.Compartir(cerrar: () -> Unit) {
         else contexto.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM, uri).putExtra(Intent.EXTRA_TEXT, url).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), null))
     }
 
+    // Como iOS: se guarda el QR solo (petróleo sobre crema), no la tarjeta.
     fun guardarQR() {
-        val q = qr ?: return
-        val img = tarjetaQR(contexto, estado.negocio?.nombre.orEmpty(), q)
+        val img = qr ?: return
         val valores = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "tengolibre-qr-$slug.png")
             put(MediaStore.Images.Media.MIME_TYPE, "image/png")

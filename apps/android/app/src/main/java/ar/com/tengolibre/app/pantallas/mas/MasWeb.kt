@@ -434,12 +434,13 @@ fun Plantillas() {
     var cargando by remember { mutableStateOf(true) }
     fun valor(k: String) = (estilo[k] as? JsonPrimitive)?.takeIf { it.isString }?.content.orEmpty()
     val secciones = (estilo["secciones"] as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }
-    LaunchedEffect(Unit) {
+    suspend fun cargar() {
         (estado.api.opcional<WebDatos>("/v1/panel/mi-web")?.estilo as? JsonObject)?.let { estilo.clear(); estilo.putAll(it) }
         cargando = false
     }
+    LaunchedEffect(Unit) { cargar() }
     @Serializable data class Cuerpo(val estilo: JsonObject)
-    PantallaMas("Plantillas", PLANTILLAS.firstOrNull { it.first == valor("plantilla") }?.second.orEmpty(), volver = "Más", cargando = cargando, recargar = {}) {
+    PantallaMas("Plantillas", PLANTILLAS.firstOrNull { it.first == valor("plantilla") }?.second.orEmpty(), volver = "Más", cargando = cargando, recargar = { cargar() }) {
         PLANTILLAS.forEach { (k, t, d) ->
             val on = valor("plantilla") == k
             Row(Modifier.fillMaxWidth().tarjeta().then(if (on) Modifier.border(2.dp, C.menta, RoundedCornerShape(Radio.tarjeta)) else Modifier)

@@ -169,10 +169,10 @@ fun VistaTalon(
     Box(
         Modifier.fillMaxWidth().semantics {
             contentDescription = "${Formato.horaDe(turno.inicio)}, ${turno.cliente.nombre}, ${turno.servicio}. ${est.texto}"
-            if (alDeslizar != null) customActions = listOf(
+            customActions = listOf(CustomAccessibilityAction("Ver turno") { alTocar(); true }) + if (alDeslizar != null) listOf(
                 CustomAccessibilityAction("Marcar atendido") { alDeslizar("atendido"); true },
                 CustomAccessibilityAction("Marcar ausente") { alDeslizar("ausente"); true },
-            )
+            ) else emptyList()
         },
         contentAlignment = Alignment.CenterEnd,
     ) {

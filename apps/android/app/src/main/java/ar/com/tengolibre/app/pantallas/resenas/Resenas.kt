@@ -88,7 +88,7 @@ fun Resenas() {
         catch (e: Exception) { estado.avisar(e) }
     }
 
-    Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
+    Refrescable({ cargar() }, Modifier.fillMaxSize().background(C.fondo)) { Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
         Cabecera("Reseñas", if (cantidad == 0) "Todavía sin reseñas" else "$prom de 5 · ${Formato.cantidad(cantidad, "reseña", "reseñas")}", volver = if (estado.esProfesional) "" else "Más") {
             Segmentado(listOf("todas" to "Todas", "sin" to "Sin responder", "ocultas" to "Ocultas"), filtro, { filtro = it })
         }
@@ -135,11 +135,11 @@ fun Resenas() {
                             Box(Modifier.alpha(if (respuestas[r.id].orEmpty().isBlank()) 0.45f else 1f)) { BotonMentaChico("Responder", { if (respuestas[r.id].orEmpty().isNotBlank()) responder(r) }) }
                         }
                     }
-                    if (estado.gestiona) Interruptor(if (r.visible) "Se ve en tu página" else "Oculta en tu página", r.visible, { visible(r, it) })
+                    if (estado.gestiona) Interruptor(if (r.visible) "Se ve en tu página" else "Oculta en tu página", r.visible, { visible(r, it) }, estiloTitulo = Tipo.lato(14f), colorTitulo = C.sub, altoMinimo = 31.dp)
                 }
             }
         }
-    }
+    } }
 }
 
 @Composable

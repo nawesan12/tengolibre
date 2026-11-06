@@ -56,8 +56,10 @@ object Consejos {
     }
 
     fun marcarVisto(c: Consejo) {
+        // La hora cuenta desde que empieza a verse un consejo nuevo (displayFrequency(.hourly) de TipKit).
+        val antes = Preferencias.texto("consejo-actual")
         Preferencias.ponerTexto("consejo-actual", c.id)
-        if (Preferencias.texto("consejo-ultimo") == null || Preferencias.texto("consejo-actual") != c.id) Preferencias.ponerTexto("consejo-ultimo", Instant.now().toString())
+        if (Preferencias.texto("consejo-ultimo") == null || antes != c.id) Preferencias.ponerTexto("consejo-ultimo", Instant.now().toString())
     }
 
     fun cerrar(c: Consejo) {

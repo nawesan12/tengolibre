@@ -90,6 +90,9 @@ private object W {
     val blanco = Color.White
     fun c(x: Color) = ColorProvider(x)
     fun nombre(s: String) = s.substringBefore(' ')
+    /** «09:30»: los widgets de iOS escriben la hora con dos cifras (HH:mm). */
+    private val formatoHora = java.time.format.DateTimeFormatter.ofPattern("HH:mm").withZone(Formato.zona)
+    fun hora(f: Instant): String = formatoHora.format(f)
 }
 
 object Widgets {
@@ -127,7 +130,7 @@ class WidgetDia : GlanceAppWidget() {
         Box(GlanceModifier.fillMaxSize().background(W.petroleo).cornerRadius(22.dp).padding(14.dp).clickable(abrir(ctx, ruta))) {
             if (!mediano) Chico(d)
             else Row(GlanceModifier.fillMaxSize()) {
-                Box(GlanceModifier.width(120.dp).fillMaxHeight()) { Chico(d) }
+                Box(GlanceModifier.width(120.dp).fillMaxHeight()) { Chico(d, mediano = true) }
                 Spacer(GlanceModifier.width(14.dp))
                 Box(GlanceModifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.2f))) {}
                 Spacer(GlanceModifier.width(14.dp))
@@ -137,7 +140,7 @@ class WidgetDia : GlanceAppWidget() {
                     if (d.turnos.size <= 1) Text("Nada más por hoy", style = TextStyle(W.c(W.blanco.copy(alpha = 0.8f)), 14.sp, FontWeight.Bold))
                     d.turnos.drop(1).take(3).forEach { t ->
                         Row(GlanceModifier.fillMaxWidth().padding(bottom = 6.dp).clickable(abrir(ctx, "turno/${t.id}"))) {
-                            Text(Formato.horaDe(t.inicio), style = TextStyle(W.c(W.blanco), 14.sp, FontWeight.Bold))
+                            Text(W.hora(t.inicio), style = TextStyle(W.c(W.blanco), 14.sp, FontWeight.Bold))
                             Spacer(GlanceModifier.width(8.dp))
                             Text(W.nombre(t.cliente.nombre), style = TextStyle(W.c(W.blanco), 14.sp, FontWeight.Medium), maxLines = 1)
                         }
@@ -149,11 +152,25 @@ class WidgetDia : GlanceAppWidget() {
         }
     }
 
+    /** El chico, o la columna izquierda del mediano (chicoContenido en iOS: el nombre en dos renglones y, sin turnos,
+     *  «Todo libre» más chico y sin la cuenta de atendidos). */
     @Composable
-    private fun Chico(d: DiaChico) {
+    private fun Chico(d: DiaChico, mediano: Boolean = false) {
         val t = d.proximo
         Column(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.Top) {
             when {
+                mediano && t != null -> {
+                    Text(if (!t.inicio.isAfter(Instant.now())) "AHORA" else "PRÓXIMO", style = TextStyle(W.c(W.menta), 11.sp, FontWeight.Bold))
+                    Text(W.hora(t.inicio), style = TextStyle(W.c(W.blanco), 30.sp, FontWeight.Bold))
+                    Spacer(GlanceModifier.defaultWeight())
+                    Text(t.cliente.nombre, style = TextStyle(W.c(W.blanco), 15.sp, FontWeight.Bold), maxLines = 2)
+                    Text(t.servicio, style = TextStyle(W.c(W.blanco.copy(alpha = 0.75f)), 12.sp), maxLines = 1)
+                }
+                mediano && d.conSesion -> {
+                    Text("HOY", style = TextStyle(W.c(W.menta), 11.sp, FontWeight.Bold))
+                    Spacer(GlanceModifier.defaultWeight())
+                    Text("Todo libre", style = TextStyle(W.c(W.blanco), 20.sp, FontWeight.Bold))
+                }
                 !d.conSesion -> {
                     Image(ImageProvider(R.drawable.ic_calendario), "Tengo Libre", GlanceModifier.size(22.dp), colorFilter = ColorFilter.tint(W.c(W.menta)))
                     Spacer(GlanceModifier.defaultWeight())
@@ -161,7 +178,7 @@ class WidgetDia : GlanceAppWidget() {
                 }
                 t != null -> {
                     Text(if (!t.inicio.isAfter(Instant.now())) "AHORA" else "PRÓXIMO", style = TextStyle(W.c(W.menta), 11.sp, FontWeight.Bold))
-                    Text(Formato.horaDe(t.inicio), style = TextStyle(W.c(W.blanco), 30.sp, FontWeight.Bold))
+                    Text(W.hora(t.inicio), style = TextStyle(W.c(W.blanco), 30.sp, FontWeight.Bold))
                     Spacer(GlanceModifier.defaultWeight())
                     Text(t.cliente.nombre, style = TextStyle(W.c(W.blanco), 15.sp, FontWeight.Bold), maxLines = 1)
                     Text(t.servicio, style = TextStyle(W.c(W.blanco.copy(alpha = 0.75f)), 12.sp), maxLines = 1)

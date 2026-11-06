@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «Mi día» (AbrirHoy en Nucleo/Atajos.swift, sun.max): un sol menta sobre petróleo, como los otros atajos. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#FF183C44" android:pathData="M24,0a24,24 0,1 1,0 48a24,24 0,1 1,0 -48z" />
+    <group android:translateX="12" android:translateY="12">
+        <path android:fillColor="#FF3CCC90" android:pathData="M12,7a5,5 0,1 1,0 10a5,5 0,1 1,0 -10zM11,1h2v3h-2zM11,20h2v3h-2zM1,11h3v2h-3zM20,11h3v2h-3zM4.22,5.64l1.42,-1.42 2.12,2.12 -1.42,1.42zM16.24,17.66l1.42,-1.42 2.12,2.12 -1.42,1.42zM4.22,18.36l2.12,-2.12 1.42,1.42 -2.12,2.12zM16.24,6.34l2.12,-2.12 1.42,1.42 -2.12,2.12z" />
+    </group>
+</vector>

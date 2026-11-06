@@ -20,6 +20,7 @@ class EnVivo(private val alcance: CoroutineScope = CoroutineScope(SupervisorJob(
     private var tarea: Job? = null
     private var pendiente: Job? = null
     private var negocio: String? = null
+    @Volatile private var llamada: okhttp3.Call? = null
     private var estado: Estado? = null
 
     fun arrancar(estado: Estado) {
@@ -35,7 +36,9 @@ class EnVivo(private val alcance: CoroutineScope = CoroutineScope(SupervisorJob(
                 val (pedido, http) = estado.api.flujo("/v1/panel/eventos")
                 runCatching {
                     withContext(Dispatchers.IO) {
-                        http.newCall(pedido).execute().use { r ->
+                        // Al parar (o cambiar de negocio) se corta la conexión en vez de esperar la próxima línea.
+                        val llamada = http.newCall(pedido).also { this@EnVivo.llamada = it }
+                        llamada.execute().use { r ->
                             if (r.code != 200) error("estado ${r.code}")
                             withContext(Dispatchers.Main) { espera = 1; estado.sinConexion = false }
                             val fuente = r.body!!.source()
@@ -63,6 +66,8 @@ class EnVivo(private val alcance: CoroutineScope = CoroutineScope(SupervisorJob(
     fun parar() {
         tarea?.cancel()
         tarea = null
+        llamada?.cancel()
+        llamada = null
         negocio = null
     }
 

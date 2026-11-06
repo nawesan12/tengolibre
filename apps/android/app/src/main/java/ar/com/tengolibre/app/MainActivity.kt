@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,6 +38,8 @@ import java.lang.ref.WeakReference
  *  avisos, y prende o apaga el en vivo al entrar y salir. */
 class MainActivity : ComponentActivity() {
     private lateinit var estado: Estado
+    /** Si la Custom Tab del ingreso volvió con la vuelta de Clerk (si no, la persona la cerró: «cancelado» en iOS). */
+    private var vueltaClerk = false
     private var permiso: CompletableDeferred<Boolean>? = null
     private val pedirPermiso = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> permiso?.complete(ok); permiso = null }
 
@@ -51,10 +54,11 @@ class MainActivity : ComponentActivity() {
             ModoPrueba.respuestas = { assets.open("pruebas/respuestas.json").bufferedReader().readText() }
             ModoPrueba.preparar(intent.getBooleanExtra("conRecorrido", false))
         }
-        enableEdgeToEdge()
+        // La hora y los íconos de arriba siempre en blanco, sobre el petróleo de la cabecera (UIStatusBarStyleLightContent).
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
         Haptico.vista = WeakReference(window.decorView)
         estado = Estado()
-        estado.abrirPestana = { url -> CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(this, Uri.parse(url)) }
+        estado.abrirPestana = { url -> vueltaClerk = false; CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(this, Uri.parse(url)) }
         estado.alPedirPermisoPush = { pedirPermisoAvisos() }
         estado.compartirTexto = { t -> startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t), null)) }
         estado.abrirLink = { u -> runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u))) } }
@@ -92,6 +96,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Se cerró la Custom Tab sin terminar el ingreso: se suelta el botón, sin error (como cancelar en iOS).
+        if (::estado.isInitialized && estado.ingresando && !vueltaClerk) estado.ingresando = false
+    }
+
     override fun onStop() {
         super.onStop()
         if (::estado.isInitialized) estado.enVivo.parar()
@@ -101,6 +111,7 @@ class MainActivity : ComponentActivity() {
     private fun atender(i: Intent?) {
         val u = i?.data ?: return
         if (u.scheme == Clerk.ESQUEMA) {
+            vueltaClerk = true
             estado.vueltaClerk(u.getQueryParameter("rotating_token_nonce"), applicationContext)
             return
         }

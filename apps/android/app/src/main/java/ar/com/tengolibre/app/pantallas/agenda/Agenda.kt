@@ -40,7 +40,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -88,6 +90,7 @@ fun Agenda() {
     LaunchedEffect(estado.version, lunes, estado.negocio?.id) { cargar() }
 
     Box(Modifier.fillMaxSize().background(C.fondo)) {
+        Refrescable({ cargar() }, Modifier.fillMaxSize()) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).pointerInput(modo, dias.size) {
                 var total = 0f
@@ -121,6 +124,7 @@ fun Agenda() {
                 } else VistaSemana(semana, pros, datos) { d -> dia = d; modo = "dia" }
             }
         }
+        }
         if (modo == "dia" && dias.size > 1) {
             Column(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.padding(horizontal = 24.dp)) { VistaConsejo(Consejos.capsula) }
@@ -137,6 +141,11 @@ private fun TiraSemana(semana: List<java.time.LocalDate>, dia: java.time.LocalDa
     Row(
         Modifier.fillMaxWidth().pointerInput(dia) {
             detectHorizontalDragGestures(onDragStart = { arrastre = 0f }, onDragEnd = { if (abs(arrastre) > 30.dp.toPx()) alElegir(dia.plusDays(if (arrastre < 0) 7 else -7)) }) { _, d -> arrastre += d }
+        }.semantics {
+            customActions = listOf(
+                CustomAccessibilityAction("Semana anterior") { alElegir(dia.minusDays(7)); true },
+                CustomAccessibilityAction("Semana siguiente") { alElegir(dia.plusDays(7)); true },
+            )
         },
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {

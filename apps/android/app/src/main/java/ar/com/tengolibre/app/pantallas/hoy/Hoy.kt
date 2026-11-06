@@ -3,6 +3,12 @@ package ar.com.tengolibre.app.pantallas.hoy
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -46,6 +52,7 @@ import ar.com.tengolibre.app.pantallas.mas.BarraAvance
 import ar.com.tengolibre.app.pantallas.mas.DestinoMas
 import ar.com.tengolibre.app.pantallas.principal.*
 import ar.com.tengolibre.app.tema.*
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -98,7 +105,7 @@ fun Hoy() {
     }
     val alDeslizar: ((Turno) -> ((String) -> Unit)?) = { t -> if (lectura) null else { e -> alcance.launch { datos.cambiar(estado, t, e); Momentos.cambioDeEstado(estado, nav, t, e) } } }
 
-    Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
+    Refrescable({ cargar() }, Modifier.fillMaxSize().background(C.fondo)) { Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
         Cabecera(
             if (estado.esProfesional) "Tu día" else "Hoy",
             if (estado.esProfesional) "${Formato.fechaLarga(hoy).split(" ").take(2).joinToString(" ")} · sólo tus turnos" else Formato.fechaLarga(hoy),
@@ -128,7 +135,7 @@ fun Hoy() {
                         AtajosHoy()
                         DescubrirHoy()
                     } else {
-                        ParaAtender(atender(estado, nav, datos, delDia, dias, ahora, contexto) { alcance.launch { cargar() } })
+                        ParaAtender(atender(estado, nav, datos, delDia, dias, ahora, contexto, alcance) { cargar() })
                         PlataHoy()
                         AtajosHoy()
                         Pila(estado, nav, datos, delDia, dias, ahora, hoy, lectura, verTemprano, { verTemprano = !verTemprano }, avisados,
@@ -140,7 +147,7 @@ fun Hoy() {
                 }
             }
         }
-    }
+    } }
     Hoja(ofrecer != null, { ofrecer = null }, listOf(Altura.media, Altura.grande)) {
         ofrecer?.let { h -> OfrecerHueco(h, hoy, datos, listo = { avisados = avisados + h.id }, cerrar = { ofrecer = null }) }
     }
@@ -167,9 +174,8 @@ private fun banners(estado: Estado, nav: Navegacion): List<DatosBanner> {
 
 private data class Atender(val id: String, val simbolo: String, val titulo: String, val texto: String, val accion: String, val hacer: () -> Unit)
 
-private fun atender(estado: Estado, nav: Navegacion, datos: DatosDia, delDia: List<Turno>, dias: List<Dia.DeProfesional>, ahora: Instant, contexto: android.content.Context, recargar: () -> Unit): List<Atender> {
+private fun atender(estado: Estado, nav: Navegacion, datos: DatosDia, delDia: List<Turno>, dias: List<Dia.DeProfesional>, ahora: Instant, contexto: android.content.Context, alcance: CoroutineScope, recargar: suspend () -> Unit): List<Atender> {
     val out = mutableListOf<Atender>()
-    val alcance = kotlinx.coroutines.MainScope()
     for (t in delDia) if (t.estado == "pendiente_pago" && t.inicio.isAfter(ahora.minusSeconds(3600))) {
         out.add(Atender("sena-${t.id}", "creditcard", "Seña pendiente", "${t.cliente.nombre} · hoy ${Formato.horaDe(t.inicio)}", "Ver") { nav.turno = t })
     }
@@ -278,7 +284,8 @@ private fun Pila(
                     }
                     Box(Modifier.weight(1f).height(2.dp).clip(CircleShape).background(C.menta))
                 }
-                is Item.talon -> VistaTalon(it.t, !estado.esProfesional, ahora, { nav.turno = it.t }, alDeslizar(it.t))
+                is Item.talon -> if (it.t.id in datos.recien) EntraDeArriba(it.t.id) { VistaTalon(it.t, !estado.esProfesional, ahora, { nav.turno = it.t }, alDeslizar(it.t)) }
+                    else VistaTalon(it.t, !estado.esProfesional, ahora, { nav.turno = it.t }, alDeslizar(it.t))
                 is Item.hueco -> {
                     val h = it.h
                     val n = datos.esperanPara(h).size
@@ -297,11 +304,22 @@ private fun Pila(
                         Texto(it.texto, Tipo.lato(15f), C.sub, Modifier.weight(1f))
                         Icono(if (verTemprano) "chevron.up" else "chevron.down", 15f, C.sub)
                     }
-                    if (verTemprano) it.pasados.forEach { t -> VistaTalon(t, !estado.esProfesional, ahora, { nav.turno = t }, alDeslizar(t)) }
+                    AnimatedVisibility(verTemprano, enter = expandVertically(Movimiento.entrar()) + fadeIn(Movimiento.entrar()), exit = shrinkVertically(Movimiento.entrar()) + fadeOut(Movimiento.entrar())) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            it.pasados.forEach { t -> VistaTalon(t, !estado.esProfesional, ahora, { nav.turno = t }, alDeslizar(t)) }
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+/** El talón menta que llegó mientras se miraba: entra desde arriba (.transition(.move(edge: .top)) en iOS). */
+@Composable
+private fun EntraDeArriba(id: String, contenido: @Composable () -> Unit) {
+    val visible = remember(id) { MutableTransitionState(false).apply { targetState = true } }
+    AnimatedVisibility(visible, enter = slideInVertically(Movimiento.entrar()) { -it } + fadeIn(Movimiento.entrar())) { contenido() }
 }
 
 // MARK: Vacío que enseña

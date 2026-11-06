@@ -135,7 +135,7 @@ fun Clientes() {
 
     val filtros = listOf("todas" to "Todas", "frecuentes" to "Frecuentes", "penalizados" to "Con penalidad", "nuevas" to "Nuevas") + etiquetas.map { "e:${it.id}" to it.nombre }
 
-    Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
+    Refrescable({ cargar() }, Modifier.fillMaxSize().background(C.fondo)) { Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
         Cabecera("Clientes", "${Formato.numero(total)} en total", acciones = listOf(AccionCabecera("plus", "Clienta nueva") { nueva = true })) {
             Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.12f)).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icono("magnifyingglass", 18f, Color.White.copy(alpha = 0.7f))
@@ -192,7 +192,7 @@ fun Clientes() {
                 }
             }
         }
-    }
+    } }
     Hoja(nueva, { nueva = false }, listOf(Altura.media)) { ClientaNueva { nueva = false } }
 }
 
@@ -289,7 +289,7 @@ fun FichaCliente(id: String) {
     }.joinToString(" · ") } ?: ""
     val tel = f?.telefono.orEmpty().filter { it in "+0123456789" }
 
-    Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
+    Refrescable({ cargar() }, Modifier.fillMaxSize().background(C.fondo)) { Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
         Cabecera(f?.nombre ?: "Clienta", subtitulo, volver = "Clientes", acciones = if (f == null) emptyList() else listOf(AccionCabecera("pencil", "Editar") { editar = true }))
         Cuerpo {
             if (f == null) {
@@ -373,7 +373,7 @@ fun FichaCliente(id: String) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { Icono("calendar", 14f, C.sub); Texto("Clienta desde el ${Formato.dia(f.creadoEn)}", Tipo.lato(14f), C.sub) }
             }
         }
-    }
+    } }
     Hoja(editar, { editar = false }, listOf(Altura.media)) { ficha?.let { EditarClienta(it, listo = { alcance.launch { cargar() } }, cerrar = { editar = false }) } }
     Hoja(penalizar, { penalizar = false }, listOf(Altura.media)) {
         BarraHoja("Penalizar", { penalizar = false }, accion = "Penalizar") { penalizarYa() }

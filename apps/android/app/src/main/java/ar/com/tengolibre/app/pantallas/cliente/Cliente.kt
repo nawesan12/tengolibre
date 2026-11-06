@@ -1,5 +1,8 @@
 package ar.com.tengolibre.app.pantallas.cliente
 
+import androidx.compose.ui.layout.layout
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -143,10 +146,19 @@ fun PrincipalCliente() {
 
     Column(Modifier.fillMaxSize().background(C.fondo)) {
         Box(Modifier.weight(1f)) {
-            when (pestana) {
-                PestanaCliente.turnos -> TurnosCliente(turnos, cargando, abrir = { abierto = it }, reservar = { reservarEn = it }, recargar = { cargar() })
-                PestanaCliente.lugares -> Lugares(reservar = { reservarEn = it })
-                PestanaCliente.cuenta -> CuentaCliente()
+            // Como el TabView de iOS: las pestañas abiertas siguen vivas (búsqueda y filtros de Lugares incluidos).
+            val visitadas = remember { mutableStateListOf(pestana) }
+            if (pestana !in visitadas) visitadas.add(pestana)
+            PestanaCliente.entries.filter { it in visitadas }.forEach { p ->
+                key(p) {
+                    Box(Modifier.fillMaxSize().layout { m, c -> val x = m.measure(c); layout(x.width, x.height) { if (p == pestana) x.place(0, 0) } }) {
+                        when (p) {
+                            PestanaCliente.turnos -> TurnosCliente(turnos, cargando, abrir = { abierto = it }, reservar = { reservarEn = it }, recargar = { cargar() })
+                            PestanaCliente.lugares -> Lugares(reservar = { reservarEn = it })
+                            PestanaCliente.cuenta -> CuentaCliente()
+                        }
+                    }
+                }
             }
         }
         // La barra de abajo, como BarraPestanas.
@@ -226,7 +238,7 @@ fun TurnosCliente(turnos: List<TurnoCli>, cargando: Boolean, abrir: (TurnoCli) -
         }
     }
 
-    Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
+    Refrescable({ recargar() }, Modifier.fillMaxSize().background(C.fondo)) { Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
         Cabecera("Tus turnos", if (proximos.isEmpty()) "Nada reservado por ahora" else Formato.cantidad(proximos.size, "turno reservado", "turnos reservados"),
             acciones = listOf(AccionCabecera("plus", "Tengo un código") { codigo = true }))
         Cuerpo {
@@ -249,7 +261,7 @@ fun TurnosCliente(turnos: List<TurnoCli>, cargando: Boolean, abrir: (TurnoCli) -
             if (proximos.size > 1) { Rotulo("DESPUÉS"); proximos.drop(1).forEach { fila(it) } }
             if (pasados.isNotEmpty()) { Rotulo("ANTES"); pasados.take(20).forEach { fila(it, Modifier.alpha(0.7f)) } }
         }
-    }
+    } }
     // El alert de iOS con un campo: una hoja media con el campo y «Agregar».
     Hoja(codigo, { codigo = false }, alturas = listOf(Altura.media)) {
         BarraHoja("Agregar un turno", { codigo = false; textoCodigo = "" }, accion = "Agregar", habilitada = textoCodigo.isNotBlank()) {
@@ -478,7 +490,7 @@ fun ColumnScope.Reservar(slug: String, listo: (String) -> Unit, cerrar: () -> Un
             Texto(listOf(x.web.rubro, x.negocio.ciudad).filter { it.isNotEmpty() }.joinToString(" · "), Tipo.lato(14f), C.sub)
             if (x.resenas.cantidad > 0) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Estrellas(Math.round(x.resenas.promedio).toInt(), 12f)
-                Texto("${"%.1f".format(Formato.argentina, x.resenas.promedio)} · ${x.resenas.cantidad} reseñas", Tipo.lato(13f), C.tinta)
+                Texto("${"%.1f".format(java.util.Locale.ROOT, x.resenas.promedio)} · ${x.resenas.cantidad} reseñas", Tipo.lato(13f), C.tinta)
             }
         }
         TextoRotulo("1 · SERVICIO")
