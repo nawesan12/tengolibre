@@ -118,3 +118,24 @@ de Tengo Libre y cambiar el paquete y el prefijo de `local.properties`.
 - Cuando exista la cuenta de Play: crear la app, los productos de suscripción con los mismos ids que la App Store,
   el tópico RTDN, la cuenta de servicio de la Play Developer API, el SHA-256 de la firma de Play en `assetlinks.json`
   y el cliente OAuth Android de Google.
+
+## 8. Lo que sumó Tu Local Web (6/11, `mostrador-v2/apps/android`)
+- **Kotlin 2.2 y BoxWithConstraints:** `maxWidth` dentro de un `Row`/`Column` anidado no compila (receptor implícito
+  de otro DSL): escribir `this@BoxWithConstraints.maxWidth`.
+- **Animaciones:** `Mov.entrada()` y compañía devuelven `FiniteAnimationSpec<T>` (slideIn/Out lo piden), y en los
+  slide hay que darle el tipo: `Mov.entrada<IntOffset>()`.
+- **Tests con Robolectric:** cada clase con `@Config(sdk = [35])` (la 36 no está); un `setContent` por test (para
+  varias capturas, varios tests); ML Kit no arranca solo: `MlKitContext.initializeIfNeeded(ctx)` antes de pedir el
+  lector.
+- **`respuestas.json` compartido de verdad:** iOS lo suma como recurso del bundle de tests
+  (`project.yml › TuLocalWebTests › sources: - path: ../pruebas/respuestas.json, buildPhase: resources`) y lo lee con
+  `Bundle(for:)`; `publicar.sh` lo copia a `app/src/test/resources/pruebas/`.
+- **Piezas nuevas en tema:** `Confirmacion(verTitulo = false)` (el `confirmationDialog` de iOS sin `titleVisibility`
+  esconde el título), `Texto(monoespaciado)`, `TextoRico(escalaMinima)` (las partes con tamaño propio, en `em`),
+  `Hoja(altoFijo, estirable)` (`.presentationDetents([.height(n), .large])`), `Deslizador` (Slider) y
+  `SelectorDeColor` (ColorPicker).
+- **Revisión automática par por par:** además de los agentes, comparar los literales de cada `.swift` contra los
+  `.kt` (lo que falta son interpolaciones o diferencias aceptadas) y el conjunto de endpoints `/v1/…` de los dos
+  lados (tiene que dar igual).
+- **API:** en Tu Local Web los tokens viven en `auth.dispositivos`: columna `plataforma`, checks del token por
+  plataforma, y la «actividad» de Android es el mismo token FCM del teléfono (`actividad = inicio = token`).
