@@ -207,3 +207,22 @@ func TestElErrorDeRedNoLlevaElToken(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestSoloDatos(t *testing.T) {
+	var m map[string]map[string]any
+	b := Mensaje(Envio{Token: "tok:123", Titulo: "Nueva reserva", Cuerpo: "Ana", Datos: map[string]string{"ruta": "turnos/1"}, Colapso: "c", SoloDatos: true})
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	x := m["message"]
+	if _, hay := x["notification"]; hay {
+		t.Fatalf("con SoloDatos no va notification: %s", b)
+	}
+	if _, hay := x["android"].(map[string]any)["notification"]; hay {
+		t.Fatalf("con SoloDatos no va android.notification: %s", b)
+	}
+	d := x["data"].(map[string]any)
+	if d["titulo"] != "Nueva reserva" || d["cuerpo"] != "Ana" || d["ruta"] != "turnos/1" {
+		t.Fatalf("data: %v", d)
+	}
+}

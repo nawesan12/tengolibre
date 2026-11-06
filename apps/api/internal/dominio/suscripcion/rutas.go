@@ -32,6 +32,7 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/panel/suscripcion/reactivar", ses.Panel([]string{sesion.Duenio}, web.Envolver(s.reemplazo(reactivar))))
 	// La App Store (apple.go): la compra desde el iPhone y sus notificaciones.
 	s.RutasApple(mux)
+	s.RutasGoogle(mux)
 }
 
 func (s *Servicio) leer(w http.ResponseWriter, r *http.Request) error {
@@ -130,8 +131,8 @@ func (s *Servicio) suscribir(w http.ResponseWriter, r *http.Request) error {
 		}
 		if x, err := vigente(ctx, tx, false); err != nil {
 			return err
-		} else if x != nil && x.Origen == "apple" {
-			return ProblemaDeApple()
+		} else if x != nil && ProblemaDeTienda(x.Origen) != nil {
+			return ProblemaDeTienda(x.Origen)
 		}
 		if activa {
 			return problema.Conflicto("ya_suscripto", "Ya tenés una suscripción activa. Cancelala primero para cambiar de plan.")
@@ -204,8 +205,8 @@ func (s *Servicio) cancelar(w http.ResponseWriter, r *http.Request) error {
 	if x == nil {
 		return problema.NoEncontrado("No hay una suscripción para cancelar.")
 	}
-	if x.Origen == "apple" {
-		return ProblemaDeApple()
+	if p := ProblemaDeTienda(x.Origen); p != nil {
+		return p
 	}
 	if mpID != nil && s.TokenPlataforma != "" {
 		if err := s.cliente().CambiarPreaprobacion(ctx, s.TokenPlataforma, *mpID, "cancelled"); err != nil {

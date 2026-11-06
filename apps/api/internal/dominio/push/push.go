@@ -159,3 +159,6 @@ func (s *Servicio) baja(w http.ResponseWriter, r *http.Request) error {
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }
+
+// TokenFCM dice si el texto tiene forma de token de registro de FCM (el de un teléfono Android).
+func TokenFCM(t string) bool { return len(t) <= 4096 && tokenFCM.MatchString(t) }

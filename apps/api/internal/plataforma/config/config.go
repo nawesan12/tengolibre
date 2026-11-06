@@ -45,6 +45,9 @@ type Config struct {
 	// app. FCM: la ruta del JSON de la cuenta de servicio. Sin eso, esa plataforma queda apagada.
 	APNsKeyID, APNsTeamID, APNsClave, APNsTopic string
 	FCMCuenta                                   string
+	// Google Play: la ruta del JSON de la cuenta de servicio con acceso a la Play Developer API y la
+	// clave del webhook de RTDN (?clave= en la suscripción push de Pub/Sub). Vacías: apagado.
+	PlayCuenta, PlayClaveWebhook string
 	// WhatsApp Cloud API (Meta): el token permanente del usuario del sistema, el id del número de la
 	// plataforma, el secreto de la app (firma X-Hub-Signature-256 de los webhooks), el token de
 	// verificación que se carga al suscribir el webhook y la versión de la Graph API. Sin token o sin
@@ -93,6 +96,7 @@ func Leer() (Config, error) {
 		APNsClave:  os.Getenv("TENGOLIBRE_APNS_CLAVE"),
 		APNsTopic:  valor("TENGOLIBRE_APNS_TOPIC", "ar.com.tengolibre.app"),
 		FCMCuenta:  os.Getenv("TENGOLIBRE_FCM_CUENTA"),
+		PlayCuenta: os.Getenv("TENGOLIBRE_PLAY_CUENTA"), PlayClaveWebhook: os.Getenv("TENGOLIBRE_PLAY_CLAVE_WEBHOOK"),
 
 		WhatsAppToken:        os.Getenv("TENGOLIBRE_WHATSAPP_TOKEN"),
 		WhatsAppTelefonoID:   os.Getenv("TENGOLIBRE_WHATSAPP_TELEFONO_ID"),

@@ -223,6 +223,9 @@ type Envio struct {
 	Colapso string
 	// Vida: cuánto guarda FCM el aviso si el teléfono está apagado. Cero: una hora.
 	Vida time.Duration
+	// SoloDatos: sin bloque notification; el título y el cuerpo van en data (titulo, cuerpo) y la app
+	// arma el aviso ella misma (con sus acciones). Así llega a onMessageReceived también en segundo plano.
+	SoloDatos bool
 }
 
 // Mensaje arma el cuerpo de messages:send.
@@ -240,24 +243,30 @@ func Mensaje(e Envio) []byte {
 		Sound string `json:"sound"`
 	}
 	type android struct {
-		CollapseKey  string      `json:"collapse_key,omitempty"`
-		Priority     string      `json:"priority"`
-		TTL          string      `json:"ttl"`
-		Notification notiAndroid `json:"notification"`
+		CollapseKey  string       `json:"collapse_key,omitempty"`
+		Priority     string       `json:"priority"`
+		TTL          string       `json:"ttl"`
+		Notification *notiAndroid `json:"notification,omitempty"`
 	}
 	type mensaje struct {
 		Token        string            `json:"token"`
-		Notification notificacion      `json:"notification"`
+		Notification *notificacion     `json:"notification,omitempty"`
 		Data         map[string]string `json:"data,omitempty"`
 		Android      android           `json:"android"`
 	}
-	b, _ := json.Marshal(map[string]mensaje{"message": {
-		Token:        e.Token,
-		Notification: notificacion{e.Titulo, e.Cuerpo},
-		Data:         e.Datos,
-		Android: android{CollapseKey: e.Colapso, Priority: "HIGH", TTL: strconv.FormatInt(int64(vida/time.Second), 10) + "s",
-			Notification: notiAndroid{Tag: e.Colapso, Sound: "default"}},
-	}})
+	m := mensaje{Token: e.Token, Data: e.Datos,
+		Android: android{CollapseKey: e.Colapso, Priority: "HIGH", TTL: strconv.FormatInt(int64(vida/time.Second), 10) + "s"}}
+	if e.SoloDatos {
+		m.Data = make(map[string]string, len(e.Datos)+2)
+		for k, v := range e.Datos {
+			m.Data[k] = v
+		}
+		m.Data["titulo"], m.Data["cuerpo"] = e.Titulo, e.Cuerpo
+	} else {
+		m.Notification = &notificacion{e.Titulo, e.Cuerpo}
+		m.Android.Notification = &notiAndroid{Tag: e.Colapso, Sound: "default"}
+	}
+	b, _ := json.Marshal(map[string]mensaje{"message": m})
 	return b
 }
 

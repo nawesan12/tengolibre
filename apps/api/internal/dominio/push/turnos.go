@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/apns"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/fcm"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/trabajos"
@@ -33,18 +34,29 @@ func (s *Servicio) rutasTurnos(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/panel/turnos/{id}/actividad", s.Sesion.Panel(sesion.Agenda, web.Envolver(s.registrarActividad)))
 }
 
-// registrarActividad: {"token": hex, "entorno": "sandbox|produccion"} de la Live Activity de un turno.
+// registrarActividad: {"token": hex, "entorno": "sandbox|produccion"} de la Live Activity de un turno
+// en el iPhone, o {"plataforma": "android", "token": <FCM>} para la notificación en curso de Android
+// (el token de FCM del teléfono: el worker le manda los cambios del turno como datos).
 func (s *Servicio) registrarActividad(w http.ResponseWriter, r *http.Request) error {
 	var in struct {
-		Token   string `json:"token"`
-		Entorno string `json:"entorno"`
+		Plataforma string `json:"plataforma"`
+		Token      string `json:"token"`
+		Entorno    string `json:"entorno"`
 	}
 	if err := web.Leer(w, r, &in); err != nil {
 		return err
 	}
-	in.Token = strings.ToLower(strings.TrimSpace(in.Token))
-	if !tokenActividad.MatchString(in.Token) {
-		return problema.Invalido("El token de la actividad no es válido.", problema.Campo{Ruta: "token", Mensaje: "hexadecimal"})
+	in.Token = strings.TrimSpace(in.Token)
+	if in.Plataforma == "android" {
+		if !TokenFCM(in.Token) {
+			return problema.Invalido("El token del teléfono no es válido.", problema.Campo{Ruta: "token", Mensaje: "formato"})
+		}
+	} else {
+		in.Plataforma = "ios"
+		in.Token = strings.ToLower(in.Token)
+		if !tokenActividad.MatchString(in.Token) {
+			return problema.Invalido("El token de la actividad no es válido.", problema.Campo{Ruta: "token", Mensaje: "hexadecimal"})
+		}
 	}
 	if in.Entorno != "sandbox" {
 		in.Entorno = "produccion"
@@ -66,8 +78,8 @@ func (s *Servicio) registrarActividad(w http.ResponseWriter, r *http.Request) er
 		if _, err := tx.Exec(ctx, "DELETE FROM turno_actividades WHERE token = $1", in.Token); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO turno_actividades (negocio_id, turno_id, token, entorno) VALUES (app.negocio_actual(), $1, $2, $3)`,
-			id, in.Token, in.Entorno)
+		_, err := tx.Exec(ctx, `INSERT INTO turno_actividades (negocio_id, turno_id, token, entorno, plataforma) VALUES (app.negocio_actual(), $1, $2, $3, $4)`,
+			id, in.Token, in.Entorno, in.Plataforma)
 		return err
 	})
 	if err != nil {
@@ -77,14 +89,16 @@ func (s *Servicio) registrarActividad(w http.ResponseWriter, r *http.Request) er
 	return nil
 }
 
-// TrabajoTurnos: la Live Activity y los avisos de la clienta, cada 10 segundos. Sin APNs, nada.
+// TrabajoTurnos: la Live Activity (o la notificación en curso de Android) y los avisos de la clienta,
+// cada 10 segundos. Sin APNs ni FCM, nada.
 func (e *Envios) TrabajoTurnos() trabajos.Trabajo {
 	return trabajos.Trabajo{Nombre: "push-turnos", Cada: 10 * time.Second, Correr: e.CorrerTurnos}
 }
 
 type envioTurno struct {
 	envio  apns.Envio
-	borrar string // turno_actividades.id a borrar después de mandar el «end»
+	fcm    *fcm.Envio // si no es nil, el teléfono es Android y sale por FCM
+	borrar string     // turno_actividades.id a borrar después de mandar el «end»
 	token  string
 	tabla  string // turno_actividades | turno_dispositivos (para borrar tokens muertos)
 }
@@ -92,7 +106,7 @@ type envioTurno struct {
 // CorrerTurnos junta lo que hay que mandar en cada negocio (marcándolo como mandado en la misma
 // transacción) y después lo manda, fuera de la transacción.
 func (e *Envios) CorrerTurnos(ctx context.Context, ahora time.Time) (any, error) {
-	if e == nil || e.APNs == nil {
+	if e == nil || (e.APNs == nil && e.FCM == nil) {
 		return nil, nil
 	}
 	var cola []envioTurno
@@ -112,9 +126,17 @@ func (e *Envios) CorrerTurnos(ctx context.Context, ahora time.Time) (any, error)
 	mandados, muertos := 0, 0
 	var invalidos = map[string][]string{}
 	for _, x := range cola {
-		err := e.APNs.Enviar(ctx, x.envio)
+		var err error
 		switch {
-		case errors.Is(err, apns.ErrTokenInvalido):
+		case x.fcm != nil && e.FCM != nil:
+			err = e.FCM.Enviar(ctx, *x.fcm)
+		case x.fcm == nil && e.APNs != nil:
+			err = e.APNs.Enviar(ctx, x.envio)
+		default:
+			continue
+		}
+		switch {
+		case errors.Is(err, apns.ErrTokenInvalido) || errors.Is(err, fcm.ErrTokenInvalido):
 			invalidos[x.tabla] = append(invalidos[x.tabla], x.token)
 		case err != nil:
 			e.Log.Warn("push: no salió un aviso de turno", "tabla", x.tabla, "error", err)
@@ -142,20 +164,22 @@ func (e *Envios) CorrerTurnos(ctx context.Context, ahora time.Time) (any, error)
 // ausente o que terminó hace más de 15 minutos manda «end» y se borra; si no, «update» con el fin y
 // quién sigue.
 func actividades(ctx context.Context, tx pgx.Tx, ahora time.Time) ([]envioTurno, error) {
-	filas, err := tx.Query(ctx, `SELECT a.id::text, a.token, a.entorno, t.estado, t.fin, coalesce(t.profesional_id::text, ''), t.actualizado_en
-		FROM turno_actividades a JOIN turnos t ON t.id = a.turno_id
+	filas, err := tx.Query(ctx, `SELECT a.id::text, a.token, a.entorno, a.plataforma, t.id::text, t.estado, t.fin, coalesce(t.profesional_id::text, ''), t.actualizado_en,
+			coalesce(c.nombre, ''), t.servicio
+		FROM turno_actividades a JOIN turnos t ON t.id = a.turno_id LEFT JOIN clientes c ON c.id = t.cliente_id
 		WHERE t.actualizado_en > a.enviado_en OR t.fin < $1
 		FOR UPDATE OF a SKIP LOCKED`, ahora.Add(-15*time.Minute))
 	if err != nil {
 		return nil, err
 	}
 	type fila struct {
-		id, token, entorno, estado, profesional string
-		fin, actualizado                        time.Time
+		id, token, entorno, plataforma, turno, estado, profesional string
+		fin, actualizado                                           time.Time
+		cliente, servicio                                          string
 	}
 	fs, err := pgx.CollectRows(filas, func(r pgx.CollectableRow) (fila, error) {
 		var f fila
-		err := r.Scan(&f.id, &f.token, &f.entorno, &f.estado, &f.fin, &f.profesional, &f.actualizado)
+		err := r.Scan(&f.id, &f.token, &f.entorno, &f.plataforma, &f.turno, &f.estado, &f.fin, &f.profesional, &f.actualizado, &f.cliente, &f.servicio)
 		return f, err
 	})
 	if err != nil {
@@ -179,8 +203,15 @@ func actividades(ctx context.Context, tx pgx.Tx, ahora time.Time) ([]envioTurno,
 				return nil, err
 			}
 		}
-		out = append(out, envioTurno{envio: apns.Envio{Token: f.token, Entorno: f.entorno, Tipo: apns.TipoLiveActivity,
-			Payload: PayloadActividad(ahora, fin, f.fin, siguiente), Vence: ahora.Add(time.Hour)}, token: f.token, tabla: "turno_actividades"})
+		x := envioTurno{token: f.token, tabla: "turno_actividades"}
+		if f.plataforma == "android" {
+			x.fcm = &fcm.Envio{Token: f.token, Datos: DatosActividad(f.turno, fin, f.fin, siguiente, f.cliente, f.servicio),
+				Colapso: "actividad-" + f.turno, Vida: time.Hour, SoloDatos: true}
+		} else {
+			x.envio = apns.Envio{Token: f.token, Entorno: f.entorno, Tipo: apns.TipoLiveActivity,
+				Payload: PayloadActividad(ahora, fin, f.fin, siguiente), Vence: ahora.Add(time.Hour)}
+		}
+		out = append(out, x)
 		if fin {
 			if _, err := tx.Exec(ctx, "DELETE FROM turno_actividades WHERE id = $1", f.id); err != nil {
 				return nil, err
@@ -207,6 +238,17 @@ func PayloadActividad(ahora time.Time, terminar bool, fin time.Time, siguiente s
 	}
 	b, _ := json.Marshal(map[string]any{"aps": aps})
 	return b
+}
+
+// DatosActividad: la notificación en curso de Android (data de FCM): el turno, cuándo termina, quién
+// sigue y si hay que sacarla (terminar "1").
+func DatosActividad(turno string, terminar bool, fin time.Time, siguiente, cliente, servicio string) map[string]string {
+	t := "0"
+	if terminar {
+		t = "1"
+	}
+	return map[string]string{"tipo": "actividad", "turno": turno, "fin": fin.UTC().Format(time.RFC3339), "siguiente": siguiente,
+		"terminar": t, "cliente": cliente, "servicio": servicio}
 }
 
 // avisosCliente: lo que se le avisó a la clienta por un turno (confirmación, recordatorio,
@@ -252,23 +294,28 @@ func avisosCliente(ctx context.Context, tx pgx.Tx, ahora time.Time) ([]envioTurn
 		if !ok {
 			continue
 		}
-		ds, err := tx.Query(ctx, "SELECT token, entorno FROM turno_dispositivos WHERE turno_id = $1", f.turno)
+		ds, err := tx.Query(ctx, "SELECT token, entorno, plataforma FROM turno_dispositivos WHERE turno_id = $1", f.turno)
 		if err != nil {
 			return nil, err
 		}
-		type disp struct{ token, entorno string }
+		type disp struct{ token, entorno, plataforma string }
 		lista, err := pgx.CollectRows(ds, func(r pgx.CollectableRow) (disp, error) {
 			var d disp
-			err := r.Scan(&d.token, &d.entorno)
+			err := r.Scan(&d.token, &d.entorno, &d.plataforma)
 			return d, err
 		})
 		if err != nil {
 			return nil, err
 		}
 		for _, d := range lista {
-			out = append(out, envioTurno{envio: apns.Envio{Token: d.token, Entorno: d.entorno,
-				Payload: PayloadCliente(titulo, cuerpo, codigo), Colapso: "aviso-" + f.id, Vence: ahora.Add(Vida)},
-				token: d.token, tabla: "turno_dispositivos"})
+			x := envioTurno{token: d.token, tabla: "turno_dispositivos"}
+			if d.plataforma == "android" {
+				x.fcm = &fcm.Envio{Token: d.token, Titulo: titulo, Cuerpo: cuerpo, Datos: map[string]string{"ruta": "turno-cliente/" + codigo, "tipo": "cliente"},
+					Colapso: "aviso-" + f.id, Vida: Vida, SoloDatos: true}
+			} else {
+				x.envio = apns.Envio{Token: d.token, Entorno: d.entorno, Payload: PayloadCliente(titulo, cuerpo, codigo), Colapso: "aviso-" + f.id, Vence: ahora.Add(Vida)}
+			}
+			out = append(out, x)
 		}
 	}
 	return out, nil

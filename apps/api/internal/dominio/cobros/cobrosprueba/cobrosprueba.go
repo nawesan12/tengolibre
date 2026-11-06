@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/appstore/appstoreprueba"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/cifrado"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/googleplay"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/prueba"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/servidor"
 )
@@ -52,6 +54,35 @@ type Entorno struct {
 	Cobros *cobros.Servicio
 	// Apple firma como la App Store (la suscripción desde el iPhone).
 	Apple *appstoreprueba.Firmante
+	// Google hace de Google Play (la suscripción desde Android): token de compra → suscripción.
+	Google *GooglePlay
+}
+
+// ClaveGoogle protege el webhook de Google Play en los tests.
+const ClaveGoogle = "clave-play"
+
+// GooglePlay hace de la Play Developer API: devuelve lo que se cargó para cada token de compra.
+type GooglePlay struct {
+	mu      sync.Mutex
+	Compras map[string]googleplay.Suscripcion
+}
+
+// Cargar deja (o cambia) la suscripción de un token de compra.
+func (g *GooglePlay) Cargar(token string, s googleplay.Suscripcion) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.Compras[token] = s
+}
+
+// Consultar cumple suscripcion.Consultor.
+func (g *GooglePlay) Consultar(_ context.Context, paquete, token string) (*googleplay.Suscripcion, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	s, ok := g.Compras[token]
+	if !ok || paquete != suscripcion.PaqueteAndroid {
+		return nil, googleplay.ErrNoEncontrada
+	}
+	return &s, nil
 }
 
 // En una hora de la zona del negocio ("2026-11-02 09:00").
@@ -69,7 +100,7 @@ func Armar(t *testing.T) *Entorno { return ArmarCon(t, nil) }
 // ArmarCon es Armar más los dominios de otro test (p. ej. la lista de espera), que reciben el
 // servicio de turnos con sus extras.
 func ArmarCon(t *testing.T, mas func(a *prueba.API, tur *turnos.Servicio) []servidor.Dominio) *Entorno {
-	e := &Entorno{Avisos: map[string][]string{}, Apple: appstoreprueba.Nuevo()}
+	e := &Entorno{Avisos: map[string][]string{}, Apple: appstoreprueba.Nuevo(), Google: &GooglePlay{Compras: map[string]googleplay.Suscripcion{}}}
 	e.MP = mpfalso.Nuevo(t)
 	clave := make([]byte, 32)
 	_, _ = rand.Read(clave)
@@ -81,7 +112,7 @@ func ArmarCon(t *testing.T, mas func(a *prueba.API, tur *turnos.Servicio) []serv
 	e.API = prueba.Nueva(t, En("2026-11-01 10:00"), func(a *prueba.API) []servidor.Dominio {
 		app, reloj := a.Bases.App, a.Reloj()
 		sus := &suscripcion.Servicio{Pool: app, Sesion: a.Sesion, Cliente: e.MP.Cliente(), TokenPlataforma: mpfalso.TokenPlataforma,
-			Sitio: "https://tengolibre.com.ar", Ahora: reloj, Apple: e.Apple.Verificador()}
+			Sitio: "https://tengolibre.com.ar", Ahora: reloj, Apple: e.Apple.Verificador(), Google: e.Google, ClaveGoogle: ClaveGoogle}
 		// Como en cmd/api: toda escritura del panel pasa por la suscripción.
 		a.Sesion.Escritura, a.Sesion.SinChequeoDeEscritura = sus.Escritura, suscripcion.SinChequeo
 		cob := &cobros.Servicio{Pool: app, Sesion: a.Sesion, Cliente: e.MP.Cliente(),

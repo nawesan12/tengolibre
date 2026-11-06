@@ -1,6 +1,8 @@
 package suscripcion_test
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +15,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago/mpfalso"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/googleplay"
 )
 
 type P = cobrosprueba.P
@@ -348,6 +351,60 @@ func TestSuscripcionDesdeElIPhone(t *testing.T) {
 	// Venció: el panel vuelve a sólo lectura.
 	vencida := e.Apple.Transaccion("2000001", "ar.com.tengolibre.completo.mensual", e.Negocio, e.Ahora.Add(-2*time.Hour))
 	webhook(e.Apple.Notificacion("EXPIRED", "VOLUNTARY", vencida, ""))
+	if s := leer(e); !s.Bloqueado || s.Plan != "sin_plan" {
+		t.Fatalf("vencida tendría que bloquear: %+v", s)
+	}
+}
+
+// sus arma lo que devuelve Google Play para una suscripción de Tengo Libre.
+func sus(estado, negocio string, vence time.Time, renueva bool) googleplay.Suscripcion {
+	var g googleplay.Suscripcion
+	b, _ := json.Marshal(map[string]any{"subscriptionState": estado, "startTime": vence.AddDate(0, -1, 0).Format(time.RFC3339),
+		"externalAccountIdentifiers": map[string]string{"obfuscatedExternalAccountId": negocio},
+		"lineItems": []map[string]any{{"productId": "ar.com.tengolibre.completo.mensual", "expiryTime": vence.Format(time.RFC3339),
+			"autoRenewingPlan": map[string]bool{"autoRenewEnabled": renueva}}}})
+	_ = json.Unmarshal(b, &g)
+	return g
+}
+
+// TestSuscripcionDesdeAndroid: la compra en Google Play abre el panel, Mercado Pago no la pisa, las
+// notificaciones de RTDN la apagan y la vencen, y una compra de otro negocio o sin la clave no sirve.
+func TestSuscripcionDesdeAndroid(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.SQL("UPDATE negocios SET prueba_hasta = $1", e.Ahora.Add(-time.Hour))
+	vence := e.Ahora.AddDate(0, 1, 0)
+	e.Google.Cargar("tok-1", sus("SUBSCRIPTION_STATE_ACTIVE", e.Negocio, vence, true))
+	e.Google.Cargar("tok-otro", sus("SUBSCRIPTION_STATE_ACTIVE", "00000000-0000-0000-0000-000000000000", vence, true))
+
+	e.Panel(400, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "x", "token": "no-existe"}, nil)
+	e.Panel(409, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "x", "token": "tok-otro"}, nil)
+	var x suscripcion.Suscripcion
+	e.Panel(200, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "ar.com.tengolibre.completo.mensual", "token": "tok-1"}, &x)
+	if x.Origen != "google" || x.Estado != "autorizada" || x.Plan != "completo" {
+		t.Fatalf("la compra no quedó: %+v", x)
+	}
+	if s := leer(e); s.Bloqueado || s.Suscripcion == nil || s.Suscripcion.Origen != "google" {
+		t.Fatalf("con la compra tendría que estar abierto: %+v", s)
+	}
+	e.Panel(200, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "ar.com.tengolibre.completo.mensual", "token": "tok-1"}, nil)
+	e.Panel(409, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "inicial"}, nil)
+	e.Panel(409, "POST", "/v1/panel/suscripcion/cancelar", nil, nil)
+
+	webhook := func(clave string, esperado int) {
+		d, _ := json.Marshal(map[string]any{"packageName": suscripcion.PaqueteAndroid, "subscriptionNotification": map[string]any{"notificationType": 3, "purchaseToken": "tok-1"}})
+		e.Esperar(esperado, P{Metodo: "POST", Ruta: "/v1/webhooks/google-play?clave=" + clave,
+			Cuerpo: map[string]any{"message": map[string]string{"data": base64.StdEncoding.EncodeToString(d)}}}, nil)
+	}
+	webhook("otra", 404)
+	// Apagó la renovación: sigue valiendo hasta que vence.
+	e.Google.Cargar("tok-1", sus("SUBSCRIPTION_STATE_CANCELED", e.Negocio, vence, false))
+	webhook(cobrosprueba.ClaveGoogle, 200)
+	if s := leer(e); s.Bloqueado || s.Suscripcion.CanceladaEn == nil {
+		t.Fatalf("con la renovación apagada sigue valiendo hasta el vencimiento: %+v", s)
+	}
+	// Venció: el panel vuelve a sólo lectura.
+	e.Google.Cargar("tok-1", sus("SUBSCRIPTION_STATE_EXPIRED", e.Negocio, e.Ahora.Add(-2*time.Hour), false))
+	webhook(cobrosprueba.ClaveGoogle, 200)
 	if s := leer(e); !s.Bloqueado || s.Plan != "sin_plan" {
 		t.Fatalf("vencida tendría que bloquear: %+v", s)
 	}

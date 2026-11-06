@@ -42,3 +42,19 @@ func TestTextoCliente(t *testing.T) {
 		t.Fatalf("ruta: %v", p["ruta"])
 	}
 }
+
+func TestDatosAndroid(t *testing.T) {
+	fin := time.Date(2026, 11, 5, 15, 30, 0, 0, time.UTC)
+	d := DatosActividad("t1", true, fin, "16:00 · Ana", "Laura Pérez", "Corte")
+	if d["tipo"] != "actividad" || d["turno"] != "t1" || d["fin"] != "2026-11-05T15:30:00Z" || d["terminar"] != "1" || d["siguiente"] != "16:00 · Ana" ||
+		d["cliente"] != "Laura Pérez" || d["servicio"] != "Corte" {
+		t.Fatalf("actividad: %v", d)
+	}
+	a := DatosFCM(Aviso{Tipo: "reserva", Ruta: "turnos/1", Negocio: "n1"})
+	if a["categoria"] != "TL_RESERVA" || a["tipo"] != "reserva" || a["ruta"] != "turnos/1" || a["negocio"] != "n1" {
+		t.Fatalf("aviso: %v", a)
+	}
+	if !TokenFCM("fcm:APA91b-token_de_registro") || TokenFCM("corto") || TokenFCM("con espacios y más de veinte letras") {
+		t.Fatal("TokenFCM")
+	}
+}

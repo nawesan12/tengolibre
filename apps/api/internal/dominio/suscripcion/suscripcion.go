@@ -60,8 +60,12 @@ type Servicio struct {
 	Sitio string
 	// Apple verifica lo que firma la App Store (nil: con la raíz de Apple).
 	Apple *appstore.Verificador
-	Ahora func() time.Time
-	Log   *slog.Logger
+	// Google consulta las compras de Google Play (nil: la suscripción por Play queda apagada) y
+	// ClaveGoogle protege el webhook de RTDN (vacía: apagado).
+	Google      Consultor
+	ClaveGoogle string
+	Ahora       func() time.Time
+	Log         *slog.Logger
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -132,10 +136,10 @@ func LeerAcceso(ctx context.Context, tx pgx.Tx, ahora time.Time) (Acceso, error)
 	var a Acceso
 	var hasta *time.Time
 	var plan string
-	// Una de Apple autorizada vale hasta que vence (más un día, por si la renovación llega tarde): si
+	// Una de Apple o Google Play autorizada vale hasta que vence (más un día, por si la renovación llega tarde): si
 	// la App Store no avisó que renovó, no sigue abierta para siempre.
 	err := tx.QueryRow(ctx, `SELECT n.prueba_hasta, n.plan, EXISTS (SELECT 1 FROM suscripciones s WHERE
-			(s.estado = 'autorizada' AND (s.origen <> 'apple' OR s.proximo_cobro > $1::timestamptz - interval '1 day'))
+			(s.estado = 'autorizada' AND (s.origen NOT IN ('apple', 'google') OR s.proximo_cobro > $1::timestamptz - interval '1 day'))
 			OR (s.estado = 'pausada' AND (s.gracia_hasta IS NULL OR s.gracia_hasta > $1)))
 		FROM negocios n WHERE n.id = app.negocio_actual()`, ahora).Scan(&hasta, &plan, &a.ConSuscripcion)
 	if err != nil {

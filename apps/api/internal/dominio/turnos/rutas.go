@@ -620,31 +620,54 @@ func (s *Servicio) reprogramarPanel(w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
-var tokenIPhone = regexp.MustCompile(`^[0-9a-f]{64,200}$`)
+var (
+	tokenIPhone  = regexp.MustCompile(`^[0-9a-f]{64,200}$`)
+	tokenAndroid = regexp.MustCompile(`^[A-Za-z0-9_:-]{20,}$`)
+)
 
-// seguirTurno: el iPhone de la clienta (la app en modo clienta) se anota para que le lleguen los
-// avisos de este turno: {"token": hex de APNs, "entorno": "sandbox|produccion"}. Tener el código
-// alcanza (es el mismo link que recibe por mail).
+// tokenDe normaliza el token de un teléfono: el de APNs (hex) en minúsculas; el de FCM tal cual
+// (distingue mayúsculas).
+func tokenDe(t string) string {
+	t = strings.TrimSpace(t)
+	if tokenIPhone.MatchString(strings.ToLower(t)) {
+		return strings.ToLower(t)
+	}
+	return t
+}
+
+// seguirTurno: el teléfono de la clienta (la app en modo clienta) se anota para que le lleguen los
+// avisos de este turno: {"token": hex de APNs, "entorno": "sandbox|produccion"} desde el iPhone, o
+// {"plataforma": "android", "token": <FCM>} desde Android. Tener el código alcanza (es el mismo link
+// que recibe por mail).
 func (s *Servicio) seguirTurno(w http.ResponseWriter, r *http.Request) error {
 	var in struct {
-		Token   string `json:"token"`
-		Entorno string `json:"entorno"`
+		Plataforma string `json:"plataforma"`
+		Token      string `json:"token"`
+		Entorno    string `json:"entorno"`
 	}
 	if err := web.Leer(w, r, &in); err != nil {
 		return err
 	}
-	in.Token = strings.ToLower(strings.TrimSpace(in.Token))
-	if !tokenIPhone.MatchString(in.Token) {
-		return problema.Invalido("El token del iPhone no es válido.", problema.Campo{Ruta: "token", Mensaje: "hexadecimal"})
+	in.Token = strings.TrimSpace(in.Token)
+	if in.Plataforma == "android" {
+		if len(in.Token) > 4096 || !tokenAndroid.MatchString(in.Token) {
+			return problema.Invalido("El token del teléfono no es válido.", problema.Campo{Ruta: "token", Mensaje: "formato"})
+		}
+	} else {
+		in.Plataforma = "ios"
+		in.Token = strings.ToLower(in.Token)
+		if !tokenIPhone.MatchString(in.Token) {
+			return problema.Invalido("El token del iPhone no es válido.", problema.Campo{Ruta: "token", Mensaje: "hexadecimal"})
+		}
 	}
 	if in.Entorno != "sandbox" {
 		in.Entorno = "produccion"
 	}
 	ctx := r.Context()
 	_, _, err := s.delCliente(ctx, r.PathValue("codigo"), func(tx pgx.Tx, t *TurnoCliente) error {
-		_, err := tx.Exec(ctx, `INSERT INTO turno_dispositivos (negocio_id, turno_id, token, entorno)
-			VALUES (app.negocio_actual(), $1, $2, $3) ON CONFLICT (turno_id, token) DO UPDATE SET entorno = excluded.entorno`,
-			t.ID, in.Token, in.Entorno)
+		_, err := tx.Exec(ctx, `INSERT INTO turno_dispositivos (negocio_id, turno_id, token, entorno, plataforma)
+			VALUES (app.negocio_actual(), $1, $2, $3, $4) ON CONFLICT (turno_id, token) DO UPDATE SET entorno = excluded.entorno`,
+			t.ID, in.Token, in.Entorno, in.Plataforma)
 		return err
 	})
 	if err != nil {
@@ -654,7 +677,7 @@ func (s *Servicio) seguirTurno(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// dejarDeSeguir: {"token": hex} deja de mandarle los avisos de este turno a ese iPhone.
+// dejarDeSeguir: {"token": …} deja de mandarle los avisos de este turno a ese teléfono.
 func (s *Servicio) dejarDeSeguir(w http.ResponseWriter, r *http.Request) error {
 	var in struct {
 		Token string `json:"token"`
@@ -664,7 +687,7 @@ func (s *Servicio) dejarDeSeguir(w http.ResponseWriter, r *http.Request) error {
 	}
 	ctx := r.Context()
 	_, _, err := s.delCliente(ctx, r.PathValue("codigo"), func(tx pgx.Tx, t *TurnoCliente) error {
-		_, err := tx.Exec(ctx, "DELETE FROM turno_dispositivos WHERE turno_id = $1 AND token = $2", t.ID, strings.ToLower(strings.TrimSpace(in.Token)))
+		_, err := tx.Exec(ctx, "DELETE FROM turno_dispositivos WHERE turno_id = $1 AND token = $2", t.ID, tokenDe(in.Token))
 		return err
 	})
 	if err != nil {

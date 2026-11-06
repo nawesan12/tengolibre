@@ -119,6 +119,12 @@ func PayloadAPNs(a Aviso) []byte {
 	return b
 }
 
+// DatosFCM: lo que va en data del aviso de Android (sólo datos: la app arma la notificación con las
+// acciones de su categoría, las mismas que en el iPhone).
+func DatosFCM(a Aviso) map[string]string {
+	return map[string]string{"ruta": a.Ruta, "negocio": a.Negocio, "tipo": a.Tipo, "categoria": CategoriasAPNs[a.Tipo]}
+}
+
 // CategoriasAPNs: las acciones de cada aviso en el iPhone (UNNotificationCategory de la app, handoff
 // de iOS › Avisos push). Los tipos sin categoría se abren al tocarlos y nada más.
 var CategoriasAPNs = map[string]string{
@@ -226,7 +232,7 @@ func (e *Envios) mandar(ctx context.Context, cola []pendiente, ahora time.Time) 
 				Payload: PayloadAPNs(p.aviso), Colapso: p.aviso.Colapso, Vence: ahora.Add(Vida)})
 		case p.destino.plataforma == "android" && e.FCM != nil:
 			err = e.FCM.Enviar(ctx, fcm.Envio{Token: p.destino.token, Titulo: p.aviso.Titulo, Cuerpo: p.aviso.Cuerpo,
-				Datos: map[string]string{"ruta": p.aviso.Ruta, "negocio": p.aviso.Negocio}, Colapso: p.aviso.Colapso, Vida: Vida})
+				Datos: DatosFCM(p.aviso), Colapso: p.aviso.Colapso, Vida: Vida, SoloDatos: true})
 		case p.destino.plataforma == "web" && e.Web != nil:
 			err = e.Web.Enviar(ctx, webpush.Envio{Suscripcion: webpush.Suscripcion{Endpoint: p.destino.token,
 				P256dh: p.destino.p256dh, Auth: p.destino.auth}, Payload: PayloadWeb(p.aviso), TTL: Vida, Tema: p.aviso.Colapso})

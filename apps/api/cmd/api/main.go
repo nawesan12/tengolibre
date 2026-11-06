@@ -44,6 +44,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/config"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/googleplay"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/servidor"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/tiemporeal"
@@ -83,7 +84,13 @@ func correr() error {
 	av := &avisos.Servicio{Pool: app, Sesion: ses, AlLiberarse: espera.Liberado}
 
 	// Plata. Vencida la prueba sin suscripción, el panel queda de sólo lectura salvo lo de abajo.
-	sus := &suscripcion.Servicio{Pool: app, Sesion: ses, TokenPlataforma: cfg.MPTokenPlataforma, Sitio: cfg.Sitio}
+	sus := &suscripcion.Servicio{Pool: app, Sesion: ses, TokenPlataforma: cfg.MPTokenPlataforma, Sitio: cfg.Sitio, ClaveGoogle: cfg.PlayClaveWebhook}
+	// Google Play: sin la cuenta de servicio, la suscripción desde Android queda apagada.
+	if play, err := googleplay.Desde(cfg.PlayCuenta); err != nil {
+		slog.Warn("suscripción: la cuenta de Google Play no sirve, comprar desde Android queda apagado", "error", err)
+	} else if play != nil {
+		sus.Google = play
+	}
 	ses.Escritura = sus.Escritura
 	ses.SinChequeoDeEscritura = suscripcion.SinChequeo
 	// Sin clave de cifrado, los negocios no pueden conectar Mercado Pago (el resto anda).
