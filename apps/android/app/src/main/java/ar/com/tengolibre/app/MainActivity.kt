@@ -51,6 +51,8 @@ class MainActivity : ComponentActivity() {
         estado = Estado()
         estado.abrirPestana = { url -> CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(this, Uri.parse(url)) }
         estado.alPedirPermisoPush = { pedirPermisoAvisos() }
+        estado.compartirTexto = { t -> startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t), null)) }
+        estado.abrirLink = { u -> runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u))) } }
         atender(intent)
         setContent {
             TemaTL(Preferencias.texto("tema") ?: "auto") {

@@ -1,7 +1,13 @@
 package ar.com.tengolibre.app.tema
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -47,6 +53,7 @@ import kotlin.math.roundToInt
 enum class Altura { media, grande }
 
 /** Una hoja que sube desde abajo (.sheet en iOS): velo, radio 16 arriba, indicador para arrastrar, «atrás» la cierra.
+ *  Va en su propia ventana (como en iOS), así tapa toda la pantalla aunque se abra desde adentro de una lista.
  *  Con `alturas = [media, grande]` arranca a media pantalla y se estira; arrastrar hacia abajo la cierra. */
 @Composable
 fun Hoja(
@@ -56,43 +63,52 @@ fun Hoja(
     indicador: Boolean = alturas.size > 1,
     contenido: @Composable ColumnScope.() -> Unit,
 ) {
-    AnimatedVisibility(visible, enter = fadeIn(), exit = fadeOut()) {
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)).clickable(remember { MutableInteractionSource() }, null, onClick = alCerrar))
-    }
-    AnimatedVisibility(visible, enter = slideInVertically(Movimiento.entrar()) { it }, exit = slideOutVertically(Movimiento.entrar()) { it }) {
-        BackHandler(onBack = alCerrar)
-        BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-            val total = maxHeight
-            val densidad = LocalDensity.current
-            var altura by remember { mutableStateOf(alturas.first()) }
-            val alto = if (altura == Altura.media) total * 0.5f else total * 0.94f
-            val arrastre = remember { Animatable(0f) }
-            val alcance = rememberCoroutineScope()
-            LaunchedEffect(visible) { arrastre.snapTo(0f); altura = alturas.first() }
-            Column(
-                Modifier.fillMaxWidth().height(alto).offset { IntOffset(0, arrastre.value.roundToInt().coerceAtLeast(0)) }
-                    .clip(RoundedCornerShape(topStart = Radio.hoja, topEnd = Radio.hoja)).background(C.hoja)
-                    .clickable(remember { MutableInteractionSource() }, null) {}
-                    .imePadding(),
-            ) {
-                Box(
-                    Modifier.fillMaxWidth().height(if (indicador) 20.dp else 8.dp).draggable(
-                        rememberDraggableState { d -> alcance.launch { arrastre.snapTo(arrastre.value + d) } },
-                        Orientation.Vertical,
-                        onDragStopped = { v ->
-                            val umbral = with(densidad) { 120.dp.toPx() }
-                            when {
-                                arrastre.value < -umbral / 2 && Altura.grande in alturas -> { altura = Altura.grande; arrastre.animateTo(0f) }
-                                arrastre.value > umbral || v > 1500f -> if (altura == Altura.grande && Altura.media in alturas) { altura = Altura.media; arrastre.animateTo(0f) } else alCerrar()
-                                else -> arrastre.animateTo(0f)
-                            }
-                        },
-                    ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (indicador) Box(Modifier.padding(top = 4.dp).size(36.dp, 5.dp).clip(CircleShape).background(C.linea))
+    val estadoVisible = remember { MutableTransitionState(false) }
+    estadoVisible.targetState = visible
+    if (!estadoVisible.currentState && !estadoVisible.targetState && estadoVisible.isIdle) return
+    val tema = LocalPaleta.current
+    Dialog(onDismissRequest = alCerrar, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnClickOutside = false)) {
+        (LocalView.current.parent as? DialogWindowProvider)?.window?.setDimAmount(0f)
+        CompositionLocalProvider(LocalPaleta provides tema) {
+            Box(Modifier.fillMaxSize()) {
+                AnimatedVisibility(estadoVisible, enter = fadeIn(), exit = fadeOut()) {
+                    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)).clickable(remember { MutableInteractionSource() }, null, onClick = alCerrar))
                 }
-                contenido()
+                AnimatedVisibility(estadoVisible, enter = slideInVertically(Movimiento.entrar()) { it }, exit = slideOutVertically(Movimiento.entrar()) { it }) {
+                    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                        val total = maxHeight
+                        val densidad = LocalDensity.current
+                        var altura by remember { mutableStateOf(alturas.first()) }
+                        val alto = if (altura == Altura.media) total * 0.5f else total * 0.94f
+                        val arrastre = remember { Animatable(0f) }
+                        val alcance = rememberCoroutineScope()
+                        Column(
+                            Modifier.fillMaxWidth().height(alto).offset { IntOffset(0, arrastre.value.roundToInt().coerceAtLeast(0)) }
+                                .clip(RoundedCornerShape(topStart = Radio.hoja, topEnd = Radio.hoja)).background(C.hoja)
+                                .clickable(remember { MutableInteractionSource() }, null) {}
+                                .navigationBarsPadding().imePadding(),
+                        ) {
+                            Box(
+                                Modifier.fillMaxWidth().height(if (indicador) 20.dp else 8.dp).draggable(
+                                    rememberDraggableState { d -> alcance.launch { arrastre.snapTo(arrastre.value + d) } },
+                                    Orientation.Vertical,
+                                    onDragStopped = { v ->
+                                        val umbral = with(densidad) { 120.dp.toPx() }
+                                        when {
+                                            arrastre.value < -umbral / 2 && Altura.grande in alturas -> { altura = Altura.grande; arrastre.animateTo(0f) }
+                                            arrastre.value > umbral || v > 1500f -> if (altura == Altura.grande && Altura.media in alturas) { altura = Altura.media; arrastre.animateTo(0f) } else alCerrar()
+                                            else -> arrastre.animateTo(0f)
+                                        }
+                                    },
+                                ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (indicador) Box(Modifier.padding(top = 4.dp).size(36.dp, 5.dp).clip(CircleShape).background(C.linea))
+                            }
+                            contenido()
+                        }
+                    }
+                }
             }
         }
     }

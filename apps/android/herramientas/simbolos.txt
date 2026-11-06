@@ -1,4 +1,3 @@
-apple.logo=ios
 apps.iphone=apps
 arrow.clockwise=refresh
 arrow.down=arrow_downward

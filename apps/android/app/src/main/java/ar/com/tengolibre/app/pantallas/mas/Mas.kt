@@ -128,3 +128,16 @@ suspend fun Estado.intentar(ok: String = "", f: suspend () -> Unit): Boolean = t
     avisar(e)
     false
 }
+
+/** Lo que se apila dentro de «Más»: todas las secciones del panel web, nativas. */
+sealed class DestinoMas {
+    data object primerosPasos : DestinoMas(); data object resenas : DestinoMas(); data object suscripcion : DestinoMas()
+    data object diasLibres : DestinoMas(); data object cobros : DestinoMas()
+    data object servicios : DestinoMas(); data object equipo : DestinoMas(); data class profesional(val id: String) : DestinoMas(); data object miHorario : DestinoMas()
+    data object membresias : DestinoMas(); data object cupones : DestinoMas(); data object referidos : DestinoMas(); data object penalidades : DestinoMas()
+    data object etiquetas : DestinoMas(); data object caja : DestinoMas()
+    data object reportes : DestinoMas(); data object miWeb : DestinoMas(); data object plantillas : DestinoMas(); data object dominio : DestinoMas()
+    data object integraciones : DestinoMas()
+    data object configuracion : DestinoMas(); data object avisosClientes : DestinoMas(); data object whatsapp : DestinoMas(); data object auditoria : DestinoMas()
+    data object sucursales : DestinoMas(); data object cuenta : DestinoMas(); data object recorrido : DestinoMas()
+}

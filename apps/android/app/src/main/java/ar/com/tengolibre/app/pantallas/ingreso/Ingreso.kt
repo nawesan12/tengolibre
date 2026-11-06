@@ -113,7 +113,7 @@ fun Ingreso() {
                 Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(forma).background(Color.Black).clickable(enabled = entrando == null) { entrar("apple") },
                 horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (entrando == "apple") Texto("…", Tipo.lato(17f, Peso.Bold), Color.White) else Icono("apple.logo", 20f, Color.White)
+                if (entrando == "apple") Texto("…", Tipo.lato(17f, Peso.Bold), Color.White) else Image(painterResource(R.drawable.logo_apple), null, Modifier.size(20.dp), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.White))
                 Spacer(Modifier.width(10.dp))
                 Texto("Continuar con Apple", Tipo.lato(17f, Peso.Bold), Color.White)
             }

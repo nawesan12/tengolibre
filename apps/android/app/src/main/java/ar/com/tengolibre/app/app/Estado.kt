@@ -122,6 +122,10 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     var alRecargarWidgets: () -> Unit = {}
     /** Abre una URL en una Custom Tab (la pone MainActivity). */
     var abrirPestana: (String) -> Unit = {}
+    /** La hoja de compartir del sistema con un texto (UIActivityViewController en iOS). */
+    var compartirTexto: (String) -> Unit = {}
+    /** Abre un link externo (tel:, whatsapp:, mailto:, https:) con la app que corresponda. */
+    var abrirLink: (String) -> Unit = {}
 
     val rol: String get() = negocio?.rol.orEmpty()
     val esDuena: Boolean get() = rol == "duenio"

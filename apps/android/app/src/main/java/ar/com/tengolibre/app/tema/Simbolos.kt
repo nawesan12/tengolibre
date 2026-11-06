@@ -4,7 +4,6 @@ package ar.com.tengolibre.app.tema
 // Cada nombre de SF Symbol que usa la app de iPhone, con su equivalente de Material Symbols Rounded.
 internal object Simbolos {
     val mapa: Map<String, Char> = mapOf(
-        "apple.logo" to '\ue027', // ios
         "apps.iphone" to '\ue5c3', // apps
         "arrow.clockwise" to '\ue5d5', // refresh
         "arrow.down" to '\ue5db', // arrow_downward
