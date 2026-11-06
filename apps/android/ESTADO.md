@@ -26,38 +26,49 @@ lo más consistentes posible entre sí. Nada se publica en las tiendas hasta que
   - Falta que iOS (`ModoPrueba.swift`, `PantallasTests`) lo lea también, en vez de sus respuestas en código.
 - Sin APK: Nahuel prefirió esperar la prueba interna de Play. Se revisa con capturas.
 
-## Hecho
-- **F0 (base):**
-  - Gradle con las mismas versiones que Caigo, más Glance, Robolectric y Roborazzi.
-  - CI `android.yml`: compila, corre los tests y sube el artifact «capturas».
-  - Tema completo clonado de `Tema.swift` (colores claro y oscuro, Lato, espacios, radios, movimiento, hápticos) y
-    todas sus piezas, con los íconos.
-  - Núcleo: `Formato`, `Fecha`, `Dia`, `Modelos`, `Api`, `Guardado`, `Llavero`, `EnVivo`, `Web`, `Clerk`,
-    `Preferencias`, `ModoPrueba`.
-  - `Estado` con `Ruta`, fases, roles, ingreso por Clerk (Google y Apple, los dos por Custom Tab), toasts con
-    «Deshacer» y push (las funciones de registro; falta el servicio FCM).
-  - `pantallas/Muestra.kt` es provisoria: todas las piezas juntas. Se compara su captura con iOS y se borra cuando
-    estén las pantallas reales.
+## Hecho (sin compilar todavía: Nahuel pidió una sola compilación al final)
+- **F0:** Gradle, CI, tema (`tema/Tema.kt`), íconos, núcleo y `Estado`. Ya compiló y pasó el CI.
+- **Piezas propias de Android** (lo que iOS da hecho):
+  - `tema/Hoja.kt`: la hoja (.sheet) en su propia ventana, con alturas media y grande y arrastre.
+  - `tema/Selectores.kt`: Confirmacion, MenuBoton, CalendarioMes y SelectorHora.
+  - `tema/Graficos.kt`: los 6 gráficos con Canvas, Pulso, .entrada(i), NumeroAnimado y pesosCortos.
+  - `nucleo/Consejos.kt`: lo de TipKit a mano, con VistaConsejo y ConConsejo.
+- **Pantallas portadas:**
+  - Ingreso (las 6 de entrada) y Principal (Navegacion, BarraPestanas, BotonTurnoFlotante, Cabecera,
+    SelectorNegocio, Cuerpo, Destinos y Provisoria).
+  - Hoy (Hoy, Talon, DatosDia, PlataHoy, Guia, Momentos) y Agenda.
+  - Turno (DetalleTurno con Cobrar y Reprogramar; NuevoTurno con PreviaFijo y Contactos).
+  - Mas a medias:
+    - Hechos: piezas Bloque…, DestinoMas y EstadoNegocio con Potencia y BarraAvance.
+    - Faltan en Mas.kt: Mas, PantallaMas, HojaEdicion, PrimerosPasos y Cuenta.
+- `Estado` tiene `compartirTexto` y `abrirLink`, que conecta MainActivity.
 
-## Sigue (en orden)
-1. **Raíz y navegación:**
-   - `app/TengoLibreApp.kt` (Raiz con las fases), `MainActivity` con la vuelta de Clerk
-     (`ar.com.tengolibre.app://callback`) y los links.
-   - `pantallas/principal/Principal.kt`: barra propia, una pila por pestaña, hojas y botón flotante.
-2. **F1:** `ingreso/Ingreso.kt`, `hoy/{Hoy,Talon,DatosDia,PlataHoy,Guia,Momentos}.kt`, `agenda/Agenda.kt`,
-   `turno/{DetalleTurno,NuevoTurno}.kt`.
-3. **F2:** espera, clientes, reseñas, avisos y compartir, buscar.
-4. **F3:** Más y sus 27 secciones (`MasEquipo`, `MasPlata`, `MasWeb`, `EstadoNegocio` completo) y los gráficos de
-   `Graficos.swift` con Canvas.
-5. **F4:** modo clienta (`cliente/Cliente.kt`).
-6. **F5:** push FCM con acciones, widgets Glance, notificación en curso, `shortcuts.xml`, App Links, consejos y
-   Play Billing.
-7. **F6, API:** datos FCM por tipo, actualización de la notificación en curso, `/v1/panel/suscripcion/google`.
-   Antes de cualquier migración, `pg_dump`.
-8. **Verificación de cada fase:**
-   - `PantallasTest`: la misma lista que `TengoLibreTests/PantallasTests.swift`, en claro y oscuro, a 393×852 dp.
-   - Prueba de paridad: lista de `.swift` contra lista de `.kt`.
-   - Hoja comparativa iOS | Android (`herramientas/comparar.sh`, falta escribirla), que se publica como Artifact.
+## Falta portar (en este orden), y después la única compilación
+1. `espera/ListaEspera.kt`.
+2. `clientes/Clientes.kt`, con `DestinoClientes.ficha(id)`, `PlanMembresia`, `Socio`, `EtiquetaConUso` y lo que
+   use la ficha (GraficoVisitas, SugerenciaMembresia).
+3. `resenas/Resenas.kt`.
+4. `avisos/Avisos.kt` + Compartir: QR con zxing, WhatsApp, historias de Instagram
+   (`com.instagram.share.ADD_TO_STORY`).
+5. `buscar/Buscar.kt` con CampoBuscar.
+6. `mas/Mas.kt`, lo que falta: Mas, PantallaMas, HojaEdicion, PrimerosPasos y Cuenta (con «Usar como clienta» y
+   salir).
+7. `mas/MasEquipo.kt`, `mas/MasPlata.kt` (ConexionMP, ConfigCobro, Cupon, ResumenCaja, NuevaSocia,
+   SuscripcionVista con Play Billing) y `mas/MasWeb.kt` (NegocioDatos, FotoGaleria; selector de fotos del
+   sistema).
+8. `cliente/Cliente.kt` (modo clienta) e `ingreso/Enlaces.kt` (TurnoClienteCargar, InvitacionVista; los abre Raiz).
+9. **Registrar todo en `principal/Destinos`** desde un `app/Registro.kt`:
+   - Las raíces de cada pestaña y los destinos de DestinoMas y DestinoClientes.
+   - Las hojas: DetalleTurno, NuevoTurno, Compartir, Buscar, Avisos y Recorrido.
+   - Borrar `pantallas/Muestra.kt` y los provisorios.
+10. **Plataforma:**
+    - `push/Push.kt`: FCM con acciones por tipo, como el ServicioPush de Caigo.
+    - `nucleo/Actividad.kt` (ActividadTurno.sincronizar): notificación en curso.
+    - Widgets Glance, `res/xml/shortcuts.xml` y Compras (Play Billing).
+    - Fijar en MainActivity `EstadoNegocio.hayAvisos` y `EstadoNegocio.hayWidget`.
+11. **PantallasTest:** la misma lista que iOS, más la prueba de paridad .swift / .kt.
+12. **API:** datos de FCM, notificación en curso y `/v1/panel/suscripcion/google`. Antes de migrar, `pg_dump`.
+13. Recién ahí: `publicar.sh`, compilar una vez, corregir hasta verde y comparar con `herramientas/comparar.sh`.
 
 ## Cuentas externas pendientes
 - **Firebase `grupo-vimo`:** registrar la app Android `ar.com.tengolibre.app`. Sus valores van a `local.properties`
