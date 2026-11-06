@@ -48,15 +48,30 @@ lo más consistentes posible entre sí. Nada se publica en las tiendas hasta que
 - **Llave de subida:** `~/Trabajo/vimo/credenciales-android/tengolibre-subida.{jks,clave}` (SHA-1
   25:07:D0:0A:56:1E:08:0B:03:9E:34:1B:D7:91:C1:EA:53:96:24:0C).
 
-## Falta
-1. Compilar (una vez), corregir hasta verde y comparar con `herramientas/comparar.sh` (hace falta una corrida nueva
-   de iOS con capturas).
-2. Desplegar la API con la migración 00023 (pg_dump antes) y cargar en el VPS `TENGOLIBRE_PLAY_CUENTA` y
-   `TENGOLIBRE_PLAY_CLAVE_WEBHOOK` (Google Play) cuando exista la app en Play.
-3. Secretos del repo `grupovimo/tengolibre-android` (el CI ya los lee): `TL_FIREBASE_APP_ID`, `TL_FIREBASE_API_KEY`,
-   `TL_FIREBASE_PROYECTO`, `TL_FIREBASE_REMITENTE` (de `~/Trabajo/vimo/firebase/google-services.json`),
-   `TL_FIRMA_JKS` (base64 de la llave) y `TL_FIRMA_CLAVE`. El paquete para Play sale con «Run workflow».
-4. Cuando exista la app en Play: el SHA-256 de la firma de Play en `assetlinks.json` de tengolibre.com.ar (App
-   Links), el cliente OAuth Android de Google con ese SHA-1 y los productos de suscripción con los mismos ids.
-5. Clerk: comprobar que la vuelta `ar.com.tengolibre.app://callback` esté permitida para Android.
-6. iOS: que lea `../pruebas/respuestas.json` en vez de sus respuestas en código.
+- **Auditoría de fidelidad (6/11):** cuatro revisiones par por par (`.swift` contra `.kt`). Corregidos: cupones (el
+  código no se veía), «Sacar de la lista» (no hacía nada; `Confirmacion` ahora corre la acción antes de cerrar),
+  bloque de cobro deshabilitado sin Mercado Pago, Plantillas › Reintentar, Guardar el QR (sólo el QR), Mover › Picker
+  de profesional, errores del ingreso con Clerk debajo de los botones, Custom Tab cerrada sin trabar el botón, en vivo
+  que se corta al parar, consejos uno por hora, botones deshabilitados enteros al 45 %, barra de estado petróleo,
+  botón Turno con pantallas apiladas, widget con hora en dos cifras, atajo «Mi día», animaciones de Hoy y acciones
+  de accesibilidad. Sumado: tirar para refrescar en las 9 pantallas que lo tienen en iOS y pestañas que siguen vivas
+  (TabView). CI verde (run 42154463468).
+- **Producción (6/11):** API 3c953a1 desplegada con la migración 00023 (copia previa
+  `/var/backups/tengolibre/antes-202611060254.sql.gz`). Secretos de Firebase y firma cargados en el repo espejo.
+
+## Diferencias de plataforma que quedan (aceptadas)
+Llamar abre el marcador; el contador del ícono no se fija a mano; el widget se actualiza cada 30 min y sin Lato; no hay
+widgets de pantalla bloqueada; los atajos abren la app; el consejo de la cápsula es tarjeta y no globo con flecha;
+Contactos no trae el email.
+
+## Falta (cuando esté la cuenta de Play)
+1. Crear la app en Play, subir el paquete («Run workflow» → artifact `play`) a prueba interna.
+2. Productos de suscripción con los mismos ids que la App Store; tópico RTDN → `https://api.tengolibre.com.ar/v1/webhooks/google-play?clave=…`;
+   cuenta de servicio de la Play Developer API → `TENGOLIBRE_PLAY_CUENTA` y `TENGOLIBRE_PLAY_CLAVE_WEBHOOK` en
+   `/opt/tengolibre/api.conf` y reiniciar api y worker.
+3. SHA-256 de la firma de Play en `https://tengolibre.com.ar/.well-known/assetlinks.json` (App Links) y cliente OAuth
+   Android de Google con ese SHA-1.
+4. Clerk: comprobar que la vuelta `ar.com.tengolibre.app://callback` ande en Android (es la misma que iOS).
+5. iOS: que lea `../pruebas/respuestas.json` en vez de sus respuestas en código.
+
+Para clonar las otras apps: `GUIA-CLON-IOS.md`.
