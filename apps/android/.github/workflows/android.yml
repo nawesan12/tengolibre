@@ -26,6 +26,26 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v5
+      # Firebase (push) y la llave de subida, desde los secretos del repo. Sin secretos compila igual: sin push y
+      # sin firmar.
+      - name: Configuración
+        env:
+          TL_FIREBASE_APP_ID: ${{ secrets.TL_FIREBASE_APP_ID }}
+          TL_FIREBASE_API_KEY: ${{ secrets.TL_FIREBASE_API_KEY }}
+          TL_FIREBASE_PROYECTO: ${{ secrets.TL_FIREBASE_PROYECTO }}
+          TL_FIREBASE_REMITENTE: ${{ secrets.TL_FIREBASE_REMITENTE }}
+          TL_FIRMA_JKS: ${{ secrets.TL_FIRMA_JKS }}
+          TL_FIRMA_CLAVE: ${{ secrets.TL_FIRMA_CLAVE }}
+        run: |
+          : > local.properties
+          if [ -n "$TL_FIREBASE_APP_ID" ]; then
+            printf 'tl.firebase.appId=%s\ntl.firebase.apiKey=%s\ntl.firebase.proyecto=%s\ntl.firebase.remitente=%s\n' \
+              "$TL_FIREBASE_APP_ID" "$TL_FIREBASE_API_KEY" "$TL_FIREBASE_PROYECTO" "$TL_FIREBASE_REMITENTE" >> local.properties
+          fi
+          if [ -n "$TL_FIRMA_JKS" ]; then
+            echo "$TL_FIRMA_JKS" | base64 -d > "$RUNNER_TEMP/subida.jks"
+            printf 'tl.firma.archivo=%s\ntl.firma.clave=%s\n' "$RUNNER_TEMP/subida.jks" "$TL_FIRMA_CLAVE" >> local.properties
+          fi
       - name: Compilar y probar
         run: ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest -Proborazzi.test.record=true
       - name: Capturas
@@ -34,6 +54,17 @@ jobs:
         with:
           name: capturas
           path: app/build/capturas
+          if-no-files-found: ignore
+      # A mano (workflow_dispatch): el paquete firmado para Play (prueba interna).
+      - name: Paquete para Play
+        if: github.event_name == 'workflow_dispatch'
+        run: ./gradlew --no-daemon :app:bundleRelease
+      - name: Subir el paquete
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: play
+          path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: ignore
       - name: Reportes de tests
         if: failure()

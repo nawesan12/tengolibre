@@ -26,54 +26,37 @@ lo más consistentes posible entre sí. Nada se publica en las tiendas hasta que
   - Falta que iOS (`ModoPrueba.swift`, `PantallasTests`) lo lea también, en vez de sus respuestas en código.
 - Sin APK: Nahuel prefirió esperar la prueba interna de Play. Se revisa con capturas.
 
-## Hecho (sin compilar todavía: Nahuel pidió una sola compilación al final)
-- **F0:** Gradle, CI, tema (`tema/Tema.kt`), íconos, núcleo y `Estado`. Ya compiló y pasó el CI.
-- **Piezas propias de Android** (lo que iOS da hecho):
-  - `tema/Hoja.kt`: la hoja (.sheet) en su propia ventana, con alturas media y grande y arrastre.
-  - `tema/Selectores.kt`: Confirmacion, MenuBoton, CalendarioMes y SelectorHora.
-  - `tema/Graficos.kt`: los 6 gráficos con Canvas, Pulso, .entrada(i), NumeroAnimado y pesosCortos.
-  - `nucleo/Consejos.kt`: lo de TipKit a mano, con VistaConsejo y ConConsejo.
-- **Pantallas portadas:**
-  - Ingreso (las 6 de entrada) y Principal (Navegacion, BarraPestanas, BotonTurnoFlotante, Cabecera,
-    SelectorNegocio, Cuerpo, Destinos y Provisoria).
-  - Hoy (Hoy, Talon, DatosDia, PlataHoy, Guia, Momentos) y Agenda.
-  - Turno (DetalleTurno con Cobrar y Reprogramar; NuevoTurno con PreviaFijo y Contactos).
-  - Mas a medias:
-    - Hechos: piezas Bloque…, DestinoMas y EstadoNegocio con Potencia y BarraAvance.
-    - Faltan en Mas.kt: Mas, PantallaMas, HojaEdicion, PrimerosPasos y Cuenta.
-- `Estado` tiene `compartirTexto` y `abrirLink`, que conecta MainActivity.
+## Hecho
+- **Todo portado** (23 de 23 pantallas de iOS: lo comprueba `ParidadTest` con `paridad.txt`, que escribe
+  `publicar.sh`). `app/Registro.kt` conecta Principal con las pantallas; ya no hay provisorios.
+- **Piezas propias de Android** (lo que iOS da hecho): `tema/Hoja.kt` (la .sheet), `tema/Selectores.kt`
+  (Confirmacion, MenuBoton, SelectorMenu = Picker, CalendarioMes, SelectorHora, RenglonFecha/RenglonHora = DatePicker),
+  `tema/Graficos.kt` (Canvas), `nucleo/Consejos.kt` (TipKit), `SelectorDeColor` en MasWeb (ColorPicker).
+- **Plataforma:**
+  - `push/Push.kt`: FCM sin google-services.json; los avisos llegan sólo con datos y la app arma la notificación con
+    las acciones de iOS (TL_RESERVA Confirmar/Ver turno, TL_CANCELO Avisar/Cargar, TL_HUECO Avisar, TL_RESENA
+    Responder con texto). `AccionesPush` corre las acciones sin abrir la app.
+  - `nucleo/Actividad.kt`: la Live Activity es una notificación en curso con cuenta regresiva y «Atendido» (Live
+    Update en Android 16); la mueve el servidor por FCM (`tipo: actividad`).
+  - `widgets/Widgets.kt`: «Tu día» con Glance, chico y mediano (en Android no hay widgets de pantalla bloqueada).
+  - `res/xml/shortcuts.xml`: los atajos de Siri como atajos del ícono.
+  - `nucleo/Compras.kt`: Play Billing con los mismos productos que la App Store; `obfuscatedAccountId` = negocio.
+- **API** (commit 1fa132d): FCM sólo datos con `tipo`/`categoria`, notificación en curso y avisos de la clienta por
+  FCM (`plataforma: android`), `POST /v1/panel/suscripcion/google` y el webhook de RTDN. Migración `00023_android.sql`
+  **sin aplicar en producción** (pg_dump antes).
+- **Tests:** `PantallasTest` con la misma lista que iOS (27 secciones, tres roles, claro y oscuro) y `ParidadTest`.
+- **Llave de subida:** `~/Trabajo/vimo/credenciales-android/tengolibre-subida.{jks,clave}` (SHA-1
+  25:07:D0:0A:56:1E:08:0B:03:9E:34:1B:D7:91:C1:EA:53:96:24:0C).
 
-## Falta portar (en este orden), y después la única compilación
-1. `espera/ListaEspera.kt`.
-2. `clientes/Clientes.kt`, con `DestinoClientes.ficha(id)`, `PlanMembresia`, `Socio`, `EtiquetaConUso` y lo que
-   use la ficha (GraficoVisitas, SugerenciaMembresia).
-3. `resenas/Resenas.kt`.
-4. `avisos/Avisos.kt` + Compartir: QR con zxing, WhatsApp, historias de Instagram
-   (`com.instagram.share.ADD_TO_STORY`).
-5. `buscar/Buscar.kt` con CampoBuscar.
-6. `mas/Mas.kt`, lo que falta: Mas, PantallaMas, HojaEdicion, PrimerosPasos y Cuenta (con «Usar como clienta» y
-   salir).
-7. `mas/MasEquipo.kt`, `mas/MasPlata.kt` (ConexionMP, ConfigCobro, Cupon, ResumenCaja, NuevaSocia,
-   SuscripcionVista con Play Billing) y `mas/MasWeb.kt` (NegocioDatos, FotoGaleria; selector de fotos del
-   sistema).
-8. `cliente/Cliente.kt` (modo clienta) e `ingreso/Enlaces.kt` (TurnoClienteCargar, InvitacionVista; los abre Raiz).
-9. **Registrar todo en `principal/Destinos`** desde un `app/Registro.kt`:
-   - Las raíces de cada pestaña y los destinos de DestinoMas y DestinoClientes.
-   - Las hojas: DetalleTurno, NuevoTurno, Compartir, Buscar, Avisos y Recorrido.
-   - Borrar `pantallas/Muestra.kt` y los provisorios.
-10. **Plataforma:**
-    - `push/Push.kt`: FCM con acciones por tipo, como el ServicioPush de Caigo.
-    - `nucleo/Actividad.kt` (ActividadTurno.sincronizar): notificación en curso.
-    - Widgets Glance, `res/xml/shortcuts.xml` y Compras (Play Billing).
-    - Fijar en MainActivity `EstadoNegocio.hayAvisos` y `EstadoNegocio.hayWidget`.
-11. **PantallasTest:** la misma lista que iOS, más la prueba de paridad .swift / .kt.
-12. **API:** datos de FCM, notificación en curso y `/v1/panel/suscripcion/google`. Antes de migrar, `pg_dump`.
-13. Recién ahí: `publicar.sh`, compilar una vez, corregir hasta verde y comparar con `herramientas/comparar.sh`.
-
-## Cuentas externas pendientes
-- **Firebase `grupo-vimo`:** registrar la app Android `ar.com.tengolibre.app`. Sus valores van a `local.properties`
-  (`tl.firebase.*`) y a los secretos del repo.
-- **Google:** cliente OAuth Android con el SHA-1 de la llave de subida.
-- **Llave de subida:** `~/Trabajo/vimo/credenciales-android/tengolibre-subida.jks`.
-- **Clerk:** comprobar que la vuelta `ar.com.tengolibre.app://callback` esté permitida para Android (en iOS ya
-  funciona con el mismo esquema).
+## Falta
+1. Compilar (una vez), corregir hasta verde y comparar con `herramientas/comparar.sh` (hace falta una corrida nueva
+   de iOS con capturas).
+2. Desplegar la API con la migración 00023 (pg_dump antes) y cargar en el VPS `TENGOLIBRE_PLAY_CUENTA` y
+   `TENGOLIBRE_PLAY_CLAVE_WEBHOOK` (Google Play) cuando exista la app en Play.
+3. Secretos del repo `grupovimo/tengolibre-android` (el CI ya los lee): `TL_FIREBASE_APP_ID`, `TL_FIREBASE_API_KEY`,
+   `TL_FIREBASE_PROYECTO`, `TL_FIREBASE_REMITENTE` (de `~/Trabajo/vimo/firebase/google-services.json`),
+   `TL_FIRMA_JKS` (base64 de la llave) y `TL_FIRMA_CLAVE`. El paquete para Play sale con «Run workflow».
+4. Cuando exista la app en Play: el SHA-256 de la firma de Play en `assetlinks.json` de tengolibre.com.ar (App
+   Links), el cliente OAuth Android de Google con ese SHA-1 y los productos de suscripción con los mismos ids.
+5. Clerk: comprobar que la vuelta `ar.com.tengolibre.app://callback` esté permitida para Android.
+6. iOS: que lea `../pruebas/respuestas.json` en vez de sus respuestas en código.
