@@ -1,0 +1,44 @@
+# Compila la app de Android en GitHub cada vez que cambia: en la Mac no se compila (como iOS).
+# Corre los tests (incluidas las capturas de PantallasTest en claro y oscuro) y sube el artifact «capturas»
+# para compararlas con las de iOS (grupovimo/tengolibre-ios, artifact «capturas»).
+name: Android
+
+on:
+  pull_request:
+    paths-ignore: ['**.md']
+  push:
+    branches: ['**']
+    paths-ignore: ['**.md']
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compilar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Compilar y probar
+        run: ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest -Proborazzi.test.record=true
+      - name: Capturas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas
+          path: app/build/capturas
+          if-no-files-found: ignore
+      - name: Reportes de tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tests
+          path: app/build/reports/tests
+          if-no-files-found: ignore
