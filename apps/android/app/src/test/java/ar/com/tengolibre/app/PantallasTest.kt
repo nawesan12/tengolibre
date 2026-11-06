@@ -12,6 +12,7 @@ import ar.com.tengolibre.app.nucleo.NegocioDeLaPersona
 import ar.com.tengolibre.app.nucleo.Persona
 import ar.com.tengolibre.app.nucleo.Preferencias
 import ar.com.tengolibre.app.pantallas.ingreso.*
+import ar.com.tengolibre.app.pantallas.principal.Principal
 import ar.com.tengolibre.app.tema.TemaTL
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
@@ -22,7 +23,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /** Clon de TengoLibreTests/PantallasTests.swift: monta cada pantalla contra la API simulada (pruebas/respuestas.json),
- *  a 393 × 852 dp, y guarda la captura en claro y oscuro (build/capturas) para compararla con la de iOS.
+ *  a 393 × 852 dp, y guarda la captura en claro y oscuro (build/capturas/<Nombre>-claro|oscuro.png, los mismos nombres que iOS)
+ *  para compararla con la de iOS (herramientas/comparar.sh).
  *  Falla si alguna pantalla se rompe al montarse. Al sumar una pantalla, sumarla acá (y en iOS). */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -51,10 +53,12 @@ class PantallasTest {
         }
     }
 
-    @Test fun arranque() = montar("arranque") { PantallaArranque() }
-    @Test fun ingreso() = montar("ingreso") { Ingreso() }
-    @Test fun elegirModo() = montar("elegir-modo") { ElegirModo() }
-    @Test fun elegirNegocio() = montar("elegir-negocio", estado(negocios = 3)) { ElegirNegocio() }
-    @Test fun permisos() = montar("permisos") { PermisoAvisos() }
-    @Test fun alta() = montar("alta") { Alta() }
+    @Test fun arranque() = montar("Arranque") { PantallaArranque() }
+    @Test fun ingreso() = montar("Ingreso") { Ingreso() }
+    @Test fun elegirModo() = montar("ElegirModo") { ElegirModo() }
+    @Test fun elegirNegocio() = montar("ElegirNegocio", estado(negocios = 3)) { ElegirNegocio() }
+    @Test fun permisos() = montar("Permisos") { PermisoAvisos() }
+    @Test fun alta() = montar("Alta") { Alta() }
+    @Test fun principal() { Preferencias.ponerBool("recorridoVisto", true); montar("Principal") { Principal() } }
+    @Test fun principalProfesional() = montar("PrincipalProfesional", estado("profesional")) { Principal() }
 }
