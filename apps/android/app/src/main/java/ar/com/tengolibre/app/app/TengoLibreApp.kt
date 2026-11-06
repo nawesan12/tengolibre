@@ -21,6 +21,9 @@ import androidx.compose.ui.unit.dp
 import ar.com.tengolibre.app.nucleo.Turno
 import ar.com.tengolibre.app.nucleo.Resena
 import ar.com.tengolibre.app.pantallas.cliente.PrincipalCliente
+import ar.com.tengolibre.app.pantallas.ingreso.InvitacionVista
+import ar.com.tengolibre.app.pantallas.ingreso.TurnoClienteCargar
+import ar.com.tengolibre.app.tema.Hoja
 import ar.com.tengolibre.app.pantallas.ingreso.*
 import ar.com.tengolibre.app.pantallas.principal.Principal
 import ar.com.tengolibre.app.tema.Haptico
@@ -58,6 +61,14 @@ fun Raiz() {
         ) {
             estado.toast?.let { t -> VistaToast(t) { estado.tocarToast() } }
         }
+    }
+    // El turno de una clienta y las invitaciones valen en cualquier modo: se abren arriba de todo.
+    Hoja(estado.turnoClienteAbierto != null, { estado.turnoClienteAbierto = null }) {
+        estado.turnoClienteAbierto?.let { c -> TurnoClienteCargar(c) { estado.turnoClienteAbierto = null } }
+    }
+    val invitacion = if (estado.persona == null || estado.fase == Estado.Fase.arrancando) null else estado.invitacionPendiente
+    Hoja(invitacion != null, { estado.invitacionPendiente = null }) {
+        invitacion?.let { t -> InvitacionVista(t) { estado.invitacionPendiente = null } }
     }
     // En vivo mientras se ve el panel, con el negocio elegido.
     LaunchedEffect(estado.fase, estado.negocio?.id) {

@@ -124,34 +124,26 @@ val LocalNavegacion = staticCompositionLocalOf<Navegacion> { error("Falta la Nav
  *  se portan (en iOS: .destinos() en Mas.swift). */
 object Destinos {
     /** La raíz de cada pestaña. */
-    var raiz: @Composable (Pestana) -> Unit = { p -> Provisoria(p.titulo(false)) }
+    var raiz: @Composable (Pestana) -> Unit = {}
     /** Un destino apilado (DestinoMas, DestinoClientes.ficha…). */
-    var destino: @Composable (Any) -> Unit = { d -> Provisoria(d.toString()) }
+    var destino: @Composable (Any) -> Unit = {}
     /** Las hojas globales. */
-    var detalleTurno: @Composable (Turno) -> Unit = { Provisoria("Detalle del turno") }
-    var nuevoTurno: @Composable (NuevoTurnoInicio) -> Unit = { Provisoria("Nuevo turno") }
-    var compartir: @Composable () -> Unit = { Provisoria("Compartir") }
-    var buscar: @Composable () -> Unit = { Provisoria("Buscar") }
-    var avisos: @Composable () -> Unit = { Provisoria("Avisos") }
+    var detalleTurno: @Composable (Turno) -> Unit = {}
+    var nuevoTurno: @Composable (NuevoTurnoInicio) -> Unit = {}
+    var compartir: @Composable () -> Unit = {}
+    var buscar: @Composable () -> Unit = {}
+    var avisos: @Composable () -> Unit = {}
     var recorrido: @Composable (alTerminar: () -> Unit) -> Unit = { }
-    /** Abrir la suscripción o la caja desde una ruta (DestinoMas.suscripcion / .caja). */
-    var destinoSuscripcion: Any = "suscripcion"
-    var destinoCaja: Any = "caja"
-    var destinoResenas: Any = "resenas"
-}
-
-/** Mientras una pantalla no está portada: la cabecera de verdad y nada más (ESTADO.md). */
-@Composable
-fun Provisoria(titulo: String) {
-    Column(Modifier.fillMaxSize().background(C.fondo).verticalScroll(rememberScrollState())) {
-        Cabecera(titulo, "Pantalla en camino")
-        Cuerpo { VacioQueEnsena("EN CAMINO", titulo, "Esta pantalla de Android todavía se está pasando desde iOS.") }
-    }
+    /** Abrir la suscripción, la caja o las reseñas desde una ruta (DestinoMas.suscripcion / .caja / .resenas). */
+    var destinoSuscripcion: Any = Unit
+    var destinoCaja: Any = Unit
+    var destinoResenas: Any = Unit
 }
 
 @Composable
 fun Principal() {
     val estado = LocalEstado.current
+    remember { ar.com.tengolibre.app.app.Registro.instalar() }
     val nav = remember { Navegacion() }
     var recorridoVisto by remember { mutableStateOf(Preferencias.bool("recorridoVisto")) }
     val pestanas = if (estado.esProfesional) listOf(Pestana.hoy, Pestana.agenda, Pestana.resenas, Pestana.mas)
