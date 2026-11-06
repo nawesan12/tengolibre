@@ -64,6 +64,11 @@ Llamar abre el marcador; el contador del ícono no se fija a mano; el widget se 
 widgets de pantalla bloqueada; los atajos abren la app; el consejo de la cápsula es tarjeta y no globo con flecha;
 Contactos no trae el email.
 
+## Sin probar en un teléfono (6/11)
+La app nunca corrió en un aparato real (sin APK; sólo tests y capturas del CI). Con la prueba interna de Play hay que
+confirmar: el ingreso con Clerk volviendo a la app, que lleguen los avisos con sus botones (y el turno en curso) y la
+compra con Google Play.
+
 ## Falta (cuando esté la cuenta de Play)
 1. Crear la app en Play, subir el paquete («Run workflow» → artifact `play`) a prueba interna.
 2. Productos de suscripción con los mismos ids que la App Store; tópico RTDN → `https://api.tengolibre.com.ar/v1/webhooks/google-play?clave=…`;
