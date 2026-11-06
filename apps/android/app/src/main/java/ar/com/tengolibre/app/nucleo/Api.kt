@@ -139,3 +139,7 @@ class Api(val base: String, var token: String? = null, val http: OkHttpClient = 
             .build()
     }
 }
+
+/** Un GET que puede fallar sin cortar todo (try? en iOS). */
+suspend inline fun <reified T> Api.opcional(ruta: String, query: List<Pair<String, String>> = emptyList()): T? =
+    try { get<T>(ruta, query) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { null }

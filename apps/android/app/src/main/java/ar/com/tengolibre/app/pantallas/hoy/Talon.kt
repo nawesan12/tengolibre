@@ -53,7 +53,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFontScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
@@ -139,7 +139,7 @@ fun VistaTalon(
     val nuevo = turno.esNuevo(ahora)
     val tinta = if (nuevo) C.petroleoHondo else C.tinta
     val sub = if (nuevo) hex(0x1D4A3A) else C.sub
-    val grande = LocalFontScale.current >= 1.6f
+    val grande = LocalDensity.current.fontScale >= 1.6f
     val forma = TalonShape(if (grande) (-20).dp else 76.dp)
     val alcance = rememberCoroutineScope()
     val densidad = LocalDensity.current
