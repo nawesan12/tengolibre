@@ -153,3 +153,39 @@ fun SelectorHora(minutos: Int, alCambiar: (Int) -> Unit, paso: Int = 5) {
         boton("plus", "Más minutos") { alCambiar((minutos + paso) % 1440) }
     }
 }
+
+/** Un Picker de iOS en un renglón: la opción elegida en menta con ⌃⌄ y un menú para cambiarla. */
+@Composable
+fun <T> SelectorMenu(opciones: List<Pair<T, String>>, elegido: T, alElegir: (T) -> Unit, descripcion: String = "") {
+    val actual = opciones.firstOrNull { it.first == elegido }?.second ?: ""
+    MenuBoton(opciones.map { (v, t) -> OpcionDeMenu(t, if (v == elegido) "checkmark" else "circle") { alElegir(v) } }, descripcion.ifEmpty { actual }) {
+        Row(Modifier.heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Texto(actual, Tipo.lato(16f), C.mentaTexto, lineas = 1)
+            Icono("chevron.up.chevron.down", 12f, C.mentaTexto)
+        }
+    }
+}
+
+/** Un DatePicker compacto de iOS en un renglón: el título, la fecha en una pastilla y, al tocarla, el calendario. */
+@Composable
+fun RenglonFecha(titulo: String, fecha: LocalDate, alCambiar: (LocalDate) -> Unit, minimo: LocalDate? = null) {
+    var abierto by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
+            Texto(titulo, Tipo.lato(16f), C.tinta, Modifier.weight(1f))
+            Box(Modifier.clip(RoundedCornerShape(8.dp)).background(C.chip).clickable { abierto = !abierto }.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                Texto(DateTimeFormatter.ofPattern("d MMM yyyy", Formato.argentina).format(fecha), Tipo.lato(16f), if (abierto) C.mentaTexto else C.tinta)
+            }
+        }
+        if (abierto) Box(Modifier.padding(bottom = 8.dp)) { CalendarioMes(fecha, { alCambiar(it); abierto = false }, minimo = minimo) }
+    }
+}
+
+/** Un DatePicker de hora en un renglón (minutos desde la medianoche). */
+@Composable
+fun RenglonHora(titulo: String, minutos: Int, alCambiar: (Int) -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Texto(titulo, Tipo.lato(16f), C.tinta, Modifier.weight(1f))
+        SelectorHora(minutos, alCambiar)
+    }
+}
