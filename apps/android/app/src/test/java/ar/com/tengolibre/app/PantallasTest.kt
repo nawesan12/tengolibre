@@ -74,6 +74,7 @@ class PantallasTest {
     private fun estado(rol: String = "duenio", negocios: Int = 1, extra: Map<String, String> = emptyMap()): Estado {
         val texto = { javaClass.getResource("/pruebas/respuestas.json")!!.readText() }
         ModoPrueba.respuestas = texto
+        ModoPrueba.activo = true // Play Billing no se conecta en los tests
         Preferencias.borrarTodo()
         Preferencias.ponerBool("recorridoVisto", true)
         val api = Api("https://api.prueba", "prueba", OkHttpClient.Builder().addInterceptor(ApiDePrueba(extra, texto)).build())
@@ -82,6 +83,16 @@ class PantallasTest {
         e.negocios = (1..negocios).map { NegocioDeLaPersona("n$it", "lumi$it".replace("lumi1", "lumi"), if (it == 1) "Lumi Estética" else "Lumi Palermo $it", rol) }
         e.usar(e.negocios.first())
         return e
+    }
+
+    /** Deja correr la carga: las respuestas llegan por el hilo de OkHttp y vuelven al principal, una tras otra
+     *  (Hoy encadena una decena). El reloj de Compose avanza a la par. */
+    private fun asentar(ms: Long) {
+        repeat(12) {
+            Thread.sleep(60)
+            compose.mainClock.advanceTimeBy(ms / 12)
+            compose.waitForIdle()
+        }
     }
 
     private fun turno(e: Estado): Turno = runBlocking { e.api.get("/v1/panel/turnos/t1") }
@@ -96,8 +107,7 @@ class PantallasTest {
         }
         for (t in listOf("claro", "oscuro")) {
             tema.value = t
-            compose.mainClock.advanceTimeBy(espera)
-            compose.waitForIdle()
+            asentar(espera)
             compose.onRoot().captureRoboImage("build/capturas/$nombre-$t.png")
         }
     }
@@ -148,8 +158,7 @@ class PantallasTest {
             actual.value = d
             for (t in listOf("claro", "oscuro")) {
                 tema.value = t
-                compose.mainClock.advanceTimeBy(1000)
-                compose.waitForIdle()
+                asentar(1000)
                 compose.onRoot().captureRoboImage("build/capturas/Seccion-$nombre-$t.png")
             }
         }

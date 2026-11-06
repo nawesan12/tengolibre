@@ -120,5 +120,7 @@ internal object Simbolos {
         "trash" to '\ue92e', // delete
         "xmark" to '\ue5cd', // close
         "xmark.circle" to '\ue888', // cancel
+        "camera" to '\ue412', // photo_camera
+        "arrow.up.right" to '\uf8ce', // arrow_outward
     )
 }

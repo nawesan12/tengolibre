@@ -114,3 +114,5 @@ timelapse=timelapse
 trash=delete
 xmark=close
 xmark.circle=cancel
+camera=photo_camera
+arrow.up.right=arrow_outward
