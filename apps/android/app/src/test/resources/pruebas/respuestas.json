@@ -16,6 +16,7 @@
    }
   ]
  },
+ "/v1/panel/ajustes": {"intervalo": 15, "anticipacionMin": 120, "diasVista": 60, "margenMin": 0, "cancelarHastaHoras": 24, "politicaCancelacion": ""},
  "/v1/panel/acceso": {
   "bloqueado": false,
   "pruebaHasta": "$iso(20000)",
