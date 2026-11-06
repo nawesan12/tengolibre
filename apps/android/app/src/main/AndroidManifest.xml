@@ -2,6 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Custom Tabs para el ingreso con Clerk (Google y Apple). -->
+    <queries>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="false"
@@ -20,6 +28,30 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- La vuelta de Clerk (Google y Apple), como en iOS. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="ar.com.tengolibre.app" android:host="callback" />
+            </intent-filter>
+            <!-- tengolibre:// (widgets, avisos). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tengolibre" />
+            </intent-filter>
+            <!-- App Links de tengolibre.com.ar (Universal Links en iOS): falta assetlinks.json en la web. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="tengolibre.com.ar" />
+                <data android:pathPrefix="/turno/" />
+                <data android:pathPrefix="/invitacion/" />
+                <data android:pathPrefix="/panel/turnos/" />
             </intent-filter>
         </activity>
     </application>
