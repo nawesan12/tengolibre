@@ -23,7 +23,8 @@ lo más consistentes posible entre sí. Nada se publica en las tiendas hasta que
   - Es la fuente única para iOS y Android, con marcadores `$iso(N)` y `$dia(N)`.
   - Hay copias en `app/src/debug/assets/pruebas/` y `app/src/test/resources/pruebas/`. Si se cambia el original, hay
     que copiarlo de nuevo a las dos.
-  - Falta que iOS (`ModoPrueba.swift`, `PantallasTests`) lo lea también, en vez de sus respuestas en código.
+  - iOS lo lee en `PantallasTests` desde la copia `apps/ios/TengoLibreTests/respuestas.json`, que
+    `tengolibre-ios/publicar.sh` refresca. `ModoPrueba.swift` (sólo para XCUITest, fuera del CI) sigue con las suyas.
 - Sin APK: Nahuel prefirió esperar la prueba interna de Play. Se revisa con capturas.
 
 ## Hecho
@@ -77,6 +78,5 @@ compra con Google Play.
 3. SHA-256 de la firma de Play en `https://tengolibre.com.ar/.well-known/assetlinks.json` (App Links) y cliente OAuth
    Android de Google con ese SHA-1.
 4. Clerk: comprobar que la vuelta `ar.com.tengolibre.app://callback` ande en Android (es la misma que iOS).
-5. iOS: que lea `../pruebas/respuestas.json` en vez de sus respuestas en código.
 
 Para clonar las otras apps: `GUIA-CLON-IOS.md`.
