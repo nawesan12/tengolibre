@@ -490,7 +490,7 @@ fun ColumnScope.Reservar(slug: String, listo: (String) -> Unit, cerrar: () -> Un
             Texto(listOf(x.web.rubro, x.negocio.ciudad).filter { it.isNotEmpty() }.joinToString(" · "), Tipo.lato(14f), C.sub)
             if (x.resenas.cantidad > 0) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Estrellas(Math.round(x.resenas.promedio).toInt(), 12f)
-                Texto("${"%.1f".format(java.util.Locale.ROOT, x.resenas.promedio)} · ${x.resenas.cantidad} reseñas", Tipo.lato(13f), C.tinta)
+                Texto("${"%.1f".format(java.util.Locale.ROOT, x.resenas.promedio).replace(".", ",")} · ${Formato.cantidad(x.resenas.cantidad, "reseña", "reseñas")}", Tipo.lato(13f), C.tinta)
             }
         }
         TextoRotulo("1 · SERVICIO")
