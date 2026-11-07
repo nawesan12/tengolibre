@@ -521,7 +521,7 @@ struct Reservar: View {
             Text(p.negocio.nombre).font(Tipo.lato(26, .black))
             Text([p.web.rubro, p.negocio.ciudad].filter { !$0.isEmpty }.joined(separator: " · ")).font(Tipo.lato(14)).foregroundStyle(C.sub)
             if p.resenas.cantidad > 0 {
-                HStack(spacing: 6) { Estrellas(puntaje: Int(p.resenas.promedio.rounded()), tam: 12); Text("\(String(format: "%.1f", p.resenas.promedio)) · \(p.resenas.cantidad) reseñas").font(Tipo.lato(13)) }
+                HStack(spacing: 6) { Estrellas(puntaje: Int(p.resenas.promedio.rounded()), tam: 12); Text("\(String(format: "%.1f", p.resenas.promedio).replacingOccurrences(of: ".", with: ",")) · \(Formato.cantidad(p.resenas.cantidad, "reseña", "reseñas"))").font(Tipo.lato(13)) }
             }
         }
         Text("1 · SERVICIO").rotulo()
