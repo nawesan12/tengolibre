@@ -1,0 +1,1006 @@
+{
+ "_leeme": "Respuestas de la API simulada, compartidas por iOS (ModoPrueba.swift, PantallasTests) y Android (ModoPrueba.kt, PantallasTest). Clave: «MÉTODO ruta» o sólo la ruta para GET. Lo que no está: GET → 404, lo demás → 200 con {}. Marcadores: \"$iso(N)\" = ahora + N minutos (ISO 8601); \"$dia(N)\" = hoy + N días (AAAA-MM-DD, hora de Argentina).",
+ "/v1/auth/persona": {
+  "clerkId": "u1",
+  "email": "laura@lumi.test",
+  "nombre": "Laura Díaz",
+  "foto": ""
+ },
+ "/v1/yo": {
+  "negocios": [
+   {
+    "id": "n1",
+    "slug": "lumi",
+    "nombre": "Lumi Estética",
+    "rol": "duenio"
+   }
+  ]
+ },
+ "/v1/panel/ajustes": {"intervalo": 15, "anticipacionMin": 120, "diasVista": 60, "margenMin": 0, "cancelarHastaHoras": 24, "politicaCancelacion": ""},
+ "/v1/panel/acceso": {
+  "bloqueado": false,
+  "pruebaHasta": "$iso(20000)",
+  "diasDePrueba": 14,
+  "conSuscripcion": false
+ },
+ "/v1/panel/campanita/sin-leer": {
+  "sinLeer": 2
+ },
+ "/v1/panel/campanita": {
+  "sinLeer": 2,
+  "notificaciones": [
+   {
+    "id": "x1",
+    "tipo": "reserva",
+    "titulo": "Nueva reserva",
+    "texto": "Martina · hoy",
+    "turnoId": "t1",
+    "creadoEn": "$iso(-3)",
+    "nueva": true
+   },
+   {
+    "id": "x2",
+    "tipo": "resena",
+    "titulo": "Nueva reseña",
+    "texto": "Lucía te dejó 5 estrellas",
+    "turnoId": null,
+    "creadoEn": "$iso(-90)",
+    "nueva": true
+   }
+  ]
+ },
+ "/v1/panel/turnos": {
+  "turnos": [
+   {
+    "id": "t0",
+    "codigo": "CT0",
+    "servicioId": "s1",
+    "servicio": "Corte",
+    "profesionalId": "p1",
+    "profesional": "Carla",
+    "cliente": {
+     "id": "c4",
+     "nombre": "Ana Torres",
+     "telefono": "1144712290",
+     "email": "c4@prueba.test"
+    },
+    "inicio": "$iso(-150)",
+    "fin": "$iso(-105)",
+    "precio": 18000,
+    "estado": "atendido",
+    "origen": "web",
+    "nota": "",
+    "venceEn": null,
+    "creadoEn": "$iso(-600)"
+   },
+   {
+    "id": "t1",
+    "codigo": "CT1",
+    "servicioId": "s1",
+    "servicio": "Corte y brushing",
+    "profesionalId": "p1",
+    "profesional": "Carla",
+    "cliente": {
+     "id": "c1",
+     "nombre": "Sofía Méndez",
+     "telefono": "1144712290",
+     "email": "c1@prueba.test"
+    },
+    "inicio": "$iso(-10)",
+    "fin": "$iso(35)",
+    "precio": 18000,
+    "estado": "confirmado",
+    "origen": "web",
+    "nota": "",
+    "venceEn": null,
+    "creadoEn": "$iso(-600)"
+   },
+   {
+    "id": "t2",
+    "codigo": "CT2",
+    "servicioId": "s1",
+    "servicio": "Color",
+    "profesionalId": "p1",
+    "profesional": "Carla",
+    "cliente": {
+     "id": "c2",
+     "nombre": "Martina López",
+     "telefono": "1144712290",
+     "email": "c2@prueba.test"
+    },
+    "inicio": "$iso(90)",
+    "fin": "$iso(150)",
+    "precio": 18000,
+    "estado": "pendiente_pago",
+    "origen": "web",
+    "nota": "",
+    "venceEn": "$iso(15)",
+    "creadoEn": "$iso(-600)"
+   },
+   {
+    "id": "t3",
+    "codigo": "CT3",
+    "servicioId": "s1",
+    "servicio": "Manicura",
+    "profesionalId": "p1",
+    "profesional": "Carla",
+    "cliente": {
+     "id": "c3",
+     "nombre": "Lucía Pérez",
+     "telefono": "1144712290",
+     "email": "c3@prueba.test"
+    },
+    "inicio": "$iso(200)",
+    "fin": "$iso(245)",
+    "precio": 18000,
+    "estado": "confirmado",
+    "origen": "panel",
+    "nota": "",
+    "venceEn": null,
+    "creadoEn": "$iso(-600)"
+   }
+  ]
+ },
+ "/v1/panel/turnos/t1": {
+  "id": "t1",
+  "codigo": "CT1",
+  "servicioId": "s1",
+  "servicio": "Corte y brushing",
+  "profesionalId": "p1",
+  "profesional": "Carla",
+  "cliente": {
+   "id": "c1",
+   "nombre": "Sofía Méndez",
+   "telefono": "1144712290",
+   "email": "c1@prueba.test"
+  },
+  "inicio": "$iso(-10)",
+  "fin": "$iso(35)",
+  "precio": 18000,
+  "estado": "confirmado",
+  "origen": "web",
+  "nota": "",
+  "venceEn": null,
+  "creadoEn": "$iso(-600)"
+ },
+ "/v1/panel/turnos/t2": {
+  "id": "t2",
+  "codigo": "CT2",
+  "servicioId": "s1",
+  "servicio": "Color",
+  "profesionalId": "p1",
+  "profesional": "Carla",
+  "cliente": {
+   "id": "c2",
+   "nombre": "Martina López",
+   "telefono": "1144712290",
+   "email": "c2@prueba.test"
+  },
+  "inicio": "$iso(90)",
+  "fin": "$iso(150)",
+  "precio": 18000,
+  "estado": "pendiente_pago",
+  "origen": "web",
+  "nota": "",
+  "venceEn": "$iso(15)",
+  "creadoEn": "$iso(-600)"
+ },
+ "POST /v1/panel/turnos": {
+  "id": "t9",
+  "codigo": "CT9",
+  "servicioId": "s1",
+  "servicio": "Corte y brushing",
+  "profesionalId": "p1",
+  "profesional": "Carla",
+  "cliente": {
+   "id": "c1",
+   "nombre": "Sofía Méndez",
+   "telefono": "1144712290",
+   "email": "c1@prueba.test"
+  },
+  "inicio": "$iso(300)",
+  "fin": "$iso(345)",
+  "precio": 18000,
+  "estado": "confirmado",
+  "origen": "panel",
+  "nota": "",
+  "venceEn": null,
+  "creadoEn": "$iso(-600)"
+ },
+ "POST /v1/panel/turnos/t1/reprogramar": {
+  "id": "t1",
+  "codigo": "CT1",
+  "servicioId": "s1",
+  "servicio": "Corte y brushing",
+  "profesionalId": "p1",
+  "profesional": "Carla",
+  "cliente": {
+   "id": "c1",
+   "nombre": "Sofía Méndez",
+   "telefono": "1144712290",
+   "email": "c1@prueba.test"
+  },
+  "inicio": "$iso(1500)",
+  "fin": "$iso(1545)",
+  "precio": 18000,
+  "estado": "confirmado",
+  "origen": "web",
+  "nota": "",
+  "venceEn": null,
+  "creadoEn": "$iso(-600)"
+ },
+ "/v1/panel/turnos/t1/caja": {
+  "turnoId": "t1",
+  "cliente": "Sofía",
+  "servicio": "Corte",
+  "estadoTurno": "confirmado",
+  "estado": "pendiente",
+  "medio": null,
+  "cobradoEn": null,
+  "lineas": [
+   {
+    "tipo": "servicio",
+    "concepto": "Corte y brushing",
+    "monto": 18000
+   }
+  ],
+  "total": 18000,
+  "medios": [
+   "efectivo",
+   "transferencia"
+  ]
+ },
+ "/v1/panel/avisos": {
+  "avisos": []
+ },
+ "/v1/panel/profesionales": {
+  "profesionales": [
+   {
+    "id": "p1",
+    "nombre": "Carla Ruiz",
+    "especialidad": "Colorista",
+    "activo": true,
+    "orden": 1,
+    "servicios": [
+     "s1",
+     "s2"
+    ],
+    "horario": [
+     {
+      "dia": 0,
+      "desde": "00:00",
+      "hasta": "23:59"
+     },
+     {
+      "dia": 1,
+      "desde": "00:00",
+      "hasta": "23:59"
+     },
+     {
+      "dia": 2,
+      "desde": "00:00",
+      "hasta": "23:59"
+     },
+     {
+      "dia": 3,
+      "desde": "00:00",
+      "hasta": "23:59"
+     },
+     {
+      "dia": 4,
+      "desde": "00:00",
+      "hasta": "23:59"
+     },
+     {
+      "dia": 5,
+      "desde": "00:00",
+      "hasta": "23:59"
+     },
+     {
+      "dia": 6,
+      "desde": "00:00",
+      "hasta": "23:59"
+     }
+    ],
+    "email": "carla@prueba.test",
+    "telefono": "",
+    "bio": "",
+    "miembroId": null,
+    "foto": null
+   },
+   {
+    "id": "p2",
+    "nombre": "Abril Gómez",
+    "especialidad": "Manicura",
+    "activo": true,
+    "orden": 2,
+    "servicios": [
+     "s2"
+    ],
+    "horario": [
+     {
+      "dia": 0,
+      "desde": "00:00",
+      "hasta": "23:59"
+     },
+     {
+      "dia": 1,
+      "desde": "00:00",
+      "hasta": "23:59"
+     },
+     {
+      "dia": 2,
+      "desde": "00:00",
+      "hasta": "23:59"
+     },
+     {
+      "dia": 3,
+      "desde": "00:00",
+      "hasta": "23:59"
+     },
+     {
+      "dia": 4,
+      "desde": "00:00",
+      "hasta": "23:59"
+     },
+     {
+      "dia": 5,
+      "desde": "00:00",
+      "hasta": "23:59"
+     },
+     {
+      "dia": 6,
+      "desde": "00:00",
+      "hasta": "23:59"
+     }
+    ],
+    "email": "",
+    "telefono": "",
+    "bio": "",
+    "miembroId": null,
+    "foto": null
+   }
+  ]
+ },
+ "/v1/panel/servicios": {
+  "servicios": [
+   {
+    "id": "s1",
+    "nombre": "Corte y brushing",
+    "duracion": 45,
+    "precio": 18000,
+    "activo": true,
+    "categoriaId": null
+   },
+   {
+    "id": "s2",
+    "nombre": "Manicura",
+    "duracion": 45,
+    "precio": 12000,
+    "activo": true,
+    "categoriaId": null
+   }
+  ]
+ },
+ "/v1/panel/libres": {
+  "horarios": [
+   {
+    "hora": "16:00",
+    "inicio": "$iso(300)",
+    "profesionales": [
+     "p1"
+    ]
+   },
+   {
+    "hora": "16:30",
+    "inicio": "$iso(330)",
+    "profesionales": [
+     "p1"
+    ]
+   },
+   {
+    "hora": "17:00",
+    "inicio": "$iso(360)",
+    "profesionales": [
+     "p1"
+    ]
+   },
+   {
+    "hora": "17:30",
+    "inicio": "$iso(390)",
+    "profesionales": [
+     "p1"
+    ]
+   },
+   {
+    "hora": "18:00",
+    "inicio": "$iso(420)",
+    "profesionales": [
+     "p1"
+    ]
+   },
+   {
+    "hora": "18:30",
+    "inicio": "$iso(450)",
+    "profesionales": [
+     "p1"
+    ]
+   }
+  ]
+ },
+ "/v1/panel/espera": {
+  "espera": [
+   {
+    "id": "w1",
+    "servicioId": "s1",
+    "servicio": "Corte y brushing",
+    "profesionalId": null,
+    "profesional": null,
+    "nombre": "Ana Torres",
+    "email": "",
+    "telefono": "1166660000",
+    "desde": "$dia(0)",
+    "hasta": "$dia(10)",
+    "avisadoEn": null,
+    "creadoEn": "$iso(-3000)",
+    "momento": "cualquiera"
+   }
+  ]
+ },
+ "/v1/panel/espera/ofertas": {
+  "ofertas": []
+ },
+ "/v1/panel/espera/candidatos": {
+  "espera": []
+ },
+ "/v1/panel/para-llamar": {
+  "turnos": []
+ },
+ "/v1/panel/reprogramar": {
+  "turnos": []
+ },
+ "/v1/panel/arranque": {
+  "completo": true,
+  "reservable": true,
+  "pasos": [
+   {
+    "clave": "servicios",
+    "titulo": "Cargá tus servicios",
+    "listo": true,
+    "obligatorio": true
+   }
+  ]
+ },
+ "/v1/panel/resenas": {
+  "promedio": 4.8,
+  "cantidad": 12,
+  "distribucion": {
+   "5": 10,
+   "4": 2
+  },
+  "resenas": [
+   {
+    "id": "r1",
+    "turnoId": "t0",
+    "nombre": "Lucía Pérez",
+    "servicio": "Manicura",
+    "profesional": "Abril",
+    "puntaje": 5,
+    "comentario": "¡Divino todo! Volvería mil veces.",
+    "respuesta": "",
+    "respondidaEn": null,
+    "visible": true,
+    "creadoEn": "$iso(-2000)"
+   }
+  ]
+ },
+ "/v1/panel/dias-libres": {
+  "pedidos": []
+ },
+ "/v1/panel/mercadopago": {
+  "disponible": true,
+  "conectada": false,
+  "reautorizar": false
+ },
+ "/v1/panel/cobros": {
+  "modo": "sin_cobro",
+  "senaPorcentaje": 30,
+  "senaFija": 0
+ },
+ "/v1/panel/pagos": {
+  "pagos": []
+ },
+ "/v1/panel/clientes": {
+  "clientes": [
+   {
+    "id": "c1",
+    "nombre": "Sofía Méndez",
+    "telefono": "1144712290",
+    "email": "c1@prueba.test",
+    "creadoEn": "$iso(-90000)",
+    "visitas": 6,
+    "ultimaVisita": "$iso(-20000)",
+    "proximoTurno": "$iso(1440)",
+    "gastado": 98000,
+    "ausencias": 1,
+    "penalizado": false,
+    "etiquetas": [
+     {
+      "id": "e1",
+      "nombre": "VIP",
+      "color": "#3ccc90"
+     }
+    ]
+   }
+  ],
+  "total": 1
+ },
+ "/v1/panel/clientes/c1": {
+  "id": "c1",
+  "nombre": "Sofía Méndez",
+  "telefono": "1144712290",
+  "email": "c1@prueba.test",
+  "creadoEn": "$iso(-90000)",
+  "visitas": 6,
+  "ultimaVisita": "$iso(-20000)",
+  "proximoTurno": null,
+  "gastado": 98000,
+  "ausencias": 1,
+  "penalizado": false,
+  "etiquetas": [
+   {
+    "id": "e1",
+    "nombre": "VIP",
+    "color": "#3ccc90"
+   }
+  ],
+  "turnos": [
+   {
+    "id": "t1",
+    "codigo": "CT1",
+    "servicio": "Corte",
+    "profesional": "Carla",
+    "inicio": "$iso(-20000)",
+    "fin": "$iso(-19955)",
+    "precio": 18000,
+    "estado": "atendido",
+    "origen": "web",
+    "nota": ""
+   }
+  ],
+  "penalidad": null
+ },
+ "/v1/panel/clientes/c1/notas": {
+  "notas": [
+   {
+    "id": "n1",
+    "texto": "Prefiere la tarde",
+    "miembroId": null,
+    "autor": "Laura",
+    "creadoEn": "$iso(-500)"
+   }
+  ]
+ },
+ "/v1/panel/clientes/c1/penalidades": {
+  "penalidades": []
+ },
+ "/v1/panel/etiquetas": {
+  "etiquetas": [
+   {
+    "id": "e1",
+    "nombre": "VIP",
+    "color": "#3ccc90",
+    "clientes": 3
+   }
+  ]
+ },
+ "/v1/panel/membresias/planes": {
+  "planes": []
+ },
+ "/v1/panel/membresias/socios": {
+  "socios": []
+ },
+ "/v1/panel/cupones": {
+  "cupones": []
+ },
+ "/v1/panel/recordatorios": {
+  "recordatorios": []
+ },
+ "/v1/panel/ia/publico": {
+  "activo": false,
+  "reservasMes": 0,
+  "ultimas": [],
+  "url": "https://api.prueba/ia"
+ },
+ "/v1/panel/mcp": {
+  "url": "https://api.prueba/mcp",
+  "tokens": [],
+  "permisos": []
+ },
+ "/v1/panel/calendarios": {
+  "calendarios": [
+   {
+    "id": null,
+    "profesionalId": null,
+    "nombre": "Todo el negocio",
+    "url": null
+   }
+  ]
+ },
+ "/v1/panel/mi-web/galeria": {
+  "fotos": []
+ },
+ "/v1/panel/negocio": {
+  "id": "n1",
+  "slug": "lumi",
+  "nombre": "Lumi Estética",
+  "descripcion": "",
+  "direccion": "Thames 2240",
+  "ciudad": "CABA",
+  "telefono": "1144440000",
+  "whatsapp": "1144440000",
+  "instagram": "",
+  "logo": null,
+  "zonaHoraria": "America/Argentina/Buenos_Aires"
+ },
+ "/v1/panel/mi-web": {
+  "rubro": "Estética",
+  "provincia": "CABA",
+  "acerca": "",
+  "portada": null,
+  "colorPrimario": "#183c44",
+  "colorAcento": "#3ccc90",
+  "email": "",
+  "sitioWeb": "",
+  "facebook": "",
+  "tiktok": "",
+  "latitud": null,
+  "longitud": null,
+  "estilo": {
+   "plantilla": "carta",
+   "portada": "color",
+   "fondo": "crema",
+   "titulos": "grandes",
+   "forma": "redondos"
+  }
+ },
+ "/v1/panel/dominio": {
+  "dominio": null,
+  "destino": "tengolibre.com.ar",
+  "ip": "187.41.102.190"
+ },
+ "/v1/panel/ajustes/whatsapp": {
+  "disponible": true,
+  "confirmacion": false,
+  "hora": "10:00",
+  "sinRespuestaHoras": 4,
+  "recordatorio": false
+ },
+ "/v1/panel/caja": {
+  "fecha": "$dia(0)",
+  "porMedio": {
+   "efectivo": 18000,
+   "transferencia": 12000,
+   "debito": 0,
+   "credito": 0,
+   "mercadopago": 0
+  },
+  "caja": 30000,
+  "senas": 5000,
+  "total": 35000,
+  "productos": 0,
+  "cobros": 2,
+  "debe": 0,
+  "movimientos": [
+   {
+    "turnoId": "t0",
+    "cliente": "Ana Torres",
+    "servicio": "Corte",
+    "medio": "efectivo",
+    "total": 18000,
+    "productos": 0,
+    "cobradoEn": "$iso(-100)"
+   }
+  ]
+ },
+ "/v1/panel/reportes": {
+  "desde": "$dia(-7)",
+  "hasta": "$dia(0)",
+  "resumen": {
+   "turnos": 42,
+   "atendidos": 38,
+   "ingresos": 684000,
+   "ticketPromedio": 18000,
+   "clientes": 31,
+   "tasaAusencias": 4.5,
+   "ocupacion": 71.0
+  },
+  "porEstado": {},
+  "porProfesional": [
+   {
+    "id": "p1",
+    "nombre": "Carla Ruiz",
+    "turnos": 25,
+    "atendidos": 23,
+    "ausentes": 1,
+    "ingresos": 414000,
+    "minutosReservados": 1100
+   }
+  ],
+  "porServicio": [],
+  "porDia": [],
+  "clientesNuevos": 6,
+  "clientesRecurrentes": 25
+ },
+ "/v1/panel/reportes/horas-muertas": {
+  "peor": {
+   "texto": "Los martes de 14 a 16 casi siempre quedan vacíos."
+  },
+  "sugerencia": null
+ },
+ "/v1/panel/push/preferencias": {
+  "rol": "duenio",
+  "porDefecto": true,
+  "apagados": [],
+  "tipos": [
+   {
+    "tipo": "reserva",
+    "nombre": "Reservas nuevas",
+    "activo": true
+   }
+  ]
+ },
+ "/v1/panel/suscripcion": {
+  "bloqueado": false,
+  "pruebaHasta": "$iso(4000)",
+  "diasDePrueba": 3,
+  "conSuscripcion": false,
+  "plan": "completo",
+  "nombrePlan": "Completo",
+  "catalogo": [
+   {
+    "clave": "inicial",
+    "nombre": "Inicial",
+    "precio": 7000
+   },
+   {
+    "clave": "completo",
+    "nombre": "Completo",
+    "precio": 15000
+   }
+  ],
+  "suscripcion": null
+ },
+ "/v1/panel/buscar": {
+  "clientes": [
+   {
+    "id": "c1",
+    "nombre": "Sofía Méndez",
+    "telefono": "1144712290",
+    "email": ""
+   }
+  ],
+  "turnos": [],
+  "servicios": []
+ },
+ "/v1/t/ABC123": {
+  "id": "t7",
+  "codigo": "ABC123",
+  "servicioId": "s1",
+  "servicio": "Corte y brushing",
+  "profesionalId": "p1",
+  "profesional": "Carla",
+  "inicio": "$iso(1500)",
+  "fin": "$iso(1545)",
+  "precio": 18000,
+  "estado": "confirmado",
+  "venceEn": null,
+  "negocio": {
+   "id": "n1",
+   "slug": "lumi",
+   "nombre": "Lumi Estética",
+   "descripcion": "",
+   "direccion": "Thames 2240",
+   "ciudad": "CABA",
+   "telefono": "1144440000",
+   "whatsapp": "1144440000",
+   "instagram": "",
+   "logo": null,
+   "zonaHoraria": "America/Argentina/Buenos_Aires"
+  },
+  "puedeCancelar": true,
+  "cancelarHastaHoras": 24
+ },
+ "/v1/p/lumi": {
+  "negocio": {
+   "id": "n1",
+   "slug": "lumi",
+   "nombre": "Lumi Estética",
+   "descripcion": "",
+   "direccion": "Thames 2240",
+   "ciudad": "CABA",
+   "telefono": "1144440000",
+   "whatsapp": "1144440000",
+   "instagram": "",
+   "logo": null,
+   "zonaHoraria": "America/Argentina/Buenos_Aires"
+  },
+  "servicios": [
+   {
+    "id": "s1",
+    "categoriaId": null,
+    "nombre": "Corte y brushing",
+    "descripcion": "",
+    "duracion": 45,
+    "precio": 18000,
+    "foto": null,
+    "orden": 1,
+    "activo": true
+   },
+   {
+    "id": "s2",
+    "categoriaId": null,
+    "nombre": "Manicura",
+    "descripcion": "",
+    "duracion": 45,
+    "precio": 12000,
+    "foto": null,
+    "orden": 2,
+    "activo": true
+   }
+  ],
+  "profesionales": [
+   {
+    "id": "p1",
+    "nombre": "Carla",
+    "especialidad": "",
+    "foto": null,
+    "servicios": []
+   }
+  ],
+  "diasVista": 30,
+  "politicaCancelacion": "Si no podés venir, avisá 24 h antes.",
+  "web": {
+   "portada": null,
+   "colorPrimario": "#183c44",
+   "acerca": "",
+   "rubro": "Estética"
+  },
+  "resenas": {
+   "promedio": 4.8,
+   "cantidad": 12
+  }
+ },
+ "/v1/p/lumi/dias": {
+  "dias": [
+   {
+    "fecha": "$dia(0)",
+    "libres": 0
+   },
+   {
+    "fecha": "$dia(1)",
+    "libres": 4
+   },
+   {
+    "fecha": "$dia(2)",
+    "libres": 4
+   },
+   {
+    "fecha": "$dia(3)",
+    "libres": 4
+   },
+   {
+    "fecha": "$dia(4)",
+    "libres": 4
+   },
+   {
+    "fecha": "$dia(5)",
+    "libres": 4
+   },
+   {
+    "fecha": "$dia(6)",
+    "libres": 4
+   }
+  ]
+ },
+ "/v1/p/lumi/libres": {
+  "horarios": [
+   {
+    "hora": "16:00",
+    "inicio": "$iso(300)",
+    "profesionales": [
+     "p1"
+    ]
+   },
+   {
+    "hora": "16:30",
+    "inicio": "$iso(330)",
+    "profesionales": [
+     "p1"
+    ]
+   },
+   {
+    "hora": "17:00",
+    "inicio": "$iso(360)",
+    "profesionales": [
+     "p1"
+    ]
+   },
+   {
+    "hora": "17:30",
+    "inicio": "$iso(390)",
+    "profesionales": [
+     "p1"
+    ]
+   },
+   {
+    "hora": "18:00",
+    "inicio": "$iso(420)",
+    "profesionales": [
+     "p1"
+    ]
+   },
+   {
+    "hora": "18:30",
+    "inicio": "$iso(450)",
+    "profesionales": [
+     "p1"
+    ]
+   }
+  ]
+ },
+ "POST /v1/p/lumi/turnos": {
+  "codigo": "NUEVO1",
+  "inicio": "$iso(1800)"
+ },
+ "/v1/t/NUEVO1": {
+  "id": "t8",
+  "codigo": "NUEVO1",
+  "servicioId": "s1",
+  "servicio": "Corte y brushing",
+  "profesionalId": "p1",
+  "profesional": "Carla",
+  "inicio": "$iso(1800)",
+  "fin": "$iso(1845)",
+  "precio": 18000,
+  "estado": "confirmado",
+  "venceEn": null,
+  "negocio": {
+   "id": "n1",
+   "slug": "lumi",
+   "nombre": "Lumi Estética",
+   "descripcion": "",
+   "direccion": "Thames 2240",
+   "ciudad": "CABA",
+   "telefono": "1144440000",
+   "whatsapp": "1144440000",
+   "instagram": "",
+   "logo": null,
+   "zonaHoraria": "America/Argentina/Buenos_Aires"
+  },
+  "puedeCancelar": true
+ },
+ "/v1/explorar": {
+  "negocios": [
+   {
+    "slug": "lumi",
+    "nombre": "Lumi Estética",
+    "descripcion": "",
+    "logo": null,
+    "portada": null,
+    "ciudad": "CABA",
+    "provincia": "",
+    "rubro": "Estética",
+    "servicios": [],
+    "desde": 12000
+   }
+  ]
+ },
+ "/v1/explorar/rubros": {
+  "rubros": [
+   "Estética",
+   "Peluquería",
+   "Uñas"
+  ]
+ }
+}

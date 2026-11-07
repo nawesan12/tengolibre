@@ -2,14 +2,16 @@ import SwiftUI
 import XCTest
 @testable import TengoLibre
 
-/// Responde a la app con datos fijos, por ruta (lo que no está, 404).
+/// Responde a la app con datos fijos, por «MÉTODO ruta» (o sólo ruta para GET). Lo que no está: GET → 404,
+/// lo demás → 200 con `{}`.
 final class ApiFalsa: URLProtocol {
     nonisolated(unsafe) static var respuestas: [String: String] = [:]
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let ruta = request.url?.path ?? ""
-        let cuerpo = ApiFalsa.respuestas[ruta]
+        let metodo = request.httpMethod ?? "GET"
+        let cuerpo = ApiFalsa.respuestas["\(metodo) \(ruta)"] ?? (metodo == "GET" ? ApiFalsa.respuestas[ruta] : "{}")
         let r = HTTPURLResponse(url: request.url!, statusCode: cuerpo == nil ? 404 : 200, httpVersion: nil,
                                 headerFields: ["content-type": "application/json"])!
         client?.urlProtocol(self, didReceive: r, cacheStoragePolicy: .notAllowed)
@@ -53,89 +55,33 @@ final class PantallasTests: XCTestCase {
                  {"dia": 6, "desde": "00:00", "hasta": "23:59"}], "email": "carla@prueba.test", "telefono": "", "bio": "", "miembroId": null, "foto": null}
     """
 
+    /// Las respuestas compartidas con Android (apps/pruebas/respuestas.json): «MÉTODO ruta» o sólo la ruta para GET.
+    /// Los marcadores "$iso(N)" y "$dia(N)" pasan a ahora + N minutos y hoy + N días, como en ModoPrueba.kt.
+    static func respuestas() -> [String: String] {
+        guard let url = Bundle(for: PantallasTests.self).url(forResource: "respuestas", withExtension: "json"),
+              let datos = try? Data(contentsOf: url),
+              let raiz = try? JSONSerialization.jsonObject(with: datos) as? [String: Any] else { return [:] }
+        func fechas(_ v: Any) -> Any {
+            if let d = v as? [String: Any] { return d.mapValues(fechas) }
+            if let a = v as? [Any] { return a.map(fechas) }
+            guard let t = v as? String, t.hasPrefix("$"), t.hasSuffix(")"), let abre = t.firstIndex(of: "("),
+                  let n = Int(t[t.index(after: abre)..<t.index(before: t.endIndex)]) else { return v }
+            switch t[..<abre] {
+            case "$iso": return iso(n)
+            case "$dia": return Formato.diaISO(Date().addingTimeInterval(TimeInterval(n * 86400)))
+            default: return v
+            }
+        }
+        var r: [String: String] = [:]
+        for (k, v) in raiz where !k.hasPrefix("_") {
+            if let d = try? JSONSerialization.data(withJSONObject: fechas(v), options: [.fragmentsAllowed]) { r[k] = String(decoding: d, as: UTF8.self) }
+        }
+        return r
+    }
+
     override func setUp() {
-        let cliente = """
-        {"id": "c1", "nombre": "Sofía Méndez", "telefono": "1144712290", "email": "sofia@prueba.test", "creadoEn": "\(Self.iso(-90000))",
-         "visitas": 6, "ultimaVisita": "\(Self.iso(-20000))", "proximoTurno": "\(Self.iso(120))", "gastado": 98000, "ausencias": 1, "penalizado": false,
-         "etiquetas": [{"id": "e1", "nombre": "VIP", "color": "#3ccc90"}]}
-        """
-        ApiFalsa.respuestas = [
-            "/v1/panel/turnos": "{\"turnos\": [\(Self.turno), \(Self.turno2)]}",
-            "/v1/panel/turnos/t1": Self.turno,
-            "/v1/panel/turnos/t1/caja": """
-            {"turnoId": "t1", "cliente": "Sofía", "servicio": "Corte", "estadoTurno": "confirmado", "estado": "pendiente", "medio": null, "cobradoEn": null,
-             "lineas": [{"tipo": "servicio", "concepto": "Corte y brushing", "monto": 18000}, {"tipo": "sena", "concepto": "Seña", "monto": -5000}],
-             "total": 13000, "medios": ["efectivo", "transferencia"]}
-            """,
-            "/v1/panel/avisos": """
-            {"avisos": [{"id": "a1", "tipo": "confirmacion", "para": "sofia@prueba.test", "turnoId": "t1", "cliente": "Sofía", "estado": "enviado", "intentos": 1,
-              "ultimoError": null, "proximoIntento": "\(Self.iso(-60))", "enviadoEn": "\(Self.iso(-60))", "creadoEn": "\(Self.iso(-60))"}]}
-            """,
-            "/v1/panel/profesionales": "{\"profesionales\": [\(Self.profesional)]}",
-            "/v1/panel/servicios": "{\"servicios\": [{\"id\": \"s1\", \"nombre\": \"Corte y brushing\", \"duracion\": 45, \"precio\": 18000, \"activo\": true, \"categoriaId\": null}]}",
-            "/v1/panel/espera": """
-            {"espera": [{"id": "w1", "servicioId": "s1", "servicio": "Corte y brushing", "profesionalId": null, "profesional": null, "nombre": "Ana Torres",
-              "email": "", "telefono": "1166660000", "desde": "2026-01-01", "hasta": "2099-12-31", "avisadoEn": null, "creadoEn": "\(Self.iso(-3000))", "momento": "tarde"}]}
-            """,
-            "/v1/panel/espera/ofertas": "{\"ofertas\": []}",
-            "/v1/panel/para-llamar": "{\"turnos\": []}",
-            "/v1/panel/reprogramar": "{\"turnos\": []}",
-            "/v1/panel/arranque": "{\"completo\": false, \"reservable\": true, \"pasos\": [{\"clave\": \"servicios\", \"titulo\": \"Cargá tus servicios\", \"listo\": true, \"obligatorio\": true}, {\"clave\": \"mercadopago\", \"titulo\": \"Conectá Mercado Pago\", \"listo\": false, \"obligatorio\": false}]}",
-            "/v1/panel/resenas": """
-            {"promedio": 4.8, "cantidad": 12, "distribucion": {"5": 10, "4": 2}, "resenas": [{"id": "r1", "turnoId": "t0", "nombre": "Lucía", "servicio": "Corte",
-              "profesional": "Carla", "puntaje": 5, "comentario": "¡Divino todo!", "respuesta": "", "respondidaEn": null, "visible": true, "creadoEn": "\(Self.iso(-2000))"}]}
-            """,
-            "/v1/panel/dias-libres": "{\"pedidos\": []}",
-            "/v1/panel/mercadopago": "{\"disponible\": true, \"conectada\": false, \"reautorizar\": false}",
-            "/v1/panel/cobros": "{\"modo\": \"sin_cobro\", \"senaPorcentaje\": 30, \"senaFija\": 0}",
-            "/v1/panel/pagos": "{\"pagos\": []}",
-            "/v1/panel/clientes": "{\"clientes\": [\(cliente)], \"total\": 1}",
-            "/v1/panel/clientes/c1": """
-            {"id": "c1", "nombre": "Sofía Méndez", "telefono": "1144712290", "email": "sofia@prueba.test", "creadoEn": "\(Self.iso(-90000))", "visitas": 6,
-             "ultimaVisita": null, "proximoTurno": null, "gastado": 98000, "ausencias": 0, "penalizado": false, "etiquetas": [],
-             "turnos": [{"id": "t1", "codigo": "ABC123", "servicio": "Corte", "profesional": "Carla", "inicio": "\(Self.iso(-20000))", "fin": "\(Self.iso(-19950))",
-               "precio": 18000, "estado": "atendido", "origen": "web", "nota": ""}], "penalidad": null}
-            """,
-            "/v1/panel/clientes/c1/notas": "{\"notas\": [{\"id\": \"n1\", \"texto\": \"Prefiere la tarde\", \"miembroId\": null, \"autor\": \"Laura\", \"creadoEn\": \"\(Self.iso(-500))\"}]}",
-            "/v1/panel/clientes/c1/penalidades": "{\"penalidades\": []}",
-            "/v1/panel/etiquetas": "{\"etiquetas\": [{\"id\": \"e1\", \"nombre\": \"VIP\", \"color\": \"#3ccc90\", \"clientes\": 3}]}",
-            "/v1/panel/membresias/socios": "{\"socios\": []}",
-            "/v1/panel/membresias/planes": "{\"planes\": []}",
-            "/v1/panel/campanita": """
-            {"sinLeer": 1, "notificaciones": [{"id": "x1", "tipo": "reserva", "titulo": "Nueva reserva", "texto": "Sofía · mañana 10:30", "turnoId": "t1",
-              "creadoEn": "\(Self.iso(-3))", "nueva": true}]}
-            """,
-            "/v1/panel/caja": """
-            {"fecha": "2026-11-04", "porMedio": {"efectivo": 13000, "transferencia": 7000, "debito": 0, "credito": 0, "mercadopago": 0}, "caja": 20000, "senas": 4000,
-             "total": 24000, "productos": 0, "cobros": 1, "debe": 0, "movimientos": [{"turnoId": "t1", "cliente": "Sofía", "servicio": "Corte", "medio": "efectivo",
-             "total": 13000, "productos": 0, "cobradoEn": "\(Self.iso(-30))"}]}
-            """,
-            "/v1/panel/negocio": """
-            {"id": "n1", "slug": "lumi", "nombre": "Lumi", "descripcion": "", "direccion": "Thames 2240", "ciudad": "CABA", "telefono": "", "whatsapp": "",
-             "instagram": "", "logo": null, "zonaHoraria": "America/Argentina/Buenos_Aires"}
-            """,
-            "/v1/panel/mi-web": """
-            {"rubro": "Estética", "provincia": "CABA", "acerca": "", "portada": null, "colorPrimario": "#183c44", "colorAcento": "#3ccc90", "email": "", "sitioWeb": "",
-             "facebook": "", "tiktok": "", "latitud": null, "longitud": null, "estilo": {"plantilla": "carta", "portada": "color", "fondo": "crema", "titulos": "grandes",
-             "forma": "redondos", "secciones": ["servicios", "resenas"]}}
-            """,
-            "/v1/panel/ajustes": "{\"intervalo\": 15, \"anticipacionMin\": 120, \"diasVista\": 60, \"margenMin\": 0, \"cancelarHastaHoras\": 24, \"politicaCancelacion\": \"\"}",
-            "/v1/panel/suscripcion": "{\"bloqueado\": false, \"pruebaHasta\": \"\(Self.iso(20000))\", \"diasDePrueba\": 14, \"conSuscripcion\": false, \"plan\": \"\", \"nombrePlan\": \"\", \"catalogo\": [{\"clave\": \"base\", \"nombre\": \"Base\", \"precio\": 19000}], \"suscripcion\": null}",
-            "/v1/p/lumi": """
-            {"negocio": {"id": "n1", "slug": "lumi", "nombre": "Lumi", "descripcion": "", "direccion": "Thames 2240", "ciudad": "CABA", "telefono": "", "whatsapp": "",
-             "instagram": "", "logo": null}, "servicios": [{"id": "s1", "categoriaId": null, "nombre": "Corte", "descripcion": "", "duracion": 45, "precio": 18000,
-             "foto": null, "orden": 1, "activo": true}], "profesionales": [{"id": "p1", "nombre": "Carla", "especialidad": "", "foto": null, "servicios": []}],
-             "diasVista": 30, "politicaCancelacion": "", "web": {"portada": null, "colorPrimario": "#183c44", "acerca": "", "rubro": "Estética"}, "resenas": {"promedio": 4.8, "cantidad": 3}}
-            """,
-            "/v1/panel/buscar": "{\"clientes\": [{\"id\": \"c1\", \"nombre\": \"Sofía Méndez\", \"telefono\": \"1144712290\", \"email\": \"\"}], \"turnos\": [], \"servicios\": []}",
-            "/v1/panel/ia/publico": "{\"activo\": false, \"reservasMes\": 0, \"ultimas\": [], \"url\": \"https://x\"}",
-            "/v1/panel/mcp": "{\"url\": \"https://api.prueba/mcp\", \"tokens\": [], \"permisos\": []}",
-            "/v1/panel/reportes": """
-            {"desde": "2026-11-02", "hasta": "2026-11-04", "resumen": {"turnos": 20, "atendidos": 17, "ingresos": 310000, "ticketPromedio": 18000, "clientes": 15,
-             "tasaAusencias": 5.0, "ocupacion": 72.5}, "porEstado": {}, "porProfesional": [], "porServicio": [], "porDia": [], "clientesNuevos": 3, "clientesRecurrentes": 12}
-            """,
-            "/v1/explorar": "{\"negocios\": [{\"slug\": \"lumi\", \"nombre\": \"Lumi\", \"descripcion\": \"\", \"logo\": null, \"portada\": null, \"ciudad\": \"CABA\", \"provincia\": \"\", \"rubro\": \"Estética\", \"servicios\": [], \"desde\": 18000}]}"
-        ]
+        ApiFalsa.respuestas = Self.respuestas()
+        XCTAssertFalse(ApiFalsa.respuestas.isEmpty, "Falta respuestas.json en el paquete de pruebas")
     }
 
     private func montar<V: View>(_ vista: V, rol: String = "duenio", segundos: Double = 2, nombre: String = #function) {
