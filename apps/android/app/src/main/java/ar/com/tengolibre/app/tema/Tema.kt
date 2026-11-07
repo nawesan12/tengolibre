@@ -57,6 +57,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -362,13 +363,20 @@ fun Modifier.tarjeta(radio: Dp = Radio.tarjeta, fondo: Color = C.tarjeta): Modif
     return this.sombra(forma, hex(0x0F2328, 0.18f), 14.dp, y = 10.dp).clip(forma).background(fondo)
 }
 
-/** Apagado al 45 % (.disabled / .opacity en iOS) sin recortar la sombra: Modifier.alpha recorta la capa a su caja y
- *  deja la sombra cortada en un rectángulo. Acá la opacidad se aplica a cada trazo, sin capa aparte. */
-fun Modifier.atenuado(apagado: Boolean = true, opacidad: Float = 0.45f): Modifier =
-    if (!apagado) this else this.graphicsLayer {
-        alpha = opacidad; clip = false
-        compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
-    }
+/** Apagado al 45 % (.disabled / .opacity en iOS): todo junto, como una sola capa (el texto no se mezcla con el fondo).
+ *  Modifier.alpha recorta la capa a su caja y deja la sombra cortada en un rectángulo; acá la capa se agranda
+ *  `margen` hacia cada lado para que la sombra entre entera, sin cambiar el tamaño ni la posición del contenido. */
+fun Modifier.atenuado(apagado: Boolean = true, opacidad: Float = 0.45f, margen: Dp = 28.dp): Modifier =
+    if (!apagado) this else this
+        .layout { medible, limites ->
+            val m = margen.roundToPx()
+            val l = medible.measure(limites.offset(2 * m, 2 * m))
+            val w = (l.width - 2 * m).coerceIn(limites.minWidth, limites.maxWidth)
+            val h = (l.height - 2 * m).coerceIn(limites.minHeight, limites.maxHeight)
+            layout(w, h) { l.place(-m, -m) }
+        }
+        .graphicsLayer { alpha = opacidad; clip = false }
+        .padding(margen)
 
 /** Corre el contenido `margen` hacia los dos bordes (lo que en iOS es .padding(.horizontal, -16) con contentMargins):
  *  una fila que se desliza llega hasta el borde de la pantalla en lugar de cortarse en el margen. */

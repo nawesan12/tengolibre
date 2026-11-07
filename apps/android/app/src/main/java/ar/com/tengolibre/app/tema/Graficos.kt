@@ -264,9 +264,12 @@ fun GraficoBarras(filas: List<FilaBarra>, formato: (Int) -> String = { Formato.p
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             filas.forEach { f ->
                 Row(Modifier.height(32.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.fillMaxWidth(maxOf(0.001f, f.valor / maximo * crecer)).height(22.dp).clip(RoundedCornerShape(5.dp))
-                        .background(Brush.verticalGradient(listOf(color, color.copy(alpha = 0.75f)))))
-                    Spacer(Modifier.width(6.dp))
+                    // En cero no hay barra (como Swift Charts): ni una rayita.
+                    if (f.valor > 0) {
+                        Box(Modifier.fillMaxWidth(maxOf(0.001f, f.valor / maximo * crecer)).height(22.dp).clip(RoundedCornerShape(5.dp))
+                            .background(Brush.verticalGradient(listOf(color, color.copy(alpha = 0.75f)))))
+                        Spacer(Modifier.width(6.dp))
+                    }
                     Texto(formato(f.valor), Tipo.lato(12f, Peso.Bold, numeros = true), C.tinta, Modifier.alpha(crecer), lineas = 1)
                 }
             }
