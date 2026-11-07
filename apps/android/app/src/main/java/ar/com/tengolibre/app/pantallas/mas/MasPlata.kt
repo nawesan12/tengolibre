@@ -161,7 +161,7 @@ fun Cobros() {
                     }
                 } }
             } else add {
-                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(enabled = m?.disponible != false) { conectar() }.alpha(if (m?.disponible == false) 0.45f else 1f),
+                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(enabled = m?.disponible != false) { conectar() }.atenuado(m?.disponible == false),
                     horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                     Image(painterResource(R.drawable.logo_mercadopago), null, Modifier.size(28.dp)); Spacer(Modifier.width(10.dp))
                     Texto("Conectar Mercado Pago", Tipo.lato(16f, Peso.Bold), C.tinta)
@@ -169,7 +169,7 @@ fun Cobros() {
             }
         }.toTypedArray())
         val habilitado = m?.conectada == true
-        Box(Modifier.alpha(if (habilitado) 1f else 0.45f)) {
+        Box(Modifier.atenuado(!(habilitado))) {
             Bloque("Cobro al reservar", "", *buildList<@Composable () -> Unit> {
                 add { Renglon("Qué se cobra") { SelectorMenu(listOf("sin_cobro" to "Nada", "porcentaje" to "Seña en %", "fija" to "Seña fija", "total" to "El total"), config.modo, { if (habilitado) config = config.copy(modo = it) }) } }
                 if (config.modo == "porcentaje") add { Numerito("Porcentaje", config.senaPorcentaje, { config = config.copy(senaPorcentaje = it) }, 5..100, paso = 5) { "$it %" } }
@@ -584,7 +584,7 @@ fun Etiquetas() {
                         val tinta = C.tinta
                         BasicTextField(nombre, { nombre = it }, Modifier.fillMaxWidth(), singleLine = true, textStyle = Tipo.lato(16f).copy(color = tinta), cursorBrush = SolidColor(C.mentaTexto))
                     }
-                    Box(Modifier.alpha(if (nombre.isBlank()) 0.45f else 1f)) {
+                    Box(Modifier.atenuado(nombre.isBlank())) {
                         BotonMentaChico("Crear", { if (nombre.isNotBlank()) alcance.launch { estado.intentar { estado.api.hacer("POST", "/v1/panel/etiquetas", Cuerpo(nombre, color)) }; nombre = ""; cargar() } })
                     }
                 }

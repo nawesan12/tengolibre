@@ -56,6 +56,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Outline
@@ -245,8 +247,10 @@ fun Texto(
     alinear: TextAlign = TextAlign.Start,
     tracking: TextUnit = TextUnit.Unspecified,
 ) {
+    // Sin renglones viudos: si el texto puede ocupar más de un renglón, la última palabra (y las cortas) van pegadas a
+    // la siguiente con un espacio duro, como hace iOS solo con su corte de renglones.
     BasicText(
-        texto, modifier,
+        if (lineas > 1) ar.com.tengolibre.app.nucleo.Formato.sinViudas(texto) else texto, modifier,
         style = estilo.copy(color = color, textAlign = alinear, letterSpacing = if (tracking != TextUnit.Unspecified) tracking else estilo.letterSpacing),
         maxLines = lineas, overflow = TextOverflow.Ellipsis,
     )
@@ -358,6 +362,23 @@ fun Modifier.tarjeta(radio: Dp = Radio.tarjeta, fondo: Color = C.tarjeta): Modif
     return this.sombra(forma, hex(0x0F2328, 0.18f), 14.dp, y = 10.dp).clip(forma).background(fondo)
 }
 
+/** Apagado al 45 % (.disabled / .opacity en iOS) sin recortar la sombra: Modifier.alpha recorta la capa a su caja y
+ *  deja la sombra cortada en un rectángulo. Acá la opacidad se aplica a cada trazo, sin capa aparte. */
+fun Modifier.atenuado(apagado: Boolean = true, opacidad: Float = 0.45f): Modifier =
+    if (!apagado) this else this.graphicsLayer {
+        alpha = opacidad; clip = false
+        compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
+    }
+
+/** Corre el contenido `margen` hacia los dos bordes (lo que en iOS es .padding(.horizontal, -16) con contentMargins):
+ *  una fila que se desliza llega hasta el borde de la pantalla en lugar de cortarse en el margen. */
+fun Modifier.sangrado(margen: Dp = 16.dp): Modifier = this.layout { medible, limites ->
+    val extra = margen.roundToPx() * 2
+    val ancho = if (limites.hasBoundedWidth) limites.maxWidth + extra else limites.maxWidth
+    val l = medible.measure(limites.copy(minWidth = ancho, maxWidth = ancho))
+    layout((l.width - extra).coerceIn(limites.minWidth, limites.maxWidth), l.height) { l.place(-margen.roundToPx(), 0) }
+}
+
 /** Contorno de 1,5 dp en la línea del tema (botones secundarios, campos). */
 @Composable
 fun Modifier.contorno(radio: Dp, color: Color = C.linea, ancho: Dp = 1.5.dp): Modifier =
@@ -435,7 +456,7 @@ fun BotonMenta(
     Row(
         // La opacidad va antes del fondo y la sombra: deshabilitado se apaga la pastilla entera, como en iOS.
         modifier.scale(escala)
-            .alpha(if (habilitado) (if (p) 0.85f else 1f) else 0.45f)
+            .atenuado(!habilitado || p, if (habilitado) 0.85f else 0.45f)
             .sombra(CircleShape, if (conSombra) hex(0x17805A, 0.6f) else Color.Transparent, 13.dp, y = 12.dp)
             .fillMaxWidth().heightIn(min = alto)
             .clip(CircleShape).background(C.menta)
@@ -478,7 +499,7 @@ fun BotonContorno(
     val fuente = remember { MutableInteractionSource() }
     val p = presionado(fuente)
     Row(
-        modifier.alpha(if (habilitado) 1f else 0.45f).then(if (lleno) Modifier.fillMaxWidth() else Modifier).heightIn(min = alto)
+        modifier.atenuado(!habilitado).then(if (lleno) Modifier.fillMaxWidth() else Modifier).heightIn(min = alto)
             .clip(CircleShape).background(if (p) C.chip else Color.Transparent).contorno(999.dp)
             .clickable(fuente, null, enabled = habilitado, onClick = alTocar)
             .padding(horizontal = 16.dp),

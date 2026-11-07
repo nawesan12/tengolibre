@@ -205,7 +205,7 @@ fun DetalleTurno(turnoInicial: Turno, cerrar: () -> Unit) {
                 }
             }
             // Contacto
-            Row(Modifier.alpha(if (tel.isEmpty()) 0.45f else 1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.atenuado(tel.isEmpty()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.weight(1f)) { BotonChip("Llamar", { if (tel.isNotEmpty()) estado.abrirLink("tel:$tel") }, simbolo = "phone") }
                 Row(
                     Modifier.weight(1f).heightIn(min = 52.dp).clip(RoundedCornerShape(16.dp)).background(C.chip).clickable(enabled = tel.isNotEmpty()) {

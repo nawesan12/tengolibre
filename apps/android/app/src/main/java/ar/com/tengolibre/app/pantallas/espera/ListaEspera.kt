@@ -188,7 +188,7 @@ fun ListaEspera() {
                                             Tipo.lato(13f, Peso.Bold, numeros = true), C.huecoTinta, tracking = 0.8.sp)
                                     }
                                 }
-                                Box(Modifier.alpha(if (estado.soloLectura) 0.45f else 1f)) { BotonMentaChico("Avisar", { if (!estado.soloLectura) avisar(a, match) }) }
+                                Box(Modifier.atenuado(estado.soloLectura)) { BotonMentaChico("Avisar", { if (!estado.soloLectura) avisar(a, match) }) }
                             }
                         }
                     }

@@ -1,5 +1,6 @@
 package ar.com.tengolibre.app
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,6 +50,7 @@ import ar.com.tengolibre.app.pantallas.turno.Cobrar
 import ar.com.tengolibre.app.pantallas.turno.DetalleTurno
 import ar.com.tengolibre.app.pantallas.turno.NuevoTurno
 import ar.com.tengolibre.app.pantallas.turno.Reprogramar
+import ar.com.tengolibre.app.tema.C
 import ar.com.tengolibre.app.tema.TemaTL
 import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.runBlocking
@@ -112,8 +114,8 @@ class PantallasTest {
         }
     }
 
-    /** Lo que en iOS va en una hoja (ColumnScope acá): a pantalla completa. */
-    @Composable private fun EnHoja(contenido: @Composable ColumnScope.() -> Unit) = Column(Modifier.fillMaxSize()) { contenido() }
+    /** Lo que en iOS va en una hoja (ColumnScope acá): a pantalla completa, con el fondo de la hoja (Hoja lo pone). */
+    @Composable private fun EnHoja(contenido: @Composable ColumnScope.() -> Unit) = Column(Modifier.fillMaxSize().background(C.hoja)) { contenido() }
 
     @Test fun decodificaTurno() = assertEquals("Sofía Méndez", turno(estado()).cliente.nombre)
     @Test fun hoy() = montar("Hoy") { Hoy() }

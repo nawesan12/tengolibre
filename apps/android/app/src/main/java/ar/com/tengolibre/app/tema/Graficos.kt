@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -77,7 +78,8 @@ import kotlin.math.roundToInt
 /** Colores para series (medios de pago, servicios, estados): de la marca, distinguibles entre sí. */
 object PaletaSeries {
     val series = listOf(C.menta, C.petroleo, hex(0xE8A317), hex(0x7A5CFA), hex(0x2F80ED), hex(0xEC4899), hex(0x8B5E34))
-    fun color(i: Int) = series[i % series.size]
+    /** En oscuro el petróleo se pierde contra la tarjeta: va el petróleo aclarado del tema (C.ocupado). */
+    @Composable fun color(i: Int): Color = if (i % series.size == 1) C.ocupado else series[i % series.size]
 }
 
 /** Un número que cambia contando (plata, cantidades): el texto nuevo entra desde abajo. */
@@ -251,11 +253,17 @@ data class FilaBarra(val nombre: String, val valor: Int, val detalle: String = "
 fun GraficoBarras(filas: List<FilaBarra>, formato: (Int) -> String = { Formato.pesos(it) }, color: Color = C.menta) {
     val crecer = rememberCrecer()
     val maximo = (filas.maxOfOrNull { it.valor } ?: 1) * 1.35f + 1
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-        filas.forEach { f ->
-            Row(Modifier.height(32.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Texto(f.nombre, Tipo.lato(12f), C.tinta, Modifier.width(96.dp), lineas = 1)
-                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+    // Como el eje de Swift Charts: la columna de nombres toma el ancho del nombre más largo (hasta 120 dp) y las barras,
+    // el resto; así «5 ★» no deja un hueco de 96 dp antes de la barra.
+    Row(Modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.widthIn(max = 120.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            filas.forEach { f ->
+                Box(Modifier.height(32.dp), contentAlignment = Alignment.CenterStart) { Texto(f.nombre, Tipo.lato(12f), C.tinta, lineas = 1) }
+            }
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            filas.forEach { f ->
+                Row(Modifier.height(32.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.fillMaxWidth(maxOf(0.001f, f.valor / maximo * crecer)).height(22.dp).clip(RoundedCornerShape(5.dp))
                         .background(Brush.verticalGradient(listOf(color, color.copy(alpha = 0.75f)))))
                     Spacer(Modifier.width(6.dp))
@@ -301,7 +309,9 @@ fun GraficoVisitas(meses: List<MesVisitas>) {
     val fmt = DateTimeFormatter.ofPattern("MMMMM", Formato.argentina).withZone(Formato.zona)
     Canvas(Modifier.fillMaxWidth().height(120.dp).semantics { contentDescription = "Visitas por mes" }) {
         val izq = 22.dp.toPx(); val abajo = 16.dp.toPx(); val alto = size.height - abajo
-        val max = maxOf(1, meses.maxOfOrNull { it.visitas } ?: 1).toFloat()
+        // El tope del eje es par: las tres marcas (0, mitad, tope) son enteras y distintas («0, 1, 2», nunca «0, 1, 1»).
+        val mayor = maxOf(1, meses.maxOfOrNull { it.visitas } ?: 1)
+        val max = (((mayor + 1) / 2) * 2).toFloat()
         for (k in 0..2) {
             val y = alto - alto * k / 2f
             drawLine(linea, Offset(izq, y), Offset(size.width, y), 1f)

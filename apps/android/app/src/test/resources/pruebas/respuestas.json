@@ -16,7 +16,14 @@
    }
   ]
  },
- "/v1/panel/ajustes": {"intervalo": 15, "anticipacionMin": 120, "diasVista": 60, "margenMin": 0, "cancelarHastaHoras": 24, "politicaCancelacion": ""},
+ "/v1/panel/ajustes": {
+  "intervalo": 15,
+  "anticipacionMin": 120,
+  "diasVista": 60,
+  "margenMin": 0,
+  "cancelarHastaHoras": 24,
+  "politicaCancelacion": ""
+ },
  "/v1/panel/acceso": {
   "bloqueado": false,
   "pruebaHasta": "$iso(20000)",
@@ -604,7 +611,38 @@
   "cupones": []
  },
  "/v1/panel/recordatorios": {
-  "recordatorios": []
+  "recordatorios": [
+   {
+    "tipo": "cumpleanios",
+    "titulo": "Cumpleaños",
+    "activo": true,
+    "texto": "En Lumi te regalamos un 20% en lo que quieras este mes. Reservá cuando quieras.",
+    "cuponId": null,
+    "dias": 60,
+    "regla": "Le llega el día de su cumple, a las 10, si vino al menos una vez.",
+    "semana": [
+     {
+      "clienteId": "c1",
+      "nombre": "Sofía Méndez",
+      "fecha": "$dia(2)",
+      "detalle": "Cumple el domingo (36)",
+      "enviado": false
+     }
+    ],
+    "semanaTexto": "Esta semana: 1 cumpleaños"
+   },
+   {
+    "tipo": "extraniamos",
+    "titulo": "«Hace mucho que no venís»",
+    "activo": false,
+    "texto": "Cuando quieras volver, tenemos lugar. Reservás en un minuto desde acá.",
+    "cuponId": null,
+    "dias": 60,
+    "regla": "Le llega cuando pasan 60 días desde su último turno atendido y no tiene otro reservado.",
+    "semana": [],
+    "semanaTexto": "Esta semana: nadie"
+   }
+  ]
  },
  "/v1/panel/ia/publico": {
   "activo": false,
@@ -1001,6 +1039,53 @@
    "Estética",
    "Peluquería",
    "Uñas"
+  ]
+ },
+ "/v1/panel/equipo": {
+  "miembros": [
+   {
+    "id": "m1",
+    "clerkId": "u1",
+    "email": "laura@lumi.test",
+    "nombre": "Laura Díaz",
+    "rol": "duenio",
+    "activo": true,
+    "creadoEn": "$iso(-86400)"
+   },
+   {
+    "id": "m2",
+    "clerkId": "u2",
+    "email": "carla@prueba.test",
+    "nombre": "Carla Ruiz",
+    "rol": "profesional",
+    "activo": true,
+    "creadoEn": "$iso(-43200)"
+   }
+  ]
+ },
+ "/v1/panel/auditoria": {
+  "entradas": [
+   {
+    "id": "a1",
+    "nombre": "Laura Díaz",
+    "accion": "turno.crear",
+    "entidad": "turno",
+    "creadoEn": "$iso(-20)"
+   },
+   {
+    "id": "a2",
+    "nombre": "Carla Ruiz",
+    "accion": "turno.cobrar",
+    "entidad": "turno",
+    "creadoEn": "$iso(-95)"
+   },
+   {
+    "id": "a3",
+    "nombre": "Laura Díaz",
+    "accion": "servicio.editar",
+    "entidad": "servicio",
+    "creadoEn": "$iso(-1500)"
+   }
   ]
  }
 }

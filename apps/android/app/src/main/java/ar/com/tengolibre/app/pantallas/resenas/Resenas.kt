@@ -132,7 +132,7 @@ fun Resenas() {
                                 val tinta = C.tinta
                                 BasicTextField(t, { respuestas = respuestas + (r.id to it) }, Modifier.fillMaxWidth(), textStyle = Tipo.lato(15f).copy(color = tinta), maxLines = 5, cursorBrush = SolidColor(C.mentaTexto))
                             }
-                            Box(Modifier.alpha(if (respuestas[r.id].orEmpty().isBlank()) 0.45f else 1f)) { BotonMentaChico("Responder", { if (respuestas[r.id].orEmpty().isNotBlank()) responder(r) }) }
+                            Box(Modifier.atenuado(respuestas[r.id].orEmpty().isBlank())) { BotonMentaChico("Responder", { if (respuestas[r.id].orEmpty().isNotBlank()) responder(r) }) }
                         }
                     }
                     if (estado.gestiona) Interruptor(if (r.visible) "Se ve en tu página" else "Oculta en tu página", r.visible, { visible(r, it) }, estiloTitulo = Tipo.lato(14f), colorTitulo = C.sub, altoMinimo = 31.dp)

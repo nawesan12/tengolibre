@@ -708,7 +708,7 @@ fun WhatsAppVista() {
 }
 
 /** .disabled(true) de SwiftUI: atenuado y sin toques. */
-private fun Modifier.alphaDeshabilitado(): Modifier = this.alpha(0.45f).pointerInput(Unit) {
+private fun Modifier.alphaDeshabilitado(): Modifier = this.atenuado().pointerInput(Unit) {
     awaitPointerEventScope { while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() } }
 }
 

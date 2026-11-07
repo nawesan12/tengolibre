@@ -60,7 +60,7 @@ private fun CampoConBoton(texto: String, alCambiar: (String) -> Unit, placeholde
             val tinta = C.tinta
             BasicTextField(texto, alCambiar, Modifier.fillMaxWidth(), singleLine = true, textStyle = Tipo.lato(16f).copy(color = tinta), cursorBrush = SolidColor(C.mentaTexto))
         }
-        Box(Modifier.alpha(if (texto.isBlank()) 0.45f else 1f)) { BotonMentaChico(boton, { if (texto.isNotBlank()) alTocar() }) }
+        Box(Modifier.atenuado(texto.isBlank())) { BotonMentaChico(boton, { if (texto.isNotBlank()) alTocar() }) }
     }
 }
 

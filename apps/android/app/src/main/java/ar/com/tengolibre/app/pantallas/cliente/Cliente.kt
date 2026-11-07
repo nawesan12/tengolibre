@@ -314,7 +314,7 @@ fun ColumnScope.TurnoClienteHoja(inicial: TurnoCli, listo: () -> Unit, cerrar: (
             } else if (turno.estado == "pendiente") BotonMenta("Confirmar que voy", { post("confirmar", "¡Listo! Confirmaste el turno") }, simbolo = "checkmark.circle")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.weight(1f)) { BotonContorno("Mover", { mover = true }, alto = 48.dp, tam = 15f, simbolo = "calendar.badge.clock") }
-                Box(Modifier.weight(1f).alpha(if (turno.puedeCancelar == false) 0.45f else 1f)) {
+                Box(Modifier.weight(1f).atenuado(turno.puedeCancelar == false)) {
                     BotonContornoRojo("Cancelar", "xmark") { if (turno.puedeCancelar != false) cancelar = true }
                 }
             }
@@ -580,7 +580,7 @@ fun Lugares(reservar: (String) -> Unit) {
                     BasicTextField(buscar, { buscar = it }, Modifier.fillMaxWidth(), singleLine = true, textStyle = Tipo.lato(16f).copy(color = Color.White), cursorBrush = SolidColor(Color.White))
                 }
             }
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.sangrado().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 filtro("Hoy con lugar", hoy) { hoy = !hoy }
                 rubros.forEach { r -> filtro(r, rubro == r) { rubro = if (rubro == r) "" else r } }
             }

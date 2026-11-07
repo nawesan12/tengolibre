@@ -144,7 +144,7 @@ fun Clientes() {
                     BasicTextField(buscar, { buscar = it }, Modifier.fillMaxWidth(), singleLine = true, textStyle = Tipo.lato(16f).copy(color = Color.White), cursorBrush = SolidColor(C.menta))
                 }
             }
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.sangrado().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 filtros.forEach { (k, t) ->
                     val on = filtro == k
                     Box(Modifier.height(36.dp).clip(CircleShape).background(if (on) C.menta else Color.White.copy(alpha = 0.1f)).clickable { filtro = k }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
@@ -354,7 +354,7 @@ fun FichaCliente(id: String) {
                         val tinta = C.tinta
                         BasicTextField(notaNueva, { notaNueva = it }, Modifier.fillMaxWidth(), textStyle = Tipo.lato(15f).copy(color = tinta), maxLines = 4, cursorBrush = SolidColor(C.mentaTexto))
                     }
-                    Box(Modifier.alpha(if (notaNueva.isBlank()) 0.45f else 1f)) { BotonMentaChico("Sumar", { if (notaNueva.isNotBlank()) sumarNota() }) }
+                    Box(Modifier.atenuado(notaNueva.isBlank())) { BotonMentaChico("Sumar", { if (notaNueva.isNotBlank()) sumarNota() }) }
                 }
             }
             // Historial
@@ -432,7 +432,7 @@ private fun BotonContacto(t: String, s: String, menta: Boolean, habilitado: Bool
     val forma = RoundedCornerShape(18.dp)
     Column(
         modifier.heightIn(min = 64.dp).clip(forma).background(if (menta) C.menta else C.tarjeta).then(if (menta) Modifier else Modifier.border(1.5.dp, C.linea, forma))
-            .clickable(enabled = habilitado, onClick = a).alpha(if (habilitado) 1f else 0.45f),
+            .clickable(enabled = habilitado, onClick = a).atenuado(!(habilitado)),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
     ) {
         val tinta = if (menta) C.petroleoHondo else C.tinta

@@ -91,7 +91,7 @@ fun AtajosHoy() {
             TextoRotulo("Tu negocio", modifier = Modifier.weight(1f))
             Texto("Ver todo", Tipo.lato(13f, Peso.Bold), C.mentaTexto, Modifier.clickable { nav.pestana = Pestana.mas })
         }
-        Row(Modifier.offset(x = (-16).dp).fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.sangrado().fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             atajos.forEachIndexed { i, a ->
                 Column(
                     Modifier.entrada(i).size(104.dp, 96.dp).tarjeta(18.dp).clickable { Haptico.suave(); a.destino?.let { nav.pilaHoy.add(it) } ?: a.accion?.invoke() }.padding(12.dp),
@@ -101,7 +101,6 @@ fun AtajosHoy() {
                     Texto(a.titulo, Tipo.lato(14f, Peso.Bold), C.tinta, lineas = 2)
                 }
             }
-            Spacer(Modifier.width(16.dp))
         }
     }
 }
