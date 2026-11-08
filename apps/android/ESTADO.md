@@ -70,6 +70,13 @@ La app nunca corrió en un aparato real (sin APK; sólo tests y capturas del CI)
 confirmar: el ingreso con Clerk volviendo a la app, que lleguen los avisos con sus botones (y el turno en curso) y la
 compra con Google Play.
 
+## Repaso visual (7/11), a revisar por Nahuel
+- Galería: https://claude.ai/artifact/Sb7ZGdVvahoKPnHnVDLNy7
+- Arreglado: renglones viudos, sombras cortadas, filas cortadas antes del borde, gráficos de reseñas y visitas, hojas en oscuro y pantallas sin datos.
+- También en el iPhone: «4,8» con coma y «1 reseña»; las pruebas del iPhone leen la copia de `respuestas.json` (la refresca `publicar.sh`). TestFlight subido.
+- Para retomar: Nahuel mira la galería y hace un repaso profundo de todo. Lo que marque se arregla en Android y,
+  si también pasa en el iPhone, en los dos lados, con TestFlight después.
+
 ## Falta (cuando esté la cuenta de Play)
 1. Crear la app en Play, subir el paquete («Run workflow» → artifact `play`) a prueba interna.
 2. Productos de suscripción con los mismos ids que la App Store; tópico RTDN → `https://api.tengolibre.com.ar/v1/webhooks/google-play?clave=…`;
