@@ -270,15 +270,16 @@ struct MiWeb: View {
     }
 
     @ViewBuilder private func imagen(_ url: String?, alto: CGFloat, ancho: CGFloat?, radio: CGFloat) -> some View {
-        Group {
-            if let url, !url.isEmpty, let u = URL(string: url) {
-                AsyncImage(url: u) { i in i.resizable().scaledToFill() } placeholder: { C.chip }
-            } else {
-                ZStack { C.chip; Image(systemName: "photo").foregroundStyle(C.sub) }
+        // La foto llena un lugar fijo y se recorta ahí: suelta, una muy ancha ensanchaba toda la pantalla.
+        Color.clear.frame(width: ancho, height: alto).frame(maxWidth: ancho == nil ? .infinity : nil)
+            .overlay {
+                if let url, !url.isEmpty, let u = URL(string: url) {
+                    AsyncImage(url: u) { i in i.resizable().scaledToFill() } placeholder: { C.chip }
+                } else {
+                    ZStack { C.chip; Image(systemName: "photo").foregroundStyle(C.sub) }
+                }
             }
-        }
-        .frame(width: ancho, height: alto).frame(maxWidth: ancho == nil ? .infinity : nil)
-        .clipShape(RoundedRectangle(cornerRadius: radio, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: radio, style: .continuous))
     }
 
     /// Achica la foto (lado largo 2000 px) y la sube como JPEG.

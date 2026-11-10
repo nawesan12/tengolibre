@@ -711,15 +711,18 @@ struct Lugares: View {
     private func tarjeta(_ f: FichaDirectorio) -> some View {
         Button { reservar(f.slug) } label: {
             VStack(alignment: .leading, spacing: 0) {
-                ZStack {
-                    C.chip
-                    if let u = f.portada.flatMap(URL.init(string:)) {
-                        AsyncImage(url: u) { i in i.resizable().scaledToFill() } placeholder: { C.chip }
-                    } else {
-                        Image(systemName: "sparkles").font(.system(size: 26)).foregroundStyle(C.sub)
+                Color.clear.frame(height: 104).frame(maxWidth: .infinity)
+                    .overlay {
+                        ZStack {
+                            C.chip
+                            if let u = f.portada.flatMap(URL.init(string:)) {
+                                AsyncImage(url: u) { i in i.resizable().scaledToFill() } placeholder: { C.chip }
+                            } else {
+                                Image(systemName: "sparkles").font(.system(size: 26)).foregroundStyle(C.sub)
+                            }
+                        }
                     }
-                }
-                .frame(height: 104).clipped()
+                    .clipped()
                 VStack(alignment: .leading, spacing: 2) {
                     Text(f.nombre).font(Tipo.lato(15, .bold)).lineLimit(2)
                     Text([f.rubro, f.ciudad].filter { !$0.isEmpty }.joined(separator: " · ")).font(Tipo.lato(12)).foregroundStyle(C.sub).lineLimit(1)
