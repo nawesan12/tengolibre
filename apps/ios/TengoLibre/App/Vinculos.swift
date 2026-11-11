@@ -4,7 +4,7 @@ import SwiftUI
 /// Los links de tengolibre.com.ar que abren la app (Universal Links). Qué paths los declara
 /// `apps/pruebas/enlaces.json` (de ahí sale el AASA de la web); acá, a qué pantalla lleva cada uno. Lo que la
 /// app no tiene se abre en la web dentro de la app, nunca queda en nada.
-enum Enlaces {
+enum Vinculos {
     static func ruta(_ u: URL) -> Ruta? {
         guard let host = u.host(), host == "tengolibre.com.ar" || host == "www.tengolibre.com.ar" else { return nil }
         let p = u.pathComponents.filter { $0 != "/" }

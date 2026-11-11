@@ -27,13 +27,13 @@ enum Ruta: Hashable {
     /// Un link de tengolibre.com.ar que la app no tiene: se abre la web dentro de la app.
     case web(URL)
 
-    /// `turnos/{id}` (el `ruta` del push), `tengolibre://turno/{id}` o un link de tengolibre.com.ar (Enlaces).
+    /// `turnos/{id}` (el `ruta` del push), `tengolibre://turno/{id}` o un link de tengolibre.com.ar (Vinculos).
     init?(texto: String) {
         var t = texto
         if let u = URL(string: texto), u.scheme == "tengolibre" {
             t = ([u.host ?? ""] + u.pathComponents.filter { $0 != "/" }).joined(separator: "/")
         } else if let u = URL(string: texto), u.scheme == "https" || u.scheme == "http" {
-            guard let r = Enlaces.ruta(u) else { return nil }
+            guard let r = Vinculos.ruta(u) else { return nil }
             self = r
             return
         }
