@@ -73,6 +73,9 @@ struct Raiz: View {
                              set: { estado.invitacionPendiente = $0?.id })) { i in
             InvitacionVista(token: i.id).environment(estado)
         }
+        .sheet(item: Binding(get: { estado.webAbierta.map { IdTexto(id: $0.absoluteString) } }, set: { estado.webAbierta = $0.flatMap { URL(string: $0.id) } })) { w in
+            if let u = URL(string: w.id) { NavegadorWeb(url: u).ignoresSafeArea() }
+        }
         // En vivo mientras se ve el panel, con el negocio elegido.
         .onChange(of: "\(estado.fase)-\(estado.negocio?.id ?? "")") { _, _ in
             if estado.fase == .adentro { estado.enVivo.arrancar(estado) } else { estado.enVivo.parar() }

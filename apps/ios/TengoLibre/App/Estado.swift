@@ -21,18 +21,21 @@ enum Ruta: Hashable {
     case turnoCliente(String)
     /// Una invitación al equipo de un negocio.
     case invitacion(String)
+    case clientes
+    /// Una pantalla de Más (servicios, equipo, cobros, mi web…).
+    case mas(DestinoMas)
+    /// Un link de tengolibre.com.ar que la app no tiene: se abre la web dentro de la app.
+    case web(URL)
 
-    /// `turnos/{id}` (el `ruta` del push) o `tengolibre://turno/{id}`.
+    /// `turnos/{id}` (el `ruta` del push), `tengolibre://turno/{id}` o un link de tengolibre.com.ar (Enlaces).
     init?(texto: String) {
         var t = texto
         if let u = URL(string: texto), u.scheme == "tengolibre" {
             t = ([u.host ?? ""] + u.pathComponents.filter { $0 != "/" }).joined(separator: "/")
         } else if let u = URL(string: texto), u.scheme == "https" || u.scheme == "http" {
-            // Universal Links de tengolibre.com.ar: /turno/<código>, /invitacion/<token>, /panel/turnos/<id>.
-            var p = u.pathComponents.filter { $0 != "/" }
-            if p.first == "panel" { p.removeFirst() }
-            if p.first == "turno", p.count > 1 { self = .turnoCliente(p[1]); return }
-            t = p.joined(separator: "/")
+            guard let r = Enlaces.ruta(u) else { return nil }
+            self = r
+            return
         }
         let partes = t.split(separator: "/").map(String.init)
         guard let primera = partes.first else { return nil }
@@ -85,6 +88,8 @@ final class Estado {
     /// abre Raiz, en cualquier modo y fase (la invitación espera al ingreso si hace falta).
     var turnoClienteAbierto: String?
     var invitacionPendiente: String?
+    /// Un link de tengolibre.com.ar que la app no tiene: lo muestra Raiz en el navegador de adentro.
+    var webAbierta: URL?
     /// Para que las listas se vuelvan a pedir después de un cambio.
     var version = 0
     /// Sin conexión: se ve lo guardado (handoff 23).
@@ -271,6 +276,7 @@ final class Estado {
         switch r {
         case .turnoCliente(let c): turnoClienteAbierto = c
         case .invitacion(let t): invitacionPendiente = t
+        case .web(let u): webAbierta = u
         default: rutaPendiente = r
         }
     }
