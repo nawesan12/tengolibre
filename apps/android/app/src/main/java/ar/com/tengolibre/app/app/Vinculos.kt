@@ -3,10 +3,10 @@ package ar.com.tengolibre.app.app
 import android.net.Uri
 import ar.com.tengolibre.app.pantallas.mas.DestinoMas
 
-/** Los links de tengolibre.com.ar que abren la app (App Links; clon de App/Enlaces.swift). Qué paths los declara
+/** Los links de tengolibre.com.ar que abren la app (App Links; clon de App/Vinculos.swift). Qué paths los declara
  *  `apps/pruebas/enlaces.json` (de ahí sale el assetlinks de la web y el manifest lo repite); acá, a qué pantalla
  *  lleva cada uno. Lo que la app no tiene se abre en la web dentro de la app, nunca queda en nada. */
-object Enlaces {
+object Vinculos {
     fun ruta(u: Uri): Ruta? {
         val host = u.host ?: return null
         if (host != "tengolibre.com.ar" && host != "www.tengolibre.com.ar") return null

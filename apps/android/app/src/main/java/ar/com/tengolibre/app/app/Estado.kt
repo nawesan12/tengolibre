@@ -45,7 +45,7 @@ sealed class Ruta {
     data class web(val url: String) : Ruta()
 
     companion object {
-        /** `turnos/{id}` (el `ruta` del push), `tengolibre://turno/{id}` o un App Link de tengolibre.com.ar (Enlaces). */
+        /** `turnos/{id}` (el `ruta` del push), `tengolibre://turno/{id}` o un App Link de tengolibre.com.ar (Vinculos). */
         fun de(texto: String): Ruta? {
             var t = texto
             val u = runCatching { Uri.parse(texto) }.getOrNull()
@@ -53,7 +53,7 @@ sealed class Ruta {
             if (esquema == "tengolibre") {
                 t = (listOf(u.host.orEmpty()) + u.pathSegments).joinToString("/")
             } else if (esquema == "https" || esquema == "http") {
-                return Enlaces.ruta(u)
+                return Vinculos.ruta(u)
             }
             return deTexto(t)
         }
