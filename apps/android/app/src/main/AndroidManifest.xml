@@ -57,15 +57,27 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="tengolibre" />
             </intent-filter>
-            <!-- App Links de tengolibre.com.ar (Universal Links en iOS): falta assetlinks.json en la web. -->
+            <!-- App Links de tengolibre.com.ar (Universal Links en iOS). Los mismos patrones que apps/pruebas/enlaces.json
+                 (EnlacesTest lo controla): «app» como path/pathPrefix y «web» como grupos que no abren la app (Android 15+;
+                 antes, si llega uno, Enlaces lo abre en la web dentro de la app). -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="tengolibre.com.ar" />
+                <data android:path="/panel" />
+                <data android:pathPrefix="/panel/" />
                 <data android:pathPrefix="/turno/" />
                 <data android:pathPrefix="/invitacion/" />
-                <data android:pathPrefix="/panel/turnos/" />
+                <uri-relative-filter-group android:allow="false"><data android:queryPattern=".*web=1.*" /></uri-relative-filter-group>
+                <uri-relative-filter-group android:allow="false"><data android:pathPrefix="/panel/reportes/csv/" /></uri-relative-filter-group>
+                <uri-relative-filter-group android:allow="false"><data android:path="/panel/auditoria/exportar" /></uri-relative-filter-group>
+                <uri-relative-filter-group android:allow="false"><data android:pathPrefix="/panel/mercadopago/" /></uri-relative-filter-group>
+                <uri-relative-filter-group android:allow="false"><data android:path="/panel/calendario/suscribirse" /></uri-relative-filter-group>
+                <uri-relative-filter-group android:allow="false"><data android:path="/panel/buscar/rapido" /></uri-relative-filter-group>
+                <uri-relative-filter-group android:allow="false"><data android:path="/panel/negocio" /></uri-relative-filter-group>
+                <uri-relative-filter-group android:allow="false"><data android:path="/panel/eventos" /></uri-relative-filter-group>
+                <uri-relative-filter-group android:allow="false"><data android:path="/panel/push" /></uri-relative-filter-group>
             </intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>

@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import ar.com.tengolibre.app.BuildConfig
 import ar.com.tengolibre.app.nucleo.*
+import ar.com.tengolibre.app.pantallas.mas.DestinoMas
 import ar.com.tengolibre.app.pantallas.mas.EstadoNegocio
 import ar.com.tengolibre.app.tema.Haptico
 import ar.com.tengolibre.app.tema.Toast
@@ -37,9 +38,14 @@ sealed class Ruta {
     data class turnoCliente(val codigo: String) : Ruta()
     /** Una invitación al equipo de un negocio. */
     data class invitacion(val token: String) : Ruta()
+    data object clientes : Ruta()
+    /** Una pantalla de Más (servicios, equipo, cobros, mi web…). */
+    data class mas(val destino: DestinoMas) : Ruta()
+    /** Un link de tengolibre.com.ar que la app no tiene: se abre la web dentro de la app. */
+    data class web(val url: String) : Ruta()
 
     companion object {
-        /** `turnos/{id}` (el `ruta` del push), `tengolibre://turno/{id}` o un App Link de tengolibre.com.ar. */
+        /** `turnos/{id}` (el `ruta` del push), `tengolibre://turno/{id}` o un App Link de tengolibre.com.ar (Enlaces). */
         fun de(texto: String): Ruta? {
             var t = texto
             val u = runCatching { Uri.parse(texto) }.getOrNull()
@@ -47,11 +53,7 @@ sealed class Ruta {
             if (esquema == "tengolibre") {
                 t = (listOf(u.host.orEmpty()) + u.pathSegments).joinToString("/")
             } else if (esquema == "https" || esquema == "http") {
-                // App Links de tengolibre.com.ar: /turno/<código>, /invitacion/<token>, /panel/turnos/<id>.
-                val p = u.pathSegments.toMutableList()
-                if (p.firstOrNull() == "panel") p.removeAt(0)
-                if (p.firstOrNull() == "turno" && p.size > 1) return turnoCliente(p[1])
-                t = p.joinToString("/")
+                return Enlaces.ruta(u)
             }
             return deTexto(t)
         }
@@ -324,6 +326,7 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         when (r) {
             is Ruta.turnoCliente -> turnoClienteAbierto = r.codigo
             is Ruta.invitacion -> invitacionPendiente = r.token
+            is Ruta.web -> abrirPestana(r.url)
             else -> rutaPendiente = r
         }
     }

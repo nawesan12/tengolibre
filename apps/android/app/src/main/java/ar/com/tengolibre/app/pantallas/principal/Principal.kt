@@ -210,7 +210,9 @@ private suspend fun abrirRuta(estado: ar.com.tengolibre.app.app.Estado, nav: Nav
         Ruta.caja -> { nav.pestana = Pestana.hoy; if (estado.vePrecios && !estado.esProfesional) nav.pilaHoy.add(Destinos.destinoCaja) }
         Ruta.buscar -> nav.buscar = true
         Ruta.agenda -> nav.pestana = Pestana.agenda
-        is Ruta.turnoCliente, is Ruta.invitacion -> {} // los abre Raiz (valen en cualquier modo)
+        Ruta.clientes -> nav.pestana = if (estado.esProfesional) Pestana.hoy else Pestana.clientes
+        is Ruta.mas -> { nav.pestana = Pestana.mas; nav.pilaMas.add(r.destino) }
+        is Ruta.turnoCliente, is Ruta.invitacion, is Ruta.web -> {} // los abre Raiz (valen en cualquier modo)
     }
 }
 
