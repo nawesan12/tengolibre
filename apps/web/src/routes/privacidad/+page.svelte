@@ -38,7 +38,14 @@
 
 	<h2>Tus derechos</h2>
 	<p>
-		Podés pedir ver, corregir o borrar tus datos (Ley 25.326 de Protección de Datos Personales). Escribinos y lo resolvemos. La Agencia de
-		Acceso a la Información Pública es el órgano de control.
+		Podés pedir ver, corregir o borrar tus datos (Ley 25.326 de Protección de Datos Personales). Escribinos y lo resolvemos: te
+		respondemos en 10 días corridos para el acceso y en 5 días hábiles para corregir o borrar.
+	</p>
+	<p>
+		El titular de los datos personales tiene la facultad de ejercer el derecho de acceso a los mismos en forma gratuita a
+		intervalos no inferiores a seis meses, salvo que se acredite un interés legítimo al efecto conforme lo establecido en el
+		artículo 14, inciso 3 de la Ley Nº 25.326. La Agencia de Acceso a la Información Pública, en su carácter de Órgano de
+		Control de la Ley Nº 25.326, tiene la atribución de atender las denuncias y reclamos que interpongan quienes resulten
+		afectados en sus derechos por incumplimiento de las normas vigentes en materia de protección de datos personales.
 	</p>
 </Legal>
