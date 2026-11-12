@@ -4,7 +4,8 @@
   "ios": "M6935MSNQB.ar.com.tengolibre.app",
   "android": "ar.com.tengolibre.app",
   "huellas": [
-    "EA:98:76:D6:7B:91:9F:37:02:15:B1:A5:58:41:5C:6F:75:C4:32:F7:A7:AD:D0:CF:AC:9A:5A:56:20:0A:F8:21"
+    "EA:98:76:D6:7B:91:9F:37:02:15:B1:A5:58:41:5C:6F:75:C4:32:F7:A7:AD:D0:CF:AC:9A:5A:56:20:0A:F8:21",
+    "6E:AF:A6:99:4C:76:C5:86:AA:5F:D9:CF:3F:C3:B1:78:2D:8F:81:AF:2C:4E:DA:A8:6B:38:52:00:7F:9F:C7:91"
   ],
   "web": [
     "/panel/reportes/csv/*",
