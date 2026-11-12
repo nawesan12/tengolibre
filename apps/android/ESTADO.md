@@ -60,6 +60,12 @@ lo más consistentes posible entre sí. Nada se publica en las tiendas hasta que
 - **Producción (6/11):** API 3c953a1 desplegada con la migración 00023 (copia previa
   `/var/backups/tengolibre/antes-202611060254.sql.gz`). Secretos de Firebase y firma cargados en el repo espejo.
 
+- **12/11 (REVISION-12-11.md):** ingreso con mail y contraseña por Clerk (`nucleo/ClerkClave.kt`,
+  `pantallas/ingreso/IngresoMail.kt`, igual que Corredor, con `needs_client_trust`); «Borrar mi cuenta» en Tu cuenta y en
+  la cuenta de clienta (`DELETE /v1/auth/cuenta`; 409 `cuenta_borrada` al entrar muestra el detalle); al abrir, la
+  sesión se cierra sólo con 401 o cuenta borrada; versionCode = `GITHUB_RUN_NUMBER + 100`; ícono adaptativo; Llamar y
+  Contactos sin cerrarse en equipos sin esas apps; la suscripción de Apple se ve sin nombrar iPhone ni su tienda.
+
 ## Diferencias de plataforma que quedan (aceptadas)
 Llamar abre el marcador; el contador del ícono no se fija a mano; el widget se actualiza cada 30 min y sin Lato; no hay
 widgets de pantalla bloqueada; los atajos abren la app; el consejo de la cápsula es tarjeta y no globo con flecha;

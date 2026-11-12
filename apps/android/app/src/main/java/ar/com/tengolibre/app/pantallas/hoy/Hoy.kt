@@ -1,7 +1,5 @@
 package ar.com.tengolibre.app.pantallas.hoy
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.expandVertically
@@ -187,7 +185,8 @@ private fun atender(estado: Estado, nav: Navegacion, datos: DatosDia, delDia: Li
             if (match != null && quien != null) "A $quien le sirve el hueco de las ${Dia.hhmm(match.desde)}" else "En la lista de espera", "Ver") { nav.pestana = Pestana.espera })
     }
     for (l in datos.paraLlamar) out.add(Atender("llamar-${l.turnoId}", "phone", "Llamar a ${l.cliente}", "${l.motivoTexto} · ${Formato.horaDe(l.inicio)}", "Llamar") {
-        contexto.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${l.telefono.filter { it in "+0123456789" }}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        // abrirLink no se cae en un equipo sin marcador (tablets): avisa «Este equipo no puede llamar».
+        estado.abrirLink("tel:${l.telefono.filter { it in "+0123456789" }}")
         alcance.launch { runCatching { estado.api.hacer("POST", "/v1/panel/turnos/${l.turnoId}/llamado") }; recargar() }
     })
     for (r in datos.reprogramar) out.add(Atender("repro-${r.id}", "calendar.badge.clock", "Mover a ${r.turno.cliente.nombre}", "${r.turno.profesional} pidió días libres · ${Formato.dia(r.turno.inicio)}", "Mover") {

@@ -38,6 +38,7 @@ import ar.com.tengolibre.app.pantallas.hoy.PlataHoy
 import ar.com.tengolibre.app.pantallas.hoy.Recorrido
 import ar.com.tengolibre.app.pantallas.ingreso.*
 import ar.com.tengolibre.app.pantallas.mas.DestinoMas
+import ar.com.tengolibre.app.pantallas.mas.HojaBorrarCuenta
 import ar.com.tengolibre.app.pantallas.mas.Mas
 import ar.com.tengolibre.app.pantallas.mas.Potencia
 import ar.com.tengolibre.app.pantallas.principal.Destinos
@@ -174,6 +175,9 @@ class PantallasTest {
     @Test fun fichaFiel() = montar("FichaFiel", estado(extra = mapOf("/v1/panel/membresias/planes" to """{"planes": []}"""))) { FichaCliente("c1") }
     @Test fun arranque() = montar("Arranque") { PantallaArranque() }
     @Test fun ingreso() = montar("Ingreso", espera = 1000) { Ingreso() }
+    @Test fun ingresoMail() = montar("IngresoMail", espera = 1000) { EnHoja { IngresoMail {} } }
+    @Test fun recuperarAcceso() = montar("RecuperarAcceso", espera = 1000) { EnHoja { RecuperarAcceso("laura@lumi.test") {} } }
+    @Test fun borrarCuenta() = montar("BorrarCuenta", espera = 1000) { EnHoja { HojaBorrarCuenta {} } }
     @Test fun elegirModo() = montar("ElegirModo", espera = 1000) { ElegirModo() }
     @Test fun elegirNegocio() = montar("ElegirNegocio", estado(negocios = 3), 1000) { ElegirNegocio() }
     @Test fun permisos() = montar("Permisos", espera = 1000) { PermisoAvisos() }

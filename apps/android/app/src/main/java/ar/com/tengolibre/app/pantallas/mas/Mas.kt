@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ar.com.tengolibre.app.app.Estado
 import android.content.Intent
 import android.provider.Settings
@@ -374,6 +375,68 @@ fun Cuenta() {
             Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(CircleShape).contorno(999.dp).clickable { salir = true },
             horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
         ) { Icono("rectangle.portrait.and.arrow.right", 16f, C.error); Spacer(Modifier.width(8.dp)); Texto("Cerrar sesión", Tipo.lato(16f, Peso.Bold), C.error) }
+        BorrarCuenta()
     }
     Confirmacion(salir, "¿Cerrar sesión en este teléfono?", "", listOf(OpcionConfirmacion("Cerrar sesión", destructiva = true) { alcance.launch { estado.salir() } }), { salir = false })
+}
+
+// MARK: - Borrar la cuenta
+
+/** «Borrar mi cuenta» (para cualquier rol y también en modo clienta): pide escribir el mail de la cuenta, la desactiva
+ *  con DELETE /v1/auth/cuenta y vuelve al ingreso. Los datos personales se borran a los 30 días; hasta entonces se
+ *  recupera escribiendo a hola@. */
+@Composable
+fun BorrarCuenta() {
+    var abierta by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { BotonTexto("Borrar mi cuenta", { abierta = true }, color = C.error) }
+    Hoja(abierta, { abierta = false }) { HojaBorrarCuenta { abierta = false } }
+}
+
+@Composable
+fun ColumnScope.HojaBorrarCuenta(cerrar: () -> Unit) {
+    val estado = LocalEstado.current
+    val alcance = rememberCoroutineScope()
+    var escrito by remember { mutableStateOf("") }
+    var borrando by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
+    val email = estado.persona?.email.orEmpty()
+    val coincide = email.isNotEmpty() && escrito.trim().lowercase() == email.lowercase()
+
+    fun borrar() {
+        if (!coincide || borrando) return
+        borrando = true
+        error = ""
+        alcance.launch {
+            try {
+                estado.borrarCuenta()
+                Haptico.exito()
+                cerrar()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = (e as? ErrorApi)?.detalle ?: ErrorApi.desconocido.detalle
+                Haptico.error()
+            } finally {
+                borrando = false
+            }
+        }
+    }
+
+    BarraHoja("Borrar mi cuenta", cerrar)
+    Column(
+        Modifier.weight(1f).background(C.fondo).verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Box(Modifier.size(56.dp).clip(CircleShape).background(C.ausenteFondo), contentAlignment = Alignment.Center) { Icono("exclamationmark.triangle", 26f, C.error) }
+        Texto("¿Borrar tu cuenta?", Tipo.lato(30f, Peso.Black), C.tinta, tracking = (-0.8).sp)
+        Texto("Tu cuenta se desactiva ahora y tus datos personales se borran a los 30 días.", Tipo.lato(16f, Peso.Bold), C.tinta)
+        Texto("En esos 30 días la recuperás escribiendo a hola@tengolibre.com.ar. Después no se puede deshacer.", Tipo.lato(16f), C.sub)
+        Campo("Para confirmar, escribí tu mail", escrito, { escrito = it }, ayuda = email, teclado = KeyboardType.Email)
+        if (error.isNotEmpty()) Texto(error, Tipo.lato(14f, Peso.Bold), C.error)
+        Row(
+            Modifier.atenuado(!coincide || borrando).fillMaxWidth().heightIn(min = 52.dp).clip(CircleShape).background(C.error)
+                .clickable(enabled = coincide && !borrando) { borrar() },
+            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+        ) { Texto(if (borrando) "Borrando…" else "Borrar mi cuenta", Tipo.lato(17f, Peso.Black), androidx.compose.ui.graphics.Color.White, lineas = 1) }
+    }
 }

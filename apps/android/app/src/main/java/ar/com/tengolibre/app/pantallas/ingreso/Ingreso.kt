@@ -65,7 +65,8 @@ fun PantallaArranque() {
     }
 }
 
-/** 01 Ingreso: petróleo con el logotipo, «Tu agenda, en el bolsillo.» y la hoja con Apple y Google. */
+/** 01 Ingreso: petróleo con el logotipo, «Tu agenda, en el bolsillo.» y la hoja con Apple, Google y «Entrar con mail»
+ *  (IngresoMail). */
 @Composable
 fun Ingreso() {
     val estado = LocalEstado.current
@@ -73,6 +74,7 @@ fun Ingreso() {
     val alcance = rememberCoroutineScope()
     var entrando by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf("") }
+    var conMail by remember { mutableStateOf(false) }
     // La Custom Tab vuelve sola: cuando termina el ingreso (o se cancela), se suelta el botón.
     LaunchedEffect(estado.ingresando) { if (!estado.ingresando) entrando = null }
 
@@ -102,7 +104,7 @@ fun Ingreso() {
             Spacer(Modifier.weight(1f))
             Texto("Tu agenda,\nen el bolsillo.", Tipo.lato(44f, Peso.Black).copy(lineHeight = 46.sp), Color.White, tracking = (-1.5).sp)
             Texto("Mirá el día, cargá turnos y enterate de cada reserva al toque.", Tipo.lato(17f), Color.White.copy(alpha = 0.8f))
-            Spacer(Modifier.height(300.dp))
+            Spacer(Modifier.height(360.dp))
         }
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)).background(C.tarjeta)
@@ -127,12 +129,21 @@ fun Ingreso() {
                 Spacer(Modifier.width(10.dp))
                 Texto("Continuar con Google", Tipo.lato(17f, Peso.Bold), hex(0x0F2328))
             }
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable(enabled = entrando == null) { error = ""; estado.errorIngreso = ""; conMail = true },
+                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icono("envelope", 18f, C.tinta)
+                Spacer(Modifier.width(10.dp))
+                Texto("Entrar con mail", Tipo.lato(17f, Peso.Bold), C.tinta)
+            }
             // El error de la vuelta de Clerk (la Custom Tab vuelve a la app, no a este botón) también va acá.
             val mensaje = error.ifEmpty { estado.errorIngreso }
             if (mensaje.isNotEmpty()) Texto(mensaje, Tipo.lato(14f, Peso.Bold), C.error, alinear = TextAlign.Center)
-            Texto("Sin contraseñas. Usá la misma cuenta que en la web.", Tipo.lato(13f), C.sub, alinear = TextAlign.Center)
+            Texto("Usá la misma cuenta que en la web.", Tipo.lato(13f), C.sub, alinear = TextAlign.Center)
         }
     }
+    Hoja(conMail, { conMail = false }) { IngresoMail { conMail = false } }
 }
 
 /** 02 Modo: «¿Cómo vas a usar Tengo Libre?» — atiendo un negocio / reservo turnos. */

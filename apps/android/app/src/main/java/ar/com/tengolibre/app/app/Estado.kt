@@ -164,21 +164,31 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         try {
             cargarSesion()
             despuesDeEntrar()
-        } catch (e: ErrorApi) {
-            if (e.sinConexion) {
-                sinConexion = true
-                persona = Guardado.leer<Persona>("persona")?.first
-                negocios = Guardado.leer<List<NegocioDeLaPersona>>("negocios")?.first ?: emptyList()
-                negocio = negocios.firstOrNull { it.id == negocioGuardado } ?: negocios.firstOrNull()
-                fase = if (persona == null) Fase.afuera else if (modo == "cliente") Fase.cliente else Fase.adentro
-            } else {
-                olvidarSesion(); fase = Fase.afuera
-            }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            olvidarSesion(); fase = Fase.afuera
+            val x = e as? ErrorApi
+            if (x != null && (x.estado == 401 || x.codigo == "cuenta_borrada")) {
+                // La sesión se cierra sólo si la API dice que ya no vale (401) o que la cuenta está borrada.
+                olvidarSesion(); fase = Fase.afuera
+                if (x.codigo == "cuenta_borrada") avisar(x)
+            } else {
+                // Cualquier otro error (sin red, un 500, un 502 durante un deploy, una respuesta que no se pudo leer): se
+                // entra con lo guardado y se avisa, sin perder la sesión.
+                entrarConLoGuardado()
+                if (x?.sinConexion != true) avisar(Toast("exclamationmark", "No pudimos actualizar", "Ves lo último guardado. Probá de nuevo en un rato.", error = true))
+            }
         }
+    }
+
+    /** Sin poder hablar con la API al abrir: lo último que se guardó, con el aviso de «sin conexión». Si no hay nada
+     *  guardado queda en el ingreso, pero la sesión sigue (se reintenta al volver a abrir). */
+    private fun entrarConLoGuardado() {
+        sinConexion = true
+        persona = Guardado.leer<Persona>("persona")?.first
+        negocios = Guardado.leer<List<NegocioDeLaPersona>>("negocios")?.first ?: emptyList()
+        negocio = negocios.firstOrNull { it.id == negocioGuardado } ?: negocios.firstOrNull()
+        fase = if (persona == null) Fase.afuera else if (modo == "cliente") Fase.cliente else Fase.adentro
     }
 
     suspend fun cargarSesion() {
@@ -248,7 +258,8 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     @Serializable private data class CuerpoClerk(val token: String)
     @Serializable private data class RespuestaClerk(val token: String, val persona: Persona)
 
-    /** El token de Clerk (Apple o Google) → sesión propia de la API (POST /v1/auth/clerk). */
+    /** El token de Clerk (Apple, Google o mail) → sesión propia de la API (POST /v1/auth/clerk). Si la cuenta está borrada,
+     *  la API responde 409 `cuenta_borrada` con el detalle que se muestra. */
     suspend fun ingresarCon(tokenClerk: String) {
         val r: RespuestaClerk = api.enviar("POST", "/v1/auth/clerk", CuerpoClerk(tokenClerk))
         api.token = r.token
@@ -302,6 +313,15 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         runCatching { api.hacer("POST", "/v1/auth/salir") }
         olvidarSesion()
         fase = Fase.afuera
+    }
+
+    /** Borra la cuenta (DELETE /v1/auth/cuenta, 204): se desactiva ahora y los datos personales se borran a los 30 días.
+     *  Después se olvida la sesión y se vuelve al ingreso. */
+    suspend fun borrarCuenta() {
+        api.hacer("DELETE", "/v1/auth/cuenta")
+        olvidarSesion()
+        fase = Fase.afuera
+        avisar(Toast("checkmark", "Tu cuenta quedó desactivada", "Tus datos personales se borran a los 30 días."))
     }
 
     private fun olvidarSesion() {

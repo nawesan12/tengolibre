@@ -1,6 +1,7 @@
 package ar.com.tengolibre.app.pantallas.clientes
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.provider.ContactsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -89,7 +90,15 @@ fun rememberContactos(alElegir: (String, String, String) -> Unit): () -> Unit {
             if (c.moveToFirst()) alElegir(c.getString(0).orEmpty(), c.getString(1).orEmpty(), "")
         }
     }
-    return { l.launch(Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)) }
+    val estado = LocalEstado.current
+    // Sin app de Contactos (algunas tablets o perfiles de trabajo) el selector no abre: se avisa en vez de cerrarse.
+    return {
+        try {
+            l.launch(Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI))
+        } catch (e: ActivityNotFoundException) {
+            estado.avisar("Este equipo no tiene Contactos", ok = false)
+        }
+    }
 }
 
 /** 14 Clientes: buscar, filtros (Todas · Frecuentes · Con penalidad · Nuevas · por etiqueta), orden y la lista con

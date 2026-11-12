@@ -1,6 +1,7 @@
 package ar.com.tengolibre.app
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -61,7 +62,16 @@ class MainActivity : ComponentActivity() {
         estado.abrirPestana = { url -> vueltaClerk = false; CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(this, Uri.parse(url)) }
         estado.alPedirPermisoPush = { pedirPermisoAvisos() }
         estado.compartirTexto = { t -> startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t), null)) }
-        estado.abrirLink = { u -> runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u))) } }
+        // tel:, whatsapp:, mailto:… En un equipo sin la app que corresponde (una tablet sin marcador) no se cae: avisa.
+        estado.abrirLink = { u ->
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)))
+            } catch (e: ActivityNotFoundException) {
+                estado.avisar(if (u.startsWith("tel:")) "Este equipo no puede llamar" else "No hay una app para abrir esto", ok = false)
+            } catch (e: Exception) {
+                estado.avisar("No pudimos abrirlo", ok = false)
+            }
+        }
         // Push (FCM), los widgets y lo que mira «Potenciá tu negocio».
         Push.iniciar(applicationContext)
         estado.alPedirTokenPush = { Push.registrar(applicationContext, estado) }

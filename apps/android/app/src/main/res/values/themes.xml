@@ -8,4 +8,6 @@
     </style>
     <color name="petroleo">#183C44</color>
     <color name="fondo">#F4EEE2</color>
+    <!-- El fondo del ícono adaptativo (mipmap-anydpi-v26/ic_launcher.xml). -->
+    <color name="icono_fondo">#3CCC90</color>
 </resources>

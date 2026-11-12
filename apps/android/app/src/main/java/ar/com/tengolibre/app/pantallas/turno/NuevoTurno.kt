@@ -1,6 +1,7 @@
 package ar.com.tengolibre.app.pantallas.turno
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.provider.ContactsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -278,7 +279,11 @@ fun ColumnScope.NuevoTurno(inicio: NuevoTurnoInicio, cerrar: () -> Unit) {
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.weight(1f)) { BotonContorno("De tus Contactos", { contactos.launch(Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)) }, alto = 44.dp, tam = 15f, simbolo = "person.crop.circle") }
+                        Box(Modifier.weight(1f)) { BotonContorno("De tus Contactos", {
+                            // Sin app de Contactos el selector no abre: se avisa en vez de cerrarse.
+                            try { contactos.launch(Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)) }
+                            catch (e: ActivityNotFoundException) { estado.avisar("Este equipo no tiene Contactos", ok = false) }
+                        }, alto = 44.dp, tam = 15f, simbolo = "person.crop.circle") }
                         Box(Modifier.weight(1f)) { BotonContorno("Clienta nueva", { nueva = true; nombreNuevo = buscar }, alto = 44.dp, tam = 15f, simbolo = "person.badge.plus") }
                     }
                 }

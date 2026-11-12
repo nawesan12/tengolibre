@@ -20,6 +20,8 @@ import okhttp3.Request
  * 2. El proveedor vuelve a Clerk y Clerk a `ar.com.tengolibre.app://callback?rotating_token_nonce=…`.
  * 3. [completar] recarga el intento con el nonce (o lo pasa a alta si la persona es nueva), pide el
  *    JWT de la sesión de Clerk y cierra esa sesión: la API lo verifica y lo canjea por la de Tengo Libre.
+ *
+ * El ingreso con mail y contraseña está en ClerkClave.kt (ClerkMail), con los mismos pedidos.
  */
 class Clerk(private val ctx: Context, private val http: OkHttpClient, publicable: String) {
     class ErrorClerk(val codigo: String) : Exception(codigo)
@@ -28,49 +30,39 @@ class Clerk(private val ctx: Context, private val http: OkHttpClient, publicable
     val disponible get() = fapi != null
 
     @Serializable
-    private data class Verificacion(val status: String? = null, val external_verification_redirect_url: String? = null)
+    internal data class Verificacion(val status: String? = null, val external_verification_redirect_url: String? = null)
+
+    /** Un factor de ingreso que ofrece Clerk (contraseña, código por mail…). */
+    @Serializable
+    internal data class Factor(val strategy: String? = null, val email_address_id: String? = null)
 
     @Serializable
-    private data class Recurso(
+    internal data class Recurso(
         val id: String? = null,
         val status: String? = null,
         val created_session_id: String? = null,
         val first_factor_verification: Verificacion? = null,
+        /** Con mail (ClerkMail): qué factores acepta la cuenta, y qué le falta al alta. */
+        val supported_first_factors: List<Factor>? = null,
+        val supported_second_factors: List<Factor>? = null,
+        val missing_fields: List<String>? = null,
     )
 
     @Serializable
-    private data class ErrorFapi(val code: String? = null)
+    internal data class ErrorFapi(val code: String? = null)
 
     @Serializable
-    private data class Respuesta(val response: Recurso? = null, val jwt: String? = null, val errors: List<ErrorFapi> = emptyList())
+    internal data class Respuesta(val response: Recurso? = null, val jwt: String? = null, val errors: List<ErrorFapi> = emptyList())
 
     private data class Resultado(val r: Respuesta, val cliente: String)
 
     private val prefs get() = ctx.getSharedPreferences("tl_clerk", Context.MODE_PRIVATE)
 
-    private suspend fun pedir(ruta: String, metodo: String = "GET", cuerpo: Map<String, String>? = null, cliente: String? = null): Resultado =
-        withContext(Dispatchers.IO) {
-            val base = fapi ?: throw ErrorClerk("sin_clave")
-            val url = "$base/v1$ruta".toHttpUrl().newBuilder()
-                .addQueryParameter("_is_native", "1")
-                .addQueryParameter("__clerk_api_version", VERSION_FAPI)
-                .build()
-            val b = Request.Builder().url(url)
-            if (!cliente.isNullOrBlank()) b.header("Authorization", cliente)
-            val body = when {
-                cuerpo != null -> FormBody.Builder().apply { cuerpo.forEach { (k, v) -> add(k, v) } }.build()
-                metodo == "POST" -> FormBody.Builder().build()
-                else -> null
-            }
-            b.method(metodo, body)
-            http.newCall(b.build()).execute().use { res ->
-                val texto = res.body?.string().orEmpty()
-                val r = runCatching { Api.json.decodeFromString<Respuesta>(texto) }.getOrElse { Respuesta() }
-                if (!res.isSuccessful) throw ErrorClerk(r.errors.firstOrNull()?.code ?: "clerk_no_responde")
-                // Clerk rota el token del cliente: vale el último que mandó.
-                Resultado(r, res.header("authorization").takeUnless { it.isNullOrBlank() } ?: cliente.orEmpty())
-            }
-        }
+    private suspend fun pedir(ruta: String, metodo: String = "GET", cuerpo: Map<String, String>? = null, cliente: String? = null): Resultado {
+        val base = fapi ?: throw ErrorClerk("sin_clave")
+        val (r, nuevo) = pedir(http, base, ruta, metodo, cuerpo, cliente)
+        return Resultado(r, nuevo)
+    }
 
     /** Arranca el ingreso y devuelve la URL del proveedor a abrir en la Custom Tab. */
     suspend fun iniciar(proveedor: String): String {
@@ -122,6 +114,31 @@ class Clerk(private val ctx: Context, private val http: OkHttpClient, publicable
     }
 
     companion object {
+        /** Un pedido a la Frontend API: la respuesta y el token del cliente (Clerk lo rota: vale el último que mandó).
+         *  Con `cuerpo` va como formulario en cualquier método (el alta con mail usa PATCH); un POST o PATCH sin cuerpo
+         *  manda el formulario vacío. La ruta puede traer su query (`?rotating_token_nonce=…`). */
+        internal suspend fun pedir(http: OkHttpClient, fapi: String, ruta: String, metodo: String = "GET", cuerpo: Map<String, String>? = null,
+                                   cliente: String? = null): Pair<Respuesta, String> = withContext(Dispatchers.IO) {
+            val url = "$fapi/v1$ruta".toHttpUrl().newBuilder()
+                .addQueryParameter("_is_native", "1")
+                .addQueryParameter("__clerk_api_version", VERSION_FAPI)
+                .build()
+            val b = Request.Builder().url(url)
+            if (!cliente.isNullOrBlank()) b.header("Authorization", cliente)
+            val body = when {
+                cuerpo != null -> FormBody.Builder().apply { cuerpo.forEach { (k, v) -> add(k, v) } }.build()
+                metodo == "POST" || metodo == "PATCH" -> FormBody.Builder().build()
+                else -> null
+            }
+            b.method(metodo, body)
+            http.newCall(b.build()).execute().use { res ->
+                val texto = res.body?.string().orEmpty()
+                val r = runCatching { Api.json.decodeFromString<Respuesta>(texto) }.getOrElse { Respuesta() }
+                if (!res.isSuccessful) throw ErrorClerk(r.errors.firstOrNull()?.code ?: "clerk_no_responde")
+                r to (res.header("authorization").takeUnless { it.isNullOrBlank() } ?: cliente.orEmpty())
+            }
+        }
+
         const val VERSION_FAPI = "2025-11-10"
         const val ESQUEMA = "ar.com.tengolibre.app"
         const val VUELTA = "ar.com.tengolibre.app://callback"

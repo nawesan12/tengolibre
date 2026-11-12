@@ -12,6 +12,7 @@ Hoy/PlataHoy.swift
 Hoy/Talon.swift
 Ingreso/Enlaces.swift
 Ingreso/Ingreso.swift
+Ingreso/IngresoMail.swift
 Mas/EstadoNegocio.swift
 Mas/Mas.swift
 Mas/MasEquipo.swift

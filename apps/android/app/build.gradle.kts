@@ -25,8 +25,9 @@ android {
         applicationId = "ar.com.tengolibre.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // Cada corrida del CI sube el número (Play rechaza uno repetido); +100 deja lugar a los que ya se usaron a mano.
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0) + 100
+        versionName = "1.0.0"
 
         buildConfigField("String", "API", cadena(local("tl.api", "https://api.tengolibre.com.ar")))
         buildConfigField("String", "WEB", cadena(local("tl.web", "https://tengolibre.com.ar")))

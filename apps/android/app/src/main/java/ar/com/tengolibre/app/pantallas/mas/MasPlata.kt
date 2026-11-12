@@ -625,7 +625,8 @@ fun ColumnScope.EditarEtiqueta(inicial: EtiquetaConUso, listo: () -> Unit, cerra
 // MARK: - Suscripción
 
 /** Suscripción: se adapta a dónde se contrató. Desde el teléfono se paga con Google Play (Play Billing, se
- *  administra en Play Store › Suscripciones); desde el iPhone, con la App Store; desde la web, con Mercado Pago.
+ *  administra en Play Store › Suscripciones); desde un teléfono de Apple, con su tienda (se administra allá, y acá no
+ *  se compra otra); desde la web, con Mercado Pago.
  *  Sin suscripción, los planes de Google Play con su precio, la renovación automática y los términos. */
 @Composable
 fun SuscripcionVista() {
@@ -713,10 +714,11 @@ fun SuscripcionVista() {
             }
             "apple" -> {
                 Bloque("Tu plan", "", *buildList<@Composable () -> Unit> {
-                    add { Renglon("Plan ${x.nombrePlan}", "Se paga con la App Store, desde un iPhone", "creditcard") }
+                    add { Renglon("Plan ${x.nombrePlan}", if (v.estado == "pausada") "Apple no pudo cobrar" else "Se paga con Apple, desde otro teléfono", "creditcard") }
                     v.proximoCobro?.let { p -> add { Renglon(if (v.canceladaEn == null) "Se renueva" else "Termina", Formato.fechaLarga(p), "calendar") } }
                 }.toTypedArray())
-                Texto("La contrataste desde un iPhone: el plan y la cancelación se manejan en Ajustes › tu nombre › Suscripciones, en ese iPhone.", Tipo.lato(14f), C.sub)
+                // Acá no se compra ni se administra: se maneja donde se contrató.
+                Texto("La contrataste en otro teléfono: el plan y la cancelación se administran donde la contrataste, con esa cuenta de Apple.", Tipo.lato(14f), C.sub)
             }
             else -> {
                 Bloque("Tu plan", "", *buildList<@Composable () -> Unit> {
@@ -823,4 +825,4 @@ fun SuscripcionVista() {
     }
 }
 
-private fun origenTexto(o: String?) = when (o) { "google" -> "Google Play"; "apple" -> "App Store"; else -> "Mercado Pago" }
+private fun origenTexto(o: String?) = when (o) { "google" -> "Google Play"; "apple" -> "Apple"; else -> "Mercado Pago" }

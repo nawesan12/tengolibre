@@ -56,6 +56,7 @@ import ar.com.tengolibre.app.nucleo.*
 import ar.com.tengolibre.app.pantallas.hoy.BarraHoja
 import ar.com.tengolibre.app.pantallas.hoy.TalonShape
 import ar.com.tengolibre.app.pantallas.hoy.Troquel
+import ar.com.tengolibre.app.pantallas.mas.BorrarCuenta
 import ar.com.tengolibre.app.pantallas.mas.BotonContornoRojo
 import ar.com.tengolibre.app.pantallas.mas.Bloque
 import ar.com.tengolibre.app.pantallas.mas.Renglon
@@ -632,6 +633,7 @@ fun CuentaCliente() {
                 Renglon("Avisos de tus turnos", "Se cambian en Ajustes", "bell")
             } })
             BotonContornoRojo("Cerrar sesión", "rectangle.portrait.and.arrow.right", alto = 52.dp) { salir = true }
+            BorrarCuenta()
         }
     }
     Confirmacion(salir, "¿Cerrar sesión?", "", listOf(OpcionConfirmacion("Cerrar sesión", destructiva = true) { alcance.launch { estado.salir() } }), { salir = false })

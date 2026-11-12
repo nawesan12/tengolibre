@@ -609,7 +609,7 @@ fun <V> Segmentado(opciones: List<Pair<V, String>>, elegido: V, alElegir: (V) ->
 
 /** Un campo de texto de 16 sp (mínimo del handoff) sobre el fondo de campo. */
 @Composable
-fun Campo(titulo: String, texto: String, alCambiar: (String) -> Unit, ayuda: String = "", teclado: KeyboardType = KeyboardType.Text, multilinea: Boolean = false, modifier: Modifier = Modifier) {
+fun Campo(titulo: String, texto: String, alCambiar: (String) -> Unit, ayuda: String = "", teclado: KeyboardType = KeyboardType.Text, multilinea: Boolean = false, modifier: Modifier = Modifier, secreto: Boolean = false) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (titulo.isNotEmpty()) TextoRotulo(titulo)
         val tinta = C.tinta
@@ -619,7 +619,9 @@ fun Campo(titulo: String, texto: String, alCambiar: (String) -> Unit, ayuda: Str
                 texto, alCambiar, Modifier.fillMaxWidth(),
                 textStyle = Tipo.lato(16f).copy(color = tinta),
                 singleLine = !multilinea, minLines = if (multilinea) 3 else 1, maxLines = if (multilinea) 8 else 1,
-                keyboardOptions = KeyboardOptions(keyboardType = teclado),
+                keyboardOptions = KeyboardOptions(keyboardType = if (secreto) KeyboardType.Password else teclado),
+                // Contraseña: los puntitos en vez del texto.
+                visualTransformation = if (secreto) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
                 cursorBrush = androidx.compose.ui.graphics.SolidColor(C.mentaTexto),
             )
         }

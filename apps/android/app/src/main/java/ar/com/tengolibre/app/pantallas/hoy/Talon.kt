@@ -1,7 +1,5 @@
 package ar.com.tengolibre.app.pantallas.hoy
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -51,7 +49,6 @@ import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -145,7 +142,7 @@ fun VistaTalon(
     val corrimiento = remember { Animatable(0f) }
     var paso by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
-    val contexto = LocalContext.current
+    val estado = ar.com.tengolibre.app.app.LocalEstado.current
     val umbral = with(densidad) { 100.dp.toPx() }; val abierto = with(densidad) { 164.dp.toPx() }; val tope = with(densidad) { 190.dp.toPx() }
 
     fun cerrarYHacer(e: String) {
@@ -163,7 +160,8 @@ fun VistaTalon(
             if (EstadoTurno.puedePasar(turno.estado, "cancelado")) add(OpcionMenu("Cancelar", "calendar.badge.minus", destructiva = true) { alDeslizar("cancelado") })
         }
         val tel = turno.cliente.telefono.filter { it in "+0123456789" }
-        if (tel.isNotEmpty()) add(OpcionMenu("Llamar", "phone") { contexto.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$tel"))) })
+        // abrirLink no se cae en un equipo sin marcador (tablets): avisa «Este equipo no puede llamar».
+        if (tel.isNotEmpty()) add(OpcionMenu("Llamar", "phone") { estado.abrirLink("tel:$tel") })
     }
 
     Box(
