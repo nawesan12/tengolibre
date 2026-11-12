@@ -2,7 +2,7 @@
 // reintentos), encola recordatorios, pedidos de reseña, el resumen diario, los recordatorios automáticos
 // (cumpleaños, «hace mucho que no venís») y el reporte mensual, marca ausentes en los negocios que lo
 // pidieron, manda el push y los WhatsApp (confirmaciones), ofrece los huecos de la lista de espera y
-// purga lo viejo. Corre aparte de la API, con el rol de la app.
+// purga lo viejo (también los datos personales de las cuentas borradas hace 30 días). Corre aparte de la API, con el rol de la app.
 package main
 
 import (
@@ -16,6 +16,7 @@ import (
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/avisos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/confirmaciones"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/cuenta"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/espera"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/push"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/recordatorios"
@@ -91,7 +92,9 @@ func correr() error {
 	wa := confirmaciones.Nuevos(app, whatsapp.Desde(cfg.WhatsAppToken, cfg.WhatsAppTelefonoID, cfg.WhatsAppVersion), cfg.Sitio, slog.Default())
 	// Ofrecer el hueco solo: cuando vence el link de una persona sin respuesta, pasa a la siguiente.
 	es := &espera.Servicio{Pool: app}
-	lista := append(tj.Lista(env), rs.Trabajo(), ps.Trabajo(), ps.TrabajoTurnos(), es.Trabajo(), rec.Trabajo(), reportes.TrabajoMensual(app))
+	lista := append(tj.Lista(env), rs.Trabajo(), ps.Trabajo(), ps.TrabajoTurnos(), es.Trabajo(), rec.Trabajo(), reportes.TrabajoMensual(app),
+		// Las cuentas borradas: a los 30 días, sus datos personales.
+		cuenta.Trabajo(app))
 	p := &trabajos.Planificador{Pool: app, Trabajos: append(lista, wa.Lista()...)}
 	slog.Info("worker andando", "entorno", cfg.Entorno, "smtp", cfg.SMTP != "")
 	p.Correr(ctx, 5*time.Second)

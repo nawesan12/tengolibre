@@ -1,7 +1,8 @@
 <!--
 	El alta sin sesión («Landing y alta v3», vista alta): nombre, rubro y dirección validada al instante.
-	La cuenta se crea con Google o Apple (Clerk): no hay alta por mail, así que el campo del mail del
-	diseño se reemplazó por los dos botones. Lo cargado vuelve después del ingreso al paso del nombre.
+	La cuenta se crea con Google, Apple o el mail (Clerk). Google y Apple van directo al proveedor; el
+	mail sigue en /ingresar, que crea la cuenta con un código si es la primera vez. Lo cargado vuelve
+	después del ingreso al paso del nombre.
 -->
 <script lang="ts">
 	import { untrack } from 'svelte';
@@ -35,10 +36,10 @@
 	const host = $derived(new URL(origen).host);
 	const sugerencias = $derived(campo.estado === 'tomada' ? (dir.resultado?.sugerencias ?? []) : []);
 
-	let yendo = $state<ProveedorClerk | null>(null);
+	let yendo = $state<ProveedorClerk | 'mail' | null>(null);
 	let error = $state('');
 	const seguir: SubmitFunction = ({ submitter }) => {
-		const p = (submitter?.getAttribute('value') ?? 'google') as ProveedorClerk;
+		const p = (submitter?.getAttribute('value') ?? 'google') as ProveedorClerk | 'mail';
 		yendo = p;
 		error = '';
 		return async ({ result }) => {
@@ -48,7 +49,7 @@
 				return;
 			}
 			const volver = String(result.data?.volver ?? '/empezar');
-			if (!fapi) {
+			if (!fapi || p === 'mail') {
 				await goto(`/ingresar?volver=${encodeURIComponent(volver)}`);
 				return;
 			}
@@ -151,8 +152,11 @@
 				<button class="otra" name="proveedor" value="apple" disabled={!listo || !!yendo}>
 					<img src="/logos/apple.svg" alt="" width="20" height="20" />Crear con Apple
 				</button>
+				<button class="otra" name="proveedor" value="mail" disabled={!listo || !!yendo}>
+					<Icono nombre="mail" tam={20} />Crear con mail
+				</button>
 				{#if error}<p class="error" role="alert"><Icono nombre="error" lleno tam={16} />{error}</p>{/if}
-				<span class="legal">Entrás con tu cuenta de Google o de Apple: no hay contraseña que recordar. Después te guiamos con servicios, horarios y&nbsp;cobros.</span>
+				<span class="legal">Entrás con tu cuenta de Google, de Apple o con tu mail. Después te guiamos con servicios, horarios y&nbsp;cobros.</span>
 				<span class="ya">¿Ya tenés cuenta? <a href="/ingresar?volver=/panel">Ingresá</a></span>
 			</div>
 		</form>

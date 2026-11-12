@@ -1,7 +1,21 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
-	import { iniciar, ErrorClerk, type ProveedorClerk } from '#lib/clerk.ts';
+	import {
+		confirmarCodigo,
+		empezarConMail,
+		entrarConClave,
+		ErrorClerk,
+		guardarClave,
+		iniciar,
+		mensajeClerk,
+		requisitosClave,
+		type FlujoMail,
+		type PasoMail,
+		type ProveedorClerk
+	} from '#lib/clerk.ts';
 	import Icono from '#lib/ui/Icono.svelte';
+	import Requisitos from '#lib/cuenta/Requisitos.svelte';
 	import { iniciales, textoSobre } from '#lib/cuenta/presentacion.ts';
 
 	let { data, form } = $props();
@@ -12,7 +26,9 @@
 		cancelado: 'Cancelaste el ingreso.',
 		token_invalido: 'No pudimos verificar tu ingreso. Probá de&nbsp;nuevo.',
 		sin_email: 'Tu cuenta no tiene un email verificado.',
-		clerk_no_responde: 'El ingreso no responde. Probá en un&nbsp;rato.'
+		clerk_no_responde: 'El ingreso no responde. Probá en un&nbsp;rato.',
+		cuenta_borrada:
+			'Esta cuenta se borró. Si fue un error, escribinos a hola@tengolibre.com.ar dentro de los 30&nbsp;días y la&nbsp;recuperamos.'
 	};
 	const aviso = $derived(error || (data.error ? mensajes[data.error] || 'No pudimos completar el&nbsp;ingreso.' : ''));
 	const n = $derived(data.negocio);
@@ -28,6 +44,69 @@
 			error = mensajes[e instanceof ErrorClerk ? e.codigo : ''] ?? mensajes.clerk_no_responde;
 			yendo = null;
 		}
+	}
+
+	/*
+	 * Con mail y contraseña, todo acá (lib/clerk.ts): contraseña o código, y si es la primera vez se
+	 * crea la cuenta. Desde un navegador nuevo Clerk puede pedir confirmarlo con un código por mail.
+	 * Al final el token de Clerk va a /ingresar/clerk, que lo canjea por la sesión de Tengo Libre.
+	 */
+	let paso = $state<'mail' | PasoMail['paso']>('mail');
+	let email = $state('');
+	let clave = $state('');
+	let codigo = $state('');
+	let alta = $state(false);
+	let confiar = $state(false);
+	let enviando = $state(false);
+	let tokenMail = $state('');
+	let flujo: FlujoMail | null = null;
+	let formToken: HTMLFormElement;
+	const req = $derived(requisitosClave(clave));
+
+	async function hacer(fn: () => Promise<PasoMail>) {
+		enviando = true;
+		error = '';
+		try {
+			const sig = await fn();
+			if (sig.paso === 'listo') {
+				tokenMail = sig.token;
+				await tick();
+				formToken.requestSubmit();
+				return;
+			}
+			alta = 'alta' in sig ? sig.alta : false;
+			confiar = sig.paso === 'codigo' && !!sig.confiar;
+			if (sig.paso === 'codigo') codigo = '';
+			paso = sig.paso;
+		} catch (x) {
+			error = x instanceof ErrorClerk ? mensajeClerk(x.codigo) : 'No pudimos conectar. Probá de&nbsp;nuevo.';
+		} finally {
+			if (!tokenMail) enviando = false;
+		}
+	}
+
+	function seguirConMail(e: SubmitEvent) {
+		e.preventDefault();
+		const fapi = data.fapi;
+		if (!fapi || enviando) return;
+		if (paso === 'mail')
+			void hacer(async () => {
+				const r = await empezarConMail(fapi, email.trim());
+				flujo = r.flujo;
+				return r.sigue;
+			});
+		else if (paso === 'clave' && flujo) void hacer(() => entrarConClave(flujo!, clave));
+		else if (paso === 'codigo' && flujo) void hacer(() => confirmarCodigo(flujo!, codigo));
+		else if (paso === 'clave_nueva' && flujo) {
+			if (!req.largo || !req.comun) return void (error = 'La contraseña todavía no cumple los&nbsp;requisitos.');
+			void hacer(() => guardarClave(flujo!, clave));
+		}
+	}
+
+	function otroMail() {
+		paso = 'mail';
+		clave = codigo = error = '';
+		flujo = null;
 	}
 </script>
 
@@ -45,6 +124,46 @@
 		</button>
 	{:else}
 		<p class="sin-clerk">El ingreso con Google y Apple no está configurado (falta PUBLIC_CLERK_PUBLICABLE).</p>
+	{/if}
+{/snippet}
+
+{#snippet conMail(claro: boolean)}
+	{#if data.fapi}
+		<form class="con-mail" class:claro onsubmit={seguirConMail}>
+			{#if paso === 'mail'}
+				<span class="separador">o con tu mail</span>
+				<label class="solo-lector" for="email">Tu mail</label>
+				<input id="email" class="entrada" type="email" autocomplete="email" inputmode="email" required placeholder="tu@mail.com" bind:value={email} />
+				<button class="seguir" disabled={enviando || !!yendo}>{enviando ? 'Un segundo…' : 'Seguir con mail'}</button>
+			{:else}
+				<button type="button" class="volver" onclick={otroMail}><Icono nombre="arrow_back" tam={18} /><span class="tl-num">{email}</span></button>
+				{#if paso === 'clave'}
+					<label class="etiqueta" for="clave">Tu contraseña</label>
+					<input id="clave" class="entrada" type="password" autocomplete="current-password" required bind:value={clave} />
+					<button class="seguir" disabled={enviando}>{enviando ? 'Entrando…' : 'Entrar'}</button>
+					<a class="olvide" href="/ingresar/recuperar?email={encodeURIComponent(email)}">¿Te olvidaste la contraseña?</a>
+				{:else if paso === 'codigo'}
+					<p class="explica">
+						{#if confiar}
+							Es la primera vez que entrás desde este dispositivo. Te mandamos un código a <b>{email}</b> para&nbsp;confirmarlo.
+						{:else if alta}
+							Te mandamos un código a <b>{email}</b>. Con él creamos tu&nbsp;cuenta.
+						{:else}
+							Te mandamos un código a <b>{email}</b>. Escribilo para&nbsp;entrar.
+						{/if}
+					</p>
+					<label class="etiqueta" for="codigo">Código</label>
+					<input id="codigo" class="entrada codigo tl-num" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required bind:value={codigo} />
+					<button class="seguir" disabled={enviando}>{enviando ? 'Revisando…' : alta ? 'Crear mi cuenta' : 'Entrar'}</button>
+				{:else if paso === 'clave_nueva'}
+					<p class="explica">Elegí una contraseña para entrar con tu&nbsp;mail.</p>
+					<label class="etiqueta" for="nueva">Contraseña</label>
+					<input id="nueva" class="entrada" type="password" autocomplete="new-password" required bind:value={clave} />
+					<Requisitos {req} />
+					<button class="seguir" disabled={enviando}>{enviando ? 'Guardando…' : 'Guardar y entrar'}</button>
+				{/if}
+			{/if}
+		</form>
 	{/if}
 {/snippet}
 
@@ -99,7 +218,8 @@
 			{/if}
 			{@render error_()}
 			<div class="acciones">
-				{@render proveedores(true)}
+				{#if paso === 'mail'}{@render proveedores(true)}{/if}
+				{@render conMail(true)}
 				{#if data.volver}
 					<p class="pie">¿No sos socio? <a href={data.volver}>Seguí sin ingresar</a></p>
 				{/if}
@@ -113,16 +233,21 @@
 		<main class="ancho cuerpo">
 			<img class="icono-app" src="/marca-icono.png" alt="" width="56" height="56" />
 			<h1>Entrá a tu panel</h1>
-			<p class="bajada">Con la misma cuenta de siempre. No hay contraseña que&nbsp;recordar.</p>
+			<p class="bajada">Con Google, Apple o tu mail, la misma cuenta de&nbsp;siempre.</p>
 			{@render error_()}
 			<div class="acciones">
-				{@render proveedores(false)}
+				{#if paso === 'mail'}{@render proveedores(false)}{/if}
+				{@render conMail(false)}
 				<p class="pie">¿Todavía no tenés cuenta? <a href="/empezar">Probá 7 días gratis</a></p>
 			</div>
 			{@render prueba()}
 		</main>
 	</div>
 {/if}
+
+<form method="POST" action="/ingresar/clerk" bind:this={formToken} hidden>
+	<input type="hidden" name="token" value={tokenMail} />
+</form>
 
 <style>
 	.ancho {
@@ -249,6 +374,123 @@
 		color: #5b1a13;
 		font-size: 14px;
 		line-height: 1.45;
+	}
+
+	/* Con mail: sobre petróleo, campos papel; en la vista del socio (crema), con borde. */
+	.con-mail {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+	.separador {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		font-size: 13px;
+		color: rgba(255, 255, 255, 0.7);
+	}
+	.separador::before,
+	.separador::after {
+		content: '';
+		flex: 1;
+		height: 1px;
+		background: rgba(255, 255, 255, 0.2);
+	}
+	.claro .separador {
+		color: var(--tl-sub);
+	}
+	.claro .separador::before,
+	.claro .separador::after {
+		background: var(--tl-linea-2);
+	}
+	.entrada {
+		height: 56px;
+		padding: 0 20px;
+		border: 0;
+		border-radius: 999px;
+		background: var(--tl-papel);
+		color: var(--tl-tinta);
+		font: 400 16px var(--tl-font);
+	}
+	.claro .entrada {
+		box-shadow: inset 0 0 0 1.5px #e0d5bf;
+	}
+	.entrada:focus {
+		outline: none;
+		box-shadow: 0 0 0 3px rgba(60, 204, 144, 0.55);
+	}
+	.codigo {
+		font-size: 22px;
+		letter-spacing: 0.3em;
+		text-align: center;
+	}
+	.seguir {
+		height: 56px;
+		border: 0;
+		border-radius: 999px;
+		background: var(--tl-menta);
+		color: var(--tl-petroleo-hondo);
+		font: 900 16px var(--tl-font);
+		cursor: pointer;
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 12px 24px -14px rgba(60, 204, 144, 0.9);
+		transition: transform var(--tl-tocar) var(--tl-ease);
+	}
+	.seguir:active {
+		transform: scale(0.97);
+	}
+	.seguir:disabled {
+		cursor: progress;
+		opacity: 0.7;
+	}
+	.volver {
+		align-self: flex-start;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		min-height: 44px;
+		max-width: 100%;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: inherit;
+		font: 700 14px var(--tl-font);
+		cursor: pointer;
+		overflow-wrap: anywhere;
+		text-align: left;
+	}
+	.etiqueta {
+		font-size: 14px;
+		font-weight: 700;
+	}
+	.explica {
+		margin: 0;
+		font-size: 15px;
+		line-height: 1.45;
+		overflow-wrap: anywhere;
+	}
+	.panel .explica {
+		color: rgba(255, 255, 255, 0.85);
+	}
+	.olvide {
+		align-self: center;
+		min-height: 44px;
+		display: grid;
+		place-items: center;
+		font-size: 14px;
+		font-weight: 700;
+		color: var(--tl-menta);
+		text-decoration: none;
+	}
+	.claro .olvide {
+		color: var(--tl-menta-texto);
+	}
+	.solo-lector {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 
 	/* Socio: con los colores del negocio, avisado de qué mail usar. */

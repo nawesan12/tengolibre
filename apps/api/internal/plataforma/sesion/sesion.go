@@ -131,6 +131,15 @@ func (s *Servicio) Persona(next http.HandlerFunc) http.HandlerFunc {
 			problema.Escribir(w, problema.SinSesion())
 			return
 		}
+		// Las sesiones propias se borran con la cuenta; un token de Clerk suelto sigue valiendo en
+		// Clerk (la instancia es de todo Grupo Vimo), así que acá se mira la baja.
+		if borrada, err := s.Borrada(r.Context(), id); err != nil {
+			problema.Escribir(w, problema.Interno())
+			return
+		} else if borrada {
+			problema.Escribir(w, ProblemaCuentaBorrada())
+			return
+		}
 		next(w, r.WithContext(ConSesion(r.Context(), Sesion{ClerkID: id})))
 	}
 }

@@ -78,6 +78,15 @@
 				</p>
 			{/if}
 		</section>
+
+		<section aria-labelledby="tu-cuenta" class="seccion">
+			<h2 id="tu-cuenta" class="tl-rotulo rotulo">Tu cuenta</h2>
+			<a class="fila-borrar" href="/mi-cuenta/borrar">
+				<Icono nombre="person_remove" tam={22} />
+				<span><b>Borrar mi cuenta</b><small>Se desactiva ahora y tus datos se borran a los 30&nbsp;días.</small></span>
+				<Icono nombre="chevron_right" tam={22} />
+			</a>
+		</section>
 	</main>
 </div>
 
@@ -312,6 +321,32 @@
 		font-weight: 700;
 		text-decoration: none;
 		box-shadow: var(--tl-luz-arriba-osc);
+	}
+	.fila-borrar {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		min-height: 64px;
+		padding: 12px 16px;
+		border-radius: var(--tl-r-m);
+		background: var(--tl-papel);
+		box-shadow: 0 14px 28px -24px rgba(15, 35, 40, 0.5);
+		color: #a3241a;
+		text-decoration: none;
+	}
+	.fila-borrar span {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.fila-borrar small {
+		font-size: 13px;
+		color: var(--tl-sub);
+	}
+	.fila-borrar:hover b {
+		text-decoration: underline;
+		text-underline-offset: 3px;
 	}
 	@media (max-width: 719px) {
 		.crear {

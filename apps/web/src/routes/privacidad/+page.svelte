@@ -2,7 +2,7 @@
 	import Legal from '#lib/legal/Legal.svelte';
 </script>
 
-<Legal titulo="Política de privacidad" actualizado="5 de noviembre de 2026">
+<Legal titulo="Política de privacidad" actualizado="12 de noviembre de 2026">
 	<p>
 		Tengo Libre es un sistema de turnos online para negocios de servicios. Acá contamos qué datos guardamos, para qué y qué podés hacer con
 		ellos. Lo opera Grupo Vimo, desde Argentina.
@@ -10,10 +10,10 @@
 
 	<h2>Qué datos guardamos</h2>
 	<ul>
-		<li><b>De quien usa el panel o la app</b>: nombre, email y foto de la cuenta con la que entra (Google o Apple, a través de Clerk).</li>
+		<li><b>De quien usa el panel o la app</b>: nombre, email y foto de la cuenta con la que entra (Google, Apple o su mail, a través de Clerk).</li>
 		<li><b>Del negocio</b>: nombre, dirección, contacto, servicios, horarios, equipo, fotos y lo que se carga para la página de reservas.</li>
 		<li><b>De quien reserva</b>: nombre, teléfono, email y los turnos que pidió, para confirmarlos, recordarlos y avisar cambios.</li>
-		<li><b>Pagos</b>: las señas y suscripciones se cobran con Mercado Pago o con la App Store. No vemos ni guardamos los datos de tarjetas.</li>
+		<li><b>Pagos</b>: las señas y suscripciones se cobran con Mercado Pago, la App Store o Google Play. No vemos ni guardamos los datos de tarjetas.</li>
 		<li><b>Avisos</b>: si los activás, el identificador para mandar notificaciones a tu teléfono o navegador.</li>
 	</ul>
 
@@ -25,12 +25,16 @@
 
 	<h2>Con quién se comparten</h2>
 	<p>
-		Con los servicios que hacen falta para funcionar: Clerk (ingreso), Mercado Pago y Apple (pagos), Apple y Google (notificaciones),
+		Con los servicios que hacen falta para funcionar: Clerk (ingreso), Mercado Pago, Apple y Google Play (pagos), Apple y Google (notificaciones),
 		WhatsApp (confirmaciones, si el negocio las activa) y nuestro proveedor de servidores. Cada negocio ve sólo los datos de sus clientes.
 	</p>
 
 	<h2>Cuánto tiempo</h2>
-	<p>Mientras la cuenta o el negocio estén activos. Podés pedir que borremos tus datos cuando quieras.</p>
+	<p>
+		Mientras la cuenta o el negocio estén activos. Podés borrar tu cuenta cuando quieras desde la app (Más › Tu cuenta) o en
+		<a href="/mi-cuenta/borrar">tengolibre.com.ar/mi-cuenta/borrar</a>: se desactiva en el momento y tus datos personales se borran a los
+		30&nbsp;días.
+	</p>
 
 	<h2>Tus derechos</h2>
 	<p>

@@ -20,6 +20,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/clientes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/cobros"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/confirmaciones"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/cuenta"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/diaslibres"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/directorio"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/dominios"
@@ -125,6 +126,8 @@ func correr() error {
 		Handler: servidor.Nuevo(servidor.Dependencias{App: app, Version: version, Origenes: cfg.Origenes,
 			Dominios: []servidor.Dominio{
 				ses, // ingreso con Clerk y sesiones propias
+				// Borrar la cuenta: antes de cerrar un negocio, se cancela su suscripción de Mercado Pago.
+				&cuenta.Servicio{Pool: app, Sesion: ses, CancelarSuscripcion: sus.CancelarPorBaja},
 				tr,
 				&negocios.Servicio{Pool: app, Sesion: ses},
 				&catalogo.Servicio{Pool: app, Sesion: ses},

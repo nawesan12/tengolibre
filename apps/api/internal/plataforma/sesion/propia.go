@@ -85,6 +85,11 @@ func (s *Servicio) ingresarConClerk(w http.ResponseWriter, r *http.Request) erro
 	if err != nil {
 		return err
 	}
+	if borrada, err := s.Borrada(ctx, id); err != nil {
+		return err
+	} else if borrada {
+		return ProblemaCuentaBorrada()
+	}
 	u, err := s.Verificador.Usuario(ctx, id)
 	if err != nil {
 		return err
@@ -112,6 +117,26 @@ func (s *Servicio) ingresarConClerk(w http.ResponseWriter, r *http.Request) erro
 	}
 	web.JSON(w, http.StatusCreated, map[string]any{"token": token, "venceEn": vence, "persona": p})
 	return nil
+}
+
+// ProblemaCuentaBorrada: la persona borró su cuenta y todavía está en los 30 días antes de la purga.
+func ProblemaCuentaBorrada() *problema.Problema {
+	return &problema.Problema{Estado: http.StatusConflict, Codigo: "cuenta_borrada", Titulo: "Esta cuenta se borró",
+		Detalle: "Esta cuenta se borró. Si fue un error, escribinos a hola@tengolibre.com.ar dentro de los 30 días y la recuperamos."}
+}
+
+// Borrada dice si la persona borró su cuenta y la baja no se purgó todavía (después de la purga
+// vuelve a entrar como una cuenta nueva).
+func (s *Servicio) Borrada(ctx context.Context, clerkID string) (bool, error) {
+	var borrada bool
+	if s.Pool == nil {
+		return false, nil
+	}
+	err := s.Pool.EnTx(ctx, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM auth.cuentas_borradas WHERE clerk_id = $1 AND purgada_en IS NULL)",
+			clerkID).Scan(&borrada)
+	})
+	return borrada, err
 }
 
 func (s *Servicio) salir(w http.ResponseWriter, r *http.Request) error {

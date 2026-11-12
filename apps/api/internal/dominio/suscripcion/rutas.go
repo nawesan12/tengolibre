@@ -189,7 +189,29 @@ func (s *Servicio) cancelar(w http.ResponseWriter, r *http.Request) error {
 	if in.Motivo == "" {
 		in.Motivo = "Cancelada desde el panel"
 	}
-	negocio := sesion.De(ctx).NegocioID
+	hubo, err := s.bajaEn(ctx, sesion.De(ctx).NegocioID, in.Motivo, true)
+	if err != nil {
+		return err
+	}
+	if !hubo {
+		return problema.NoEncontrado("No hay una suscripción para cancelar.")
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+// CancelarPorBaja da de baja la suscripción del negocio que se cierra porque su única dueña borró
+// la cuenta, para que Mercado Pago no le siga cobrando. Las de Apple y Google no se pueden cancelar
+// desde acá (las maneja la tienda): esas se saltean y la app le avisa a la persona.
+func (s *Servicio) CancelarPorBaja(ctx context.Context, negocio string) error {
+	_, err := s.bajaEn(ctx, negocio, "Cuenta borrada", false)
+	return err
+}
+
+// bajaEn cancela la suscripción vigente del negocio, en Mercado Pago (si llegó a existir allá) y
+// acá. Devuelve false si no había ninguna. tiendaEsError: si es de Apple o Google, responder con el
+// problema de la tienda (el panel) o saltearla (la baja de la cuenta).
+func (s *Servicio) bajaEn(ctx context.Context, negocio, motivo string, tiendaEsError bool) (bool, error) {
 	var x *Suscripcion
 	var mpID *string
 	err := s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
@@ -199,28 +221,24 @@ func (s *Servicio) cancelar(w http.ResponseWriter, r *http.Request) error {
 		}
 		return tx.QueryRow(ctx, "SELECT mp_id FROM suscripciones WHERE id = $1", x.ID).Scan(&mpID)
 	})
-	if err != nil {
-		return err
-	}
-	if x == nil {
-		return problema.NoEncontrado("No hay una suscripción para cancelar.")
+	if err != nil || x == nil {
+		return false, err
 	}
 	if p := ProblemaDeTienda(x.Origen); p != nil {
-		return p
+		if tiendaEsError {
+			return true, p
+		}
+		return true, nil
 	}
 	if mpID != nil && s.TokenPlataforma != "" {
 		if err := s.cliente().CambiarPreaprobacion(ctx, s.TokenPlataforma, *mpID, "cancelled"); err != nil {
-			return errorMP(err)
+			return true, errorMP(err)
 		}
 	}
 	err = s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
-		return darDeBaja(ctx, tx, x.ID, s.ahora(), in.Motivo)
+		return darDeBaja(ctx, tx, x.ID, s.ahora(), motivo)
 	})
-	if err != nil {
-		return err
-	}
-	w.WriteHeader(http.StatusNoContent)
-	return nil
+	return true, err
 }
 
 // darDeBaja: con el mes pago, pausada hasta el próximo cobro; si no, cancelada y el negocio sin plan.
