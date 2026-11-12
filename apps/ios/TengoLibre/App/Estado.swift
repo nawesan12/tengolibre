@@ -142,16 +142,31 @@ final class Estado {
         do {
             try await cargarSesion()
             await despuesDeEntrar()
-        } catch let e as ErrorApi where e.sinConexion {
-            sinConexion = true
-            persona = Guardado.leer(Persona.self, clave: "persona")?.0
-            negocios = Guardado.leer([NegocioDeLaPersona].self, clave: "negocios")?.0 ?? []
-            negocio = negocios.first { $0.id == negocioGuardado } ?? negocios.first
-            fase = persona == nil ? .afuera : (modo == "cliente" ? .cliente : .adentro)
-        } catch {
+        } catch let e as ErrorApi where e.estado == 401 || e.codigo == "cuenta_borrada" {
+            // La sesión se cierra sólo si la API dice que ya no vale (401) o que la cuenta está borrada.
             olvidarSesion()
             fase = .afuera
+            if e.codigo == "cuenta_borrada" { avisar(e) }
+        } catch is CancellationError {
+            return
+        } catch {
+            // Cualquier otro error (sin red, un 500, un 502 durante un deploy, una respuesta que no se
+            // pudo leer): se entra con lo guardado y se avisa, sin perder la sesión.
+            entrarConLoGuardado()
+            if !((error as? ErrorApi)?.sinConexion ?? false) {
+                avisar(Toast(simbolo: "exclamationmark", titulo: "No pudimos actualizar", texto: "Ves lo último guardado. Probá de nuevo en un rato.", error: true))
+            }
         }
+    }
+
+    /// Sin poder hablar con la API al abrir: lo último que se guardó, con el aviso de «sin conexión».
+    /// Si no hay nada guardado queda en el ingreso, pero la sesión sigue (se reintenta al volver a abrir).
+    private func entrarConLoGuardado() {
+        sinConexion = true
+        persona = Guardado.leer(Persona.self, clave: "persona")?.0
+        negocios = Guardado.leer([NegocioDeLaPersona].self, clave: "negocios")?.0 ?? []
+        negocio = negocios.first { $0.id == negocioGuardado } ?? negocios.first
+        fase = persona == nil ? .afuera : (modo == "cliente" ? .cliente : .adentro)
     }
 
     func cargarSesion() async throws {
@@ -222,7 +237,8 @@ final class Estado {
 
     // MARK: Ingreso
 
-    /// El token de Clerk (Apple o Google) → sesión propia de la API (POST /v1/auth/clerk).
+    /// El token de Clerk (Apple, Google o mail) → sesión propia de la API (POST /v1/auth/clerk). Si la
+    /// cuenta está borrada, la API responde 409 `cuenta_borrada` con el detalle que se muestra.
     func ingresarCon(tokenClerk: String) async throws {
         struct Cuerpo: Encodable { var token: String }
         struct Respuesta: Decodable { var token: String; var persona: Persona }
@@ -252,6 +268,15 @@ final class Estado {
         try? await api.hacer("POST", "/v1/auth/salir")
         olvidarSesion()
         fase = .afuera
+    }
+
+    /// Borra la cuenta (DELETE /v1/auth/cuenta, 204): se desactiva ahora y los datos personales se
+    /// borran a los 30 días. Después se olvida la sesión y se vuelve al ingreso.
+    func borrarCuenta() async throws {
+        try await api.hacer("DELETE", "/v1/auth/cuenta")
+        olvidarSesion()
+        fase = .afuera
+        avisar(Toast(simbolo: "checkmark", titulo: "Tu cuenta quedó desactivada", texto: "Tus datos personales se borran a los 30 días."))
     }
 
     private func olvidarSesion() {

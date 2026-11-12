@@ -709,7 +709,8 @@ struct EditarEtiqueta: View {
 // MARK: - Suscripción
 
 /// Suscripción: se adapta a dónde se contrató. Desde el iPhone se paga con la App Store (StoreKit 2,
-/// se administra en Ajustes del iPhone); desde la web, con Mercado Pago (se maneja en la web). Sin
+/// se administra en Ajustes del iPhone); desde la web, con Mercado Pago (se maneja en la web); desde
+/// Android, con Google Play (se administra allá, y acá no se compra otra). Sin
 /// suscripción, los planes de la App Store con su precio, la renovación automática y los términos.
 struct SuscripcionVista: View {
     struct PlanVenta: Codable, Hashable { var clave: String; var nombre: String; var precio: Int }
@@ -738,7 +739,11 @@ struct SuscripcionVista: View {
         PantallaMas(titulo: "Suscripción", subtitulo: subtitulo, cargando: s == nil && error.isEmpty, error: error, recargar: cargar) {
             if let s {
                 if let v = vigente {
-                    if v.origen == "apple" { deApple(v, s) } else { deMercadoPago(v, s) }
+                    switch v.origen {
+                    case "apple": deApple(v, s)
+                    case "google": deGoogle(v, s)
+                    default: deMercadoPago(v, s)
+                    }
                 } else {
                     estadoSinPlan(s)
                     if estado.esDuena { planesTienda } else {
@@ -754,7 +759,10 @@ struct SuscripcionVista: View {
 
     private var subtitulo: String {
         guard let s else { return "" }
-        if let v = vigente { return "Plan \(s.nombrePlan) · \(v.origen == "apple" ? "App Store" : "Mercado Pago")" }
+        if let v = vigente {
+            let medio = v.origen == "apple" ? "App Store" : v.origen == "google" ? "Google Play" : "Mercado Pago"
+            return "Plan \(s.nombrePlan) · \(medio)"
+        }
         return s.bloqueado ? "La prueba terminó" : "Prueba gratis · quedan \(s.diasDePrueba) días"
     }
 
@@ -777,6 +785,20 @@ struct SuscripcionVista: View {
         }
         Text("Se renueva sola cada mes. Para cambiar de plan o cancelar: Ajustes › tu nombre › Suscripciones › Tengo Libre, o el botón de arriba.")
             .font(Tipo.lato(13)).foregroundStyle(C.sub)
+    }
+
+    // MARK: Contratada desde Android
+
+    /// Se pagó con Google Play: acá no se compra ni se administra; se maneja donde se contrató.
+    @ViewBuilder private func deGoogle(_ v: Sus, _ s: EstadoS) -> some View {
+        Bloque(titulo: "Tu plan") {
+            Renglon(titulo: "Plan \(s.nombrePlan)", detalle: v.estado == "pausada" ? "Google Play no pudo cobrar" : "Se paga con Google Play, desde Android", simbolo: "creditcard")
+            if let p = v.proximoCobro {
+                Renglon(titulo: v.canceladaEn == nil ? "Se renueva" : "Termina", detalle: Formato.fechaLarga(p), simbolo: "calendar")
+            }
+        }
+        Text("La contrataste en un teléfono Android: el plan y la cancelación se administran donde la contrataste, en Google Play.")
+            .font(Tipo.lato(14)).foregroundStyle(C.sub)
     }
 
     // MARK: Contratada desde la web

@@ -15,6 +15,7 @@ import UIKit
 /// En los dos casos se pide el JWT de la sesión de Clerk, se cierra esa sesión (Tu Local Web sigue con
 /// la propia) y el JWT va a `POST /v1/auth/clerk`, que lo verifica y devuelve la sesión.
 /// La clave publicable (de la que sale la Frontend API) la da la API en /v1/auth/proveedores.
+/// El ingreso con mail y contraseña está en ClerkClave.swift (ClerkMail), con los mismos pedidos.
 final class Clerk {
     struct ErrorClerk: Error { var codigo: String }
 
@@ -44,32 +45,43 @@ final class Clerk {
         return valido ? URL(string: "https://\(host)") : nil
     }
 
-    private struct Verificacion: Decodable {
+    struct Verificacion: Decodable {
         var status: String?
         var external_verification_redirect_url: String?
     }
-    private struct Recurso: Decodable {
+    /// Un factor de ingreso que ofrece Clerk (contraseña, código por mail…).
+    struct Factor: Decodable {
+        var strategy: String?
+        var email_address_id: String?
+    }
+    struct Recurso: Decodable {
         var id: String?
         var status: String?
         var created_session_id: String?
         var first_factor_verification: Verificacion?
+        /// Con mail (ClerkMail): qué factores acepta la cuenta, y qué le falta al alta.
+        var supported_first_factors: [Factor]?
+        var supported_second_factors: [Factor]?
+        var missing_fields: [String]?
     }
-    private struct ErrorFapi: Decodable { var code: String? }
-    private struct Respuesta: Decodable {
+    struct ErrorFapi: Decodable { var code: String? }
+    struct Respuesta: Decodable {
         var response: Recurso?
         var jwt: String?
         var errors: [ErrorFapi]?
     }
 
-    private func pedir(_ ruta: String, _ metodo: String = "GET", cuerpo: [String: String]? = nil,
-                       cliente: String? = nil, query: [URLQueryItem] = []) async throws -> (Respuesta, String) {
+    /// Un pedido a la Frontend API. Con `cuerpo` va como formulario en cualquier método (el alta con mail
+    /// usa PATCH); un POST sin cuerpo manda el formulario vacío.
+    func pedir(_ ruta: String, _ metodo: String = "GET", cuerpo: [String: String]? = nil,
+               cliente: String? = nil, query: [URLQueryItem] = []) async throws -> (Respuesta, String) {
         var c = URLComponents(url: fapi.appendingPathComponent("v1" + ruta), resolvingAgainstBaseURL: false)!
         c.queryItems = query + [URLQueryItem(name: "_is_native", value: "1"),
                                 URLQueryItem(name: "__clerk_api_version", value: Clerk.versionFapi)]
         var r = URLRequest(url: c.url!)
         r.httpMethod = metodo
         if let cliente, !cliente.isEmpty { r.setValue(cliente, forHTTPHeaderField: "Authorization") }
-        if metodo == "POST" {
+        if cuerpo != nil || metodo == "POST" {
             r.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
             r.httpBody = Data(Clerk.formulario(cuerpo ?? [:]).utf8)
         }

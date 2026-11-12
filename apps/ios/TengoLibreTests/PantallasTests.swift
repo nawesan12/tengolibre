@@ -157,6 +157,9 @@ final class PantallasTests: XCTestCase {
         montar(FichaCliente(id: "c1"))
     }
     func testIngreso() { montar(Ingreso(), segundos: 1) }
+    func testIngresoMail() { montar(IngresoMail(), segundos: 1) }
+    func testRecuperarAcceso() { montar(RecuperarAcceso(email: "laura@lumi.test"), segundos: 1) }
+    func testBorrarCuenta() { montar(HojaBorrarCuenta(), segundos: 1) }
     func testElegirModo() { montar(ElegirModo(), segundos: 1) }
     func testElegirNegocio() { montar(ElegirNegocio(), segundos: 1) }
     func testPermisos() { montar(PermisoAvisos(), segundos: 1) }

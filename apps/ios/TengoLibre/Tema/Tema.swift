@@ -411,19 +411,23 @@ struct Campo: View {
     var ayuda: String = ""
     var teclado: UIKeyboardType = .default
     var multilinea = false
+    /// Contraseña: los puntitos en vez del texto.
+    var secreto = false
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if !titulo.isEmpty { Text(titulo).rotulo() }
             Group {
-                if multilinea {
+                if secreto {
+                    SecureField(ayuda, text: $texto)
+                } else if multilinea {
                     TextField(ayuda, text: $texto, axis: .vertical).lineLimit(3...8)
                 } else {
                     TextField(ayuda, text: $texto)
                 }
             }
             .keyboardType(teclado)
-            .textInputAutocapitalization(teclado == .emailAddress || teclado == .URL ? .never : .sentences)
-            .autocorrectionDisabled(teclado != .default)
+            .textInputAutocapitalization(secreto || teclado == .emailAddress || teclado == .URL ? .never : .sentences)
+            .autocorrectionDisabled(secreto || teclado != .default)
             .font(Tipo.lato(16)).foregroundStyle(C.tinta)
             .padding(.horizontal, 14).padding(.vertical, 13)
             .background(C.campo, in: RoundedRectangle(cornerRadius: 14, style: .continuous))

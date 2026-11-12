@@ -531,10 +531,87 @@ struct Cuenta: View {
                 .confirmationDialog("¿Cerrar sesión en este iPhone?", isPresented: $salir, titleVisibility: .visible) {
                     Button("Cerrar sesión", role: .destructive) { Task { await estado.salir() } }
                 }
+            BorrarCuenta()
         }
         .task {
             let a = await UNUserNotificationCenter.current().notificationSettings()
             avisosOn = a.authorizationStatus == .authorized || a.authorizationStatus == .provisional
+        }
+    }
+}
+
+// MARK: - Borrar la cuenta
+
+/// «Borrar mi cuenta» (para cualquier rol y también en modo clienta): pide escribir el mail de la
+/// cuenta, la desactiva con DELETE /v1/auth/cuenta y vuelve al ingreso. Los datos personales se borran
+/// a los 30 días; hasta entonces se recupera escribiendo a hola@.
+struct BorrarCuenta: View {
+    @Environment(Estado.self) private var estado
+    @State private var abierta = false
+
+    var body: some View {
+        Button { abierta = true } label: { Text("Borrar mi cuenta") }
+            .buttonStyle(BotonTexto(color: C.error)).frame(maxWidth: .infinity)
+            .sheet(isPresented: $abierta) { HojaBorrarCuenta().presentationDetents([.large]) }
+    }
+}
+
+struct HojaBorrarCuenta: View {
+    @Environment(Estado.self) private var estado
+    @Environment(\.dismiss) private var cerrar
+    @State private var escrito = ""
+    @State private var borrando = false
+    @State private var error = ""
+
+    private var email: String { estado.persona?.email ?? "" }
+    private var coincide: Bool {
+        !email.isEmpty && escrito.trimmingCharacters(in: .whitespaces).lowercased() == email.lowercased()
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle").font(.system(size: 26, weight: .semibold)).foregroundStyle(C.error)
+                        .frame(width: 56, height: 56).background(C.ausenteFondo, in: Circle())
+                    Text("¿Borrar tu cuenta?").font(Tipo.lato(30, .black)).tracking(-0.8)
+                    Text(Formato.sinViudas("Tu cuenta se desactiva ahora y tus datos personales se borran a los 30 días."))
+                        .font(Tipo.lato(16, .bold))
+                    Text(Formato.sinViudas("En esos 30 días la recuperás escribiendo a hola@tengolibre.com.ar. Después no se puede deshacer."))
+                        .font(Tipo.lato(16)).foregroundStyle(C.sub)
+                    Campo(titulo: "Para confirmar, escribí tu mail", texto: $escrito, ayuda: email, teclado: .emailAddress)
+                        .textContentType(.emailAddress)
+                    if !error.isEmpty { Text(error).font(Tipo.lato(14, .bold)).foregroundStyle(C.error) }
+                    Button(role: .destructive) { Task { await borrar() } } label: {
+                        Text(borrando ? "Borrando…" : "Borrar mi cuenta").font(Tipo.lato(17, .black))
+                            .foregroundStyle(.white).frame(maxWidth: .infinity, minHeight: 52)
+                            .background(C.error, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!coincide || borrando).opacity(!coincide || borrando ? 0.45 : 1)
+                }
+                .foregroundStyle(C.tinta).padding(20)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .background(C.fondo)
+            .navigationTitle("Borrar mi cuenta").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { cerrar() } } }
+        }
+        .presentationCornerRadius(Radio.hoja)
+    }
+
+    private func borrar() async {
+        guard coincide, !borrando else { return }
+        borrando = true
+        defer { borrando = false }
+        error = ""
+        do {
+            try await estado.borrarCuenta()
+            Haptico.exito()
+            cerrar()
+        } catch {
+            self.error = (error as? ErrorApi)?.detalle ?? ErrorApi.desconocido.detalle
+            Haptico.error()
         }
     }
 }

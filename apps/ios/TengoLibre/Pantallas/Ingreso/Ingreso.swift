@@ -12,11 +12,13 @@ struct PantallaArranque: View {
     }
 }
 
-/// 01 Ingreso: petróleo con el logotipo, «Tu agenda, en el bolsillo.» y la hoja con Apple y Google.
+/// 01 Ingreso: petróleo con el logotipo, «Tu agenda, en el bolsillo.» y la hoja con Apple, Google y
+/// «Entrar con mail» (IngresoMail).
 struct Ingreso: View {
     @Environment(Estado.self) private var estado
     @State private var entrando: String?
     @State private var error = ""
+    @State private var conMail = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -28,7 +30,7 @@ struct Ingreso: View {
                 Text("Tu agenda,\nen el bolsillo.").font(Tipo.lato(44, .black)).tracking(-1.5).foregroundStyle(.white).lineSpacing(-4)
                     .minimumScaleFactor(0.7)
                 Text("Mirá el día, cargá turnos y enterate de cada reserva al toque.").font(Tipo.lato(17)).foregroundStyle(.white.opacity(0.8))
-                Spacer().frame(height: 300)
+                Spacer().frame(height: 360)
             }
             .padding(.horizontal, 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -53,16 +55,26 @@ struct Ingreso: View {
                     .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color(hex: 0xE2D6BF), lineWidth: 1.5))
                 }
                 .buttonStyle(.plain)
+                Button { error = ""; conMail = true } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "envelope").font(.system(size: 18, weight: .semibold))
+                        Text("Entrar con mail").font(Tipo.lato(17, .bold))
+                    }
+                    .foregroundStyle(C.tinta).frame(maxWidth: .infinity, minHeight: 52)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
                 if !error.isEmpty {
                     Text(error).font(Tipo.lato(14, .bold)).foregroundStyle(C.error).multilineTextAlignment(.center)
                 }
-                Text("Sin contraseñas. Usá la misma cuenta que en la web.").font(Tipo.lato(13)).foregroundStyle(C.sub).multilineTextAlignment(.center)
+                Text("Usá la misma cuenta que en la web.").font(Tipo.lato(13)).foregroundStyle(C.sub).multilineTextAlignment(.center)
             }
             .disabled(entrando != nil)
             .padding(.horizontal, 20).padding(.top, 24).padding(.bottom, 12)
             .background(C.tarjeta, in: UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28, style: .continuous))
             .ignoresSafeArea(edges: .bottom)
         }
+        .sheet(isPresented: $conMail) { IngresoMail().presentationDetents([.large]) }
     }
 
     private func entrar(_ con: String) async {

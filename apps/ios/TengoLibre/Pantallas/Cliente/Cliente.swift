@@ -779,6 +779,7 @@ struct CuentaCliente: View {
                         .confirmationDialog("¿Cerrar sesión?", isPresented: $salir, titleVisibility: .visible) {
                             Button("Cerrar sesión", role: .destructive) { Task { await estado.salir() } }
                         }
+                    BorrarCuenta()
                 }
             }
         }
