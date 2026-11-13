@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Ícono adaptativo: fondo menta y el símbolo en petróleo (el mismo dibujo que mipmap-*/ic_launcher.png). El
-     monocromo lo usa Android 13+ con los íconos temáticos. -->
+<!-- Ícono adaptativo: el degradé petróleo y el calendario en crema con el día libre en menta (el mismo dibujo que
+     mipmap-*/ic_launcher.png). El monocromo lo usa Android 13+ con los íconos temáticos. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/icono_fondo" />
+    <background android:drawable="@drawable/ic_launcher_fondo" />
     <foreground android:drawable="@mipmap/ic_launcher_foreground" />
     <monochrome android:drawable="@mipmap/ic_launcher_monochrome" />
 </adaptive-icon>
