@@ -26,6 +26,8 @@ services:
       - ./bin:/app:ro
       # Imágenes que suben los negocios (TENGOLIBRE_ARCHIVOS). No entra en el pg_dump: copiarla aparte.
       - ./archivos:/datos/archivos
+      # La cuenta de servicio de Google Play (suscripciones de Android; TENGOLIBRE_PLAY_CUENTA). Nunca al repo.
+      - ./claves/play.json:/claves/play.json:ro
     ports: ['127.0.0.1:4200:4200']
     mem_limit: 128m
     depends_on:
