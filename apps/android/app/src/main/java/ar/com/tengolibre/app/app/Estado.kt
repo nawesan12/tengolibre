@@ -368,6 +368,8 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         avisar(Toast(if (ok) "checkmark" else "exclamationmark", titulo, texto, error = !ok))
 
     fun avisar(e: Throwable) {
+        // Salir de una pantalla mientras guarda cancela la tarea: no es un error para mostrar (igual que iOS).
+        if (e is kotlinx.coroutines.CancellationException) return
         val x = e as? ErrorApi ?: ErrorApi.desconocido
         avisar(Toast(if (x.sinConexion) "icloud.slash" else "exclamationmark", if (x.sinConexion) "Sin conexión" else x.titulo, x.detalle, error = true))
     }

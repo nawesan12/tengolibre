@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         // Push (FCM), los widgets y lo que mira «Potenciá tu negocio».
-        Push.iniciar(applicationContext)
+        runCatching { Push.iniciar(applicationContext) }
         estado.alPedirTokenPush = { Push.registrar(applicationContext, estado) }
         estado.alPedirAvisosClienta = {
             if (!Preferencias.bool("avisosClientaPedidos")) { Preferencias.ponerBool("avisosClientaPedidos", true); pedirPermisoAvisos() }

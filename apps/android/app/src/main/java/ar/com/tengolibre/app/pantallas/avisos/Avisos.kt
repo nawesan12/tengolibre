@@ -205,6 +205,7 @@ fun ColumnScope.Compartir(cerrar: () -> Unit) {
         val f = File(dir, "historia.png"); f.outputStream().use { img.compress(Bitmap.CompressFormat.PNG, 100, it) }
         val uri = FileProvider.getUriForFile(contexto, "ar.com.tengolibre.app.archivos", f)
         val ig = Intent("com.instagram.share.ADD_TO_STORY").setDataAndType(uri, "image/png").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION).setPackage("com.instagram.android")
+            .putExtra("source_application", "ar.com.tengolibre.app")
         if (ig.resolveActivity(contexto.packageManager) != null) contexto.startActivity(ig)
         else contexto.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM, uri).putExtra(Intent.EXTRA_TEXT, url).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), null))
     }

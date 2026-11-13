@@ -42,6 +42,7 @@ object Compras {
 
     private var cliente: BillingClient? = null
     private var esperando: CompletableDeferred<Pair<BillingResult, List<Purchase>?>>? = null
+    private var conectando: CompletableDeferred<Boolean>? = null
     private var estado: Estado? = null
     private val alcance = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -57,11 +58,15 @@ object Compras {
             .enableAutoServiceReconnection()
             .build().also { cliente = it }
         if (c.isReady) return c
-        val listo = CompletableDeferred<Boolean>()
-        c.startConnection(object : BillingClientStateListener {
-            override fun onBillingSetupFinished(r: BillingResult) { listo.complete(r.responseCode == BillingClient.BillingResponseCode.OK) }
-            override fun onBillingServiceDisconnected() { if (!listo.isCompleted) listo.complete(false) }
-        })
+        // Si ya hay una conexión en curso (escuchar() al abrir y planes() en Suscripción), se espera esa:
+        // un segundo startConnection lo rechaza BillingClient.
+        val listo = conectando?.takeIf { !it.isCompleted } ?: CompletableDeferred<Boolean>().also { d ->
+            conectando = d
+            c.startConnection(object : BillingClientStateListener {
+                override fun onBillingSetupFinished(r: BillingResult) { d.complete(r.responseCode == BillingClient.BillingResponseCode.OK) }
+                override fun onBillingServiceDisconnected() { if (!d.isCompleted) d.complete(false) }
+            })
+        }
         return if (listo.await()) c else null
     }
 
@@ -74,7 +79,9 @@ object Compras {
         }).build()
         val r = runCatching { c.queryProductDetails(p) }.getOrNull() ?: return emptyList()
         return r.productDetailsList.orEmpty().mapNotNull { d ->
-            val o = d.subscriptionOfferDetails?.firstOrNull() ?: return@mapNotNull null
+            // El plan base (sin offerId): una oferta con prueba o precio de entrada haría que «Hoy pagás» no coincida.
+            val ofertas = d.subscriptionOfferDetails.orEmpty()
+            val o = ofertas.firstOrNull { it.offerId == null } ?: ofertas.firstOrNull() ?: return@mapNotNull null
             val fase = o.pricingPhases.pricingPhaseList.lastOrNull() ?: return@mapNotNull null
             Plan(d.productId, d.name, d.description, fase.formattedPrice, fase.priceAmountMicros, o.offerToken, d)
         }.sortedBy { it.micros }

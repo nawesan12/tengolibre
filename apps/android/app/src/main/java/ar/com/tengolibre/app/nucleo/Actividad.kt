@@ -54,7 +54,6 @@ object ActividadTurno {
         val b = NotificationCompat.Builder(ctx, Push.CANAL_TURNO)
             .setSmallIcon(R.drawable.ic_aviso)
             .setColor(0xFF3CCC90.toInt())
-            .setColorized(true)
             .setSubText("En curso")
             .setContentTitle(cliente)
             .setContentText(if (siguiente.isEmpty()) texto else "$texto\nSigue: $siguiente")
