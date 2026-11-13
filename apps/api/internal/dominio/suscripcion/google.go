@@ -18,6 +18,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/googleplay"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/trabajos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/web"
 )
 
@@ -253,4 +254,60 @@ func conciliarGoogle(ctx context.Context, tx pgx.Tx, negocio, token string, sus 
 	}
 	return auditoria.Anotar(ctx, tx, auditoria.Registro{Accion: "suscripcion.google", Entidad: "suscripcion", EntidadID: id,
 		Detalle: map[string]any{"evento": evento, "estado": estado, "plan": plan.Clave, "vence": vence, "prueba": sus.Prueba != nil}})
+}
+
+// TrabajoGoogle vuelve a consultar a Google, cada 6 horas, las suscripciones de Play que vencen en los
+// próximos 2 días o vencieron hace menos de 7. RTDN necesita Pub/Sub, y Pub/Sub pide facturación en
+// Google Cloud: sin esto, una renovación cobrada por Google no llegaría nunca y el negocio quedaría
+// vencido. Sin cuenta de Play (Google nil), no hace nada.
+func (s *Servicio) TrabajoGoogle() trabajos.Trabajo {
+	return trabajos.Trabajo{Nombre: "sondeo_google_play", Cada: 6 * time.Hour, Correr: func(ctx context.Context, ahora time.Time) (any, error) {
+		n, err := s.SondearGoogle(ctx, ahora)
+		return map[string]int{"consultadas": n}, err
+	}}
+}
+
+// SondearGoogle concilia, negocio por negocio, las suscripciones de Google Play cerca del vencimiento.
+// Devuelve cuántas consultó. Un token que Google ya no conoce se saltea.
+func (s *Servicio) SondearGoogle(ctx context.Context, ahora time.Time) (int, error) {
+	g, ok := s.consultor()
+	if !ok {
+		return 0, nil
+	}
+	type pendiente struct{ negocio, token string }
+	var lista []pendiente
+	err := trabajos.PorNegocio(ctx, s.Pool, func(negocio string, tx pgx.Tx) error {
+		filas, err := tx.Query(ctx, `SELECT google_token FROM suscripciones
+			WHERE origen = 'google' AND google_token <> '' AND estado IN ('autorizada', 'pausada')
+				AND proximo_cobro BETWEEN $1 AND $2`, ahora.AddDate(0, 0, -7), ahora.AddDate(0, 0, 2))
+		if err != nil {
+			return err
+		}
+		tokens, err := pgx.CollectRows(filas, pgx.RowTo[string])
+		for _, t := range tokens {
+			lista = append(lista, pendiente{negocio, t})
+		}
+		return err
+	})
+	if err != nil {
+		return 0, err
+	}
+	var errs []error
+	for _, p := range lista {
+		sus, err := g.Consultar(ctx, PaqueteAndroid, p.token)
+		if errors.Is(err, googleplay.ErrNoEncontrada) {
+			continue
+		}
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		err = s.Pool.EnNegocio(ctx, p.negocio, func(tx pgx.Tx) error {
+			return conciliarGoogle(ctx, tx, p.negocio, p.token, *sus, "sondeo", ahora)
+		})
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return len(lista), errors.Join(errs...)
 }

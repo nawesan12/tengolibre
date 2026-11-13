@@ -23,11 +23,13 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/recordatorios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/reportes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/resenas"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/suscripcion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/apns"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/config"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/fcm"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/googleplay"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/trabajos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/webpush"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/whatsapp"
@@ -99,6 +101,13 @@ func correr() error {
 	// Los negocios cerrados hace 90 días, con sus clientes: sólo con TENGOLIBRE_PURGA_NEGOCIOS=1.
 	if cfg.PurgaNegocios {
 		lista = append(lista, cuenta.TrabajoNegocios(app, cfg.Archivos))
+	}
+	// Las suscripciones de Google Play cerca del vencimiento: sin RTDN (Pub/Sub pide facturación), se
+	// vuelven a consultar. Sin cuenta de Play, apagado.
+	if play, err := googleplay.Desde(cfg.PlayCuenta); err != nil {
+		slog.Error("google play: la cuenta de servicio no sirve, no se sondean las suscripciones", "error", err)
+	} else if play != nil {
+		lista = append(lista, (&suscripcion.Servicio{Pool: app, Google: play}).TrabajoGoogle())
 	}
 	p := &trabajos.Planificador{Pool: app, Trabajos: append(lista, wa.Lista()...)}
 	slog.Info("worker andando", "entorno", cfg.Entorno, "smtp", cfg.SMTP != "", "purga_negocios", cfg.PurgaNegocios)

@@ -1,6 +1,7 @@
 package suscripcion_test
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -405,6 +406,39 @@ func TestSuscripcionDesdeAndroid(t *testing.T) {
 	// Venció: el panel vuelve a sólo lectura.
 	e.Google.Cargar("tok-1", sus("SUBSCRIPTION_STATE_EXPIRED", e.Negocio, e.Ahora.Add(-2*time.Hour), false))
 	webhook(cobrosprueba.ClaveGoogle, 200)
+	if s := leer(e); !s.Bloqueado || s.Plan != "sin_plan" {
+		t.Fatalf("vencida tendría que bloquear: %+v", s)
+	}
+}
+
+// TestSondeoGooglePlay: sin RTDN, el worker vuelve a consultar las suscripciones de Play cerca del
+// vencimiento. Una renovación cobrada sigue abierta; una que venció cierra el panel; una lejos del
+// vencimiento ni se consulta.
+func TestSondeoGooglePlay(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.SQL("UPDATE negocios SET prueba_hasta = $1", e.Ahora.Add(-time.Hour))
+	vence := e.Ahora.AddDate(0, 1, 0)
+	e.Google.Cargar("tok-1", sus("SUBSCRIPTION_STATE_ACTIVE", e.Negocio, vence, true))
+	e.Panel(200, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "ar.com.tengolibre.completo.mensual", "token": "tok-1"}, nil)
+	ctx := context.Background()
+
+	if n, err := e.Suscripcion.SondearGoogle(ctx, e.Ahora); err != nil || n != 0 {
+		t.Fatalf("lejos del vencimiento no se consulta: %d %v", n, err)
+	}
+	// Google cobró la renovación: vence un mes más tarde.
+	e.Google.Cargar("tok-1", sus("SUBSCRIPTION_STATE_ACTIVE", e.Negocio, vence.AddDate(0, 1, 0), true))
+	if n, err := e.Suscripcion.SondearGoogle(ctx, vence.Add(-24*time.Hour)); err != nil || n != 1 {
+		t.Fatalf("cerca del vencimiento se consulta: %d %v", n, err)
+	}
+	if s := leer(e); s.Bloqueado || s.Suscripcion == nil || s.Suscripcion.ProximoCobro == nil || !s.Suscripcion.ProximoCobro.Equal(vence.AddDate(0, 1, 0)) {
+		t.Fatalf("la renovación tendría que correr el vencimiento: %+v", s.Suscripcion)
+	}
+	// Se canceló y venció.
+	vence = vence.AddDate(0, 1, 0)
+	e.Google.Cargar("tok-1", sus("SUBSCRIPTION_STATE_EXPIRED", e.Negocio, vence, false))
+	if _, err := e.Suscripcion.SondearGoogle(ctx, vence.Add(2*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
 	if s := leer(e); !s.Bloqueado || s.Plan != "sin_plan" {
 		t.Fatalf("vencida tendría que bloquear: %+v", s)
 	}

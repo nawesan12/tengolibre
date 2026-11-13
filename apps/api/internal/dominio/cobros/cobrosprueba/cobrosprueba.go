@@ -56,6 +56,8 @@ type Entorno struct {
 	Apple *appstoreprueba.Firmante
 	// Google hace de Google Play (la suscripción desde Android): token de compra → suscripción.
 	Google *GooglePlay
+	// Suscripcion, para llamar a lo que no tiene ruta (el sondeo de Google Play).
+	Suscripcion *suscripcion.Servicio
 }
 
 // ClaveGoogle protege el webhook de Google Play en los tests.
@@ -115,6 +117,7 @@ func ArmarCon(t *testing.T, mas func(a *prueba.API, tur *turnos.Servicio) []serv
 			Sitio: "https://tengolibre.com.ar", Ahora: reloj, Apple: e.Apple.Verificador(), Google: e.Google, ClaveGoogle: ClaveGoogle}
 		// Como en cmd/api: toda escritura del panel pasa por la suscripción.
 		a.Sesion.Escritura, a.Sesion.SinChequeoDeEscritura = sus.Escritura, suscripcion.SinChequeo
+		e.Suscripcion = sus
 		cob := &cobros.Servicio{Pool: app, Sesion: a.Sesion, Cliente: e.MP.Cliente(),
 			Aplicacion:     mercadopago.Aplicacion{ID: "123", Secreto: "secreto-app"},
 			SecretoWebhook: mpfalso.Secreto, Cifra: cifra, Sitio: "https://tengolibre.com.ar", Escritura: sus.Escritura,
