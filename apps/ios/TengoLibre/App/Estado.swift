@@ -325,6 +325,8 @@ final class Estado {
     }
 
     func avisar(_ e: Error) {
+        // Salir de una pantalla mientras guarda cancela la tarea: no es un error para mostrar (igual que Android).
+        if e is CancellationError { return }
         let x = e as? ErrorApi ?? .desconocido
         avisar(Toast(simbolo: x.sinConexion ? "icloud.slash" : "exclamationmark", titulo: x.sinConexion ? "Sin conexión" : x.titulo,
                      texto: x.detalle, error: true))
