@@ -1,10 +1,10 @@
 /** Lo de los días libres que también usa el navegador (sin llamar a la API). */
-export const MOTIVOS_LIBRES = ['vacaciones', 'tramite', 'salud', 'otro'] as const;
+export const MOTIVOS_LIBRES = ['vacaciones', 'tramite', 'personal', 'otro'] as const;
 export type MotivoLibre = (typeof MOTIVOS_LIBRES)[number];
 export const NOMBRE_MOTIVO: Record<MotivoLibre, string> = {
 	vacaciones: 'Vacaciones',
 	tramite: 'Trámite',
-	salud: 'Salud',
+	personal: 'Personal',
 	otro: 'Otro'
 };
 

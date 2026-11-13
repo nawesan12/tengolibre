@@ -15,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
@@ -49,6 +50,7 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/panel/clientes", at(s.crear))
 	mux.HandleFunc("GET /v1/panel/clientes/{id}", a(s.ficha))
 	mux.HandleFunc("PATCH /v1/panel/clientes/{id}", at(s.editar))
+	mux.HandleFunc("DELETE /v1/panel/clientes/{id}", at(s.suprimir))
 	mux.HandleFunc("PUT /v1/panel/clientes/{id}/etiquetas/{etiqueta}", at(s.asignar))
 	mux.HandleFunc("DELETE /v1/panel/clientes/{id}/etiquetas/{etiqueta}", at(s.quitar))
 	mux.HandleFunc("GET /v1/panel/clientes/{id}/notas", a(s.notas))
@@ -257,7 +259,8 @@ func (s *Servicio) listar(w http.ResponseWriter, r *http.Request) error {
 	}
 	ahora := s.ahora()
 	var args []any
-	cond := []string{"true"}
+	// Los suprimidos (pedido de supresión) no se listan: quedan sólo en los turnos pasados.
+	cond := []string{"c.suprimido_en IS NULL"}
 	arg := func(v any) string {
 		args = append(args, v)
 		return "$" + strconv.Itoa(len(args))
@@ -469,11 +472,13 @@ func (s *Servicio) ficha(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// editar el nombre, el email o la fecha de nacimiento ("" la borra). El teléfono no: es lo que
-// identifica al cliente cuando reserva.
+// editar el nombre, el teléfono, el email o la fecha de nacimiento ("" la borra). Es como el
+// negocio corrige los datos de un cliente (art. 16 de la Ley 25.326). El teléfono sigue siendo único
+// en el negocio: si ya lo tiene otro cliente, 409 cliente_existente. Un cliente suprimido no se edita.
 func (s *Servicio) editar(w http.ResponseWriter, r *http.Request) error {
 	var in struct {
 		Nombre     *string `json:"nombre"`
+		Telefono   *string `json:"telefono"`
 		Email      *string `json:"email"`
 		Nacimiento *string `json:"nacimiento"`
 	}
@@ -486,6 +491,12 @@ func (s *Servicio) editar(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	}
+	if in.Telefono != nil {
+		*in.Telefono = limpiarTelefono(*in.Telefono)
+		if len(*in.Telefono) > 30 {
+			return problema.Invalido("Revisá el teléfono.", problema.Campo{Ruta: "telefono", Mensaje: "inválido"})
+		}
+	}
 	if in.Email != nil {
 		*in.Email = strings.ToLower(strings.TrimSpace(*in.Email))
 		if err := validarEmail(*in.Email); err != nil {
@@ -496,23 +507,61 @@ func (s *Servicio) editar(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	id := r.PathValue("id")
 	var c Cliente
 	err = s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `UPDATE clientes SET nombre = coalesce($2, nombre), email = coalesce($3, email),
-			nacimiento = CASE WHEN $4 THEN $5::date ELSE nacimiento END WHERE id = $1`,
-			r.PathValue("id"), in.Nombre, in.Email, in.Nacimiento != nil, nacimiento)
+		if in.Telefono != nil && *in.Telefono != "" {
+			var otro string
+			err := tx.QueryRow(ctx, "SELECT nombre FROM clientes WHERE telefono = $1 AND id::text <> $2", *in.Telefono, id).Scan(&otro)
+			if err == nil {
+				return problema.Conflicto("cliente_existente", "Ya hay un cliente con ese teléfono: "+otro+".")
+			}
+			if err != pgx.ErrNoRows {
+				return err
+			}
+		}
+		tag, err := tx.Exec(ctx, `UPDATE clientes SET nombre = coalesce($2, nombre), telefono = coalesce($3, telefono),
+			email = coalesce($4, email), nacimiento = CASE WHEN $5 THEN $6::date ELSE nacimiento END
+			WHERE id = $1 AND suprimido_en IS NULL`,
+			id, in.Nombre, in.Telefono, in.Email, in.Nacimiento != nil, nacimiento)
 		if err != nil {
 			return err
 		}
 		if tag.RowsAffected() == 0 {
 			return problema.NoEncontrado("Ese cliente no existe o no es de este negocio.")
 		}
-		c, err = LeerCliente(ctx, tx, r.PathValue("id"), s.ahora())
+		c, err = LeerCliente(ctx, tx, id, s.ahora())
 		return err
 	})
 	if err != nil {
 		return err
 	}
 	web.JSON(w, http.StatusOK, c)
+	return nil
+}
+
+// suprimir: el pedido de supresión del cliente (art. 16). Sin turnos, se borra entero; con turnos, se
+// anonimiza y los turnos pasados quedan sin sus datos (ver app.suprimir_cliente, migración 00026).
+// Con turnos por venir, 409 cliente_con_turnos: primero se cancelan (con su aviso y la oferta del
+// hueco a la lista de espera). Responde {"resultado": "borrado" | "anonimizado"}.
+func (s *Servicio) suprimir(w http.ResponseWriter, r *http.Request) error {
+	var resultado *string
+	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
+		if err := tx.QueryRow(ctx, "SELECT app.suprimir_cliente($1::uuid, $2)", r.PathValue("id"), s.ahora()).Scan(&resultado); err != nil {
+			return err
+		}
+		switch {
+		case resultado == nil:
+			return problema.NoEncontrado("Ese cliente no existe o no es de este negocio.")
+		case *resultado == "con_turnos":
+			return problema.Conflicto("cliente_con_turnos", "Tiene turnos por venir: cancelalos antes de borrar sus datos.")
+		}
+		return auditoria.Anotar(ctx, tx, auditoria.Registro{Accion: "cliente.suprimido", Entidad: "cliente", EntidadID: r.PathValue("id"),
+			Detalle: map[string]string{"resultado": *resultado}})
+	})
+	if err != nil {
+		return err
+	}
+	web.JSON(w, http.StatusOK, map[string]string{"resultado": *resultado})
 	return nil
 }

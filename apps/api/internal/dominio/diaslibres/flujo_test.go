@@ -114,7 +114,7 @@ func TestPedirDiasLibres(t *testing.T) {
 	pedido := map[string]any{"desde": "2026-11-02", "hasta": "2026-11-04", "motivo": "vacaciones", "nota": "Me voy a la costa"}
 	panel(409, duenia, "POST", "/v1/panel/dias-libres", pedido, nil)
 	panel(400, ana, "POST", "/v1/panel/dias-libres", map[string]any{"desde": "2026-11-02", "motivo": "porque sí"}, nil)
-	panel(400, ana, "POST", "/v1/panel/dias-libres", map[string]any{"desde": "2026-10-30", "hasta": "2026-11-02", "motivo": "salud"}, nil)
+	panel(400, ana, "POST", "/v1/panel/dias-libres", map[string]any{"desde": "2026-10-30", "hasta": "2026-11-02", "motivo": "personal"}, nil)
 	var p diaslibres.Pedido
 	panel(201, ana, "POST", "/v1/panel/dias-libres", pedido, &p)
 	if p.Estado != "pendiente" || p.Turnos != 2 || p.Afectados != 2 || p.Profesional != "Ana" || p.Desde != "2026-11-02" || p.Hasta != "2026-11-04" {
@@ -219,7 +219,11 @@ func TestPedirDiasLibres(t *testing.T) {
 	if c.Notificaciones[0].Titulo != "No se aprobaron los días libres de Ana" {
 		t.Fatalf("campanita de Ana: %+v", c.Notificaciones[0])
 	}
+	// Una app vieja que manda «salud» queda guardada como «personal» (no se guardan datos de salud).
 	panel(201, ana, "POST", "/v1/panel/dias-libres", map[string]any{"desde": "2026-11-16", "motivo": "salud"}, &p3)
+	if p3.Motivo != "personal" {
+		t.Fatalf("salud tendría que quedar como personal: %+v", p3)
+	}
 	panel(403, recep, "POST", "/v1/panel/dias-libres/"+p3.ID+"/cancelar", nil, nil)
 	panel(200, ana, "POST", "/v1/panel/dias-libres/"+p3.ID+"/cancelar", nil, &p3)
 	if p3.Estado != "cancelado" {

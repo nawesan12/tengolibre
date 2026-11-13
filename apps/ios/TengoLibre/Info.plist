@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>es-AR</string>
 	<key>CFBundleDisplayName</key>
-	<string>Tu Local Web</string>
+	<string>Tengo Libre</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,25 +15,25 @@
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
-	<string>APPL</string>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>ar.com.tulocalweb.app.enlaces</string>
+			<string>ar.com.tengolibre.app.enlaces</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>tulocalweb</string>
+				<string>tengolibre</string>
 			</array>
 		</dict>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>ar.com.tulocalweb.app</string>
+			<string>ar.com.tengolibre.app</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>ar.com.tulocalweb.app</string>
+				<string>ar.com.tengolibre.app</string>
 			</array>
 		</dict>
 	</array>
@@ -44,30 +44,32 @@
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>whatsapp</string>
+		<string>instagram-stories</string>
 	</array>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSCameraUsageDescription</key>
-	<string>Para sacarles fotos a tus productos y escanear códigos.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Para guardar en tus fotos la imagen de tu tienda para estados e historias.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Para dictarle a Tincho lo que querés preguntarle.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Para pasar a texto lo que le dictás a Tincho.</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Para entrar a tu tienda y confirmar las acciones sensibles, como cancelar un pedido.</string>
-	<key>TLWApi</key>
-	<string>$(TLW_API)</string>
+	<string>Para guardar en tus fotos el QR de tu página de reservas.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>TLApi</key>
+	<string>$(TL_API)</string>
+	<key>TLClerk</key>
+	<string>$(TL_CLERK)</string>
+	<key>TLGrupoLlavero</key>
+	<string>$(AppIdentifierPrefix)ar.com.tengolibre.app</string>
+	<key>TLWeb</key>
+	<string>$(TL_WEB)</string>
 	<key>UIAppFonts</key>
 	<array>
-		<string>InstrumentSans-Regular.ttf</string>
-		<string>InstrumentSans-Medium.ttf</string>
-		<string>InstrumentSans-SemiBold.ttf</string>
-		<string>InstrumentSans-Bold.ttf</string>
+		<string>Lato-Regular.ttf</string>
+		<string>Lato-Bold.ttf</string>
+		<string>Lato-Black.ttf</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>
@@ -76,15 +78,19 @@
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
-		<string>Fondo</string>
+		<string>Cabecera</string>
 		<key>UIImageName</key>
-		<string>Lanzamiento</string>
+		<string>SimboloBlanco</string>
 		<key>UIImageRespectsSafeAreaInsets</key>
 		<true/>
 	</dict>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleLightContent</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
 </dict>
 </plist>

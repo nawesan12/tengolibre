@@ -746,7 +746,7 @@ struct PedirDiasLibres: View {
                 DatePicker("Hasta", selection: $hasta, in: desde..., displayedComponents: .date).padding(.horizontal, 16).frame(minHeight: 52)
                 Renglon(titulo: "Motivo") {
                     Picker("Motivo", selection: $motivo) {
-                        Text("Vacaciones").tag("vacaciones"); Text("Trámite").tag("tramite"); Text("Salud").tag("salud"); Text("Otro").tag("otro")
+                        Text("Vacaciones").tag("vacaciones"); Text("Trámite").tag("tramite"); Text("Personal").tag("personal"); Text("Otro").tag("otro")
                     }
                     .tint(C.mentaTexto)
                 }

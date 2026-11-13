@@ -318,7 +318,7 @@ func (s *Servicio) reservarSerie(w http.ResponseWriter, r *http.Request) error {
 		}
 		clienteID := in.ClienteID
 		if clienteID != "" {
-			err := tx.QueryRow(ctx, "SELECT id::text FROM clientes WHERE id::text = $1", clienteID).Scan(&clienteID)
+			err := tx.QueryRow(ctx, "SELECT id::text FROM clientes WHERE id::text = $1 AND suprimido_en IS NULL", clienteID).Scan(&clienteID)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return problema.NoEncontrado("No encontramos ese cliente.")
 			}

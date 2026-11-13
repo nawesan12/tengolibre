@@ -115,7 +115,7 @@ export type PedidoDias = {
 	profesional: string;
 	desde: string;
 	hasta: string;
-	motivo: 'vacaciones' | 'tramite' | 'salud' | 'otro';
+	motivo: 'vacaciones' | 'tramite' | 'personal' | 'otro';
 	nota: string;
 	estado: 'pendiente' | 'aprobado' | 'rechazado' | 'cancelado';
 	turnos: number;
@@ -129,7 +129,7 @@ export type AReprogramar = {
 	resueltoEn: string | null;
 	turno: { id: string; inicio: string; fin: string; servicio: string; profesional: string; estado: string; cliente: { nombre: string; telefono: string; email: string } };
 };
-export const MOTIVO_DIAS: Record<string, string> = { vacaciones: 'Vacaciones', tramite: 'Trámite', salud: 'Salud', otro: 'Otro' };
+export const MOTIVO_DIAS: Record<string, string> = { vacaciones: 'Vacaciones', tramite: 'Trámite', personal: 'Personal', otro: 'Otro' };
 
 // ── Recordatorios (recordatorios.md) ──
 export type Recordatorio = {

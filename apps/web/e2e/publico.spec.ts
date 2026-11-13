@@ -42,6 +42,9 @@ test('reserva completa, reprogramar, cancelar y reseña', async ({ page }) => {
 
 	await expect(page.getByRole('heading', { name: 'Tus datos' })).toBeVisible();
 	await sinDesborde(page);
+	// El aviso del art. 6 (Ley 25.326) antes de pedir los datos, con el link a la política.
+	await expect(page.getByText(/Tengo Libre los guarda y procesa por su cuenta/)).toBeVisible();
+	await expect(page.getByRole('link', { name: /política de.privacidad/ })).toHaveAttribute('href', '/privacidad');
 	// Un cupón que no existe avisa sin perder lo cargado.
 	await page.getByLabel('Nombre y apellido').fill('Carla Gómez');
 	await page.getByText('Cupón, nota o código de referido').click();

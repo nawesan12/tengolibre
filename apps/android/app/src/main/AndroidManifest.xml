@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -7,6 +8,9 @@
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <!-- Guardar el QR en la galería en Android 8 y 9 (desde el 10 no hace falta). -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <!-- Sin ID de publicidad (no hay anuncios ni analítica): si una librería lo suma, se saca. Como en iOS, sólo
+         los permisos que se usan: ni cámara, ni ubicación, ni micrófono, ni biometría. -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
 
     <!-- Custom Tabs para el ingreso con Clerk (Google y Apple). -->
     <queries>

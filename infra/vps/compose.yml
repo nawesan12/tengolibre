@@ -43,6 +43,8 @@ services:
       # Claves del push (TENGOLIBRE_APNS_CLAVE y TENGOLIBRE_FCM_CUENTA): el .p8 de Apple y la cuenta
       # de servicio de FCM. Nunca al repo.
       - ./claves:/claves:ro
+      # Las imágenes: la purga de negocios cerrados (TENGOLIBRE_PURGA_NEGOCIOS=1) borra las suyas.
+      - ./archivos:/datos/archivos
     mem_limit: 64m
     depends_on:
       postgres:

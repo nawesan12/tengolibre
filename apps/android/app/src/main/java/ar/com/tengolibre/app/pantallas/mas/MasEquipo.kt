@@ -546,7 +546,7 @@ fun ColumnScope.PedirDiasLibres(profesionalId: String, listo: () -> Unit, cerrar
         Bloque("", "Si hay turnos esos días, quedan para mover: le avisamos a cada clienta cuando los muevas.",
             { RenglonFecha("Desde", desde, { desde = it; if (hasta < it) hasta = it }, minimo = hoy) },
             { RenglonFecha("Hasta", hasta, { hasta = it }, minimo = desde) },
-            { Renglon("Motivo") { SelectorMenu(listOf("vacaciones" to "Vacaciones", "tramite" to "Trámite", "salud" to "Salud", "otro" to "Otro"), motivo, { motivo = it }) } },
+            { Renglon("Motivo") { SelectorMenu(listOf("vacaciones" to "Vacaciones", "tramite" to "Trámite", "personal" to "Personal", "otro" to "Otro"), motivo, { motivo = it }) } },
             { RenglonCampo("Nota", nota, { nota = it }, multilinea = true) })
     }
 }

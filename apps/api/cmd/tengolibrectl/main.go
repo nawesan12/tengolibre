@@ -8,6 +8,10 @@
 //	tengolibrectl recuperar-cuenta <email o user_…>
 //	                          deshace la baja de una cuenta borrada hace menos de 30 días (la persona
 //	                          escribió a hola@): vuelven sus membresías y los negocios que la baja cerró
+//	tengolibrectl purga-negocios --listar
+//	                          muestra los negocios cerrados hace más de 90 días que la purga borraría
+//	                          (con sus clientes), sin borrar nada. Sin --listar los borra ahora, sólo
+//	                          con TENGOLIBRE_PURGA_NEGOCIOS=1 (la misma llave que el worker)
 //
 // Las claves de los roles salen de TENGOLIBRE_CLAVE_<ROL> (vacías en desarrollo).
 package main
@@ -18,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -27,7 +32,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "uso: tengolibrectl bootstrap|migrar|dominios-caddy|recuperar-cuenta <email o user_…>")
+		fmt.Fprintln(os.Stderr, "uso: tengolibrectl bootstrap|migrar|dominios-caddy|recuperar-cuenta <email o user_…>|purga-negocios [--listar]")
 		os.Exit(2)
 	}
 	if err := correr(os.Args[1]); err != nil {
@@ -91,6 +96,15 @@ func correr(cmd string) error {
 			return fmt.Errorf("no hay una cuenta borrada sin purgar con %q", os.Args[2])
 		}
 		fmt.Println("cuenta recuperada:", id)
+	case "purga-negocios":
+		if err := cfg.Exigir("BaseMigrador"); err != nil {
+			return err
+		}
+		listar := len(os.Args) > 2 && os.Args[2] == "--listar"
+		if !listar && !cfg.PurgaNegocios {
+			return fmt.Errorf("la purga de negocios está apagada (TENGOLIBRE_PURGA_NEGOCIOS=1 la prende); --listar muestra qué borraría")
+		}
+		return purgaNegocios(ctx, cfg.BaseMigrador, os.Stdout, listar, time.Now())
 	default:
 		return fmt.Errorf("comando desconocido: %s", cmd)
 	}

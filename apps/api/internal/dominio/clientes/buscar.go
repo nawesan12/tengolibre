@@ -66,7 +66,7 @@ func (s *Servicio) buscar(w http.ResponseWriter, r *http.Request) error {
 	ses := sesion.De(r.Context())
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
 		filas, err := tx.Query(ctx, `SELECT id::text, nombre, telefono, email FROM clientes
-			WHERE nombre ILIKE $1 OR email ILIKE $1 OR ($2 <> '' AND telefono LIKE $2) ORDER BY lower(nombre), id LIMIT 8`, p, tel)
+			WHERE suprimido_en IS NULL AND (nombre ILIKE $1 OR email ILIKE $1 OR ($2 <> '' AND telefono LIKE $2)) ORDER BY lower(nombre), id LIMIT 8`, p, tel)
 		if err != nil {
 			return err
 		}

@@ -76,7 +76,7 @@ data class PedidoDias(
     val afectados: Int = 0,
     val creadoEn: FechaApi = Instant.EPOCH,
 ) {
-    val motivoTexto: String get() = mapOf("vacaciones" to "Vacaciones", "tramite" to "Trámite", "salud" to "Salud", "otro" to "Otro")[motivo] ?: motivo
+    val motivoTexto: String get() = mapOf("vacaciones" to "Vacaciones", "tramite" to "Trámite", "personal" to "Personal", "otro" to "Otro")[motivo] ?: motivo
 }
 
 /** Los primeros pasos del negocio (arranque). */

@@ -136,6 +136,11 @@ final class Api: @unchecked Sendable {
         try decodificar(await pedir(metodo, ruta, cuerpo: Api.codificador.encode(cuerpo)))
     }
 
+    /// Un DELETE que responde con datos (p. ej. borrar los datos de una clienta: borrado o anonimizado).
+    func borrar<T: Decodable>(_ ruta: String) async throws -> T {
+        try decodificar(await pedir("DELETE", ruta))
+    }
+
     /// Un pedido sin respuesta (204).
     func hacer<C: Encodable>(_ metodo: String, _ ruta: String, _ cuerpo: C) async throws {
         _ = try await pedir(metodo, ruta, cuerpo: Api.codificador.encode(cuerpo))

@@ -56,6 +56,10 @@ type Config struct {
 	// Push web del panel (VAPID): las claves en base64url (`go run ./cmd/vapid`) y el contacto
 	// (mailto: o https:) para los servicios de push. Sin claves, apagado.
 	VAPIDPublica, VAPIDPrivada, VAPIDSujeto string
+	// PurgaNegocios (TENGOLIBRE_PURGA_NEGOCIOS=1): el worker borra los negocios cerrados hace más de
+	// 90 días, con sus clientes. Apagada por defecto; `tengolibrectl purga-negocios --listar` muestra
+	// antes qué se borraría.
+	PurgaNegocios bool
 }
 
 // Desarrollo dice si se está corriendo en local.
@@ -107,6 +111,8 @@ func Leer() (Config, error) {
 		VAPIDPublica: os.Getenv("TENGOLIBRE_VAPID_PUBLICA"),
 		VAPIDPrivada: os.Getenv("TENGOLIBRE_VAPID_PRIVADA"),
 		VAPIDSujeto:  valor("TENGOLIBRE_VAPID_SUJETO", "mailto:hola@tengolibre.com.ar"),
+
+		PurgaNegocios: os.Getenv("TENGOLIBRE_PURGA_NEGOCIOS") == "1",
 	}
 	switch c.Entorno {
 	case "desarrollo", "staging", "produccion":

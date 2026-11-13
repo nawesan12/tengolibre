@@ -169,7 +169,7 @@ func TestClientesDePuntaAPunta(t *testing.T) {
 		t.Fatalf("editado: %+v", c)
 	}
 	m.panel(400, "PATCH", "/v1/panel/clientes/"+c.ID, map[string]any{"email": "sin-arroba"}, nil)
-	m.panel(400, "PATCH", "/v1/panel/clientes/"+c.ID, map[string]any{"telefono": "1"}, nil) // el teléfono no se edita
+	m.panel(400, "PATCH", "/v1/panel/clientes/"+c.ID, map[string]any{"telefono": "1234567890123456789012345678901"}, nil) // teléfono largo (se corrige: ver supresion_test)
 
 	// Ficha con historial.
 	var f clientes.Ficha

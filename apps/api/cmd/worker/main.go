@@ -2,7 +2,8 @@
 // reintentos), encola recordatorios, pedidos de reseña, el resumen diario, los recordatorios automáticos
 // (cumpleaños, «hace mucho que no venís») y el reporte mensual, marca ausentes en los negocios que lo
 // pidieron, manda el push y los WhatsApp (confirmaciones), ofrece los huecos de la lista de espera y
-// purga lo viejo (también los datos personales de las cuentas borradas hace 30 días). Corre aparte de la API, con el rol de la app.
+// purga lo viejo (también los datos personales de las cuentas borradas hace 30 días y, con
+// TENGOLIBRE_PURGA_NEGOCIOS=1, los negocios cerrados hace 90). Corre aparte de la API, con el rol de la app.
 package main
 
 import (
@@ -95,8 +96,12 @@ func correr() error {
 	lista := append(tj.Lista(env), rs.Trabajo(), ps.Trabajo(), ps.TrabajoTurnos(), es.Trabajo(), rec.Trabajo(), reportes.TrabajoMensual(app),
 		// Las cuentas borradas: a los 30 días, sus datos personales.
 		cuenta.Trabajo(app))
+	// Los negocios cerrados hace 90 días, con sus clientes: sólo con TENGOLIBRE_PURGA_NEGOCIOS=1.
+	if cfg.PurgaNegocios {
+		lista = append(lista, cuenta.TrabajoNegocios(app, cfg.Archivos))
+	}
 	p := &trabajos.Planificador{Pool: app, Trabajos: append(lista, wa.Lista()...)}
-	slog.Info("worker andando", "entorno", cfg.Entorno, "smtp", cfg.SMTP != "")
+	slog.Info("worker andando", "entorno", cfg.Entorno, "smtp", cfg.SMTP != "", "purga_negocios", cfg.PurgaNegocios)
 	p.Correr(ctx, 5*time.Second)
 	return nil
 }

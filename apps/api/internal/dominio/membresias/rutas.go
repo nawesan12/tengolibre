@@ -331,7 +331,7 @@ func (s *Servicio) alta(w http.ResponseWriter, r *http.Request) error {
 		cliente := in.ClienteID
 		switch {
 		case cliente != "":
-			if err := tx.QueryRow(ctx, "SELECT id::text FROM clientes WHERE id = $1", cliente).Scan(&cliente); err != nil {
+			if err := tx.QueryRow(ctx, "SELECT id::text FROM clientes WHERE id = $1 AND suprimido_en IS NULL", cliente).Scan(&cliente); err != nil {
 				return problema.NoEncontrado("Ese cliente no existe.")
 			}
 		case in.Telefono != "":

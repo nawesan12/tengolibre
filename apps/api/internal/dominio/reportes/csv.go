@@ -88,7 +88,7 @@ func (s *Servicio) csvClientes(w http.ResponseWriter, r *http.Request) error {
 			count(t.id) FILTER (WHERE t.estado = 'ausente'),
 			coalesce((SELECT string_agg(e.nombre, ', ' ORDER BY lower(e.nombre)) FROM cliente_etiquetas ce
 				JOIN etiquetas e ON e.id = ce.etiqueta_id WHERE ce.cliente_id = c.id), '')
-			FROM clientes c LEFT JOIN turnos t ON t.cliente_id = c.id
+			FROM clientes c LEFT JOIN turnos t ON t.cliente_id = c.id WHERE c.suprimido_en IS NULL
 			GROUP BY c.id ORDER BY lower(c.nombre), c.id LIMIT $2`, ahora, MaxFilasCSV)
 		if err != nil {
 			return err

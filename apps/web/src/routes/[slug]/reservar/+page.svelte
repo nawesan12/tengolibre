@@ -5,6 +5,7 @@
 	import { dia as diaDe, pesos } from '#lib/formato.ts';
 	import Icono from '#lib/ui/Icono.svelte';
 	import PaginaNegocio from '#lib/publico/PaginaNegocio.svelte';
+	import AvisoDatos from '#lib/publico/AvisoDatos.svelte';
 	import PanelReserva from '#lib/publico/PanelReserva.svelte';
 	import Horarios from '#lib/publico/Horarios.svelte';
 	import TiraDias from '#lib/publico/TiraDias.svelte';
@@ -99,6 +100,7 @@
 				<input type="hidden" name="servicioId" value={data.servicio?.id} />
 				<input type="hidden" name="profesionalId" value={data.profesionalId} />
 				{#if form && 'enEspera' in form && form.error}<p class="aviso-w rojo" role="alert"><Icono nombre="error" tam={20} lleno /><span>{form.error}</span></p>{/if}
+				<AvisoDatos negocio={n.nombre} para="espera" />
 				<label class="campo-w">Nombre <input name="nombre" required maxlength="80" autocomplete="name" value={v.nombre ?? borrador.nombre} /></label>
 				<label class="campo-w">Email <input name="email" type="email" required maxlength="120" autocomplete="email" value={v.email ?? borrador.email} /></label>
 				<label class="campo-w">Teléfono (opcional) <input name="telefono" type="tel" maxlength="30" autocomplete="tel" value={v.telefono ?? borrador.telefono} /></label>
@@ -257,6 +259,7 @@
 							{:else if form && 'error' in form && form.error && !('enEspera' in form) && form.codigo !== 'horario_ocupado'}
 								<p class="aviso-w rojo" role="alert"><Icono nombre="error" tam={20} lleno /><span>{form.error}</span></p>
 							{/if}
+							<AvisoDatos negocio={n.nombre} />
 							{#if data.membresia}
 								<label class="socio">
 									<input type="checkbox" name="usarMembresia" value="1" bind:checked={usar} />

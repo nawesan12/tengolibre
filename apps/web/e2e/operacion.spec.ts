@@ -98,7 +98,7 @@ test('turno manual, sobreturno, nota y cambios de estado', async ({ page, reques
 
 test('ficha del cliente con nota y etiqueta', async ({ page, request }) => {
 	const a = await armar(page, request);
-	await a.api('POST', '/v1/panel/turnos', {
+	const turno = await a.api('POST', '/v1/panel/turnos', {
 		servicioId: a.servicio,
 		profesionalId: a.profesional,
 		inicio: `${manana()}T10:00:00-03:00`,
@@ -142,6 +142,20 @@ test('ficha del cliente con nota y etiqueta', async ({ page, request }) => {
 
 	await irA(page, '/panel/buscar?q=55550003');
 	await expect(page.locator('a[href^="/panel/clientes/"]', { hasText: 'Rocío Díaz' })).toBeVisible();
+	// Sus derechos: corregir el teléfono y, si lo pide, borrar sus datos (con turnos por venir, antes se cancelan).
+	await page.locator('a[href^="/panel/clientes/"]', { hasText: 'Rocío Díaz' }).first().click();
+	await page.getByRole('button', { name: 'Corregir nombre, teléfono y email' }).click();
+	await page.getByLabel('Teléfono').fill('11 5555-0009');
+	await page.getByRole('button', { name: 'Guardar' }).click();
+	await expect(page.getByText('1155550009').first()).toBeVisible();
+	page.on('dialog', (d) => d.accept());
+	await page.getByRole('button', { name: 'Borrar los datos de Rocío' }).click();
+	await expect(page.getByRole('alert')).toContainText('turnos por venir');
+	await a.api('PATCH', `/v1/panel/turnos/${(turno.turnos?.[0] ?? turno).id}`, { estado: 'cancelado' });
+	await page.getByRole('button', { name: 'Borrar los datos de Rocío' }).click();
+	await expect(page).toHaveURL(/\/panel\/clientes\?suprimido=anonimizado/);
+	await expect(page.getByRole('status')).toContainText('Cliente borrado');
+	await expect(page.getByRole('link', { name: /Rocío Díaz/ })).toHaveCount(0);
 });
 
 test('el calendario y la campanita se actualizan solos con una reserva online', async ({ page, request }) => {

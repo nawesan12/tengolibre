@@ -231,6 +231,7 @@ struct FichaCliente: View {
     var id: String
     @Environment(Estado.self) private var estado
     @Environment(Navegacion.self) private var nav
+    @Environment(\.dismiss) private var volver
     @State private var ficha: Ficha?
     @State private var notas: [Nota] = []
     @State private var etiquetas: [EtiquetaConUso] = []
@@ -260,7 +261,15 @@ struct FichaCliente: View {
         .toolbar(.hidden, for: .navigationBar)
         .refreshable { await cargar() }
         .task(id: estado.version) { await cargar() }
-        .sheet(isPresented: $editar) { if let f = ficha { EditarClienta(ficha: f) { await cargar() } } }
+        .sheet(isPresented: $editar) {
+            if let f = ficha {
+                EditarClienta(ficha: f, puedeBorrar: !estado.esProfesional, listo: { await cargar() }) { anonima in
+                    estado.avisar("Borramos sus datos", texto: anonima ? "Sus turnos pasados quedan como «Cliente borrado»." : "")
+                    estado.version += 1
+                    volver()
+                }
+            }
+        }
         .sheet(isPresented: $penalizar) { hojaPenalidad.presentationDetents([.medium]) }
     }
 
@@ -568,23 +577,48 @@ struct Flujo: Layout {
     }
 }
 
+/// Corregir los datos de la clienta y, si lo pide, borrarlos (sus derechos, Ley 25.326). Con turnos
+/// pasados la API la deja anónima; con turnos por venir no deja: primero se cancelan.
 struct EditarClienta: View {
     var ficha: Ficha
+    var puedeBorrar: Bool
     var listo: () async -> Void
+    /// Después de borrar: true si quedó anónima (tenía turnos pasados).
+    var borrada: (Bool) -> Void
     @Environment(Estado.self) private var estado
     @Environment(\.dismiss) private var cerrar
     @State private var nombre = ""
+    @State private var telefono = ""
     @State private var email = ""
+    @State private var confirmarBorrar = false
+
+    private struct Resultado: Decodable { var resultado: String }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                Campo(titulo: "Nombre", texto: $nombre)
-                Campo(titulo: "Email", texto: $email, teclado: .emailAddress)
-                Text("El teléfono identifica a la clienta y no se cambia.").font(Tipo.lato(13)).foregroundStyle(C.sub).frame(maxWidth: .infinity, alignment: .leading)
-                Spacer()
+            ScrollView {
+                VStack(spacing: 12) {
+                    Campo(titulo: "Nombre", texto: $nombre)
+                    Campo(titulo: "Teléfono", texto: $telefono, ayuda: "Con el que reserva: si lo cambiás, reserva con el nuevo.", teclado: .phonePad)
+                    Campo(titulo: "Email", texto: $email, teclado: .emailAddress)
+                    if puedeBorrar {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("BORRAR SUS DATOS").rotulo()
+                            Text("Si te lo pide, borramos su nombre, teléfono, email, notas y etiquetas. Sus turnos pasados quedan, sin datos.")
+                                .font(Tipo.lato(13)).foregroundStyle(C.sub).fixedSize(horizontal: false, vertical: true)
+                            Button(role: .destructive) { confirmarBorrar = true } label: { Label("Borrar sus datos", systemImage: "trash") }
+                                .buttonStyle(BotonContorno(alto: 48, tam: 15)).foregroundStyle(C.error)
+                                .confirmationDialog("¿Borrar los datos de \(ficha.nombre)?", isPresented: $confirmarBorrar, titleVisibility: .visible) {
+                                    Button("Borrar", role: .destructive) { Task { await borrar() } }
+                                } message: { Text("No se puede deshacer.") }
+                        }
+                        .padding(.top, 12).frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(16)
             }
-            .padding(16).background(C.hoja)
+            .scrollDismissesKeyboard(.interactively)
+            .background(C.hoja)
             .navigationTitle("Editar").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { cerrar() } }
@@ -592,7 +626,7 @@ struct EditarClienta: View {
                     Button("Guardar") {
                         Task {
                             do {
-                                try await estado.api.hacer("PATCH", "/v1/panel/clientes/\(ficha.id)", ["nombre": nombre, "email": email])
+                                try await estado.api.hacer("PATCH", "/v1/panel/clientes/\(ficha.id)", ["nombre": nombre, "telefono": telefono, "email": email])
                                 await listo()
                                 cerrar()
                             } catch { estado.avisar(error) }
@@ -600,8 +634,16 @@ struct EditarClienta: View {
                     }
                 }
             }
-            .onAppear { nombre = ficha.nombre; email = ficha.email }
+            .onAppear { nombre = ficha.nombre; telefono = ficha.telefono; email = ficha.email }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.large])
+    }
+
+    private func borrar() async {
+        do {
+            let r: Resultado = try await estado.api.borrar("/v1/panel/clientes/\(ficha.id)")
+            cerrar()
+            borrada(r.resultado == "anonimizado")
+        } catch { estado.avisar(error) }
     }
 }

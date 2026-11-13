@@ -62,7 +62,7 @@ struct PedidoDias: Codable, Identifiable, Equatable, Hashable {
     var turnos: Int
     var afectados: Int
     var creadoEn: Date
-    var motivoTexto: String { ["vacaciones": "Vacaciones", "tramite": "Trámite", "salud": "Salud", "otro": "Otro"][motivo] ?? motivo }
+    var motivoTexto: String { ["vacaciones": "Vacaciones", "tramite": "Trámite", "personal": "Personal", "otro": "Otro"][motivo] ?? motivo }
 }
 
 /// Los primeros pasos del negocio (arranque).

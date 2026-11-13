@@ -343,7 +343,7 @@ func clienteDe(ctx context.Context, tx pgx.Tx, c Cliente) (string, error) {
 			RETURNING id::text`, c.Nombre, c.Telefono, c.Email, nacimiento).Scan(&id)
 		return id, err
 	}
-	err := tx.QueryRow(ctx, "SELECT id::text FROM clientes WHERE telefono = '' AND email = $1 ORDER BY creado_en LIMIT 1", c.Email).Scan(&id)
+	err := tx.QueryRow(ctx, "SELECT id::text FROM clientes WHERE telefono = '' AND email = $1 AND suprimido_en IS NULL ORDER BY creado_en LIMIT 1", c.Email).Scan(&id)
 	if err == pgx.ErrNoRows {
 		err = tx.QueryRow(ctx, "INSERT INTO clientes (negocio_id, nombre, email, nacimiento) VALUES (app.negocio_actual(), $1, $2, $3::date) RETURNING id::text",
 			c.Nombre, c.Email, nacimiento).Scan(&id)

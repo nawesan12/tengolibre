@@ -50,6 +50,11 @@
 </div>
 
 {#if form?.error}<p class="aviso error" role="alert">{form.error}</p>{/if}
+{#if page.url.searchParams.get('suprimido') === 'borrado'}
+	<p class="aviso" role="status">Listo: borramos el cliente y sus&nbsp;datos.</p>
+{:else if page.url.searchParams.get('suprimido') === 'anonimizado'}
+	<p class="aviso" role="status">Listo: borramos sus datos. Sus turnos pasados quedan como «Cliente&nbsp;borrado».</p>
+{/if}
 
 {#if alta}
 	<form method="POST" action={accion(page.url, 'crear')} use:enhance class="alta" aria-label="Nuevo cliente">

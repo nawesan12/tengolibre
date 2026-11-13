@@ -28,3 +28,8 @@ TENGOLIBRE_APNS_KEY_ID=ZXZDZ763W6
 TENGOLIBRE_APNS_TEAM_ID=M6935MSNQB
 TENGOLIBRE_APNS_CLAVE=/claves/apns.p8
 TENGOLIBRE_FCM_CUENTA=/claves/fcm.json
+
+# Purga de negocios cerrados (worker): a los 90 días del cierre borra el negocio y sus clientes, y
+# archiva los cobros sin datos personales. Apagada si no es 1. Antes de prenderla:
+#   tengolibrectl purga-negocios --listar
+TENGOLIBRE_PURGA_NEGOCIOS=0

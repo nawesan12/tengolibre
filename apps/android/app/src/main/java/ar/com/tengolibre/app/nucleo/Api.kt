@@ -114,6 +114,9 @@ class Api(val base: String, var token: String? = null, val http: OkHttpClient = 
     suspend inline fun <reified T, reified B> enviar(metodo: String, ruta: String, cuerpo: B): T =
         decodificar(pedir(metodo, ruta, cuerpo = json.encodeToString(cuerpo).toByteArray()))
 
+    /** Un DELETE que responde con datos (p. ej. borrar los datos de una clienta: borrado o anonimizado). */
+    suspend inline fun <reified T> borrar(ruta: String): T = decodificar(pedir("DELETE", ruta))
+
     /** Un pedido sin respuesta (204). */
     suspend inline fun <reified B> hacer(metodo: String, ruta: String, cuerpo: B) {
         pedir(metodo, ruta, cuerpo = json.encodeToString(cuerpo).toByteArray())

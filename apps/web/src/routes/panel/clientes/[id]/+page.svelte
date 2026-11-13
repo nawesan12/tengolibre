@@ -1,6 +1,7 @@
 <!--
 	La ficha del cliente (handoff «Panel v2», ficha lateral): cabeza petróleo con sus números y
-	contacto, la penalidad, las notas del equipo, las etiquetas y sus turnos como talones.
+	contacto, la penalidad, las notas del equipo, las etiquetas y sus turnos como talones. Al pie,
+	los derechos del cliente: corregir sus datos (el lápiz) y borrarlos si lo pide.
 -->
 <script lang="ts">
 	import { page } from '$app/state';
@@ -49,6 +50,7 @@
 					}}
 			>
 				<label class="campo">Nombre <input name="nombre" value={c.nombre} required maxlength="80" /></label>
+				<label class="campo">Teléfono <input name="telefono" type="tel" value={c.telefono} maxlength="30" autocomplete="off" /></label>
 				<label class="campo">Email <input name="email" type="email" value={c.email} maxlength="120" /></label>
 				<div class="botones">
 					<button class="boton primario">Guardar</button>
@@ -76,7 +78,7 @@
 						{/if}
 					</span>
 				</span>
-				{#if puedeEditar}<button class="icono-b" aria-label="Editar nombre y email" onclick={() => (editando = true)}><Icono nombre="edit" tam={20} /></button>{/if}
+				{#if puedeEditar}<button class="icono-b" aria-label="Corregir nombre, teléfono y email" onclick={() => (editando = true)}><Icono nombre="edit" tam={20} /></button>{/if}
 			</div>
 			{#if poniendo}
 				{#if sinPoner.length}
@@ -197,6 +199,24 @@
 		<a class="turno-para" href={`/panel/turnos/nuevo?cliente=${c.id}`}><Icono nombre="add" tam={20} />Turno para {primerNombre(c.nombre)}</a>
 	</footer>
 </article>
+
+{#if puedeEditar}
+	<section aria-labelledby="t-borrar" class="borrar-datos">
+		<h2 id="t-borrar" class="tl-rotulo rot">Borrar sus datos</h2>
+		<p class="claro-c">
+			Si te lo pide, borramos su nombre, teléfono, email, notas y etiquetas. Sus turnos pasados quedan en la agenda, sin&nbsp;datos.
+		</p>
+		<form
+			method="POST"
+			action={accion(page.url, 'suprimir')}
+			use:enhance={({ cancel }) => {
+				if (!confirm(`¿Borrar los datos de ${c.nombre}? No se puede deshacer.`)) cancel();
+			}}
+		>
+			<button class="link">Borrar los datos de {primerNombre(c.nombre)}</button>
+		</form>
+	</section>
+{/if}
 
 <style>
 	.volver {
@@ -592,6 +612,19 @@
 		display: flex;
 		align-items: center;
 		padding-right: 10px;
+	}
+	.borrar-datos {
+		width: 100%;
+		max-width: 560px;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding: 0 4px;
+	}
+	.borrar-datos h2 {
+		margin: 0;
+		font-size: 11px;
+		color: var(--tl-sub);
 	}
 	.pie {
 		display: flex;

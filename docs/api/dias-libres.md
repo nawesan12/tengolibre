@@ -21,7 +21,7 @@ fechas `AAAA-MM-DD` en la zona del negocio. Tiempo real por SSE: `tipo: "dias_li
   "id": "uuid",
   "profesionalId": "uuid", "profesional": "Abril",
   "desde": "2026-11-14", "hasta": "2026-11-18",
-  "motivo": "vacaciones",          // vacaciones | tramite | salud | otro
+  "motivo": "vacaciones",          // vacaciones | tramite | personal | otro («salud» de una app vieja queda como personal)
   "nota": "",
   "estado": "pendiente",           // pendiente | aprobado | rechazado | cancelado
   "turnos": 3,                     // los que tenía esos días al pedirlo

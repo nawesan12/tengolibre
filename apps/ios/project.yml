@@ -94,10 +94,9 @@ targets:
         UIViewControllerBasedStatusBarAppearance: false
         UIBackgroundModes: [remote-notification]
         ITSAppUsesNonExemptEncryption: false
-        NSCameraUsageDescription: "Para sacar la foto de tu negocio, de tu equipo o de tus servicios."
-        NSPhotoLibraryUsageDescription: "Para elegir la foto de tu negocio, de tu equipo o de tus servicios."
-        NSPhotoLibraryAddUsageDescription: "Para guardar el QR y la imagen de tu página para historias."
-        NSLocationWhenInUseUsageDescription: "Para mostrarte los lugares que reservan con Tengo Libre cerca tuyo."
+        # Permisos: sólo el que la app usa. «Guardar el QR» (Avisos) escribe en Fotos. Las fotos del negocio
+        # se eligen con PhotosPicker, que no pide permiso; no hay cámara, ubicación, micrófono ni Face ID.
+        NSPhotoLibraryAddUsageDescription: "Para guardar en tus fotos el QR de tu página de reservas."
         LSApplicationQueriesSchemes: [whatsapp, instagram-stories]
         NSAppTransportSecurity:
           # Sólo para probar contra la API local (http://127.0.0.1:4200).

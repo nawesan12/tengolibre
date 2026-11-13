@@ -383,7 +383,15 @@ fun FichaCliente(id: String) {
             }
         }
     } }
-    Hoja(editar, { editar = false }, listOf(Altura.media)) { ficha?.let { EditarClienta(it, listo = { alcance.launch { cargar() } }, cerrar = { editar = false }) } }
+    Hoja(editar, { editar = false }, listOf(Altura.grande)) {
+        ficha?.let {
+            EditarClienta(it, puedeBorrar = !estado.esProfesional, listo = { alcance.launch { cargar() } }, cerrar = { editar = false }) { anonima ->
+                estado.avisar("Borramos sus datos", texto = if (anonima) "Sus turnos pasados quedan como «Cliente borrado»." else "")
+                estado.version++
+                nav.pila.let { p -> if (p.isNotEmpty()) p.removeAt(p.lastIndex) }
+            }
+        }
+    }
     Hoja(penalizar, { penalizar = false }, listOf(Altura.media)) {
         BarraHoja("Penalizar", { penalizar = false }, accion = "Penalizar") { penalizarYa() }
         Column(Modifier.background(C.fondo).fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -482,19 +490,46 @@ private fun FilaTurno(t: TurnoDeCliente, vePrecios: Boolean, alTocar: () -> Unit
     }
 }
 
+/**
+ * Corregir los datos de la clienta y, si lo pide, borrarlos (sus derechos, Ley 25.326). Con turnos
+ * pasados la API la deja anónima; con turnos por venir no deja: primero se cancelan.
+ * borrada: después de borrar, true si quedó anónima (tenía turnos pasados).
+ */
 @Composable
-fun ColumnScope.EditarClienta(ficha: Ficha, listo: () -> Unit, cerrar: () -> Unit) {
+fun ColumnScope.EditarClienta(ficha: Ficha, puedeBorrar: Boolean, listo: () -> Unit, cerrar: () -> Unit, borrada: (Boolean) -> Unit) {
     val estado = LocalEstado.current
     val alcance = rememberCoroutineScope()
     var nombre by remember { mutableStateOf(ficha.nombre) }
+    var telefono by remember { mutableStateOf(ficha.telefono) }
     var email by remember { mutableStateOf(ficha.email) }
-    @Serializable data class Cambio(val nombre: String, val email: String)
+    var confirmarBorrar by remember { mutableStateOf(false) }
+    @Serializable data class Cambio(val nombre: String, val telefono: String, val email: String)
+    @Serializable data class Resultado(val resultado: String)
     BarraHoja("Editar", cerrar, accion = "Guardar") {
-        alcance.launch { try { estado.api.hacer("PATCH", "/v1/panel/clientes/${ficha.id}", Cambio(nombre, email)); listo(); cerrar() } catch (e: Exception) { estado.avisar(e) } }
+        alcance.launch { try { estado.api.hacer("PATCH", "/v1/panel/clientes/${ficha.id}", Cambio(nombre, telefono, email)); listo(); cerrar() } catch (e: Exception) { estado.avisar(e) } }
     }
-    Column(Modifier.weight(1f).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Campo("Nombre", nombre, { nombre = it })
+        Campo("Teléfono", telefono, { telefono = it }, ayuda = "Con el que reserva: si lo cambiás, reserva con el nuevo.", teclado = KeyboardType.Phone)
         Campo("Email", email, { email = it }, teclado = KeyboardType.Email)
-        Texto("El teléfono identifica a la clienta y no se cambia.", Tipo.lato(13f), C.sub)
+        if (puedeBorrar) {
+            Column(Modifier.fillMaxWidth().padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextoRotulo("BORRAR SUS DATOS")
+                Texto("Si te lo pide, borramos su nombre, teléfono, email, notas y etiquetas. Sus turnos pasados quedan, sin datos.", Tipo.lato(13f), C.sub)
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(CircleShape).contorno(999.dp).clickable { confirmarBorrar = true },
+                    horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                ) { Icono("trash", 15f, C.error); Spacer(Modifier.width(8.dp)); Texto("Borrar sus datos", Tipo.lato(15f, Peso.Bold), C.error) }
+            }
+        }
     }
+    Confirmacion(confirmarBorrar, "¿Borrar los datos de ${ficha.nombre}?", "No se puede deshacer.", listOf(OpcionConfirmacion("Borrar", destructiva = true) {
+        alcance.launch {
+            try {
+                val r: Resultado = estado.api.borrar("/v1/panel/clientes/${ficha.id}")
+                cerrar()
+                borrada(r.resultado == "anonimizado")
+            } catch (e: Exception) { estado.avisar(e) }
+        }
+    }), { confirmarBorrar = false })
 }

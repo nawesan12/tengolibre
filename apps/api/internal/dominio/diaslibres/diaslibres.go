@@ -42,7 +42,9 @@ func (s *Servicio) ahora() time.Time {
 // Hasta cuántos días se piden de una vez (como el CHECK de la tabla: hasta - desde <= 60).
 const maxDias = 61
 
-var motivos = map[string]string{"vacaciones": "vacaciones", "tramite": "trámite", "salud": "salud", "otro": "otro"}
+// Los motivos son neutros: el de salud se sacó (era un dato de salud del equipo, ver 00028). Una app
+// vieja que todavía manda «salud» queda como «personal».
+var motivos = map[string]string{"vacaciones": "vacaciones", "tramite": "trámite", "personal": "personal", "otro": "otro"}
 
 // Estados de un turno que todavía hay que atender (y por eso mover).
 const activos = "('pendiente_pago', 'pendiente', 'confirmado')"
@@ -237,8 +239,11 @@ func (s *Servicio) pedir(w http.ResponseWriter, r *http.Request) error {
 	if err := web.Leer(w, r, &in); err != nil {
 		return err
 	}
+	if in.Motivo == "salud" {
+		in.Motivo = "personal"
+	}
 	if _, ok := motivos[in.Motivo]; !ok {
-		return problema.Invalido("El motivo va como vacaciones, tramite, salud u otro.", problema.Campo{Ruta: "motivo", Mensaje: "inválido"})
+		return problema.Invalido("El motivo va como vacaciones, tramite, personal u otro.", problema.Campo{Ruta: "motivo", Mensaje: "inválido"})
 	}
 	in.Nota = strings.TrimSpace(in.Nota)
 	if utf8.RuneCountInString(in.Nota) > 300 {

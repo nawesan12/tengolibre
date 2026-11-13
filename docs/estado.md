@@ -1,5 +1,31 @@
 # Estado
 
+## 12/11/2026: datos personales (AAIP) — sin desplegar
+
+Lo de `~/Trabajo/vimo/legales/aaip/pendientes.md` (1.4 y 3.4). Migraciones nuevas, sin aplicar en producción:
+| Migración | Qué |
+|---|---|
+| 00026 | Corregir el teléfono (`GRANT UPDATE (telefono)`) y suprimir un cliente: `clientes.suprimido_en` y `app.suprimir_cliente(id, ahora)` |
+| 00027 | Purga de negocios cerrados: `negocios.cerrado_en` (trigger), `auth.cobros_archivados`, `app.negocios_para_purgar` y `app.purgar_negocios` |
+| 00028 | Días libres: el motivo «salud» pasa a «personal» (pedidos, bloqueos, campanita y auditoría) |
+
+- Clientes: `PATCH /v1/panel/clientes/{id}` acepta `telefono` (único en el negocio: 409 `cliente_existente`).
+  `DELETE /v1/panel/clientes/{id}` (recepción para arriba) responde `{"resultado": "borrado" | "anonimizado"}`: sin turnos
+  se borra; con turnos pasados queda «Cliente borrado» sin teléfono, email ni nacimiento, los turnos sin nota y con otro
+  código (Mi turno deja de andar), y se van notas, etiquetas, penalidades, membresías, referidos, reseñas, lista de espera
+  y los mails/WhatsApp pendientes. Con turnos por venir, 409 `cliente_con_turnos`. Los suprimidos no se listan ni se buscan.
+  En la web, el lápiz de la ficha corrige nombre, teléfono y email y abajo está «Borrar sus datos»; en las apps, en Editar.
+- Negocios cerrados: a los 90 días del cierre el worker borra el negocio y todo lo suyo (en cascada) y sus imágenes, y
+  copia los cobros (señas aprobadas, caja y suscripciones cobradas) a `auth.cobros_archivados` sin datos de nadie. Un
+  negocio con una suscripción autorizada o pausada queda retenido. **Apagada**: se prende con `TENGOLIBRE_PURGA_NEGOCIOS=1`
+  en `/opt/tengolibre/api.conf` (y `docker compose up -d worker`, que además monta `./archivos`). Antes, mirar qué borraría:
+  `tengolibrectl purga-negocios --listar` (como el migrador). Los cerrados antes de 00027 cuentan desde la migración.
+- Reserva: aviso del art. 6 antes de pedir los datos (`src/lib/publico/AvisoDatos.svelte`, también en la lista de espera).
+- Política y términos: responsable, casilla privacidad@, dónde están los datos y transferencias, datos y proveedores que
+  faltaban, plazos de borrado, negocio responsable y Tengo Libre encargado.
+- iOS: `project.yml` sólo pide guardar en Fotos (el QR); el `Info.plist` de Tu Local Web se reemplazó por el de Tengo Libre.
+  Android: el manifest saca `AD_ID` si una librería lo suma.
+
 ## 31/10/2026 (noche): diseño v2 en toda la web y todas las funciones del diseño
 
 En producción desde el 1/11 a la 1:20 (versión 81af42c, migraciones hasta 00020, con copia previa

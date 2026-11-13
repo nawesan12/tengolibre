@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import { apiDe, ErrorApi } from '#lib/server/api.ts';
 import { intentar, numero } from '#lib/server/acciones.ts';
 import { cambiarEstado, enc } from '#lib/operacion/servidor.ts';
@@ -29,8 +29,18 @@ export const actions: Actions = {
 	editar: async (event) => {
 		const f = await event.request.formData();
 		return intentar(() =>
-			apiDe(event).patch(base(event), { nombre: String(f.get('nombre') ?? ''), email: String(f.get('email') ?? '') })
+			apiDe(event).patch(base(event), {
+				nombre: String(f.get('nombre') ?? ''),
+				telefono: String(f.get('telefono') ?? ''),
+				email: String(f.get('email') ?? '')
+			})
 		);
+	},
+	/** Pedido de supresión: sin turnos se borra; con turnos pasados queda anónimo (la API decide). */
+	suprimir: async (event) => {
+		const r = await intentar(() => apiDe(event).borrar<{ resultado: 'borrado' | 'anonimizado' }>(base(event)));
+		if ('ok' in r && r.ok) redirect(303, `/panel/clientes?suprimido=${r.datos.resultado}`);
+		return r;
 	},
 	etiqueta: async (event) => {
 		const f = await event.request.formData();

@@ -350,7 +350,7 @@ func crearTurno(ctx context.Context, s *Servicio, c *conexion, raw json.RawMessa
 	switch {
 	case in.ClienteID != "":
 		if err := s.Pool.EnNegocio(ctx, c.negocio, func(tx pgx.Tx) error {
-			return tx.QueryRow(ctx, "SELECT id::text FROM clientes WHERE id::text = $1", strings.TrimSpace(in.ClienteID)).Scan(&p.ClienteID)
+			return tx.QueryRow(ctx, "SELECT id::text FROM clientes WHERE id::text = $1 AND suprimido_en IS NULL", strings.TrimSpace(in.ClienteID)).Scan(&p.ClienteID)
 		}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, "", problema.NoEncontrado("No encontramos ese cliente. Buscalo con buscar_clientes.")
@@ -506,7 +506,7 @@ func buscarClientes(ctx context.Context, s *Servicio, c *conexion, raw json.RawM
 	out := []ClienteMCP{}
 	err := s.Pool.EnNegocio(ctx, c.negocio, func(tx pgx.Tx) error {
 		filas, err := tx.Query(ctx, `SELECT c.id::text FROM clientes c
-			WHERE c.nombre ILIKE $1 OR c.email ILIKE $1 OR ($2 <> '' AND c.telefono LIKE $2)
+			WHERE c.suprimido_en IS NULL AND (c.nombre ILIKE $1 OR c.email ILIKE $1 OR ($2 <> '' AND c.telefono LIKE $2))
 			ORDER BY lower(c.nombre), c.id LIMIT $3`, patron(in.Texto), tel, in.Limite)
 		if err != nil {
 			return err
