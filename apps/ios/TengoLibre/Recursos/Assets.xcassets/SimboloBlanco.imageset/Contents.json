@@ -1,15 +1,12 @@
 {
   "images": [
     {
-      "filename": "simbolo_una_tinta_blanco.svg",
+      "filename": "simbolo_una_tinta_blanco.png",
       "idiom": "universal"
     }
   ],
   "info": {
     "author": "xcode",
     "version": 1
-  },
-  "properties": {
-    "preserves-vector-representation": true
   }
 }

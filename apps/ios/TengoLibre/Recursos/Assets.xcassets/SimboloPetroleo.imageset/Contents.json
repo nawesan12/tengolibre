@@ -1,15 +1,12 @@
 {
   "images": [
     {
-      "filename": "simbolo_una_tinta_petroleo.svg",
+      "filename": "simbolo_una_tinta_petroleo.png",
       "idiom": "universal"
     }
   ],
   "info": {
     "author": "xcode",
     "version": 1
-  },
-  "properties": {
-    "preserves-vector-representation": true
   }
 }
