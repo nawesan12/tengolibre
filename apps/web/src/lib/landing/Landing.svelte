@@ -113,8 +113,37 @@
 		['¿Mis clientes tienen que bajarse una\u00a0app?', 'No. Reservan desde tu página en el navegador, sin crear cuenta. Les llega el comprobante por mail o WhatsApp.'],
 		['¿Cómo cobro la\u00a0seña?', 'Conectás tu cuenta de Mercado Pago en un paso. La plata va directo a tu cuenta; nosotros no la tocamos.'],
 		['¿Qué pasa cuando termina la\u00a0prueba?', 'Elegís un plan o la agenda queda en sólo lectura. No se borra nada y no te cobramos sin avisar.'],
+		['¿Qué pasa si alguien\u00a0cancela?', 'Le ofrecemos el lugar a quien está en la lista de espera. Si lo toma, el hueco se llena solo y vos no le escribís a nadie.'],
+		['¿Para qué rubros\u00a0sirve?', 'Para peluquerías, barberías, estética, uñas y consultorios, y para cualquier negocio que trabaje con turnos.'],
 		['¿Puedo usar mi propio\u00a0dominio?', 'Sí, en el plan Completo podés usar turnos.tunegocio.com.ar o el dominio que ya tengas.']
 	];
+
+	// Datos estructurados para los buscadores: qué es Tengo Libre y sus preguntas frecuentes.
+	const ld = $derived(
+		JSON.stringify([
+			{
+				'@context': 'https://schema.org',
+				'@type': 'SoftwareApplication',
+				name: 'Tengo Libre',
+				url: sitio + '/',
+				description:
+					'Turnos online para peluquerías, barberías, estética, uñas y consultorios. Tus clientes reservan y pagan la seña solos.',
+				applicationCategory: 'BusinessApplication',
+				operatingSystem: 'Web',
+				inLanguage: 'es-AR',
+				publisher: { '@type': 'Organization', name: 'Grupo Vimo', url: 'https://grupovimo.com.ar' }
+			},
+			{
+				'@context': 'https://schema.org',
+				'@type': 'FAQPage',
+				mainEntity: faq.map(([q, a]) => ({
+					'@type': 'Question',
+					name: q.replace(/\u00a0/g, ' '),
+					acceptedAnswer: { '@type': 'Answer', text: a }
+				}))
+			}
+		]).replace(/</g, '\\u003c')
+	);
 
 	const pie = [
 		{ t: 'PRODUCTO', l: [['Cómo funciona', '#como'], ['Precios', '#precios'], ['La app', '#app'], ['Plantillas', '#todo'], ['Integraciones', '#todo']] },
@@ -149,8 +178,12 @@
 	<meta property="og:image" content="{sitio}/og/inicio.png" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:url" content={sitio} />
+	<link rel="canonical" href="{sitio}/" />
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content="{sitio}/" />
 	<meta name="twitter:card" content="summary_large_image" />
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- JSON propio, con < escapado -->
+	{@html `<script type="application/ld+json">${ld}</` + `script>`}
 </svelte:head>
 
 <!-- Las apps todavía no están: badges oficiales, sin link, con «Próximamente» como texto aparte. -->
@@ -186,16 +219,16 @@
 					<span class="pestana-cta">Empezar ahora<Icono nombre="arrow_forward" tam={26} /></span>
 				</a>
 				<div class="hero">
-					<h1>Llená cada <span class="subrayado"><span class="raya" aria-hidden="true"></span><span class="palabra">hueco.</span></span></h1>
-					<p class="bajada">Tus clientes reservan y pagan la seña solos. Vos&nbsp;atendés.</p>
+					<h1>Llená cada <span class="subrayado"><span class="raya" aria-hidden="true"></span><span class="palabra">hueco</span></span><span class="h1-resto">de&nbsp;tu&nbsp;agenda.</span></h1>
+					<p class="bajada">Turnos online para peluquerías, barberías, estética, uñas y consultorios. Tus clientes reservan y pagan la seña solos. Vos&nbsp;atendés.</p>
 					{@render tiendas('centradas')}
 					<div class="marquesina" aria-hidden="true">
 						<div class="tira">
 							{#each [...tira, ...tira] as t, i (i)}
 								<span class="tal {t.k ?? 'claro'}">
-									<b class="tal-h">{t.h}</b>
+									<span class="b tal-h">{t.h}</span>
 									<span class="tal-c">
-										<b>{t.n}</b>
+										<span class="b">{t.n}</span>
 										<span class="tal-s"><Icono nombre={t.ic} lleno tam={15} />{t.s}</span>
 									</span>
 								</span>
@@ -231,7 +264,7 @@
 				</div>
 				<div class="link-qr">
 					<span class="qr-chico"><Qr texto={sitio} color="#183c44" fondo="#fffdf9" etiqueta="Código QR de Tengo Libre" /></span>
-					<span class="link-qr-txt"><span class="rotulo verde chico">TU PÁGINA</span><b>{host}/lumi</b></span>
+					<span class="link-qr-txt"><span class="rotulo verde chico">TU PÁGINA</span><span class="b">{host}/lumi</span></span>
 				</div>
 			</article>
 			<article class="paso petroleo" use:aparecer={80}>
@@ -241,8 +274,8 @@
 					<p>Sin crear cuenta, en menos de un&nbsp;minuto.</p>
 				</div>
 				<div class="talon-sena">
-					<span class="ts-h"><span class="rotulo verde chico">SÁB 7</span><b>11:00</b></span>
-					<span class="ts-c"><b>Lifting con Abril</b><span class="ok"><Icono nombre="check_circle" lleno tam={16} />Seña de $ 6.600 pagada</span></span>
+					<span class="ts-h"><span class="rotulo verde chico">SÁB 7</span><span class="b">11:00</span></span>
+					<span class="ts-c"><span class="b">Lifting con Abril</span><span class="ok"><Icono nombre="check_circle" lleno tam={16} />Seña de $ 6.600 pagada</span></span>
 				</div>
 			</article>
 			<article class="paso menta" use:aparecer={160}>
@@ -252,8 +285,8 @@
 					<p>Le ofrecemos el lugar a quien espera. Vos no escribís a&nbsp;nadie.</p>
 				</div>
 				<div class="se-lleno">
-					<span class="liberado"><b>15:30</b><span>Se liberó con Mica</span></span>
-					<span class="tomado"><img src="/logos/whatsapp.svg" alt="" width="22" height="22" /><span><b>Ana lo tomó</b> en 6 minutos</span></span>
+					<span class="liberado"><span class="b">15:30</span><span>Se liberó con Mica</span></span>
+					<span class="tomado"><img src="/logos/whatsapp.svg" alt="WhatsApp" width="22" height="22" /><span><span class="b">Ana lo tomó</span> en 6 minutos</span></span>
 				</div>
 			</article>
 		</div>
@@ -265,6 +298,7 @@
 			<div class="app-txt">
 				<span class="rotulo menta-txt"><Icono nombre="smartphone" lleno tam={18} />LA APP</span>
 				<h2 class="h2 app-h2">Tu agenda, en el&nbsp;bolsillo.</h2>
+				<p class="app-p">Mirás el día, movés turnos y cerrás la caja desde el teléfono. Cada reserva nueva te&nbsp;avisa.</p>
 				<div class="app-puntos">
 					{#each appPuntos as [ic, t] (t)}
 						<span><span class="ic-caja"><Icono nombre={ic} lleno tam={20} /></span>{t}</span>
@@ -279,19 +313,19 @@
 				</div>
 			</div>
 			<div class="telefono-col" aria-hidden="true">
-				<img class="icono-app" src="/marca-icono.png" alt="" />
+				<img class="icono-app" src="/marca-icono.png" alt="Ícono de la app Tengo Libre" />
 				<div class="telefono">
 					<div class="pantalla">
 						<span class="isla"></span>
 						<span class="fecha">lunes 2 de noviembre</span>
-						<b class="hora">10:12</b>
+						<span class="b hora">10:12</span>
 						<div class="pushes">
 							{#each pushes as p (p.h)}
 								<div class="push" style:background="rgba(255,253,249,{p.a})" style:transform="scale({p.k})">
 									<img src="/marca-icono.png" alt="" width="34" height="34" />
 									<span class="push-c">
 										<span class="push-t"><span>TENGO LIBRE</span><span>{p.t}</span></span>
-										<b>{p.h}</b>
+										<span class="b">{p.h}</span>
 										<span class="push-s">{p.s}</span>
 									</span>
 								</div>
@@ -307,21 +341,21 @@
 		<div class="calc" use:aparecer>
 			<div class="calc-foto">
 				<img src="/fotos/peluquera-con-clienta.jpg" alt="Una peluquera atiende a una clienta" loading="lazy" />
-				<span class="silla"><b>15:30</b><span>Silla vacía</span></span>
+				<span class="silla"><span class="b">15:30</span><span>Silla vacía</span></span>
 			</div>
 			<div class="calc-txt">
 				<span class="rotulo verde">HACÉ LA CUENTA</span>
 				<h2 class="h2-calc">¿Cuánto te cuestan los&nbsp;huecos?</h2>
 				<label class="rango">
-					<span><span>Turnos perdidos por semana</span><b>{perdidos}</b></span>
+					<span><span>Turnos perdidos por semana</span><span class="b">{perdidos}</span></span>
 					<input type="range" min="1" max="15" bind:value={perdidos} aria-label="Turnos perdidos por semana" />
 				</label>
 				<label class="rango">
-					<span><span>Precio promedio</span><b>{pesos(precio)}</b></span>
+					<span><span>Precio promedio</span><span class="b">{pesos(precio)}</span></span>
 					<input type="range" min="4000" max="40000" step="1000" bind:value={precio} aria-label="Precio promedio del turno" />
 				</label>
 				<div class="total">
-					<span class="total-c"><span>Por mes se te escapan</span><b aria-live="polite">{total}</b></span>
+					<span class="total-c"><span>Por mes se te escapan</span><span class="b" aria-live="polite">{total}</span></span>
 					<a class="pastilla menta media" href="/empezar">Recuperalos<Icono nombre="arrow_forward" tam={20} /></a>
 				</div>
 			</div>
@@ -344,7 +378,7 @@
 						<div class="mini">
 							<span class="mini-hoja" style:background={p.bg}>
 								<span class="mini-foto" style:height={p.fh} style:background-image="url(/fotos/{p.foto})"></span>
-								<span class="mini-pie"><b style:color={p.tc}>{p.nom}</b><span style:background={p.ac}></span></span>
+								<span class="mini-pie"><span class="b" style:color={p.tc}>{p.nom}</span><span style:background={p.ac}></span></span>
 							</span>
 							<span class="mini-n">{p.n}</span>
 						</div>
@@ -354,7 +388,7 @@
 			<article class="b-card petroleo-brillo" use:aparecer={80}>
 				<Icono nombre="auto_awesome" lleno tam={34} />
 				<h3>Preguntale a tu&nbsp;asistente</h3>
-				<span class="b-txt">Conectás Claude, ChatGPT o Gemini a tu&nbsp;agenda.</span>
+				<p class="b-txt">Conectás Claude, ChatGPT o Gemini a tu&nbsp;agenda.</p>
 				<div class="chat">
 					<span class="yo">¿Qué tengo libre mañana?</span>
 					<span class="ia">Mica, de 15:30 a 17:00. Hay 2 personas&nbsp;esperando.</span>
@@ -363,19 +397,19 @@
 			<article class="b-card papel" use:aparecer>
 				<Icono nombre="notifications_active" lleno tam={34} />
 				<h3>Recordatorios&nbsp;solos</h3>
-				<span class="b-txt">Le llega el aviso con un botón para confirmar o&nbsp;mover.</span>
-				<div class="wa"><img src="/logos/whatsapp.svg" alt="" width="26" height="26" /><span><b>Mañana 11:00 con Abril.</b> ¿Venís?</span></div>
+				<p class="b-txt">Le llega el aviso con un botón para confirmar o&nbsp;mover.</p>
+				<div class="wa"><img src="/logos/whatsapp.svg" alt="WhatsApp" width="26" height="26" /><span><span class="b">Mañana 11:00 con Abril.</span> ¿Venís?</span></div>
 			</article>
 			<article class="b-card papel" use:aparecer={80}>
 				<Icono nombre="workspace_premium" lleno tam={34} />
 				<h3>Socias y&nbsp;cupones</h3>
-				<span class="b-txt">Packs de visitas, descuentos y referidas que traen&nbsp;clientas.</span>
-				<div class="pack"><b>3 de 8</b><span>visitas del pack de&nbsp;Sofi</span></div>
+				<p class="b-txt">Packs de visitas, descuentos y referidas que traen&nbsp;clientas.</p>
+				<div class="pack"><span class="b">3 de 8</span><span>visitas del pack de&nbsp;Sofi</span></div>
 			</article>
 			<article class="b-card menta-grano" use:aparecer={160}>
 				<Icono nombre="insert_chart" lleno tam={34} />
 				<h3>Un reporte cada&nbsp;mes</h3>
-				<span class="b-txt">Qué facturaste, dónde quedan huecos y cómo&nbsp;llenarlos.</span>
+				<p class="b-txt">Qué facturaste, dónde quedan huecos y cómo&nbsp;llenarlos.</p>
 				<a class="pastilla hondo chica ejemplo" href="/panel/reportes">Ver un ejemplo<Icono nombre="arrow_forward" tam={20} /></a>
 			</article>
 		</div>
@@ -388,9 +422,9 @@
 		<h2 class="h2-chico" use:aparecer>Hecho para tu&nbsp;rubro</h2>
 		<div class="rubros">
 			{#each rubros as r, i (r.n)}
-				<a class="rubro" href="/empezar?rubro={r.r}" style:--foto="url(/fotos/{r.foto})" use:aparecer={i * 60}>
+				<a class="rubro" href="/empezar?rubro={r.r}" rel="nofollow" style:--foto="url(/fotos/{r.foto})" use:aparecer={i * 60}>
 					<span class="rubro-c">
-						<b>{r.n}</b>
+						<span class="b">{r.n}</span>
 						<span>{r.s}</span>
 						<span class="rubro-cta">Empezar<Icono nombre="arrow_forward" tam={18} /></span>
 					</span>
@@ -403,14 +437,14 @@
 		<div class="titulo-centro" use:aparecer>
 			<span class="rotulo verde">PRECIOS</span>
 			<h2 class="h2">7 días con todo. Después&nbsp;elegís.</h2>
-			<span class="sub">Sin permanencia. Cancelás cuando&nbsp;quieras.</span>
+			<p class="sub">Sin permanencia. Cancelás cuando&nbsp;quieras.</p>
 		</div>
 		<div class="planes">
 			{#each precios as p, i (p.n)}
 				<div class="plan {p.clase}" use:aparecer={i * 80}>
 					<div class="plan-arriba">
-						<span class="plan-n"><b>{p.n}</b>{#if p.tag}<span class="tag">{p.tag}</span>{/if}</span>
-						<span class="plan-precio"><b>{p.precio}</b><span>por mes</span></span>
+						<span class="plan-n"><span class="b">{p.n}</span>{#if p.tag}<span class="tag">{p.tag}</span>{/if}</span>
+						<span class="plan-precio"><span class="b">{p.precio}</span><span>por mes</span></span>
 						<span class="plan-para">{p.para}</span>
 					</div>
 					<div class="plan-troquel" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -468,12 +502,12 @@
 			<div class="pie-cols">
 				{#each pie as c (c.t)}
 					<span class="pie-col">
-						<b>{c.t}</b>
-						{#each c.l as [n, href] (n)}<a {href}>{n}</a>{/each}
+						<span class="b">{c.t}</span>
+						{#each c.l as [n, href] (n)}<a {href} rel={href.includes('?') ? 'nofollow' : undefined}>{n}</a>{/each}
 					</span>
 				{/each}
 				<span class="pie-col">
-					<b>CONTACTO</b>
+					<span class="b">CONTACTO</span>
 					<span class="redes"><a href="mailto:hola@tengolibre.com.ar">Escribinos</a><a href="https://grupovimo.com.ar">Grupo Vimo</a></span>
 					<span>hola@tengolibre.com.ar</span>
 				</span>
@@ -494,6 +528,10 @@
 </div>
 
 <style>
+	/* Las negritas de estilo van en span: la etiqueta b es para remarcar texto (y la cuentan los buscadores). */
+	.b {
+		font-weight: 700;
+	}
 	.landing {
 		overflow-x: clip;
 		background: var(--tl-papel);
@@ -749,6 +787,15 @@
 	.palabra {
 		position: relative;
 	}
+	/* El resto del título, chico: el handoff es «Llená cada hueco.» y los buscadores piden más. */
+	.h1-resto {
+		display: block;
+		margin-top: 0.3em;
+		font-size: 0.3em;
+		line-height: 1.1;
+		letter-spacing: -0.03em;
+		color: var(--tl-sub-2);
+	}
 	.bajada {
 		margin: clamp(20px, 2.4vw, 32px) auto 0 !important;
 		max-width: 26em;
@@ -830,7 +877,7 @@
 		gap: 2px;
 		padding: 0 22px 0 16px;
 	}
-	.tal-c b {
+	.tal-c .b {
 		font-size: 15px;
 		white-space: nowrap;
 	}
@@ -1021,7 +1068,7 @@
 		gap: 2px;
 		min-width: 0;
 	}
-	.link-qr-txt b {
+	.link-qr-txt .b {
 		font-size: 17px;
 		font-variant-numeric: tabular-nums;
 		overflow-wrap: anywhere;
@@ -1046,7 +1093,7 @@
 		padding: 0 16px;
 		border-right: 2px dashed var(--tl-linea-2);
 	}
-	.ts-h b {
+	.ts-h .b {
 		font-size: 26px;
 		font-weight: 900;
 		font-variant-numeric: tabular-nums;
@@ -1058,7 +1105,7 @@
 		padding: 0 16px;
 		min-width: 0;
 	}
-	.ts-c b {
+	.ts-c .b {
 		font-size: 15px;
 	}
 	.ok {
@@ -1090,11 +1137,11 @@
 		animation: tl-raya 3.5s linear infinite;
 		box-shadow: inset 0 0 0 1.5px rgba(16, 43, 49, 0.35);
 	}
-	.liberado b {
+	.liberado .b {
 		font-size: 16px;
 		font-variant-numeric: tabular-nums;
 	}
-	.liberado span {
+	.liberado span:not(.b) {
 		font-size: 14px;
 		font-weight: 700;
 	}
@@ -1284,7 +1331,7 @@
 		font-weight: 700;
 		color: var(--tl-sub);
 	}
-	.push-c b {
+	.push-c .b {
 		font-size: 14px;
 	}
 	.push-s {
@@ -1330,7 +1377,7 @@
 		color: #0f3d2b;
 		box-shadow: 0 20px 40px -16px rgba(0, 0, 0, 0.6);
 	}
-	.silla b {
+	.silla .b {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -1338,7 +1385,7 @@
 		font-size: 22px;
 		font-variant-numeric: tabular-nums;
 	}
-	.silla span {
+	.silla span:not(.b) {
 		display: flex;
 		align-items: center;
 		padding: 0 18px;
@@ -1368,7 +1415,7 @@
 		font-size: 16px;
 		font-weight: 700;
 	}
-	.rango b {
+	.rango .b {
 		color: var(--tl-menta-texto);
 		font-variant-numeric: tabular-nums;
 	}
@@ -1397,7 +1444,7 @@
 		font-size: 14px;
 		color: rgba(255, 255, 255, 0.8);
 	}
-	.total-c b {
+	.total-c .b {
 		font-size: clamp(34px, 4vw, 52px);
 		line-height: 1;
 		font-weight: 900;
@@ -1425,6 +1472,7 @@
 	}
 	.b-txt,
 	.b-tit > span {
+		margin: 0;
 		font-size: 16px;
 		line-height: 1.5;
 		text-wrap: pretty;
@@ -1484,12 +1532,12 @@
 		flex-direction: column;
 		gap: 6px;
 	}
-	.mini-pie b {
+	.mini-pie .b {
 		font-size: 15px;
 		line-height: 1;
 		letter-spacing: -0.02em;
 	}
-	.mini-pie span {
+	.mini-pie span:not(.b) {
 		height: 22px;
 		border-radius: 999px;
 	}
@@ -1562,7 +1610,7 @@
 			#183c44;
 		color: #fff;
 	}
-	.pack b {
+	.pack .b {
 		display: flex;
 		align-items: center;
 		padding: 0 16px 0 22px;
@@ -1572,7 +1620,7 @@
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 	}
-	.pack span {
+	.pack span:not(.b) {
 		display: flex;
 		align-items: center;
 		padding: 0 22px 0 16px;
@@ -1628,11 +1676,11 @@
 		gap: 4px;
 		width: 100%;
 	}
-	.rubro-c b {
+	.rubro-c .b {
 		font-size: 26px;
 		letter-spacing: -0.02em;
 	}
-	.rubro-c > span:not(.rubro-cta) {
+	.rubro-c > span:not(.rubro-cta, .b) {
 		font-size: 14px;
 		color: rgba(255, 255, 255, 0.85);
 	}
@@ -1655,8 +1703,17 @@
 		text-align: center;
 	}
 	.sub {
+		margin: 0;
 		font-size: 17px;
 		color: var(--tl-sub-2);
+	}
+	.app-p {
+		margin: 0;
+		max-width: 30em;
+		font-size: 18px;
+		line-height: 1.5;
+		color: rgba(255, 255, 255, 0.82);
+		text-wrap: pretty;
 	}
 	.planes {
 		display: grid;
@@ -1700,7 +1757,7 @@
 		align-items: center;
 		gap: 8px;
 	}
-	.plan-n b {
+	.plan-n .b {
 		font-size: 24px;
 		letter-spacing: -0.02em;
 	}
@@ -1722,13 +1779,13 @@
 		gap: 8px;
 		flex-wrap: wrap;
 	}
-	.plan-precio b {
+	.plan-precio .b {
 		font-size: 56px;
 		line-height: 1;
 		letter-spacing: -0.045em;
 		font-variant-numeric: tabular-nums;
 	}
-	.plan-precio span {
+	.plan-precio span:not(.b) {
 		font-size: 15px;
 		opacity: 0.8;
 	}
@@ -2012,7 +2069,7 @@
 		flex-direction: column;
 		gap: 12px;
 	}
-	.pie-col b {
+	.pie-col .b {
 		font-size: 12px;
 		font-weight: 900;
 		letter-spacing: 0.08em;
