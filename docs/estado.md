@@ -1,8 +1,8 @@
 # Estado
 
-## 12/11/2026: datos personales (AAIP) — sin desplegar
+## 12/11/2026: datos personales (AAIP) — desplegado (migraciones hasta la 00028)
 
-Lo de `~/Trabajo/vimo/legales/aaip/pendientes.md` (1.4 y 3.4). Migraciones nuevas, sin aplicar en producción:
+Lo de `~/Trabajo/vimo/legales/aaip/pendientes.md` (1.4 y 3.4). Migraciones nuevas, ya aplicadas en producción (visto el 15/11):
 | Migración | Qué |
 |---|---|
 | 00026 | Corregir el teléfono (`GRANT UPDATE (telefono)`) y suprimir un cliente: `clientes.suprimido_en` y `app.suprimir_cliente(id, ahora)` |
