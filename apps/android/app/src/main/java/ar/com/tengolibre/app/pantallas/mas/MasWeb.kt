@@ -61,6 +61,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ar.com.tengolibre.app.app.Estado
 import ar.com.tengolibre.app.app.LocalEstado
 import ar.com.tengolibre.app.nucleo.*
 import ar.com.tengolibre.app.pantallas.hoy.BarraHoja
