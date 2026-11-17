@@ -9,6 +9,9 @@
 
 	let { data, form } = $props();
 
+	/** Cuántas fotos puede tener un servicio (catalogo.MaxFotosServicio en la API). */
+	const MAX_FOTOS = 5;
+
 	type Grupo = { id: string | null; nombre: string; servicios: Servicio[] };
 
 	// Una carta por categoría, en su orden; lo que no tiene categoría va al final (o solo, si no hay).
@@ -283,17 +286,50 @@
 								</form>
 								<div class="detalle-lado">
 									<div class="foto">
-										{#if s.foto}<img src={s.foto} alt="Foto de {s.nombre}" />{:else}<span class="sin-foto"><span class="icono" aria-hidden="true">image</span>Sin foto</span>{/if}
+										{#if s.fotos.length}
+											<img src={s.fotos[0]} alt="Foto de {s.nombre}" />
+										{:else}
+											<span class="sin-foto"><span class="icono" aria-hidden="true">image</span>Sin fotos</span>
+										{/if}
+										{#if s.fotos.length > 1}
+											<ul class="miniaturas" aria-label="Fotos de {s.nombre}">
+												{#each s.fotos as url, j (url)}
+													<li>
+														<img src={url} alt="Foto {j + 1} de {s.nombre}" loading="lazy" />
+														<form method="POST" use:enhance={guardar}>
+															<input type="hidden" name="id" value={s.id} />
+															<input type="hidden" name="url" value={url} />
+															{#each s.fotos as u (u)}<input type="hidden" name="fotos" value={u} />{/each}
+															{#if j > 0}
+																<button class="mini" formaction="?/portada" title="Usar de portada" aria-label="Usar la foto {j + 1} de portada">
+																	<span class="icono" aria-hidden="true">star</span>
+																</button>
+															{:else}
+																<span class="mini portada" title="Portada"><span class="icono" aria-hidden="true">star</span></span>
+															{/if}
+															<button class="mini" formaction="?/sacarFoto" title="Sacar" aria-label="Sacar la foto {j + 1}">
+																<span class="icono" aria-hidden="true">close</span>
+															</button>
+														</form>
+													</li>
+												{/each}
+											</ul>
+										{/if}
 										<form method="POST" action="?/foto" enctype="multipart/form-data" use:enhance={guardar} class="g-chips">
 											<input type="hidden" name="id" value={s.id} />
-											<label class="g-chip">
-												<span class="icono" aria-hidden="true">add_photo_alternate</span>{s.foto ? 'Cambiar foto' : 'Subir foto'}
-												<input type="file" name="archivo" accept="image/jpeg,image/png,image/webp" onchange={enviar} />
-											</label>
-											{#if s.foto}
+											{#each s.fotos as u (u)}<input type="hidden" name="fotos" value={u} />{/each}
+											{#if s.fotos.length < MAX_FOTOS}
+												<label class="g-chip">
+													<span class="icono" aria-hidden="true">add_photo_alternate</span>{s.fotos.length ? 'Sumar fotos' : 'Subir fotos'}
+													<input type="file" name="archivo" accept="image/jpeg,image/png,image/webp" multiple onchange={enviar} />
+												</label>
+											{/if}
+											{#if s.fotos.length === 1}
+												<input type="hidden" name="url" value={s.fotos[0]} />
 												<button class="g-accion peligro" formaction="?/sacarFoto" formenctype="application/x-www-form-urlencoded">Sacar foto</button>
 											{/if}
 										</form>
+										<p class="g-nota">Hasta {MAX_FOTOS} fotos. La primera es la que se ve en tu página y al&nbsp;reservar.</p>
 									</div>
 									<p class="g-nota">
 										{#if lo.length}Lo hacen: <b>{lo.join(', ')}</b>.{:else}Todavía no lo hace nadie del&nbsp;equipo.{/if}
@@ -582,6 +618,51 @@
 		background: repeating-linear-gradient(135deg, #f4eee2 0 8px, #ece4d3 8px 16px);
 		font-size: 13px;
 		color: var(--tl-sub);
+	}
+	.miniaturas {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.miniaturas li {
+		position: relative;
+		width: 64px;
+		height: 64px;
+	}
+	.miniaturas img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 10px;
+	}
+	.miniaturas form {
+		position: absolute;
+		inset: 4px 4px auto;
+		display: flex;
+		justify-content: space-between;
+	}
+	.mini {
+		display: grid;
+		place-items: center;
+		width: 22px;
+		height: 22px;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: rgb(0 0 0 / 0.55);
+		color: #fff;
+		cursor: pointer;
+	}
+	.mini .icono {
+		font-size: 14px;
+	}
+	.mini.portada {
+		background: var(--tl-menta);
+		color: var(--tl-petroleo-hondo);
+		cursor: default;
 	}
 	.foto .g-chip {
 		position: relative;

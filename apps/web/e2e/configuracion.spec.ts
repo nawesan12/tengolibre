@@ -375,3 +375,38 @@ test('reporte mensual: titular, cuatro números y cambio de mes', async ({ page 
 	await expect(page.getByRole('button', { name: 'Bajar PDF' })).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test('fotos de un servicio: se suben varias, se elige la portada y se ven al reservar', async ({ page }) => {
+	const slug = await negocioNuevo(page);
+
+	await abrir(page, '/panel/servicios');
+	const alta = page.getByRole('form', { name: 'Agregar a Tus servicios' });
+	await alta.getByLabel('Nombre', { exact: true }).fill('Color');
+	await alta.getByLabel('Precio', { exact: true }).fill('20000');
+	await alta.getByRole('button', { name: 'Agregar' }).click();
+	await page.getByRole('button', { name: 'Descripción, foto y más de Color' }).click();
+
+	const png = (nombre: string) => ({ name: nombre, mimeType: 'image/png', buffer: PNG });
+	await page.locator('input[type=file][name=archivo]').setInputFiles([png('antes.png'), png('despues.png')]);
+	const fotos = page.getByRole('list', { name: 'Fotos de Color' });
+	await expect(fotos.getByRole('img')).toHaveCount(2);
+	const segunda = await fotos.getByRole('img', { name: 'Foto 2 de Color' }).getAttribute('src');
+	await fotos.getByRole('button', { name: 'Usar la foto 2 de portada' }).click();
+	await expect(page.getByRole('img', { name: 'Foto de Color', exact: true })).toHaveAttribute('src', segunda!);
+
+	// La página pública muestra la portada en la fila, y al reservar se ven las dos.
+	const pub = await (await page.request.get(`${API}/v1/p/${slug}`)).json();
+	const color = pub.servicios.find((s: { nombre: string }) => s.nombre === 'Color');
+	expect(color.fotos).toEqual([segunda, expect.any(String)]);
+	await page.goto(`/${slug}`);
+	await expect(page.locator(`a.servicio.con-foto img[src="${segunda}"]`)).toBeVisible();
+	await page.goto(`/${slug}/reservar?servicio=${color.id}`);
+	await expect(page.locator('.srv-fotos img')).toHaveCount(2);
+
+	// Sacar una deja la otra como portada.
+	await abrir(page, '/panel/servicios');
+	await page.getByRole('button', { name: 'Descripción, foto y más de Color' }).click();
+	await page.getByRole('list', { name: 'Fotos de Color' }).getByRole('button', { name: 'Sacar la foto 1' }).click();
+	await expect(page.getByRole('list', { name: 'Fotos de Color' })).toHaveCount(0);
+	await expect(page.getByRole('img', { name: 'Foto de Color', exact: true })).not.toHaveAttribute('src', segunda!);
+});

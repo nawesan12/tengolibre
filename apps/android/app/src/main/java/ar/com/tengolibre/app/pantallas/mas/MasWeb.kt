@@ -234,11 +234,15 @@ fun Reportes() {
 
 /** Una imagen remota recortada (AsyncImage con .scaledToFill), o el lugar vacío con el ícono de foto. */
 @Composable
-private fun Imagen(url: String?, alto: Dp, ancho: Dp?, radio: Dp) {
+internal fun Imagen(url: String?, alto: Dp, ancho: Dp?, radio: Dp) {
     val m = (if (ancho != null) Modifier.size(ancho, alto) else Modifier.fillMaxWidth().height(alto)).clip(RoundedCornerShape(radio)).background(C.chip)
     if (!url.isNullOrEmpty()) AsyncImage(url, null, m, contentScale = ContentScale.Crop)
     else Box(m, contentAlignment = Alignment.Center) { Icono("photo", 17f, C.sub) }
 }
+
+/** La achica (lado largo 2000 px), la sube como JPEG y devuelve la URL; si falla, avisa y da null. */
+suspend fun subirAchicada(ctx: Context, estado: Estado, uri: Uri): String? =
+    try { jpegDe(ctx, uri)?.let { estado.api.subirImagen(it) } } catch (e: Exception) { estado.avisar(e); null }
 
 /** Achica la foto (lado largo 2000 px) y la deja en JPEG. */
 private suspend fun jpegDe(ctx: Context, uri: Uri): ByteArray? = withContext(Dispatchers.IO) {
@@ -301,7 +305,7 @@ fun MiWeb() {
     suspend fun subir(uri: Uri?): String? {
         uri ?: return null
         subiendo = true
-        try { val jpg = jpegDe(contexto, uri) ?: return null; return estado.api.subirImagen(jpg) } catch (e: Exception) { estado.avisar(e); return null } finally { subiendo = false }
+        try { return subirAchicada(contexto, estado, uri) } finally { subiendo = false }
     }
     suspend fun patchNegocio(c: Map<String, String>) { estado.intentar { estado.api.hacer("PATCH", "/v1/panel/negocio", c) }; cargar() }
     suspend fun patchWeb(c: Map<String, JsonElement>) { estado.intentar { estado.api.hacer("PATCH", "/v1/panel/mi-web", c) }; cargar() }
@@ -407,7 +411,7 @@ fun MiWeb() {
 }
 
 @OptIn(ExperimentalFoundationApi::class)
-private fun Modifier.combinedClickableCompat(onLongClick: () -> Unit): Modifier = this.combinedClickable(onClick = {}, onLongClick = onLongClick)
+internal fun Modifier.combinedClickableCompat(onLongClick: () -> Unit): Modifier = this.combinedClickable(onClick = {}, onLongClick = onLongClick)
 
 // MARK: - Plantillas
 

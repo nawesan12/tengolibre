@@ -11,7 +11,9 @@ export type Servicio = {
 	descripcion: string;
 	duracion: number;
 	precio: number;
+	/** La portada: siempre la primera de `fotos`. */
 	foto: string | null;
+	fotos: string[];
 	orden: number;
 	activo: boolean;
 };
@@ -87,17 +89,29 @@ export const actions: Actions = {
 		const f = await event.request.formData();
 		return intentar(() => apiDe(event).patch(`/v1/panel/servicios/${idDe(f)}`, cambiosDe(f)));
 	},
+	// Fotos del servicio: el formulario manda las que ya tiene (`fotos`, en orden) y la API guarda la lista entera.
 	foto: async (event) => {
 		const f = await event.request.formData();
 		const api = apiDe(event);
 		return intentar(async () => {
-			const url = await subirImagen(event, f.get('archivo'));
-			return api.patch(`/v1/panel/servicios/${idDe(f)}`, { foto: url });
+			const fotos = fotosDe(f);
+			const archivos = f.getAll('archivo').filter((a): a is File => a instanceof File && a.size > 0);
+			if (!archivos.length) await subirImagen(event, null); // «Elegí una imagen.»
+			for (const a of archivos.slice(0, MAX_FOTOS - fotos.length)) fotos.push(await subirImagen(event, a));
+			return api.patch(`/v1/panel/servicios/${idDe(f)}`, { fotos });
 		});
 	},
 	sacarFoto: async (event) => {
 		const f = await event.request.formData();
-		return intentar(() => apiDe(event).patch(`/v1/panel/servicios/${idDe(f)}`, { foto: null }));
+		const sacar = String(f.get('url') ?? '');
+		return intentar(() => apiDe(event).patch(`/v1/panel/servicios/${idDe(f)}`, { fotos: fotosDe(f).filter((u) => u !== sacar) }));
+	},
+	portada: async (event) => {
+		const f = await event.request.formData();
+		const elegida = String(f.get('url') ?? '');
+		const fotos = fotosDe(f);
+		const orden = fotos.includes(elegida) ? [elegida, ...fotos.filter((u) => u !== elegida)] : fotos;
+		return intentar(() => apiDe(event).patch(`/v1/panel/servicios/${idDe(f)}`, { fotos: orden }));
 	},
 	borrar: async (event) => {
 		const f = await event.request.formData();
@@ -169,3 +183,10 @@ export const actions: Actions = {
 		});
 	}
 };
+
+/** Cuántas fotos puede tener un servicio (catalogo.MaxFotosServicio). */
+const MAX_FOTOS = 5;
+
+function fotosDe(f: FormData): string[] {
+	return f.getAll('fotos').map(String).filter(Boolean);
+}

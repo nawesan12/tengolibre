@@ -173,6 +173,8 @@ struct Servicio: Codable, Identifiable, Equatable, Hashable {
     var categoriaId: String?
     var sena: Int?
     var foto: String?
+    /// Hasta 5; la primera es la portada (`foto`).
+    var fotos: [String]?
 }
 
 struct HorarioLibre: Codable, Equatable, Hashable { var hora: String; var inicio: Date; var profesionales: [String] }

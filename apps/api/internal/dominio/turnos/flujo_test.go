@@ -390,3 +390,55 @@ func TestTopeDeReservasPublicas(t *testing.T) {
 	a.Ahora = a.Ahora.Add(11 * time.Minute)
 	a.Esperar(400, P{Metodo: "POST", Ruta: "/v1/p/el-corte/turnos", Cuerpo: map[string]any{"cliente": map[string]string{}}}, nil)
 }
+
+// Fotos del servicio: hasta 5, la primera es la portada (foto), los clientes viejos que mandan sólo
+// «foto» cambian la portada sin perder las otras, y la página pública las muestra.
+func TestFotosDelServicio(t *testing.T) {
+	a, negocio, servicio, _, _ := armar(t)
+	ruta := "/v1/panel/servicios/" + servicio
+	patch := func(estado int, cuerpo any) catalogo.Prestacion {
+		var s catalogo.Prestacion
+		var v any
+		if estado == 200 {
+			v = &s
+		}
+		a.Esperar(estado, P{Metodo: "PATCH", Ruta: ruta, Quien: duenia, Negocio: negocio, Cuerpo: cuerpo}, v)
+		return s
+	}
+	f := func(i int) string { return fmt.Sprintf("https://archivos.tengolibre.com.ar/n/%032d.jpg", i) }
+	portada := func(s catalogo.Prestacion) string {
+		if s.Foto == nil {
+			return ""
+		}
+		return *s.Foto
+	}
+
+	s := patch(200, map[string]any{"fotos": []string{f(1), f(2), "", f(2), f(3)}})
+	if strings.Join(s.Fotos, ",") != strings.Join([]string{f(1), f(2), f(3)}, ",") || portada(s) != f(1) {
+		t.Fatalf("fotos: %+v", s)
+	}
+	// Un PATCH que no toca las fotos las deja.
+	if s = patch(200, map[string]any{"precio": 9000}); len(s.Fotos) != 3 || portada(s) != f(1) {
+		t.Fatalf("se perdieron las fotos: %+v", s)
+	}
+	// Cliente de antes: «foto» cambia la portada; null la saca y la siguiente pasa a ser la portada.
+	if s = patch(200, map[string]any{"foto": f(9)}); strings.Join(s.Fotos, ",") != strings.Join([]string{f(9), f(2), f(3)}, ",") {
+		t.Fatalf("foto nueva: %+v", s)
+	}
+	if s = patch(200, map[string]any{"foto": nil}); portada(s) != f(2) || len(s.Fotos) != 2 {
+		t.Fatalf("sacar portada: %+v", s)
+	}
+	patch(400, map[string]any{"fotos": []string{f(1), f(2), f(3), f(4), f(5), f(6)}})
+	patch(400, map[string]any{"fotos": []string{"javascript:alert(1)"}})
+
+	var pag struct {
+		Servicios []catalogo.Prestacion `json:"servicios"`
+	}
+	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/p/el-corte"}, &pag)
+	if len(pag.Servicios) != 1 || len(pag.Servicios[0].Fotos) != 2 || portada(pag.Servicios[0]) != f(2) {
+		t.Fatalf("página pública: %+v", pag.Servicios)
+	}
+	if s = patch(200, map[string]any{"fotos": []string{}}); s.Foto != nil || len(s.Fotos) != 0 {
+		t.Fatalf("sin fotos: %+v", s)
+	}
+}

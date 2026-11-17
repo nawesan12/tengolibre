@@ -213,7 +213,8 @@
 		{#each grupos as g (g.id)}
 			{#if g.nombre}<h3 class="categoria">{g.nombre}</h3>{/if}
 			{#each g.servicios as s (s.id)}
-				<a class="servicio" href={`${reservar}?servicio=${s.id}`} aria-current={elegido === s.id ? 'true' : undefined}>
+				<a class="servicio" class:con-foto={!!s.foto} href={`${reservar}?servicio=${s.id}`} aria-current={elegido === s.id ? 'true' : undefined}>
+					{#if s.foto}<img class="srv-foto" src={s.foto} alt="" width="64" height="64" loading="lazy" />{/if}
 					<span class="srv-fila">
 						<span class="srv-nombre">{s.nombre}</span>
 						<span class="puntos" aria-hidden="true"></span>
@@ -964,6 +965,20 @@
 	}
 	.servicio:active {
 		transform: scale(0.99);
+	}
+	/* Con foto: la miniatura a la izquierda y el texto en dos renglones al lado. */
+	.servicio.con-foto {
+		display: grid;
+		grid-template-columns: 64px 1fr;
+		column-gap: 12px;
+		align-content: center;
+	}
+	.srv-foto {
+		grid-row: span 2;
+		width: 64px;
+		height: 64px;
+		border-radius: 12px;
+		object-fit: cover;
 	}
 	.srv-fila {
 		display: flex;

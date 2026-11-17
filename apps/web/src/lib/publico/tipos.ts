@@ -25,7 +25,9 @@ export type Servicio = {
 	descripcion: string;
 	duracion: number;
 	precio: number;
+	/** La portada: la primera de `fotos`. */
 	foto: string | null;
+	fotos: string[];
 	orden: number;
 	activo: boolean;
 };

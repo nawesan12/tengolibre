@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 struct Categoria: Codable, Identifiable, Equatable, Hashable { var id: String; var nombre: String; var orden: Int }
@@ -168,10 +169,16 @@ struct EditarServicio: View {
     var listo: () async -> Void
     @Environment(Estado.self) private var estado
     @State private var descripcion = ""
+    @State private var fotos: [String] = []
+    @State private var nuevas: [PhotosPickerItem] = []
+    @State private var subiendo = false
+
+    /// Cuántas fotos puede tener un servicio (catalogo.MaxFotosServicio en la API).
+    static let maxFotos = 5
 
     private struct Cuerpo: Encodable {
-        var nombre: String; var descripcion: String; var duracion: Int; var precio: Int; var categoriaId: String?; var activo: Bool
-        enum CodingKeys: String, CodingKey { case nombre, descripcion, duracion, precio, categoriaId, activo }
+        var nombre: String; var descripcion: String; var duracion: Int; var precio: Int; var categoriaId: String?; var activo: Bool; var fotos: [String]
+        enum CodingKeys: String, CodingKey { case nombre, descripcion, duracion, precio, categoriaId, activo, fotos }
         /// `categoriaId` va siempre: null es «Sin categoría» (si no viene, el PATCH la deja como estaba).
         func encode(to encoder: Encoder) throws {
             var c = encoder.container(keyedBy: CodingKeys.self)
@@ -181,6 +188,7 @@ struct EditarServicio: View {
             try c.encode(precio, forKey: .precio)
             try c.encode(categoriaId, forKey: .categoriaId)
             try c.encode(activo, forKey: .activo)
+            try c.encode(fotos, forKey: .fotos)
         }
     }
 
@@ -207,21 +215,82 @@ struct EditarServicio: View {
                     }
                 }
             }
+            Bloque(titulo: "Fotos (\(fotos.count))", pie: "La primera es la que se ve en tu página y al reservar. Mantené apretada una foto para hacerla portada o sacarla.") {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
+                    ForEach(Array(fotos.enumerated()), id: \.element) { i, url in
+                        FotoServicio(url: url, portada: i == 0)
+                            .contextMenu {
+                                if i > 0 {
+                                    Button("Usar de portada", systemImage: "star") { fotos.remove(at: i); fotos.insert(url, at: 0) }
+                                }
+                                Button("Sacar", systemImage: "trash", role: .destructive) { fotos.remove(at: i) }
+                            }
+                            .accessibilityLabel(i == 0 ? "Portada" : "Foto \(i + 1)")
+                    }
+                    if fotos.count < Self.maxFotos {
+                        PhotosPicker(selection: $nuevas, maxSelectionCount: Self.maxFotos - fotos.count, matching: .images) {
+                            Group {
+                                if subiendo { ProgressView() } else { Image(systemName: "plus").font(.system(size: 26, weight: .semibold)).foregroundStyle(C.mentaTexto) }
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 104).hueco(10, quieto: true)
+                        }
+                        .disabled(subiendo)
+                        .accessibilityLabel("Sumar fotos")
+                    }
+                }
+                .padding(12)
+            }
             Bloque(pie: "Si lo pausás, no aparece en tu página ni se puede reservar.") {
                 RenglonInterruptor(titulo: "Activo", activo: $servicio.activo)
             }
         }
-        .onAppear { descripcion = servicio.descripcion ?? "" }
+        .onAppear {
+            descripcion = servicio.descripcion ?? ""
+            fotos = servicio.fotos ?? (servicio.foto.map { [$0] } ?? [])
+        }
+        .onChange(of: nuevas) { _, items in
+            guard !items.isEmpty else { return }
+            Task {
+                subiendo = true
+                for item in items where fotos.count < Self.maxFotos {
+                    if let u = await item.subirAchicada(estado) { fotos.append(u) }
+                }
+                subiendo = false
+                nuevas = []
+            }
+        }
     }
 
     private func guardar() async -> Bool {
-        let c = Cuerpo(nombre: servicio.nombre, descripcion: descripcion, duracion: servicio.duracion, precio: servicio.precio, categoriaId: servicio.categoriaId, activo: servicio.activo)
+        let c = Cuerpo(nombre: servicio.nombre, descripcion: descripcion, duracion: servicio.duracion, precio: servicio.precio, categoriaId: servicio.categoriaId, activo: servicio.activo, fotos: fotos)
         let ok = await estado.intentar {
             if servicio.id.isEmpty { try await estado.api.hacer("POST", "/v1/panel/servicios", c) }
             else { try await estado.api.hacer("PATCH", "/v1/panel/servicios/\(servicio.id)", c) }
         }
         if ok { estado.version += 1; await listo() }
         return ok
+    }
+}
+
+/// Una foto del servicio en la grilla: llena su lugar y se recorta; la portada lleva la estrella.
+private struct FotoServicio: View {
+    var url: String
+    var portada: Bool
+
+    var body: some View {
+        Color.clear.frame(height: 104).frame(maxWidth: .infinity)
+            .overlay {
+                if let u = URL(string: url) {
+                    AsyncImage(url: u) { i in i.resizable().scaledToFill() } placeholder: { C.chip }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(alignment: .topLeading) {
+                if portada {
+                    Image(systemName: "star.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(C.petroleoHondo)
+                        .frame(width: 22, height: 22).background(C.menta, in: Circle()).padding(6)
+                }
+            }
     }
 }
 

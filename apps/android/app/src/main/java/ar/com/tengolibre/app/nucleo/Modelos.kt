@@ -160,6 +160,8 @@ data class Servicio(
     val categoriaId: String? = null,
     val sena: Int? = null,
     val foto: String? = null,
+    /** Hasta 5; la primera es la portada (`foto`). */
+    val fotos: List<String>? = null,
 )
 
 @Serializable

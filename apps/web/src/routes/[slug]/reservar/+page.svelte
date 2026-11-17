@@ -161,6 +161,13 @@
 						{#if data.servicio}<a class="cambiar" href={ir('servicio')} aria-label="Cambiar servicio">Cambiar</a>{/if}
 					</div>
 					{#if data.servicio}
+						{#if data.servicio.fotos?.length}
+							<div class="srv-fotos" class:sola={data.servicio.fotos.length === 1}>
+								{#each data.servicio.fotos as url, i (url)}
+									<img src={url} alt={i ? '' : `Foto de ${data.servicio.nombre}`} loading={i ? 'lazy' : undefined} />
+								{/each}
+							</div>
+						{/if}
 						<div class="elegido">
 							<span>{data.servicio.nombre}</span><span class="puntos" aria-hidden="true"></span><b class="tl-num">{pesos(precio)}</b>
 						</div>
@@ -169,7 +176,9 @@
 						{#if data.servicios.length === 0}<p class="sub">Este negocio todavía no cargó&nbsp;servicios.</p>{/if}
 						<div class="opciones">
 							{#each data.servicios as s (s.id)}
-								<a class="opcion" href={ir('profesional', { servicio: s.id })} data-sveltekit-reset="false">{s.nombre}</a>
+								<a class="opcion" href={ir('profesional', { servicio: s.id })} data-sveltekit-reset="false"
+									>{#if s.foto}<img src={s.foto} alt="" width="28" height="28" loading="lazy" />{/if}{s.nombre}</a
+								>
 							{/each}
 						</div>
 					{/if}
@@ -449,6 +458,25 @@
 	}
 	.paso-aviso {
 		margin: 12px 18px 0;
+	}
+	/* Las fotos del servicio elegido: una tira que se desliza; con una sola, ocupa el ancho. */
+	.srv-fotos {
+		display: flex;
+		gap: 8px;
+		margin-bottom: 12px;
+		overflow-x: auto;
+		scroll-snap-type: x mandatory;
+		scrollbar-width: none;
+	}
+	.srv-fotos img {
+		flex: 0 0 78%;
+		height: 180px;
+		border-radius: 12px;
+		object-fit: cover;
+		scroll-snap-align: start;
+	}
+	.srv-fotos.sola img {
+		flex-basis: 100%;
 	}
 	.elegido {
 		display: flex;

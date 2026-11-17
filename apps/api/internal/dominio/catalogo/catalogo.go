@@ -4,7 +4,9 @@ package catalogo
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -39,10 +41,18 @@ type Prestacion struct {
 	Descripcion string  `json:"descripcion"`
 	Duracion    int     `json:"duracion"`
 	Precio      int64   `json:"precio"`
-	Foto        *string `json:"foto"`
-	Orden       int     `json:"orden"`
-	Activo      bool    `json:"activo"`
+	// Foto es la portada: siempre igual a Fotos[0] (la siguen leyendo los clientes de antes).
+	Foto   *string  `json:"foto"`
+	Fotos  []string `json:"fotos"`
+	Orden  int      `json:"orden"`
+	Activo bool     `json:"activo"`
 }
+
+// sinCambio marca la «foto» que no vino en un PATCH.
+const sinCambio = "\x00"
+
+// MaxFotosServicio: cuántas fotos puede tener un servicio.
+const MaxFotosServicio = 5
 
 // Profesional con lo que hace y cuándo atiende.
 type Profesional struct {
@@ -199,10 +209,10 @@ func (s *Servicio) editarCategoria(w http.ResponseWriter, r *http.Request) error
 
 // ---- Servicios
 
-const columnasServicio = "id::text, categoria_id::text, nombre, descripcion, duracion, precio, foto, orden, activo"
+const columnasServicio = "id::text, categoria_id::text, nombre, descripcion, duracion, precio, foto, fotos, orden, activo"
 
 func escanearServicio(f pgx.Row, p *Prestacion) error {
-	return f.Scan(&p.ID, &p.CategoriaID, &p.Nombre, &p.Descripcion, &p.Duracion, &p.Precio, &p.Foto, &p.Orden, &p.Activo)
+	return f.Scan(&p.ID, &p.CategoriaID, &p.Nombre, &p.Descripcion, &p.Duracion, &p.Precio, &p.Foto, &p.Fotos, &p.Orden, &p.Activo)
 }
 
 // Servicios del negocio fijado; soloActivos para la página pública.
@@ -261,10 +271,45 @@ func validarServicio(p *Prestacion) error {
 	if p.CategoriaID != nil && *p.CategoriaID == "" {
 		p.CategoriaID = nil
 	}
-	if p.Foto != nil && *p.Foto == "" {
-		p.Foto = nil
+	return validarFotos(p)
+}
+
+// validarFotos limpia la lista (sin vacías ni repetidas) y deja Foto como la primera.
+func validarFotos(p *Prestacion) error {
+	fotos := make([]string, 0, len(p.Fotos))
+	for _, f := range p.Fotos {
+		f = strings.TrimSpace(f)
+		if f != "" && !slices.Contains(fotos, f) {
+			fotos = append(fotos, f)
+		}
+	}
+	if len(fotos) > MaxFotosServicio {
+		return problema.Invalido(fmt.Sprintf("Cada servicio puede tener hasta %d fotos.", MaxFotosServicio), problema.Campo{Ruta: "fotos", Mensaje: "demasiadas"})
+	}
+	for _, f := range fotos {
+		if len(f) > 2048 || !(strings.HasPrefix(f, "https://") || strings.HasPrefix(f, "http://")) {
+			return problema.Invalido("Una de las fotos no es una dirección válida.", problema.Campo{Ruta: "fotos", Mensaje: "invalida"})
+		}
+	}
+	p.Fotos = fotos
+	p.Foto = nil
+	if len(fotos) > 0 {
+		p.Foto = &fotos[0]
 	}
 	return nil
+}
+
+// fotosDesdeFoto: un cliente de antes que sólo manda «foto» cambia la portada (o la saca) y deja el resto.
+func fotosDesdeFoto(p *Prestacion) {
+	resto := p.Fotos
+	if len(resto) > 0 {
+		resto = resto[1:]
+	}
+	if p.Foto == nil || *p.Foto == "" {
+		p.Fotos = slices.Clone(resto)
+		return
+	}
+	p.Fotos = append([]string{*p.Foto}, resto...)
 }
 
 func (s *Servicio) crearServicio(w http.ResponseWriter, r *http.Request) error {
@@ -272,13 +317,16 @@ func (s *Servicio) crearServicio(w http.ResponseWriter, r *http.Request) error {
 	if err := web.Leer(w, r, &p); err != nil {
 		return err
 	}
+	if p.Fotos == nil && p.Foto != nil {
+		fotosDesdeFoto(&p)
+	}
 	if err := validarServicio(&p); err != nil {
 		return err
 	}
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
-		return escanearServicio(tx.QueryRow(ctx, `INSERT INTO servicios (negocio_id, categoria_id, nombre, descripcion, duracion, precio, foto, orden, activo)
-			VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8) RETURNING `+columnasServicio,
-			p.CategoriaID, p.Nombre, p.Descripcion, p.Duracion, p.Precio, p.Foto, p.Orden, p.Activo), &p)
+		return escanearServicio(tx.QueryRow(ctx, `INSERT INTO servicios (negocio_id, categoria_id, nombre, descripcion, duracion, precio, foto, fotos, orden, activo)
+			VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING `+columnasServicio,
+			p.CategoriaID, p.Nombre, p.Descripcion, p.Duracion, p.Precio, p.Foto, p.Fotos, p.Orden, p.Activo), &p)
 	})
 	if err != nil {
 		return err
@@ -296,16 +344,30 @@ func (s *Servicio) editarServicio(w http.ResponseWriter, r *http.Request) error 
 			return err
 		}
 		id, antes := p.ID, p.Precio
+		// «foto» arranca en una marca para distinguir «no vino» (sigue la marca), «null» (nil) y un valor.
+		fotosAntes, fotoAntes, marca := p.Fotos, p.Foto, sinCambio
+		p.Fotos, p.Foto = nil, &marca
 		if err := web.Leer(w, r, &p); err != nil {
 			return err
 		}
 		p.ID = id
+		vinoFoto := p.Foto == nil || *p.Foto != sinCambio
+		if !vinoFoto {
+			p.Foto = fotoAntes
+		}
+		if p.Fotos == nil {
+			// No vino «fotos»: quedan las de antes, salvo que un cliente viejo haya mandado «foto».
+			p.Fotos = fotosAntes
+			if vinoFoto {
+				fotosDesdeFoto(&p)
+			}
+		}
 		if err := validarServicio(&p); err != nil {
 			return err
 		}
 		if err := escanearServicio(tx.QueryRow(ctx, `UPDATE servicios SET categoria_id = $2, nombre = $3, descripcion = $4, duracion = $5,
-			precio = $6, foto = $7, orden = $8, activo = $9 WHERE id = $1 RETURNING `+columnasServicio,
-			p.ID, p.CategoriaID, p.Nombre, p.Descripcion, p.Duracion, p.Precio, p.Foto, p.Orden, p.Activo), &p); err != nil {
+			precio = $6, foto = $7, fotos = $8, orden = $9, activo = $10 WHERE id = $1 RETURNING `+columnasServicio,
+			p.ID, p.CategoriaID, p.Nombre, p.Descripcion, p.Duracion, p.Precio, p.Foto, p.Fotos, p.Orden, p.Activo), &p); err != nil {
 			return err
 		}
 		if p.Precio == antes {

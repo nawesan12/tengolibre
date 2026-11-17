@@ -1,5 +1,8 @@
 package ar.com.tengolibre.app.pantallas.mas
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,9 +12,11 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,6 +30,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ar.com.tengolibre.app.app.LocalEstado
@@ -155,11 +163,24 @@ fun ColumnScope.EditarServicio(inicial: Servicio, categorias: List<Categoria>, l
     val estado = LocalEstado.current
     var s by remember { mutableStateOf(inicial) }
     var descripcion by remember { mutableStateOf(inicial.descripcion.orEmpty()) }
-    @Serializable data class Cuerpo(val nombre: String, val descripcion: String, val duracion: Int, val precio: Int, val categoriaId: String?, val activo: Boolean)
+    var fotos by remember { mutableStateOf(inicial.fotos ?: listOfNotNull(inicial.foto)) }
+    var subiendo by remember { mutableStateOf(false) }
+    var menuFoto by remember { mutableStateOf<Int?>(null) }
+    val contexto = LocalContext.current
+    val alcance = rememberCoroutineScope()
+    val pedirFotos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_FOTOS_SERVICIO)) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        alcance.launch {
+            subiendo = true
+            for (u in uris) if (fotos.size < MAX_FOTOS_SERVICIO) subirAchicada(contexto, estado, u)?.let { fotos = fotos + it }
+            subiendo = false
+        }
+    }
+    @Serializable data class Cuerpo(val nombre: String, val descripcion: String, val duracion: Int, val precio: Int, val categoriaId: String?, val activo: Boolean, val fotos: List<String>)
     HojaEdicion(if (s.id.isEmpty()) "Servicio nuevo" else "Editar servicio", cerrar, habilitado = s.nombre.trim().length >= 2,
         borrar = if (s.id.isEmpty()) null else ({ estado.intentar("Sacamos el servicio") { estado.api.hacer("DELETE", "/v1/panel/servicios/${s.id}") }; estado.version += 1 }),
         accion = {
-            val c = Cuerpo(s.nombre, descripcion, s.duracion, s.precio, s.categoriaId, s.activo)
+            val c = Cuerpo(s.nombre, descripcion, s.duracion, s.precio, s.categoriaId, s.activo, fotos)
             // `categoriaId` va siempre: null es «Sin categoría» (si no viene, el PATCH la deja como estaba).
             val ok = estado.intentar { estado.api.pedir(if (s.id.isEmpty()) "POST" else "PATCH", if (s.id.isEmpty()) "/v1/panel/servicios" else "/v1/panel/servicios/${s.id}", cuerpo = Api.jsonConNulos.encodeToString(c).toByteArray()) }
             if (ok) { estado.version += 1; listo() }
@@ -171,7 +192,46 @@ fun ColumnScope.EditarServicio(inicial: Servicio, categorias: List<Categoria>, l
             { Numerito("Duración", s.duracion, { s = s.copy(duracion = it) }, 5..480, paso = 5) { Formato.duracion(it) } },
             { RenglonPesos("Precio", s.precio) { s = s.copy(precio = it) } })
         if (categorias.isNotEmpty()) Bloque("", "", { Renglon("Categoría") { SelectorMenu(listOf<Pair<String?, String>>(null to "Sin categoría") + categorias.map { it.id to it.nombre }, s.categoriaId, { s = s.copy(categoriaId = it) }) } })
+        Bloque("Fotos (${fotos.size})", "La primera es la que se ve en tu página y al reservar. Mantené apretada una foto para hacerla portada o sacarla.", {
+            val celdas: List<String?> = fotos + if (fotos.size < MAX_FOTOS_SERVICIO) listOf(null) else emptyList()
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                celdas.withIndex().chunked(3).forEach { fila ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        fila.forEach { (i, url) ->
+                            Box(Modifier.weight(1f)) {
+                                if (url != null) Box(Modifier.combinedClickableCompat(onLongClick = { Haptico.seleccion(); menuFoto = i })
+                                    .semantics { contentDescription = if (i == 0) "Portada" else "Foto ${i + 1}" }) { FotoServicio(url, portada = i == 0) }
+                                else Hueco(Modifier.fillMaxWidth().height(104.dp).clickable(enabled = !subiendo) { pedirFotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                                    .semantics { contentDescription = "Sumar fotos" }, radio = 10.dp, quieto = true) {
+                                    if (subiendo) Pulso(C.menta, 20.dp) else Icono("plus", 26f, C.mentaTexto)
+                                }
+                            }
+                        }
+                        repeat(3 - fila.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
+            }
+        })
         Bloque("", "Si lo pausás, no aparece en tu página ni se puede reservar.", { RenglonInterruptor("Activo", s.activo, { s = s.copy(activo = it) }) })
+    }
+    val mf = menuFoto
+    Confirmacion(mf != null, "Foto", "", buildList {
+        if (mf != null && mf > 0) add(OpcionConfirmacion("Usar de portada") { fotos = listOf(fotos[mf]) + fotos.filterIndexed { j, _ -> j != mf } })
+        add(OpcionConfirmacion("Sacar", destructiva = true) { mf?.let { i -> fotos = fotos.filterIndexed { j, _ -> j != i } } })
+    }, { menuFoto = null })
+}
+
+/** Cuántas fotos puede tener un servicio (catalogo.MaxFotosServicio en la API). */
+const val MAX_FOTOS_SERVICIO = 5
+
+/** Una foto del servicio en la grilla: llena su lugar y se recorta; la portada lleva la estrella. */
+@Composable
+private fun FotoServicio(url: String, portada: Boolean) {
+    Box {
+        Imagen(url, 104.dp, null, 10.dp)
+        if (portada) Box(Modifier.padding(6.dp).size(22.dp).background(C.menta, CircleShape), contentAlignment = Alignment.Center) {
+            Icono("star.fill", 11f, C.petroleoHondo)
+        }
     }
 }
 

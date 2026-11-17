@@ -284,15 +284,10 @@ struct MiWeb: View {
 
     /// Achica la foto (lado largo 2000 px) y la sube como JPEG.
     private func subir(_ item: PhotosPickerItem?) async -> String? {
-        guard let item, let d = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: d) else { return nil }
+        guard let item else { return nil }
         subiendo = true
         defer { subiendo = false }
-        let lado: CGFloat = 2000
-        let f = min(1, lado / max(img.size.width, img.size.height))
-        let tam = CGSize(width: img.size.width * f, height: img.size.height * f)
-        let chica = UIGraphicsImageRenderer(size: tam).image { _ in img.draw(in: CGRect(origin: .zero, size: tam)) }
-        guard let jpg = chica.jpegData(compressionQuality: 0.85) else { return nil }
-        do { return try await estado.api.subirImagen(jpg) } catch { estado.avisar(error); return nil }
+        return await item.subirAchicada(estado)
     }
 
     private func patchNegocio(_ c: [String: String]) async {
@@ -920,5 +915,18 @@ struct PreferenciasPush: View {
         if on { x.apagados.removeAll { $0 == tipo } } else if !x.apagados.contains(tipo) { x.apagados.append(tipo) }
         p = x
         await estado.intentar { try await estado.api.hacer("PUT", "/v1/panel/push/preferencias", ["apagados": x.apagados]) }
+    }
+}
+
+extension PhotosPickerItem {
+    /// La achica (lado largo 2000 px), la sube como JPEG y devuelve la URL; si falla, avisa y da nil.
+    @MainActor func subirAchicada(_ estado: Estado) async -> String? {
+        guard let d = try? await loadTransferable(type: Data.self), let img = UIImage(data: d) else { return nil }
+        let lado: CGFloat = 2000
+        let f = min(1, lado / max(img.size.width, img.size.height))
+        let tam = CGSize(width: img.size.width * f, height: img.size.height * f)
+        let chica = UIGraphicsImageRenderer(size: tam).image { _ in img.draw(in: CGRect(origin: .zero, size: tam)) }
+        guard let jpg = chica.jpegData(compressionQuality: 0.85) else { return nil }
+        do { return try await estado.api.subirImagen(jpg) } catch { estado.avisar(error); return nil }
     }
 }
