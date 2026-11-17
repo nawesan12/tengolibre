@@ -1,5 +1,16 @@
 # Estado
 
+## 17/11/2026: fotos de los servicios — API y web desplegadas (14b2ef5, migración 00030)
+
+Hasta 5 fotos por servicio (`servicios.fotos`); la primera es la portada y queda también en `foto` (los clientes que
+mandan sólo `foto` cambian la portada sin perder las otras). Panel web: subir varias, elegir portada y sacar. Página
+pública: miniatura en la fila del servicio. Reserva: tira con todas las fotos del servicio elegido. iPhone y Android:
+grilla en Editar servicio (mantener apretada → portada o sacar). Pruebas: `TestFotosDelServicio` (API) y la e2e
+«fotos de un servicio» (escritorio y teléfono). Copia previa: `/var/backups/tengolibre/antes-202611171831.sql.gz`.
+Pendiente: TestFlight. El código iOS compila (el archivo de la corrida 44154299565 salió bien), pero el export falló con
+«Error Downloading App Information» (Apple) y después GitHub no asignó una Mac. Relanzar `gh workflow run testflight -R
+grupovimo/tengolibre-ios` con el token de grupovimo. Android en verde (aaf3f3c en el espejo).
+
 ## 16/11/2026: QA de punta a punta — desplegado (API y web 94e6cb7, migración 00029; iOS 86fba08, Android 3b2ab92)
 
 Revisión de API, web e iPhone/Android, con negocios QA en producción (ya borrados, igual que sus usuarios de Clerk).
