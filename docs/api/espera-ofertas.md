@@ -90,6 +90,8 @@ mientras la tenía) · `salteada` (cuando le tocó ya no esperaba).
 
 Suma `momento` (opcional, por defecto `cualquiera`). 400 `invalido` si no es uno de los tres.
 Respuesta 201: `{ "servicio", "desde", "hasta", "momento" }`.
+Tope: 10 cada 10 minutos por IP en el negocio y 100 por negocio (`429 demasiados_pedidos`); el mismo
+que `POST /v1/p/{slug}/turnos`.
 
 ## Link de la persona (sin sesión; el token es el secreto)
 
@@ -115,7 +117,8 @@ Pantalla «Se liberó lo que esperabas» en el front: `/espera/{token}`.
 
 Sin cuerpo: usa nombre, teléfono y email con que se anotó. 201: el `Turno` como lo devuelve
 `POST /v1/p/{slug}/turnos` (con `pago: {monto, modo, url}` si hay seña; si `pago.url` viene vacío, se
-pide de nuevo con `POST /v1/t/{codigo}/pagar`). Redirigir a `pago.url` o a `/turno/{codigo}`.
+pide de nuevo con `POST /v1/t/{codigo}/pagar`). `cliente` son los datos con que se anotó (sin `id`),
+no los de un cliente que ya tuviera ese teléfono. Redirigir a `pago.url` o a `/turno/{codigo}`.
 
 Errores (409): `oferta_vencida` (pasó su tiempo), `oferta_cerrada` (ya no está: la tomó, la pasó, se
 cayó, la frenaron), `horario_ocupado`, `cliente_penalizado`. 404 token inexistente.
@@ -164,7 +167,8 @@ Cuerpo opcional:
 - Sin cuerpo (o `{}`): deja de ofrecerlo (`cargada`) y devuelve el hueco; el front abre «Nuevo turno»
   con `servicioId`, `profesionalId` e `inicio` de la oferta y reserva con `POST /v1/panel/turnos`.
 - `{ "esperaId": "uuid" }`: se lo da a esa persona de la lista: reserva el turno a su nombre como
-  turno del panel (`confirmado`, sin seña) y la marca avisada.
+  turno del panel (`confirmado`, sin seña) y la marca avisada. Los datos los dejó la persona en la web:
+  no pisan el email de un cliente existente ni quedan como email de confianza.
 
 200 `{ "oferta": Oferta, "turno": Turno | null }`. 409 `oferta_cerrada`, `horario_ocupado`; 404 oferta
 o `esperaId`.

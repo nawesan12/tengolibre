@@ -44,11 +44,11 @@ type IngresoMes struct {
 	Ingresos int64  `json:"ingresos"`
 }
 
-func contar(ctx context.Context, tx pgx.Tx, ini, fin time.Time) (turnos int, ingresos int64, clientes int, err error) {
+func contar(ctx context.Context, tx pgx.Tx, ini, fin, ahora time.Time) (turnos int, ingresos int64, clientes int, err error) {
 	err = tx.QueryRow(ctx, `SELECT count(*) FILTER (WHERE t.estado <> 'cancelado'),
 		coalesce(sum(t.precio) FILTER (WHERE t.estado = 'atendido'), 0),
 		count(DISTINCT t.cliente_id) FILTER (WHERE t.estado <> 'cancelado')
-		FROM turnos t WHERE t.inicio >= $1 AND t.inicio < $2 AND `+vivo, ini, fin).Scan(&turnos, &ingresos, &clientes)
+		FROM turnos t WHERE t.inicio >= $1 AND t.inicio < $2 AND `+vivo(3), ini, fin, ahora).Scan(&turnos, &ingresos, &clientes)
 	return
 }
 
@@ -66,32 +66,32 @@ func (s *Servicio) tablero(w http.ResponseWriter, r *http.Request) error {
 		h := ahora.In(zona)
 		hoy := time.Date(h.Year(), h.Month(), h.Day(), 0, 0, 0, 0, zona)
 		manana := hoy.AddDate(0, 0, 1)
-		if tb.TurnosHoy, _, _, err = contar(ctx, tx, hoy, manana); err != nil {
+		if tb.TurnosHoy, _, _, err = contar(ctx, tx, hoy, manana, ahora); err != nil {
 			return err
 		}
-		if tb.TurnosAyer, _, _, err = contar(ctx, tx, hoy.AddDate(0, 0, -1), hoy); err != nil {
+		if tb.TurnosAyer, _, _, err = contar(ctx, tx, hoy.AddDate(0, 0, -1), hoy, ahora); err != nil {
 			return err
 		}
 		mes := time.Date(h.Year(), h.Month(), 1, 0, 0, 0, 0, zona)
-		if _, tb.IngresosMes, _, err = contar(ctx, tx, mes, manana); err != nil {
+		if _, tb.IngresosMes, _, err = contar(ctx, tx, mes, manana, ahora); err != nil {
 			return err
 		}
-		if _, tb.IngresosMesAnterior, _, err = contar(ctx, tx, mes.AddDate(0, -1, 0), mes); err != nil {
+		if _, tb.IngresosMesAnterior, _, err = contar(ctx, tx, mes.AddDate(0, -1, 0), mes, ahora); err != nil {
 			return err
 		}
-		if _, _, tb.ClientesActivos, err = contar(ctx, tx, hoy.AddDate(0, 0, -29), manana); err != nil {
+		if _, _, tb.ClientesActivos, err = contar(ctx, tx, hoy.AddDate(0, 0, -29), manana, ahora); err != nil {
 			return err
 		}
-		if _, _, tb.ClientesActivosAnterior, err = contar(ctx, tx, hoy.AddDate(0, 0, -59), hoy.AddDate(0, 0, -29)); err != nil {
+		if _, _, tb.ClientesActivosAnterior, err = contar(ctx, tx, hoy.AddDate(0, 0, -59), hoy.AddDate(0, 0, -29), ahora); err != nil {
 			return err
 		}
 		// La ocupación de hoy y la semana salen del mismo armado que el reporte.
-		dia, err := armar(ctx, tx, nuevoRango(zona, hoy, hoy))
+		dia, err := armar(ctx, tx, nuevoRango(zona, hoy, hoy, ahora))
 		if err != nil {
 			return err
 		}
 		tb.OcupacionHoy = dia.Resumen.Ocupacion
-		semana, err := armar(ctx, tx, nuevoRango(zona, hoy.AddDate(0, 0, -6), hoy))
+		semana, err := armar(ctx, tx, nuevoRango(zona, hoy.AddDate(0, 0, -6), hoy, ahora))
 		if err != nil {
 			return err
 		}
@@ -99,7 +99,7 @@ func (s *Servicio) tablero(w http.ResponseWriter, r *http.Request) error {
 		for i := 5; i >= 0; i-- {
 			ini := mes.AddDate(0, -i, 0)
 			fin := ini.AddDate(0, 1, 0)
-			_, ing, _, err := contar(ctx, tx, ini, fin)
+			_, ing, _, err := contar(ctx, tx, ini, fin, ahora)
 			if err != nil {
 				return err
 			}
@@ -107,7 +107,7 @@ func (s *Servicio) tablero(w http.ResponseWriter, r *http.Request) error {
 		}
 		filas, err := tx.Query(ctx, `SELECT t.id::text, t.inicio, t.estado, t.servicio, t.profesional, c.id::text, c.nombre
 			FROM turnos t JOIN clientes c ON c.id = t.cliente_id
-			WHERE t.inicio >= $1 AND t.estado IN ('pendiente_pago', 'pendiente', 'confirmado') AND `+vivo+`
+			WHERE t.inicio >= $1 AND t.estado IN ('pendiente_pago', 'pendiente', 'confirmado') AND `+vivo(1)+`
 			ORDER BY t.inicio LIMIT 5`, ahora)
 		if err != nil {
 			return err

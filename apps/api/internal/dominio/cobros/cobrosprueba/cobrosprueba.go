@@ -114,7 +114,8 @@ func ArmarCon(t *testing.T, mas func(a *prueba.API, tur *turnos.Servicio) []serv
 	e.API = prueba.Nueva(t, En("2026-11-01 10:00"), func(a *prueba.API) []servidor.Dominio {
 		app, reloj := a.Bases.App, a.Reloj()
 		sus := &suscripcion.Servicio{Pool: app, Sesion: a.Sesion, Cliente: e.MP.Cliente(), TokenPlataforma: mpfalso.TokenPlataforma,
-			Sitio: "https://tengolibre.com.ar", Ahora: reloj, Apple: e.Apple.Verificador(), Google: e.Google, ClaveGoogle: ClaveGoogle}
+			Sitio: "https://tengolibre.com.ar", Ahora: reloj, Apple: e.Apple.Verificador(), Google: e.Google, ClaveGoogle: ClaveGoogle,
+			SandboxApple: true, PruebasGoogle: true}
 		// Como en cmd/api: toda escritura del panel pasa por la suscripción.
 		a.Sesion.Escritura, a.Sesion.SinChequeoDeEscritura = sus.Escritura, suscripcion.SinChequeo
 		e.Suscripcion = sus
@@ -127,6 +128,7 @@ func ArmarCon(t *testing.T, mas func(a *prueba.API, tur *turnos.Servicio) []serv
 		mem := &membresias.Servicio{Pool: app, Sesion: a.Sesion, Escritura: sus.Escritura, Ahora: reloj}
 		// El orden de los extras importa: la membresía cubre, el cupón descuenta, el cobro cobra lo que queda.
 		tur := &turnos.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj, Avisar: avisar, Extras: []turnos.Extra{mem, pro, cob}}
+		cob.CancelarTurno = tur.AlCancelar
 		ds := []servidor.Dominio{
 			&negocios.Servicio{Pool: app, Sesion: a.Sesion},
 			&catalogo.Servicio{Pool: app, Sesion: a.Sesion},

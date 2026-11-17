@@ -22,6 +22,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/tope"
 )
 
 // Servicio de turnos. Ahora es el reloj (tests); nil: time.Now.
@@ -34,6 +35,10 @@ type Servicio struct {
 	Avisar func(ctx context.Context, negocioID, turnoID, evento string)
 	// Extras: membresías, cupones y cobros (ver extras.go). nil: la reserva no toca plata.
 	Extras []Extra
+	// TopePublico: cuántas reservas desde la página pública por IP y por negocio (vacío:
+	// tope.PorDefecto).
+	TopePublico tope.Publico
+	limite      tope.Contador
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -87,6 +92,9 @@ type Turno struct {
 	// sin_respuesta, no_llego).
 	LlamarDesde  *time.Time `json:"llamarDesde"`
 	LlamarMotivo *string    `json:"llamarMotivo"`
+	// Ajeno (turnos.cliente_ajeno): la reserva pública dio el teléfono de un cliente que ya tenía otro
+	// email de confianza. Quien tiene el link no probó ser ese cliente. No sale en el JSON.
+	Ajeno bool `json:"-"`
 	// Sólo en la respuesta de la reserva: lo que descontó el cupón y el pago que queda pendiente.
 	Descuento int64 `json:"descuento,omitempty"`
 	Pago      *Pago `json:"pago,omitempty"`
@@ -94,7 +102,7 @@ type Turno struct {
 
 const columnasTurno = `t.id::text, t.codigo, t.servicio_id::text, t.servicio, t.profesional_id::text, t.profesional,
 	c.id::text, c.nombre, c.telefono, c.email, t.inicio, t.fin, t.precio, t.estado, t.origen, t.nota, t.vence_en, t.creado_en,
-	t.serie_id::text, t.confirmado_por, t.confirmado_en, t.cambio_pedido_en, t.llamar_desde, t.llamar_motivo`
+	t.serie_id::text, t.confirmado_por, t.confirmado_en, t.cambio_pedido_en, t.llamar_desde, t.llamar_motivo, t.cliente_ajeno`
 
 const desdeTurnos = " FROM turnos t JOIN clientes c ON c.id = t.cliente_id"
 
@@ -102,7 +110,7 @@ func escanearTurno(f pgx.Row, t *Turno) error {
 	return f.Scan(&t.ID, &t.Codigo, &t.ServicioID, &t.Servicio, &t.ProfesionalID, &t.Profesional,
 		&t.Cliente.ID, &t.Cliente.Nombre, &t.Cliente.Telefono, &t.Cliente.Email,
 		&t.Inicio, &t.Fin, &t.Precio, &t.Estado, &t.Origen, &t.Nota, &t.VenceEn, &t.CreadoEn,
-		&t.SerieID, &t.ConfirmadoPor, &t.ConfirmadoEn, &t.CambioPedidoEn, &t.LlamarDesde, &t.LlamarMotivo)
+		&t.SerieID, &t.ConfirmadoPor, &t.ConfirmadoEn, &t.CambioPedidoEn, &t.LlamarDesde, &t.LlamarMotivo, &t.Ajeno)
 }
 
 func leerTurno(ctx context.Context, tx pgx.Tx, donde string, arg any, bloquear bool) (Turno, error) {
@@ -330,27 +338,30 @@ func limpiarTelefono(t string) string {
 
 // clienteDe busca al cliente por teléfono (o crea uno) en el negocio fijado.
 // La fecha de nacimiento sólo se completa si faltaba (nunca pisa la que cargó el negocio).
-func clienteDe(ctx context.Context, tx pgx.Tx, c Cliente) (string, error) {
-	var id string
+// ajeno: el teléfono es de un cliente que ya existía con un email de confianza distinto del que vino
+// (con app.origen = 'web' el trigger cuidar_email no lo pisa): quien reserva puede no ser él.
+func clienteDe(ctx context.Context, tx pgx.Tx, c Cliente) (id string, ajeno bool, err error) {
 	nacimiento := &c.Nacimiento
 	if c.Nacimiento == "" {
 		nacimiento = nil
 	}
 	if c.Telefono != "" {
-		err := tx.QueryRow(ctx, `INSERT INTO clientes (negocio_id, nombre, telefono, email, nacimiento) VALUES (app.negocio_actual(), $1, $2, $3, $4::date)
+		var existia, confiable bool
+		var email string
+		err = tx.QueryRow(ctx, `INSERT INTO clientes (negocio_id, nombre, telefono, email, nacimiento) VALUES (app.negocio_actual(), $1, $2, $3, $4::date)
 			ON CONFLICT (negocio_id, telefono) WHERE telefono <> '' DO UPDATE SET email = CASE WHEN excluded.email <> '' THEN excluded.email ELSE clientes.email END,
 				nacimiento = coalesce(clientes.nacimiento, excluded.nacimiento)
-			RETURNING id::text`, c.Nombre, c.Telefono, c.Email, nacimiento).Scan(&id)
-		return id, err
+			RETURNING id::text, xmax <> 0, email_confiable, email`, c.Nombre, c.Telefono, c.Email, nacimiento).Scan(&id, &existia, &confiable, &email)
+		return id, existia && confiable && !strings.EqualFold(email, c.Email), err
 	}
-	err := tx.QueryRow(ctx, "SELECT id::text FROM clientes WHERE telefono = '' AND email = $1 AND suprimido_en IS NULL ORDER BY creado_en LIMIT 1", c.Email).Scan(&id)
+	err = tx.QueryRow(ctx, "SELECT id::text FROM clientes WHERE telefono = '' AND email = $1 AND suprimido_en IS NULL ORDER BY creado_en LIMIT 1", c.Email).Scan(&id)
 	if err == pgx.ErrNoRows {
 		err = tx.QueryRow(ctx, "INSERT INTO clientes (negocio_id, nombre, email, nacimiento) VALUES (app.negocio_actual(), $1, $2, $3::date) RETURNING id::text",
 			c.Nombre, c.Email, nacimiento).Scan(&id)
 	} else if err == nil && nacimiento != nil {
 		_, err = tx.Exec(ctx, "UPDATE clientes SET nacimiento = $2::date WHERE id = $1 AND nacimiento IS NULL", id, nacimiento)
 	}
-	return id, err
+	return id, false, err
 }
 
 // Pedido de reserva.
@@ -369,6 +380,9 @@ type Pedido struct {
 	// visita de su membresía. Lo resuelve reservarPublico, que deja ClienteID.
 	UsarMembresia bool   `json:"usarMembresia,omitempty"`
 	ClienteID     string `json:"-"`
+	// clienteAjeno: con ClienteID, el turno hereda que el cliente no se verificó (volver a reservar
+	// desde un link ajeno).
+	clienteAjeno bool
 	// SerieID: el turno fijo al que pertenece (lo pone reservarSerie).
 	SerieID string `json:"-"`
 	// reglas, si no es nil, reemplaza las del negocio (el turno fijo mira más allá de la vista).
@@ -376,6 +390,10 @@ type Pedido struct {
 	// SinAnticipacion (sólo desde otro dominio): no aplica la anticipación mínima. La lista de espera
 	// ofrece huecos que se liberaron a último momento: el negocio ya decidió ofrecerlos.
 	SinAnticipacion bool `json:"-"`
+	// DatosDeLaWeb (sólo desde otro dominio): los datos del cliente los cargó alguien en la web (la
+	// lista de espera), aunque reserve el panel. No son de confianza: no pisan el email de un cliente
+	// existente ni lo marcan email_confiable (app.origen = 'web', ver app.cuidar_email).
+	DatosDeLaWeb bool `json:"-"`
 }
 
 // elegir el profesional para el horario: el pedido, o el primero libre en el orden del negocio.
@@ -413,8 +431,17 @@ func elegirCon(ctx context.Context, tx pgx.Tx, c contexto, reglas disponibilidad
 		if !p.Activo || !p.Hace(srv.ID) {
 			continue
 		}
-		if forzar {
+		if forzar && !inicio.Before(ahora) {
 			return p, nil
+		}
+		if forzar {
+			// Un sobreturno en un horario que ya pasó (cargar lo que se atendió) sólo si ese horario
+			// estaba libre: si no, se pisa la agenda de lo que ya pasó sin que nadie lo vea.
+			libre, err := libreSinAnticipacion(ctx, tx, c, p, inicio, srv.Duracion, ahora, sinTurno)
+			if err != nil || libre {
+				return p, err
+			}
+			continue
 		}
 		d, err := datosDelDia(ctx, tx, p, fecha, c.zona, sinTurno)
 		if err != nil {
@@ -426,6 +453,58 @@ func elegirCon(ctx context.Context, tx pgx.Tx, c contexto, reglas disponibilidad
 		}
 	}
 	return catalogo.Profesional{}, problema.Conflicto("horario_ocupado", "Ese horario ya no está libre. Elegí otro.")
+}
+
+// libreSinAnticipacion dice si inicio (de duracion minutos) entra en la agenda del profesional (que
+// quien llama ya bloqueó) por su horario, los bloqueos, el margen y los otros turnos, sin la
+// anticipación mínima ni la vista. El motor descarta lo que ya pasó: un horario pasado se mira como
+// si fuera el comienzo de ese día.
+func libreSinAnticipacion(ctx context.Context, tx pgx.Tx, c contexto, p catalogo.Profesional, inicio time.Time, duracion int,
+	ahora time.Time, sinTurno string) (bool, error) {
+	fecha := inicio.In(c.zona).Format(time.DateOnly)
+	d, err := datosDelDia(ctx, tx, p, fecha, c.zona, sinTurno)
+	if err != nil {
+		return false, err
+	}
+	reglas := c.reglas()
+	reglas.AnticipacionMin, reglas.DiasVista = 0, 3660
+	if inicio.Before(ahora) {
+		l := inicio.In(c.zona)
+		ahora = time.Date(l.Year(), l.Month(), l.Day(), 0, 0, 0, 0, c.zona)
+	}
+	return disponibilidad.Libre(disponibilidad.Consulta{Profesional: d, Fecha: fecha, Duracion: duracion,
+		Reglas: reglas, Ahora: ahora, Zona: c.zona}, inicio), nil
+}
+
+// SigueLibre dice si el horario de un turno (que se dejó de contar, como un pendiente_pago vencido)
+// sigue libre para su profesional, en el negocio fijado: bloquea al profesional (como elegir, así
+// dos confirmaciones a la vez no se llevan el mismo horario) y mira horario, bloqueos, margen y los
+// otros turnos, sin la anticipación mínima. Sin profesional, no.
+func SigueLibre(ctx context.Context, tx pgx.Tx, turnoID string, ahora time.Time) (bool, error) {
+	var profesional *string
+	var inicio, fin time.Time
+	if err := tx.QueryRow(ctx, "SELECT profesional_id::text, inicio, fin FROM turnos WHERE id::text = $1", turnoID).
+		Scan(&profesional, &inicio, &fin); err != nil {
+		return false, err
+	}
+	if profesional == nil {
+		return false, nil
+	}
+	c, err := cargarContexto(ctx, tx)
+	if err != nil {
+		return false, err
+	}
+	p, err := catalogo.LeerProfesional(ctx, tx, *profesional, true)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !p.Activo {
+		return false, nil
+	}
+	return libreSinAnticipacion(ctx, tx, c, p, inicio, int(fin.Sub(inicio)/time.Minute), ahora, turnoID)
 }
 
 // reservar crea el turno en el negocio fijado.
@@ -463,16 +542,18 @@ func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora ti
 	if err != nil {
 		return Turno{}, err
 	}
-	clienteID := in.ClienteID
+	clienteID, ajeno := in.ClienteID, in.clienteAjeno
 	if clienteID == "" {
-		if clienteID, err = clienteDe(ctx, tx, in.Cliente); err != nil {
+		if clienteID, ajeno, err = clienteDe(ctx, tx, in.Cliente); err != nil {
 			return Turno{}, err
 		}
+		// Desde el panel decide el negocio: el cliente es el que eligió.
+		ajeno = ajeno && origen != "panel"
 	}
 	// Con una penalidad vigente (por ausencias, o puesta a mano) no se reserva desde la web ni por un
 	// asistente de IA; desde el panel sí, porque ahí decide el negocio.
 	if origen != "panel" {
-		penalizado, err := clientes.Penalizado(ctx, tx, clienteID)
+		penalizado, err := clientes.Penalizado(ctx, tx, clienteID, ahora)
 		if err != nil {
 			return Turno{}, err
 		}
@@ -487,10 +568,10 @@ func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora ti
 	}
 	var id string
 	err = tx.QueryRow(ctx, `INSERT INTO turnos (negocio_id, codigo, servicio_id, servicio, profesional_id, profesional, cliente_id,
-		inicio, fin, precio, estado, origen, nota, serie_id) VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-		nullif($13, '')::uuid) RETURNING id::text`, codigo(), srv.ID, srv.Nombre, p.ID, p.Nombre, clienteID,
+		inicio, fin, precio, estado, origen, nota, serie_id, cliente_ajeno) VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+		nullif($13, '')::uuid, $14) RETURNING id::text`, codigo(), srv.ID, srv.Nombre, p.ID, p.Nombre, clienteID,
 		in.Inicio, in.Inicio.Add(time.Duration(srv.Duracion)*time.Minute), srv.Precio, estado, origen, strings.TrimSpace(in.Nota),
-		in.SerieID).Scan(&id)
+		in.SerieID, ajeno).Scan(&id)
 	if err != nil {
 		return Turno{}, err
 	}

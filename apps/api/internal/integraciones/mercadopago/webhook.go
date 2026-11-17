@@ -104,6 +104,15 @@ func FirmaValida(secreto, encabezado, requestID, dataID string, ahora time.Time)
 	return ahora.Sub(cuando).Abs() <= 10*time.Minute
 }
 
+// mismoID: el id de la URL y el del cuerpo, como los compara la firma (alfanuméricos sin distinguir
+// mayúsculas).
+func mismoID(a, b string) bool {
+	if alfanumerico.MatchString(a) && alfanumerico.MatchString(b) {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
+}
+
 // Receptor procesa un aviso ya verificado. Si devuelve error, se responde 500 y Mercado Pago reintenta.
 type Receptor func(ctx context.Context, a Aviso) error
 
@@ -125,9 +134,18 @@ func Webhook(secreto string, ahora func() time.Time, log *slog.Logger, receptore
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		dataID := r.URL.Query().Get("data.id")
-		if dataID == "" {
-			dataID = Crudo(a.Data.ID)
+		// La firma cubre el data.id de la URL; lo que se procesa es el del cuerpo. Tienen que ser el
+		// mismo: si no, con una firma vieja de otro aviso se haría procesar cualquier id.
+		dataID, cuerpo := r.URL.Query().Get("data.id"), Crudo(a.Data.ID)
+		switch {
+		case dataID == "":
+			dataID = cuerpo
+		case cuerpo == "":
+			a.Data.ID, _ = json.Marshal(dataID)
+		case !mismoID(dataID, cuerpo):
+			log.Warn("mercadopago: webhook con un id firmado distinto del avisado", "tipo", a.Type)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
 		}
 		if !FirmaValida(secreto, r.Header.Get("x-signature"), r.Header.Get("x-request-id"), dataID, ahora()) {
 			w.WriteHeader(http.StatusUnauthorized)

@@ -526,7 +526,8 @@ func (s *Servicio) cargar(w http.ResponseWriter, r *http.Request) error {
 		}
 		nuevo, err := s.Turnos.ReservarEn(ctx, tx, turnos.Pedido{ServicioID: o.ServicioID, ProfesionalID: o.ProfesionalID, Inicio: o.Inicio,
 			Cliente: turnos.Cliente{Nombre: a.Nombre, Telefono: a.Telefono, Email: a.Email}, Nota: "Le dimos el lugar desde la lista de espera.",
-			SinAnticipacion: true}, "panel")
+			// Los datos los dejó la persona en la web al anotarse: no son de confianza.
+			SinAnticipacion: true, DatosDeLaWeb: true}, "panel")
 		if err != nil {
 			return err
 		}
@@ -714,6 +715,7 @@ func (s *Servicio) tomar(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	ahora := s.ahora()
 	var t turnos.Turno
+	var tomo Anotado
 	_, negocio, err := s.conLink(ctx, r.PathValue("token"), func(tx pgx.Tx, l *delLink) error {
 		if err := vigente(l, ahora); err != nil {
 			return err
@@ -725,6 +727,7 @@ func (s *Servicio) tomar(w http.ResponseWriter, r *http.Request) error {
 		if err := leer(ctx, tx, *l.esperaID, &a); err != nil {
 			return err
 		}
+		tomo = a
 		var servicioID, profesionalID string
 		if err := tx.QueryRow(ctx, "SELECT servicio_id::text, profesional_id::text FROM ofertas WHERE id::text = $1", l.oferta).
 			Scan(&servicioID, &profesionalID); err != nil {
@@ -754,7 +757,9 @@ func (s *Servicio) tomar(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	s.Turnos.Confirmado(ctx, negocio, &t, "reservado_espera")
-	t.Cliente.ID = ""
+	// Lo que vuelve son los datos que dejó la persona al anotarse, no los del cliente que ya tuviera
+	// ese teléfono.
+	t.Cliente = turnos.Cliente{Nombre: tomo.Nombre, Telefono: tomo.Telefono, Email: tomo.Email}
 	web.JSON(w, http.StatusCreated, t)
 	return nil
 }

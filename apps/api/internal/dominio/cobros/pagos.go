@@ -434,23 +434,23 @@ func (s *Servicio) aplicar(ctx context.Context, negocio string, p observado) (tu
 		}
 		var estado string
 		var vence *time.Time
-		var profesional *string
-		var inicio, fin time.Time
-		if err := tx.QueryRow(ctx, "SELECT estado, vence_en, profesional_id::text, inicio, fin FROM turnos WHERE id = $1 FOR UPDATE", turnoID).
-			Scan(&estado, &vence, &profesional, &inicio, &fin); err != nil {
+		if err := tx.QueryRow(ctx, "SELECT estado, vence_en FROM turnos WHERE id = $1 FOR UPDATE", turnoID).Scan(&estado, &vence); err != nil {
 			return err
 		}
 		if estado != "pendiente_pago" {
 			// Cancelado mientras pagaba: el pago queda para devolver.
 			return nil
 		}
+		// Pagó tarde: el horario dejó de estar guardado. Sólo se confirma si sigue libre de verdad
+		// (otros turnos con su margen, bloqueos, el horario del profesional), con el profesional
+		// bloqueado como al reservar.
 		ocupado := false
-		if vence != nil && !vence.After(ahora) && profesional != nil {
-			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM turnos WHERE profesional_id = $1 AND id <> $2 AND inicio < $4 AND fin > $3
-				AND (estado IN ('pendiente', 'confirmado') OR (estado = 'pendiente_pago' AND (vence_en IS NULL OR vence_en > $5))))`,
-				*profesional, turnoID, inicio, fin, ahora).Scan(&ocupado); err != nil {
+		if vence != nil && !vence.After(ahora) {
+			libre, err := turnos.SigueLibre(ctx, tx, turnoID, ahora)
+			if err != nil {
 				return err
 			}
+			ocupado = !libre
 		}
 		if ocupado {
 			s.log().Error("cobros: pago aprobado pero el horario ya se lo llevó otro", "turno", turnoID, "referencia", p.Referencia)

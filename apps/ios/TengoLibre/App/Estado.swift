@@ -102,6 +102,8 @@ final class Estado {
     private(set) var tokenPush: String?
     private var toastTarea: Task<Void, Never>?
     private var deshacer: (() async -> Void)?
+    /// Cuándo se volvieron a pedir el rol y el acceso por un 402/403 (una vez cada 30 s, sin bucles).
+    private var accesoRevisadoEn: Date?
 
     var rol: String { negocio?.rol ?? "" }
     var esDuena: Bool { rol == "duenio" }
@@ -133,6 +135,10 @@ final class Estado {
         self.api = api ?? Api(base: Api.urlConfigurada(), token: Llavero.leer("token"))
         self.api.negocio = UserDefaults.standard.string(forKey: "negocio")
         self.api.alPerderSesion = { [weak self] in self?.sesionPerdida() }
+        self.api.alNegarAcceso = { [weak self] in
+            guard let self else { return }
+            Task { await self.accesoNegado() }
+        }
     }
 
     // MARK: Arranque
@@ -198,9 +204,10 @@ final class Estado {
         await despuesDeEntrar()
     }
 
-    /// Trabajar con otro negocio (o sucursal): todo lo guardado era del anterior.
+    /// Trabajar con otro negocio (o sucursal): lo guardado del anterior se borra (la persona y sus
+    /// negocios, recién guardados al entrar, siguen). Al abrir, el anterior es el que quedó elegido.
     func usar(_ n: NegocioDeLaPersona) {
-        if negocio?.id != n.id { Guardado.borrarTodo() }
+        if let anterior = negocio?.id ?? negocioGuardado, anterior != n.id { Guardado.borrarDelNegocio() }
         negocio = n
         negocioGuardado = n.id
         api.negocio = n.id
@@ -235,6 +242,35 @@ final class Estado {
     }
     struct SinLeer: Decodable { var sinLeer: Int }
 
+    /// Un pedido del panel volvió con 402 o 403: el rol, la membresía o el sólo lectura cambiaron. Se
+    /// vuelven a pedir /v1/yo y el acceso, como mucho una vez cada 30 s (los propios pedidos de acá
+    /// también pueden dar 403 y no tienen que volver a llamar).
+    func accesoNegado() async {
+        if let r = accesoRevisadoEn, Date().timeIntervalSince(r) < 30 { return }
+        accesoRevisadoEn = Date()
+        guard api.token != nil else { return }
+        let antes = (negocio, acceso?.bloqueado)
+        if let y: Yo = try? await api.get("/v1/yo") {
+            negocios = y.negocios
+            Guardado.guardar(y.negocios, clave: "negocios")
+            if let actual = negocio?.id {
+                if let n = negocios.first(where: { $0.id == actual }) {
+                    negocio = n
+                } else if let n = negocios.first {
+                    // Ya no es parte de ese negocio: se trabaja con otro de los suyos.
+                    usar(n)
+                } else if modo != "cliente" {
+                    negocio = nil
+                    fase = .alta
+                    return
+                }
+            }
+        }
+        await refrescar()
+        // Las pantallas se vuelven a pedir sólo si algo cambió (un 403 de una pantalla que ese rol no ve no las recarga).
+        if antes.0 != negocio || antes.1 != acceso?.bloqueado { version += 1 }
+    }
+
     // MARK: Ingreso
 
     /// El token de Clerk (Apple, Google o mail) → sesión propia de la API (POST /v1/auth/clerk). Si la
@@ -265,6 +301,7 @@ final class Estado {
     }
 
     func salir() async {
+        await dejarDeSeguirTodos()
         try? await api.hacer("POST", "/v1/auth/salir")
         olvidarSesion()
         fase = .afuera
@@ -274,19 +311,28 @@ final class Estado {
     /// borran a los 30 días. Después se olvida la sesión y se vuelve al ingreso.
     func borrarCuenta() async throws {
         try await api.hacer("DELETE", "/v1/auth/cuenta")
+        await dejarDeSeguirTodos()
         olvidarSesion()
         fase = .afuera
         avisar(Toast(simbolo: "checkmark", titulo: "Tu cuenta quedó desactivada", texto: "Tus datos personales se borran a los 30 días."))
     }
 
+    /// Todo lo de la sesión: también el token de avisos (si no, al volver a entrar no se registra de
+    /// nuevo), el negocio elegido, el modo y los permisos vistos.
     private func olvidarSesion() {
         api.token = nil
+        api.negocio = nil
         Llavero.borrar("token")
         Guardado.borrarTodo()
         persona = nil
         negocios = []
         negocio = nil
         acceso = nil
+        tokenPush = nil
+        negocioGuardado = nil
+        modo = ""
+        permisosVistos = false
+        accesoRevisadoEn = nil
     }
 
     private func sesionPerdida() {
@@ -388,6 +434,17 @@ final class Estado {
     func dejarDeSeguir(_ codigo: String) async {
         guard let token = tokenPush else { return }
         try? await api.hacer("DELETE", "/v1/t/\(codigo)/dispositivo", ["token": token])
+    }
+
+    /// Al salir: este iPhone deja de recibir los avisos de todos los turnos que seguía (como al sacarlos
+    /// de la lista). Si falla la red, igual se olvida la lista: al volver a entrar se anotan de nuevo.
+    private func dejarDeSeguirTodos() async {
+        guard let token = tokenPush else { return }
+        let clave = "seguidos-\(token.prefix(16))"
+        for c in UserDefaults.standard.stringArray(forKey: clave) ?? [] {
+            try? await api.hacer("DELETE", "/v1/t/\(c)/dispositivo", ["token": token])
+        }
+        UserDefaults.standard.removeObject(forKey: clave)
     }
 
     func pedirPermisoPush() async -> Bool {

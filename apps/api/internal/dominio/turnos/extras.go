@@ -63,6 +63,12 @@ func (s *Servicio) despuesDeReservar(ctx context.Context, negocioID string, t *T
 	}
 }
 
+// AlCancelar corre los extras de una cancelación hecha desde otro dominio (la devolución total de
+// la seña cancela el turno), dentro de su transacción.
+func (s *Servicio) AlCancelar(ctx context.Context, tx pgx.Tx, turnoID string) error {
+	return s.alCancelar(ctx, tx, turnoID)
+}
+
 func (s *Servicio) alCancelar(ctx context.Context, tx pgx.Tx, turnoID string) error {
 	for _, e := range s.Extras {
 		if err := e.AlCancelar(ctx, tx, turnoID); err != nil {
@@ -89,7 +95,7 @@ func (s *Servicio) estimar(ctx context.Context, tx pgx.Tx, precio int64) (*Pago,
 // panel (origen "panel"), extras incluidos. Confirmada la transacción, va Confirmado.
 func (s *Servicio) ReservarEn(ctx context.Context, tx pgx.Tx, in Pedido, origen string) (Turno, error) {
 	in.Forzar, in.UsarMembresia, in.ClienteID = false, false, ""
-	if origen == "web" {
+	if origen == "web" || in.DatosDeLaWeb {
 		// Lo que se cargue desde acá no es de confianza (ver app.cuidar_email).
 		if _, err := tx.Exec(ctx, "SELECT set_config('app.origen', 'web', true)"); err != nil {
 			return Turno{}, err

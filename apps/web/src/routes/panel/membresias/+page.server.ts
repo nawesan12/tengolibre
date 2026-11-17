@@ -81,7 +81,7 @@ function planDe(f: FormData) {
 	};
 }
 
-const socio = (f: FormData) => `/v1/panel/membresias/socios/${f.get('id')}`;
+const socio = (f: FormData) => `/v1/panel/membresias/socios/${encodeURIComponent(String(f.get('id') ?? ''))}`;
 
 export const actions: Actions = {
 	crearPlan: async (event) => {
@@ -90,11 +90,11 @@ export const actions: Actions = {
 	},
 	editarPlan: async (event) => {
 		const f = await event.request.formData();
-		return accion('planes', 'Guardamos el plan.', () => apiDe(event).patch(`/v1/panel/membresias/planes/${f.get('id')}`, planDe(f)));
+		return accion('planes', 'Guardamos el plan.', () => apiDe(event).patch(`/v1/panel/membresias/planes/${encodeURIComponent(String(f.get('id') ?? ''))}`, planDe(f)));
 	},
 	borrarPlan: async (event) => {
 		const f = await event.request.formData();
-		return accion('planes', 'Sacamos el plan.', () => apiDe(event).borrar(`/v1/panel/membresias/planes/${f.get('id')}`));
+		return accion('planes', 'Sacamos el plan.', () => apiDe(event).borrar(`/v1/panel/membresias/planes/${encodeURIComponent(String(f.get('id') ?? ''))}`));
 	},
 	alta: async (event) => {
 		const f = await event.request.formData();

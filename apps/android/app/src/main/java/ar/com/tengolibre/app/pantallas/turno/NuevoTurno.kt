@@ -211,7 +211,8 @@ fun ColumnScope.NuevoTurno(inicio: NuevoTurnoInicio, cerrar: () -> Unit) {
                 estado.version += 1
                 val nombre = c.nombre.split(" ").firstOrNull() ?: c.nombre
                 estado.avisar(Toast("checkmark", "Turno guardado", "Le mandamos la confirmación a $nombre", "Deshacer")) {
-                    runCatching { estado.api.hacer("PATCH", "/v1/panel/turnos/${t.id}", AccionesTurno.CambioEstado("cancelado")) }
+                    // Si no se puede cancelar, se dice (no se traga el error).
+                    AccionesTurno.cambiarEstado(estado, t.id, "cancelado")
                 }
                 Momentos.cargaManual(estado, nav)
                 cerrar()
@@ -223,7 +224,9 @@ fun ColumnScope.NuevoTurno(inicio: NuevoTurnoInicio, cerrar: () -> Unit) {
     @Serializable data class PedidoSerie(val servicioId: String, val profesionalId: String, val cadaSemanas: Int, val clienteId: String?, val cliente: ClienteDelTurno?, val nota: String, val turnos: List<T>)
     @Serializable data class Serie(val id: String, val turnos: List<Turno> = emptyList())
     fun guardarSerie() {
+        if (guardando) return
         val s = servicio ?: return; val c = cliente ?: return; val pro = profesional ?: elegido?.profesionales?.firstOrNull() ?: return
+        guardando = true
         alcance.launch {
             try {
                 val r: Serie = estado.api.enviar("POST", "/v1/panel/series", PedidoSerie(s, pro, cadaSemanas, c.id, if (c.id == null) c else null, nota, fechasSerie.sorted().map { T(Fecha.texto(it)) }))
@@ -232,7 +235,7 @@ fun ColumnScope.NuevoTurno(inicio: NuevoTurnoInicio, cerrar: () -> Unit) {
                 estado.avisar("Turno fijo guardado", "${r.turnos.size} turnos de ${c.nombre}")
                 previa = null
                 cerrar()
-            } catch (e: Exception) { estado.avisar(e) }
+            } catch (e: Exception) { estado.avisar(e) } finally { guardando = false }
         }
     }
 
@@ -385,7 +388,7 @@ fun ColumnScope.NuevoTurno(inicio: NuevoTurnoInicio, cerrar: () -> Unit) {
         }
     }
     Hoja(previa != null, { previa = null }) {
-        previa?.let { p -> PreviaFijo(p, fechasSerie, { f -> fechasSerie = if (f in fechasSerie) fechasSerie - f else fechasSerie + f }, reservar = { guardarSerie() }, cerrar = { previa = null }) }
+        previa?.let { p -> PreviaFijo(p, fechasSerie, { f -> fechasSerie = if (f in fechasSerie) fechasSerie - f else fechasSerie + f }, enviando = guardando, reservar = { guardarSerie() }, cerrar = { previa = null }) }
     }
 }
 
@@ -408,7 +411,7 @@ private fun Paso2(texto: String, valor: Int, rango: IntRange, alCambiar: (Int) -
 }
 
 @Composable
-fun ColumnScope.PreviaFijo(previa: PreviaSerie, elegidas: Set<Instant>, alTocar: (Instant) -> Unit, reservar: () -> Unit, cerrar: () -> Unit) {
+fun ColumnScope.PreviaFijo(previa: PreviaSerie, elegidas: Set<Instant>, alTocar: (Instant) -> Unit, enviando: Boolean = false, reservar: () -> Unit, cerrar: () -> Unit) {
     BarraHoja("Turno fijo", cerrar, textoCancelar = "Volver")
     Column(Modifier.weight(1f).background(C.fondo).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Texto("${previa.servicio} con ${previa.profesional}, cada ${previa.cadaSemanas} ${if (previa.cadaSemanas == 1) "semana" else "semanas"}. ${previa.libres} libres, ${previa.chocan} chocan.", Tipo.lato(15f), C.sub)
@@ -430,6 +433,7 @@ fun ColumnScope.PreviaFijo(previa: PreviaSerie, elegidas: Set<Instant>, alTocar:
         }
     }
     Box(Modifier.fillMaxWidth().background(C.hoja).padding(16.dp)) {
-        BotonMenta("Reservar ${elegidas.size} ${if (elegidas.size == 1) "turno" else "turnos"}", reservar, habilitado = elegidas.isNotEmpty())
+        // Mientras se reservan: el botón no se puede volver a tocar (no se duplica la serie).
+        BotonMenta(if (enviando) "Reservando…" else "Reservar ${elegidas.size} ${if (elegidas.size == 1) "turno" else "turnos"}", reservar, habilitado = elegidas.isNotEmpty() && !enviando)
     }
 }

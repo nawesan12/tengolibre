@@ -29,7 +29,7 @@ export const load: LayoutServerLoad = async (event) => {
 	} catch (e) {
 		if (e instanceof ErrorApi && e.estado === 401) {
 			borrarSesion(cookies);
-			redirect(303, `/ingresar?volver=${encodeURIComponent(url.pathname)}`);
+			redirect(303, `/ingresar?volver=${encodeURIComponent(url.pathname + url.search)}`);
 		}
 		throw e;
 	}

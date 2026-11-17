@@ -70,6 +70,9 @@ func (s *Servicio) compraApple(w http.ResponseWriter, r *http.Request) error {
 	if t.BundleID != BundleApple {
 		return problema.Invalido("La compra es de otra app.")
 	}
+	if !s.aceptaApple(t.Environment) {
+		return problema.Invalido("Esa compra es de prueba (sandbox) y no se cobró.", problema.Campo{Ruta: "transaccion", Mensaje: "prueba"})
+	}
 	if !strings.EqualFold(t.AppAccountToken, negocio) {
 		return problema.Conflicto("otro_negocio", "Esa suscripción es de otro negocio. Entrá a ese negocio para verla.")
 	}
@@ -104,6 +107,11 @@ func (s *Servicio) notificacionApple(w http.ResponseWriter, r *http.Request) err
 	ctx := r.Context()
 	if n.Tipo == "TEST" || n.Transaccion == nil || n.BundleID != BundleApple {
 		s.log().Info("appstore: notificación sin transacción nuestra", "tipo", n.Tipo, "bundle", n.BundleID)
+		w.WriteHeader(http.StatusOK)
+		return nil
+	}
+	if !s.aceptaApple(n.Entorno) || !s.aceptaApple(n.Transaccion.Environment) {
+		s.log().Info("appstore: notificación de prueba ignorada", "tipo", n.Tipo, "entorno", n.Entorno)
 		w.WriteHeader(http.StatusOK)
 		return nil
 	}
@@ -185,11 +193,12 @@ func conciliarApple(ctx context.Context, tx pgx.Tx, negocio string, t appstore.T
 			return err
 		}
 	}
-	nuevoPlan := plan.Clave
+	// Dada de baja, el plan sale de las que sigan valiendo (puede haber otra, de otro origen).
 	if estado == "cancelada" {
-		nuevoPlan = "sin_plan"
-	}
-	if _, err := tx.Exec(ctx, "UPDATE negocios SET plan = $1 WHERE id = app.negocio_actual()", nuevoPlan); err != nil {
+		if err := recalcularPlan(ctx, tx, ahora); err != nil {
+			return err
+		}
+	} else if _, err := tx.Exec(ctx, "UPDATE negocios SET plan = $1 WHERE id = app.negocio_actual()", plan.Clave); err != nil {
 		return err
 	}
 	accion := "suscripcion.apple"
@@ -200,9 +209,16 @@ func conciliarApple(ctx context.Context, tx pgx.Tx, negocio string, t appstore.T
 		Detalle: map[string]any{"evento": evento, "estado": estado, "plan": plan.Clave, "vence": vence}})
 }
 
+// aceptaApple: sólo las compras de producción, salvo con SandboxApple (desarrollo, tests, o un rato
+// para la revisión de Apple, que compra en sandbox). Lo que no dice "Production" (Sandbox, Xcode, o
+// nada) es de prueba.
+func (s *Servicio) aceptaApple(entorno string) bool {
+	return s.SandboxApple || entornoApple(entorno) == "Production"
+}
+
 func entornoApple(e string) string {
-	if e == "Sandbox" || e == "Xcode" {
-		return "Sandbox"
+	if e == "Production" {
+		return "Production"
 	}
-	return "Production"
+	return "Sandbox"
 }

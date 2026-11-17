@@ -38,13 +38,15 @@
 	const enEspera = $derived(!!form && ('anotado' in form || ('enEspera' in form && form.enEspera)));
 	const sinDias = $derived(data.paso === 'dia' && data.dias.every((d) => d.libres === 0));
 	const hoy = $derived(diaDe(new Date(), n.zonaHoraria));
+	// Mientras va un pedido: los botones quedan deshabilitados (nada de reservas ni avisos dobles).
 	let enviando = $state(false);
+	let aplicando = $state(false);
+	let anotando = $state(false);
 	// El socio que ingresó reserva con su membresía (sus datos ya los tiene el negocio).
 	let usar = $state(true);
 	const conMembresia = $derived(!!data.membresia && usar);
 	const sena = $derived(conMembresia ? 0 : montoSena(total, data.cobro));
 	const resto = $derived(total - sena);
-	const volver = $derived(encodeURIComponent(page.url.pathname + page.url.search));
 	const abierto = (si: boolean | undefined) => (si ? { open: true } : {});
 	const listo = $derived(data.paso === 'datos' && !!data.servicio && !!data.horario);
 	const nombreProf = (ids: string[]) => {
@@ -80,6 +82,8 @@
 	<title>Reservar turno · {n.nombre}</title>
 	<meta name="description" content={`Elegí servicio, día y horario y reservá tu turno en ${n.nombre}.`} />
 	<meta name="theme-color" content={data.pagina.web.colorPrimario} />
+	<meta name="robots" content="noindex, follow" />
+	<link rel="canonical" href={data.canonical} />
 </svelte:head>
 
 {#snippet espera(desde: string, hasta: string, cta: string)}
@@ -96,7 +100,18 @@
 		<!-- Sólo se abre solo (sin cerrar lo que la persona abrió antes de que cargue la página). -->
 		<details class="espera" {...abierto(enEspera)}>
 			<summary class="cta-w">{cta}</summary>
-			<form method="POST" action={accion('espera')} use:enhance class="form-w">
+			<form
+				method="POST"
+				action={accion('espera')}
+				class="form-w"
+				use:enhance={() => {
+					anotando = true;
+					return async ({ update }) => {
+						await update();
+						anotando = false;
+					};
+				}}
+			>
 				<input type="hidden" name="servicioId" value={data.servicio?.id} />
 				<input type="hidden" name="profesionalId" value={data.profesionalId} />
 				{#if form && 'enEspera' in form && form.error}<p class="aviso-w rojo" role="alert"><Icono nombre="error" tam={20} lleno /><span>{form.error}</span></p>{/if}
@@ -114,7 +129,7 @@
 					<label class="campo-w">Desde <input name="desde" type="date" required min={hoy} value={v.desde ?? desde} /></label>
 					<label class="campo-w">Hasta <input name="hasta" type="date" required min={hoy} value={v.hasta ?? hasta} /></label>
 				</div>
-				<button class="boton-reserva">Anotarme</button>
+				<button class="boton-reserva" disabled={anotando}>{anotando ? 'Anotando…' : 'Anotarme'}</button>
 			</form>
 		</details>
 	{/if}
@@ -236,16 +251,22 @@
 							method="POST"
 							action={accion('reservar')}
 							class="form-w"
-							use:enhance={({ action }) => {
-								enviando = action.searchParams.has('/reservar');
+							use:enhance={({ action, cancel }) => {
+								if (enviando || aplicando) return cancel();
+								if (action.searchParams.has('/reservar')) enviando = true;
+								else aplicando = true;
 								return async ({ update, result }) => {
 									await update({ reset: false });
 									// Se ocupó mientras completaba: se vuelve a pedir la agenda (y lo cargado queda en el borrador).
 									if (result.type === 'failure' && result.data?.codigo === 'horario_ocupado') await invalidateAll();
 									enviando = false;
+									aplicando = false;
 								};
 							}}
 						>
+							<!-- Enter en «Tus datos» reserva: el navegador usa el primer botón del formulario (sin esto,
+							     el «Aplicar» del cupón). Oculto a la vista, no con display:none (así cuenta). -->
+							<button class="visualmente-oculto" tabindex="-1" aria-hidden="true" disabled={enviando || aplicando}>{textoBoton}</button>
 							<input type="hidden" name="servicioId" value={data.servicio.id} />
 							<input type="hidden" name="profesionalId" value={data.profesionalId} />
 							<input type="hidden" name="inicio" value={data.horario.inicio} />
@@ -272,7 +293,7 @@
 								<div class="invitar">
 									<Icono nombre="card_membership" tam={20} lleno />
 									<span>¿Sos socio?</span>
-									<a href={`/ingresar?volver=${volver}`}>Ingresá</a>
+									<a href={data.ingresar}>Ingresá</a>
 								</div>
 							{/if}
 							{#if !conMembresia}
@@ -320,7 +341,7 @@
 								/>
 								<span id="ayuda-contacto" class="chico sub">Teléfono o email: con uno alcanza. Ahí te llega la&nbsp;confirmación.</span>
 							{/if}
-							<details {...abierto(!!(v.cupon || v.referido || v.nota || v.nacimiento || data.referido || form?.campos?.["cliente.nacimiento"]))}>
+							<details {...abierto(!!(cupon || v.cupon || v.referido || v.nota || v.nacimiento || data.referido || form?.campos?.["cliente.nacimiento"]))}>
 								<summary class="extra">
 									<Icono nombre="sell" tam={18} lleno />Cupón, nota o código de referido
 									{#if descuento > 0}<span class="ok tl-num">− {pesos(descuento)}</span>{/if}
@@ -329,7 +350,7 @@
 									<div class="fila-cupon">
 										<label class="visualmente-oculto" for="r-cupon">Cupón</label>
 										<input id="r-cupon" class="entrada cupon" name="cupon" maxlength="40" autocomplete="off" autocapitalize="characters" placeholder="Cupón" value={v.cupon ?? ''} />
-										<button class="aplicar" formaction={accion('cupon')} formnovalidate>Aplicar</button>
+										<button class="aplicar" formaction={accion('cupon')} formnovalidate disabled={enviando || aplicando}>{aplicando ? 'Aplicando…' : 'Aplicar'}</button>
 									</div>
 									{#if cupon}
 										<p class={cupon.valido ? 'aviso-w verde' : 'aviso-w rojo'} role="status">
@@ -394,7 +415,7 @@
 						{/if}
 					</span>
 					{#if listo}
-						<button class="boton-reserva" form="f-reserva" disabled={enviando}>{textoBoton}</button>
+						<button class="boton-reserva" form="f-reserva" disabled={enviando || aplicando}>{textoBoton}</button>
 					{:else}
 						<button class="boton-reserva" type="button" disabled>Reservar</button>
 					{/if}

@@ -106,7 +106,7 @@ struct NuevoTurno: View {
                 .ignoresSafeArea()
             }
             .sheet(item: $previa) { p in
-                PreviaFijo(previa: p, elegidas: $fechasSerie) { Task { await guardarSerie() } }
+                PreviaFijo(previa: p, elegidas: $fechasSerie, enviando: guardando) { Task { await guardarSerie() } }
                     .presentationDetents([.large])
             }
             .task { await cargar() }
@@ -379,7 +379,8 @@ struct NuevoTurno: View {
             estado.version += 1
             let nombre = cliente.nombre.split(separator: " ").first.map(String.init) ?? cliente.nombre
             estado.avisar(Toast(simbolo: "checkmark", titulo: "Turno guardado", texto: "Le mandamos la confirmación a \(nombre)", accion: "Deshacer")) {
-                try? await estado.api.hacer("PATCH", "/v1/panel/turnos/\(t.id)", AccionesTurno.CambioEstado(estado: "cancelado"))
+                // Si no se puede cancelar, se dice (no se traga el error).
+                await AccionesTurno.cambiarEstado(estado, t.id, "cancelado")
             }
             Momentos.cargaManual(estado, nav)
             cerrar()
@@ -426,7 +427,9 @@ struct NuevoTurno: View {
     private struct Serie: Decodable { var id: String; var turnos: [Turno] }
 
     private func guardarSerie() async {
-        guard let servicio, let cliente, let pro = profesional ?? elegido?.profesionales.first else { return }
+        guard !guardando, let servicio, let cliente, let pro = profesional ?? elegido?.profesionales.first else { return }
+        guardando = true
+        defer { guardando = false }
         do {
             let r: Serie = try await estado.api.enviar("POST", "/v1/panel/series", PedidoSerie(
                 servicioId: servicio, profesionalId: pro, cadaSemanas: cadaSemanas,
@@ -467,6 +470,8 @@ struct PreviaSerie: Codable, Identifiable, Equatable {
 struct PreviaFijo: View {
     var previa: PreviaSerie
     @Binding var elegidas: Set<Date>
+    /// Mientras se reservan: el botón no se puede volver a tocar (no se duplica la serie).
+    var enviando = false
     var reservar: () -> Void
     @Environment(\.dismiss) private var cerrar
 
@@ -499,8 +504,8 @@ struct PreviaFijo: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                Button("Reservar \(elegidas.count) \(elegidas.count == 1 ? "turno" : "turnos")", action: reservar)
-                    .buttonStyle(BotonMenta()).disabled(elegidas.isEmpty).padding(16).background(C.hoja)
+                Button(enviando ? "Reservando…" : "Reservar \(elegidas.count) \(elegidas.count == 1 ? "turno" : "turnos")", action: reservar)
+                    .buttonStyle(BotonMenta()).disabled(elegidas.isEmpty || enviando).padding(16).background(C.hoja)
             }
             .navigationTitle("Turno fijo").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Volver") { cerrar() } } }

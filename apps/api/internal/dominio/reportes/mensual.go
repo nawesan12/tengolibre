@@ -219,11 +219,11 @@ func Mensual(ctx context.Context, tx pgx.Tx, mes string, ahora time.Time) (Repor
 	rm.Periodo = "Del 1 al " + strconv.Itoa(ultimo.Day()) + " de " + nombreMes(ini) + " de " + strconv.Itoa(ini.Year()) +
 		" · comparado con " + rm.NombreAnterior
 
-	rep, err := armar(ctx, tx, nuevoRango(zona, ini, ultimo))
+	rep, err := armar(ctx, tx, nuevoRango(zona, ini, ultimo, ahora))
 	if err != nil {
 		return rm, err
 	}
-	ant, err := armar(ctx, tx, nuevoRango(zona, antIni, ini.AddDate(0, 0, -1)))
+	ant, err := armar(ctx, tx, nuevoRango(zona, antIni, ini.AddDate(0, 0, -1), ahora))
 	if err != nil {
 		return rm, err
 	}
@@ -245,7 +245,7 @@ func Mensual(ctx context.Context, tx pgx.Tx, mes string, ahora time.Time) (Repor
 	} else {
 		rm.Agenda.Titulo = "Todavía no hay horarios cargados para medir la ocupación."
 	}
-	if rm.Agenda.Mapa, err = calcularMapa(ctx, tx, zona, ini, fin, clasificarMensual); err != nil {
+	if rm.Agenda.Mapa, err = calcularMapa(ctx, tx, zona, ini, fin, ahora, clasificarMensual); err != nil {
 		return rm, err
 	}
 	rm.Agenda.HorasLibres = int(math.Round(float64(rm.Agenda.Mapa.Capacidad-rm.Agenda.Mapa.Ocupado) / 60))
@@ -418,7 +418,7 @@ func Mensual(ctx context.Context, tx pgx.Tx, mes string, ahora time.Time) (Repor
 	}
 
 	// Titular, bajada, lo mejor del mes y lo que sigue.
-	if err := titular(ctx, tx, &rm, ini, zona); err != nil {
+	if err := titular(ctx, tx, &rm, ini, zona, ahora); err != nil {
 		return rm, err
 	}
 	rm.Destacados = destacados(rm, rep, zona)
@@ -581,7 +581,7 @@ func indicadorPuntos(clave, titulo string, v, a *float64, anterior string, subir
 }
 
 // titular y bajada de la portada.
-func titular(ctx context.Context, tx pgx.Tx, rm *ReporteMensual, ini time.Time, zona *time.Location) error {
+func titular(ctx context.Context, tx pgx.Tx, rm *ReporteMensual, ini time.Time, zona *time.Location, ahora time.Time) error {
 	r, a := rm.Resumen, rm.ResumenAnterior
 	if r.Turnos == 0 {
 		rm.Titulo = "Un mes sin turnos."
@@ -592,7 +592,7 @@ func titular(ctx context.Context, tx pgx.Tx, rm *ReporteMensual, ini time.Time, 
 	mejor, alguno := r.Ingresos > 0, false
 	for i := 1; i <= 11; i++ {
 		m := ini.AddDate(0, -i, 0)
-		_, ing, _, err := contar(ctx, tx, m, m.AddDate(0, 1, 0))
+		_, ing, _, err := contar(ctx, tx, m, m.AddDate(0, 1, 0), ahora)
 		if err != nil {
 			return err
 		}

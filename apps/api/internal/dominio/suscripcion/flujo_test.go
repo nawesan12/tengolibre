@@ -443,3 +443,76 @@ func TestSondeoGooglePlay(t *testing.T) {
 		t.Fatalf("vencida tendría que bloquear: %+v", s)
 	}
 }
+
+// transaccionApple firma una compra de la App Store en el entorno pedido (el firmante de prueba las
+// arma de sandbox).
+func transaccionApple(e *cobrosprueba.Entorno, original, producto, entorno string, vence time.Time) string {
+	return e.Apple.Firmar(map[string]any{"originalTransactionId": original, "transactionId": original + "-1", "bundleId": suscripcion.BundleApple,
+		"productId": producto, "appAccountToken": e.Negocio, "expiresDate": vence.UnixMilli(), "purchaseDate": vence.AddDate(0, -1, 0).UnixMilli(),
+		"environment": entorno, "type": "Auto-Renewable Subscription"})
+}
+
+// TestComprasDePruebaApagadas: en producción (sin TENGOLIBRE_APPLE_SANDBOX ni TENGOLIBRE_GOOGLE_PRUEBAS)
+// una compra de sandbox, de Xcode o una testPurchase de Google Play no abre el panel, y una
+// notificación de sandbox no toca la suscripción de verdad.
+func TestComprasDePruebaApagadas(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.Suscripcion.SandboxApple, e.Suscripcion.PruebasGoogle = false, false
+	e.SQL("UPDATE negocios SET prueba_hasta = $1", e.Ahora.Add(-time.Hour))
+	vence := e.Ahora.AddDate(0, 1, 0)
+	const producto = "ar.com.tengolibre.completo.mensual"
+	for _, entorno := range []string{"Sandbox", "Xcode", ""} {
+		e.Panel(400, "POST", "/v1/panel/suscripcion/apple", map[string]string{"transaccion": transaccionApple(e, "3000001", producto, entorno, vence)}, nil)
+	}
+	if s := leer(e); !s.Bloqueado {
+		t.Fatalf("una compra de prueba abrió el panel: %+v", s)
+	}
+	compra := transaccionApple(e, "3000002", producto, "Production", vence)
+	e.Panel(200, "POST", "/v1/panel/suscripcion/apple", map[string]string{"transaccion": compra}, nil)
+	// Una notificación de sandbox (aunque traiga la transacción de verdad) se ignora.
+	vencida := transaccionApple(e, "3000002", producto, "Production", e.Ahora.Add(-2*time.Hour))
+	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/webhooks/appstore", Cuerpo: map[string]string{
+		"signedPayload": e.Apple.Notificacion("EXPIRED", "VOLUNTARY", vencida, "")}}, nil)
+	if s := leer(e); s.Bloqueado || s.Plan != "completo" {
+		t.Fatalf("la notificación de sandbox tocó la suscripción: %+v", s)
+	}
+
+	prueba := sus("SUBSCRIPTION_STATE_ACTIVE", e.Negocio, vence, true)
+	prueba.Prueba = &struct{}{}
+	e.Google.Cargar("tok-prueba", prueba)
+	e.Panel(400, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": producto, "token": "tok-prueba"}, nil)
+	var n int
+	e.Fila("SELECT count(*) FROM suscripciones WHERE origen = 'google'", nil, &n)
+	if n != 0 {
+		t.Fatalf("la testPurchase quedó como suscripción: %d", n)
+	}
+}
+
+// TestBajaConOtraSuscripcionVigente: con una de la App Store y otra de Google Play, dar de baja una
+// deja el plan de la que sigue (no sin_plan).
+func TestBajaConOtraSuscripcionVigente(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.SQL("UPDATE negocios SET prueba_hasta = $1", e.Ahora.Add(-time.Hour))
+	vence := e.Ahora.AddDate(0, 1, 0)
+	e.Panel(200, "POST", "/v1/panel/suscripcion/apple", map[string]string{
+		"transaccion": transaccionApple(e, "4000001", "ar.com.tengolibre.inicial.mensual", "Production", vence)}, nil)
+	e.Google.Cargar("tok-1", sus("SUBSCRIPTION_STATE_ACTIVE", e.Negocio, vence, true))
+	e.Panel(200, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "ar.com.tengolibre.completo.mensual", "token": "tok-1"}, nil)
+	if s := leer(e); s.Plan != "completo" {
+		t.Fatalf("con las dos: %+v", s)
+	}
+	// Vence la de Google: queda la de Apple, con su plan.
+	e.Google.Cargar("tok-1", sus("SUBSCRIPTION_STATE_EXPIRED", e.Negocio, e.Ahora.Add(-2*time.Hour), false))
+	d, _ := json.Marshal(map[string]any{"packageName": suscripcion.PaqueteAndroid, "subscriptionNotification": map[string]any{"notificationType": 13, "purchaseToken": "tok-1"}})
+	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/webhooks/google-play?clave=" + cobrosprueba.ClaveGoogle,
+		Cuerpo: map[string]any{"message": map[string]string{"data": base64.StdEncoding.EncodeToString(d)}}}, nil)
+	if s := leer(e); s.Bloqueado || s.Plan != "inicial" {
+		t.Fatalf("la baja de Google dejó al negocio sin el plan de Apple: %+v", s)
+	}
+	// Vence la de Apple también: ahora sí, sin plan.
+	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/webhooks/appstore", Cuerpo: map[string]string{"signedPayload": e.Apple.Notificacion("EXPIRED", "VOLUNTARY",
+		transaccionApple(e, "4000001", "ar.com.tengolibre.inicial.mensual", "Production", e.Ahora.Add(-2*time.Hour)), "")}}, nil)
+	if s := leer(e); !s.Bloqueado || s.Plan != "sin_plan" {
+		t.Fatalf("sin ninguna: %+v", s)
+	}
+}

@@ -115,7 +115,7 @@ export const actions: Actions = {
 	epigrafe: async (event) => {
 		const f = await event.request.formData();
 		return accion('galeria', 'Guardamos el epígrafe.', () =>
-			apiDe(event).patch(`/v1/panel/mi-web/galeria/${f.get('id')}`, { epigrafe: texto(f, 'epigrafe') })
+			apiDe(event).patch(`/v1/panel/mi-web/galeria/${encodeURIComponent(String(f.get('id') ?? ''))}`, { epigrafe: texto(f, 'epigrafe') })
 		);
 	},
 	mover: async (event) => {
@@ -139,6 +139,6 @@ export const actions: Actions = {
 	},
 	borrarFoto: async (event) => {
 		const f = await event.request.formData();
-		return accion('galeria', 'Sacamos la foto.', () => apiDe(event).borrar(`/v1/panel/mi-web/galeria/${f.get('id')}`));
+		return accion('galeria', 'Sacamos la foto.', () => apiDe(event).borrar(`/v1/panel/mi-web/galeria/${encodeURIComponent(String(f.get('id') ?? ''))}`));
 	}
 };

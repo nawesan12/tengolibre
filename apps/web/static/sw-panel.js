@@ -23,8 +23,17 @@ self.addEventListener('push', (ev) => {
 
 self.addEventListener('notificationclick', (ev) => {
 	ev.notification.close();
-	const { url } = ev.notification.data || {};
-	const destino = new URL(url || '/panel', self.location.origin).href;
+	const { url, negocio } = ev.notification.data || {};
+	let destino = new URL(url || '/panel', self.location.origin);
+	// El aviso puede ser de otro negocio de la persona: se abre con ese negocio activo. El worker no
+	// sabe cuál está elegido (va en una cookie httpOnly), así que pasa siempre por el cambio, que valida
+	// que sea suyo y vuelve a la pantalla del aviso (si ya era el activo, no cambia nada).
+	if (negocio && destino.origin === self.location.origin && destino.pathname.startsWith('/panel'))
+		destino = new URL(
+			`/panel/negocio?${new URLSearchParams({ ir: negocio, volver: destino.pathname + destino.search })}`,
+			self.location.origin
+		);
+	destino = destino.href;
 	ev.waitUntil(
 		self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((ventanas) => {
 			for (const v of ventanas) {

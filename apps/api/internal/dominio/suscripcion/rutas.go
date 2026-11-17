@@ -241,7 +241,8 @@ func (s *Servicio) bajaEn(ctx context.Context, negocio, motivo string, tiendaEsE
 	return true, err
 }
 
-// darDeBaja: con el mes pago, pausada hasta el próximo cobro; si no, cancelada y el negocio sin plan.
+// darDeBaja: con el mes pago, pausada hasta el próximo cobro; si no, cancelada y el plan del negocio
+// sale de las que sigan valiendo (sin ninguna, sin plan).
 func darDeBaja(ctx context.Context, tx pgx.Tx, id string, ahora time.Time, motivo string) error {
 	var proximo *time.Time
 	var estado string
@@ -257,8 +258,7 @@ func darDeBaja(ctx context.Context, tx pgx.Tx, id string, ahora time.Time, motiv
 		actualizado_en = now() WHERE id = $1`, id, ahora, motivo); err != nil {
 		return err
 	}
-	_, err := tx.Exec(ctx, "UPDATE negocios SET plan = 'sin_plan' WHERE id = app.negocio_actual()")
-	return err
+	return recalcularPlan(ctx, tx, ahora)
 }
 
 // Receptores de los avisos de suscripciones, para el webhook de Mercado Pago (lo monta cobros).
@@ -336,8 +336,7 @@ func (s *Servicio) ConciliarPreaprobacion(ctx context.Context, id string) error 
 				subID, ahora); err != nil {
 				return err
 			}
-			_, err = tx.Exec(ctx, "UPDATE negocios SET plan = 'sin_plan' WHERE id = app.negocio_actual()")
-			return err
+			return recalcularPlan(ctx, tx, ahora)
 		}
 		return nil
 	})

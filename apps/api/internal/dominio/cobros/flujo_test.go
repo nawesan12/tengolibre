@@ -413,3 +413,55 @@ func TestSenaViejaConPreferencia(t *testing.T) {
 		t.Fatalf("devolución del pago viejo: %+v %v", dev, d)
 	}
 }
+
+// TestPagoTardioMiraLaAgendaDeVerdad: vencido el plazo, el pago (o confirmar desde el panel) sólo
+// confirma si el horario sigue libre también por bloqueos del profesional, no sólo por otros turnos.
+func TestPagoTardioMiraLaAgendaDeVerdad(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.ConectarMP()
+	e.Panel(200, "PUT", "/v1/panel/cobros", map[string]any{"modo": "fija", "senaFija": 2000}, nil)
+	primera := e.Reservar(201, "09:00", "1111", nil)
+	segunda := e.Reservar(201, "11:00", "2222", nil)
+	tercera := e.Reservar(201, "12:00", "3333", nil)
+	e.Ahora = e.Ahora.Add(20 * time.Minute)
+	// Ana se bloqueó de 9 a 10 y de 11 a 12 mientras nadie pagaba.
+	e.Panel(201, "POST", "/v1/panel/profesionales/"+e.Profesional+"/bloqueos", map[string]any{"fecha": "2026-11-02", "desde": "09:00", "hasta": "10:00"}, nil)
+	e.Panel(201, "POST", "/v1/panel/profesionales/"+e.Profesional+"/bloqueos", map[string]any{"fecha": "2026-11-02", "desde": "11:00", "hasta": "12:00"}, nil)
+
+	e.MP.Pagar(2101, referencia(t, primera), "approved", 2000)
+	if c := e.Avisar("payment", "2101"); c != 200 {
+		t.Fatalf("aviso: %d", c)
+	}
+	if x := e.Turno(primera.ID); x.Estado != "cancelado" {
+		t.Fatalf("pagó tarde un horario bloqueado: %s", x.Estado)
+	}
+	// Desde el panel tampoco se confirma un vencido sin lugar; con lugar, sí.
+	e.Panel(409, "PATCH", "/v1/panel/turnos/"+segunda.ID, map[string]string{"estado": "confirmado"}, nil)
+	e.Panel(200, "PATCH", "/v1/panel/turnos/"+tercera.ID, map[string]string{"estado": "confirmado"}, nil)
+}
+
+// TestDevolucionTotalCancelaComoSiempre: devolver toda la seña cancela el turno con lo que corre en
+// cualquier cancelación (el cupón usado vuelve) y el aviso al cliente.
+func TestDevolucionTotalCancelaComoSiempre(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.ConectarMP()
+	e.Panel(200, "PUT", "/v1/panel/cobros", map[string]any{"modo": "total"}, nil)
+	e.Panel(201, "POST", "/v1/panel/cupones", map[string]any{"codigo": "UNA", "tipo": "fijo", "valor": 1000, "maxUsos": 1}, nil)
+	tu := e.Reservar(201, "09:00", "1111", map[string]any{"cupon": "UNA"})
+	orden := e.MP.PagarOrden(referencia(t, tu), "processed", "accredited", 7000, 5101)
+	e.Avisar("order", orden)
+	var ps pagos
+	e.Panel(200, "GET", "/v1/panel/pagos", nil, &ps)
+	e.Panel(200, "POST", "/v1/panel/pagos/"+ps.Pagos[0].ID+"/devolver", nil, nil)
+	if x := e.Turno(tu.ID); x.Estado != "cancelado" {
+		t.Fatalf("devuelto todo: %s", x.Estado)
+	}
+	if ev := e.Avisos[tu.ID]; len(ev) == 0 || ev[len(ev)-1] != "cancelado" {
+		t.Fatalf("avisos: %v", ev)
+	}
+	var usos int
+	e.Fila("SELECT usos FROM cupones WHERE codigo = 'UNA'", nil, &usos)
+	if usos != 0 {
+		t.Fatalf("el cupón no volvió: %d usos", usos)
+	}
+}

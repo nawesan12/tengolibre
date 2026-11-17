@@ -141,9 +141,10 @@ fun DetalleTurno(turnoInicial: Turno, cerrar: () -> Unit) {
                 Momentos.cambioDeEstado(estado, nav, turno, nuevo)
                 if (nuevo == "cancelado" || nuevo == "ausente") {
                     val t = turno
-                    estado.avisar(Toast("checkmark", if (nuevo == "cancelado") "Turno cancelado" else "Marcado ausente", "${t.cliente.nombre} · ${Formato.horaDe(t.inicio)}", "Deshacer")) {
-                        runCatching { estado.api.hacer("PATCH", "/v1/panel/turnos/${t.id}", AccionesTurno.CambioEstado(antes)) }
-                    }
+                    // Un cancelado no vuelve (la API no lo permite): sin «Deshacer». Si deshacer falla, se dice.
+                    val vuelve = AccionesTurno.puedePasar(nuevo, antes)
+                    val deshacer: (suspend () -> Unit)? = if (vuelve) ({ AccionesTurno.cambiarEstado(estado, t.id, antes) }) else null
+                    estado.avisar(Toast("checkmark", if (nuevo == "cancelado") "Turno cancelado" else "Marcado ausente", "${t.cliente.nombre} · ${Formato.horaDe(t.inicio)}", if (vuelve) "Deshacer" else ""), deshacer)
                     cerrar()
                 }
             } catch (e: Exception) { estado.avisar(e) }

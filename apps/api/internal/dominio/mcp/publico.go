@@ -13,11 +13,9 @@ package mcp
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -28,6 +26,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/turnos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/tope"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/web"
 )
 
@@ -40,54 +39,9 @@ const (
 // URLPublica: la del servidor público, la que la persona carga en su asistente.
 func (s *Servicio) URLPublica() string { return s.url() + "/publico" }
 
-// ---- Tope por IP
+// ---- Tope por IP (plataforma/tope)
 
-// limite cuenta pedidos por clave en una ventana fija. En memoria: la API es un solo proceso.
-type limite struct {
-	mu      sync.Mutex
-	cuentas map[string]*cuenta
-}
-
-type cuenta struct {
-	desde time.Time
-	n     int
-}
-
-// permitir suma un pedido de clave y dice si entra en max por ventana.
-func (l *limite) permitir(clave string, max int, ventana time.Duration, ahora time.Time) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.cuentas == nil {
-		l.cuentas = map[string]*cuenta{}
-	}
-	// Limpieza de lo vencido cuando crece (no hace falta un barrido aparte).
-	if len(l.cuentas) > 10000 {
-		for k, c := range l.cuentas {
-			if ahora.Sub(c.desde) > time.Hour {
-				delete(l.cuentas, k)
-			}
-		}
-	}
-	c, ok := l.cuentas[clave]
-	if !ok || ahora.Sub(c.desde) >= ventana {
-		l.cuentas[clave] = &cuenta{desde: ahora, n: 1}
-		return max > 0
-	}
-	c.n++
-	return c.n <= max
-}
-
-// ipDe: la del cliente. La API sólo escucha detrás de Caddy, que sólo acepta a Cloudflare: el
-// CF-Connecting-IP lo pone Cloudflare. Sin él (desarrollo, tests), la dirección de la conexión.
-func ipDe(r *http.Request) string {
-	if v := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); v != "" && net.ParseIP(v) != nil {
-		return v
-	}
-	if h, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-		return h
-	}
-	return r.RemoteAddr
-}
+func ipDe(r *http.Request) string { return tope.IP(r) }
 
 func (s *Servicio) topes() (pedidos, reservas int) {
 	pedidos, reservas = PedidosPorMinuto, ReservasPorHora
@@ -117,7 +71,7 @@ func (s *Servicio) servirPublico(w http.ResponseWriter, r *http.Request) {
 	}
 	ip := ipDe(r)
 	pedidos, _ := s.topes()
-	if !s.limite.permitir("p:"+ip, pedidos, time.Minute, s.ahora()) {
+	if !s.limite.Permitir("p:"+ip, pedidos, time.Minute, s.ahora()) {
 		demasiados(w, "Hiciste muchos pedidos seguidos. Esperá un minuto.")
 		return
 	}
@@ -448,7 +402,7 @@ func reservarPublica(ctx context.Context, s *Servicio, ip string, raw json.RawMe
 		return nil, err
 	}
 	// El tope de reservas se cuenta recién con un pedido completo: equivocarse en un dato no gasta.
-	if _, reservas := s.topes(); !s.limite.permitir("r:"+ip, reservas, time.Hour, s.ahora()) {
+	if _, reservas := s.topes(); !s.limite.Permitir("r:"+ip, reservas, time.Hour, s.ahora()) {
 		return nil, &problema.Problema{Estado: http.StatusTooManyRequests, Codigo: "demasiadas_reservas",
 			Titulo: "Demasiadas reservas", Detalle: "Ya se hicieron muchas reservas desde esta conexión. Probá en un rato o reservá en la página del negocio."}
 	}
@@ -510,10 +464,10 @@ func (s *Servicio) leerPublico(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			z = time.FixedZone("UTC-3", -3*3600)
 		}
-		// El mes con el reloj de la base, el mismo que puso creado_en.
+		// El mes y los vencidos con el reloj de la API ($2), el mismo que pone el vencimiento de la seña.
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM turnos WHERE origen = 'ia'
-			AND creado_en >= date_trunc('month', now() AT TIME ZONE $1) AT TIME ZONE $1
-			AND NOT (estado = 'pendiente_pago' AND vence_en <= now())`, z.String()).Scan(&out.ReservasMes); err != nil {
+			AND creado_en >= date_trunc('month', $2::timestamptz AT TIME ZONE $1) AT TIME ZONE $1
+			AND NOT (estado = 'pendiente_pago' AND vence_en <= $2)`, z.String(), s.ahora()).Scan(&out.ReservasMes); err != nil {
 			return err
 		}
 		filas, err := tx.Query(ctx, `SELECT t.id::text, t.servicio, t.inicio, t.creado_en FROM turnos t

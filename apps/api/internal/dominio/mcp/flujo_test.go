@@ -483,3 +483,44 @@ func TestPermisosDelAsistente(t *testing.T) {
 		t.Fatalf("revocada sigue en la lista: %+v", panel.Tokens)
 	}
 }
+
+// TestClavesDeQuienDejaDeGestionar: las claves del asistente valen mientras quien las creó siga
+// gestionando el negocio. Bajarla de rol o desactivarla las revoca; y si deja de ser encargada por
+// otro lado (la cuenta se borró), dejan de andar igual.
+func TestClavesDeQuienDejaDeGestionar(t *testing.T) {
+	e := nuevo(t)
+	const encargada = "user_encar00001"
+	var m negocios.Miembro
+	e.panel(201, "POST", "/v1/panel/equipo", map[string]string{"clerkId": encargada, "rol": "encargado"}, &m)
+	crear := func() string {
+		var c creado
+		e.Esperar(201, P{Metodo: "POST", Ruta: "/v1/panel/mcp/tokens", Quien: encargada, Negocio: e.negocio,
+			Cuerpo: map[string]string{"nombre": "Claude de la encargada"}}, &c)
+		return c.Clave
+	}
+	anda := func(clave string, quiero int) {
+		t.Helper()
+		rec := e.rpc(clave, map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": map[string]any{}},
+			"MCP-Protocol-Version", "2025-06-18")
+		if rec.Code != quiero {
+			t.Fatalf("con la clave: %d, quería %d: %s", rec.Code, quiero, rec.Body)
+		}
+	}
+	suya := crear()
+	deLaDuenia := e.clave(map[string]string{"nombre": "Claude de la dueña"}).Clave
+	anda(suya, 200)
+	e.panel(200, "PATCH", "/v1/panel/equipo/"+m.ID, map[string]any{"rol": "recepcion"}, nil)
+	anda(suya, 401)
+	anda(deLaDuenia, 200)
+	var revocadas int
+	e.Fila("SELECT count(*) FROM mcp_tokens WHERE creado_por = $1 AND revocado_en IS NOT NULL", []any{encargada}, &revocadas)
+	if revocadas != 1 {
+		t.Fatalf("revocadas: %d", revocadas)
+	}
+	// Vuelve a encargada y crea otra; si la cuenta queda inactiva sin pasar por el panel, tampoco anda.
+	e.panel(200, "PATCH", "/v1/panel/equipo/"+m.ID, map[string]any{"rol": "encargado"}, nil)
+	otra := crear()
+	anda(otra, 200)
+	e.sql("UPDATE miembros SET activo = false WHERE id = $1", m.ID)
+	anda(otra, 401)
+}

@@ -30,22 +30,29 @@ type Penalidad struct {
 }
 
 const columnasPenalidad = `p.id::text, p.cliente_id::text, c.nombre, c.telefono, p.motivo, p.nota, p.ausencias, p.hasta,
-	p.creado_en, p.levantada_en, (p.levantada_en IS NULL AND p.hasta > now())`
+	p.creado_en, p.levantada_en, false`
 
-func leerPenalidades(ctx context.Context, tx pgx.Tx, donde string, args ...any) ([]Penalidad, error) {
+// leerPenalidades: Vigente se calcula con ahora (el reloj de la API, no now() de la base).
+func leerPenalidades(ctx context.Context, tx pgx.Tx, ahora time.Time, donde string, args ...any) ([]Penalidad, error) {
 	filas, err := tx.Query(ctx, "SELECT "+columnasPenalidad+" FROM penalidades p JOIN clientes c ON c.id = p.cliente_id WHERE "+donde, args...)
 	if err != nil {
 		return nil, err
 	}
-	return pgx.CollectRows(filas, pgx.RowToStructByPos[Penalidad])
+	ps, err := pgx.CollectRows(filas, pgx.RowToStructByPos[Penalidad])
+	for i := range ps {
+		ps[i].Vigente = ps[i].LevantadaEn == nil && ps[i].Hasta.After(ahora)
+	}
+	return ps, err
 }
 
 // penalidades del negocio: las vigentes, o todas con ?todas=1 (paginado).
 func (s *Servicio) penalidades(w http.ResponseWriter, r *http.Request) error {
 	pagina, porPagina := paginado(r, 50, 200)
-	donde := "p.levantada_en IS NULL AND p.hasta > now()"
+	ahora := s.ahora()
+	// $1 es ahora en las dos consultas.
+	donde := "p.levantada_en IS NULL AND p.hasta > $1"
 	if r.URL.Query().Get("todas") == "1" {
-		donde = "true"
+		donde = "$1::timestamptz IS NOT NULL"
 	}
 	out := struct {
 		Penalidades []Penalidad `json:"penalidades"`
@@ -54,11 +61,11 @@ func (s *Servicio) penalidades(w http.ResponseWriter, r *http.Request) error {
 		PorPagina   int         `json:"porPagina"`
 	}{Pagina: pagina, PorPagina: porPagina}
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
-		if err := tx.QueryRow(ctx, "SELECT count(*) FROM penalidades p WHERE "+donde).Scan(&out.Total); err != nil {
+		if err := tx.QueryRow(ctx, "SELECT count(*) FROM penalidades p WHERE "+donde, ahora).Scan(&out.Total); err != nil {
 			return err
 		}
 		var err error
-		out.Penalidades, err = leerPenalidades(ctx, tx, donde+" ORDER BY p.creado_en DESC, p.id LIMIT $1 OFFSET $2", porPagina, (pagina-1)*porPagina)
+		out.Penalidades, err = leerPenalidades(ctx, tx, ahora, donde+" ORDER BY p.creado_en DESC, p.id LIMIT $2 OFFSET $3", ahora, porPagina, (pagina-1)*porPagina)
 		return err
 	})
 	if err != nil {
@@ -75,7 +82,7 @@ func (s *Servicio) penalidadesDe(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 		var err error
-		out, err = leerPenalidades(ctx, tx, "p.cliente_id = $1 ORDER BY p.creado_en DESC, p.id", r.PathValue("id"))
+		out, err = leerPenalidades(ctx, tx, s.ahora(), "p.cliente_id = $1 ORDER BY p.creado_en DESC, p.id", r.PathValue("id"))
 		return err
 	})
 	if err != nil {
@@ -111,7 +118,7 @@ func (s *Servicio) penalizar(w http.ResponseWriter, r *http.Request) error {
 		if _, err := tx.Exec(ctx, "SELECT 1 FROM clientes WHERE id = $1 FOR UPDATE", id); err != nil {
 			return err
 		}
-		ya, err := Penalizado(ctx, tx, id)
+		ya, err := Penalizado(ctx, tx, id, s.ahora())
 		if err != nil {
 			return err
 		}
@@ -133,7 +140,7 @@ func (s *Servicio) penalizar(w http.ResponseWriter, r *http.Request) error {
 			id, in.Nota, in.Dias, miembro).Scan(&nueva); err != nil {
 			return err
 		}
-		ps, err := leerPenalidades(ctx, tx, "p.id = $1", nueva)
+		ps, err := leerPenalidades(ctx, tx, s.ahora(), "p.id = $1", nueva)
 		if err != nil {
 			return err
 		}
@@ -151,7 +158,7 @@ func (s *Servicio) penalizar(w http.ResponseWriter, r *http.Request) error {
 func (s *Servicio) levantar(w http.ResponseWriter, r *http.Request) error {
 	var p Penalidad
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
-		ps, err := leerPenalidades(ctx, tx, "p.id = $1 FOR UPDATE OF p", r.PathValue("id"))
+		ps, err := leerPenalidades(ctx, tx, s.ahora(), "p.id = $1 FOR UPDATE OF p", r.PathValue("id"))
 		if err != nil {
 			return err
 		}
@@ -168,7 +175,7 @@ func (s *Servicio) levantar(w http.ResponseWriter, r *http.Request) error {
 		if _, err := tx.Exec(ctx, "UPDATE penalidades SET levantada_en = now(), levantada_por = $2 WHERE id = $1", ps[0].ID, miembro); err != nil {
 			return err
 		}
-		ps, err = leerPenalidades(ctx, tx, "p.id = $1", ps[0].ID)
+		ps, err = leerPenalidades(ctx, tx, s.ahora(), "p.id = $1", ps[0].ID)
 		if err != nil {
 			return err
 		}
@@ -267,7 +274,7 @@ func (s *Servicio) ausencias(w http.ResponseWriter, r *http.Request) error {
 		return tx.QueryRow(ctx, `SELECT
 			(SELECT count(*) FROM turnos WHERE estado = 'ausente'),
 			(SELECT count(*) FROM turnos WHERE estado = 'ausente' AND inicio >= $1 AND inicio <= $3),
-			(SELECT count(*) FROM penalidades WHERE levantada_en IS NULL AND hasta > now()),
+			(SELECT count(*) FROM penalidades WHERE levantada_en IS NULL AND hasta > $3),
 			(SELECT count(*) FROM (SELECT cliente_id FROM turnos WHERE estado = 'ausente' AND inicio >= $2 AND inicio <= $3
 				GROUP BY cliente_id HAVING count(*) >= 2) x)`,
 			ahora.AddDate(0, 0, -30), ahora.AddDate(0, 0, -90), ahora).Scan(&out.Total, &out.Ultimos30, &out.Vigentes, &out.Reincidente)

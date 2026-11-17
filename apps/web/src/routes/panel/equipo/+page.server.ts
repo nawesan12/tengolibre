@@ -3,6 +3,9 @@ import { apiDe } from '#lib/server/api.ts';
 import { accion, siPuede } from '#lib/configuracion/acciones.server.ts';
 import type { Actions, PageServerLoad } from './$types';
 
+/** El id de un miembro o una invitación, codificado para la ruta de la API. */
+const id = (f: FormData) => encodeURIComponent(String(f.get('id') ?? ''));
+
 export type Miembro = { id: string; clerkId: string; email: string; nombre: string; rol: string; activo: boolean; creadoEn: string };
 export type Invitacion = { id: string; email: string; rol: string; invito: string; venceEn: string; aceptadaEn: string | null; creadoEn: string };
 export type Franja = { dia: number; desde: string; hasta: string };
@@ -43,14 +46,14 @@ export const actions: Actions = {
 	rol: async (event) => {
 		const f = await event.request.formData();
 		return accion('miembros', 'Cambiamos el rol.', () =>
-			apiDe(event).patch(`/v1/panel/equipo/${f.get('id')}`, { rol: String(f.get('rol')) })
+			apiDe(event).patch(`/v1/panel/equipo/${id(f)}`, { rol: String(f.get('rol')) })
 		);
 	},
 	activo: async (event) => {
 		const f = await event.request.formData();
 		const activo = f.get('activo') === 'true';
 		return accion('miembros', activo ? 'Volvió a entrar al panel.' : 'Ya no entra al panel.', () =>
-			apiDe(event).patch(`/v1/panel/equipo/${f.get('id')}`, { activo })
+			apiDe(event).patch(`/v1/panel/equipo/${id(f)}`, { activo })
 		);
 	},
 	invitar: async (event) => {
@@ -60,20 +63,23 @@ export const actions: Actions = {
 			apiDe(event).post('/v1/panel/invitaciones', { email, rol: String(f.get('rol') ?? '') })
 		);
 	},
-	// Reenviar: la API no tiene reenvío; se borra la invitación y se manda otra igual (link nuevo).
+	// Reenviar: la API no tiene reenvío; se manda otra igual (link nuevo) y recién después se borra la
+	// vieja. Primero la nueva: si falla, la de antes sigue sirviendo. (La API ya reemplaza la pendiente
+	// del mismo email al invitar, así que lo más probable es que la vieja ya no esté: un 404 ahí no es error.)
 	reenviar: async (event) => {
 		const f = await event.request.formData();
 		const email = String(f.get('email') ?? '').trim();
 		const api = apiDe(event);
 		return accion('invitaciones', `Le mandamos otra vez la invitación a ${email}.`, async () => {
-			await api.borrar(`/v1/panel/invitaciones/${f.get('id')}`);
-			return api.post('/v1/panel/invitaciones', { email, rol: String(f.get('rol') ?? '') });
+			const nueva = await api.post<Invitacion>('/v1/panel/invitaciones', { email, rol: String(f.get('rol') ?? '') });
+			await api.borrar(`/v1/panel/invitaciones/${id(f)}`).catch(() => null);
+			return nueva;
 		});
 	},
 	revocar: async (event) => {
 		const f = await event.request.formData();
 		return accion('invitaciones', 'Borramos la invitación: el link ya no sirve.', () =>
-			apiDe(event).borrar(`/v1/panel/invitaciones/${f.get('id')}`)
+			apiDe(event).borrar(`/v1/panel/invitaciones/${id(f)}`)
 		);
 	},
 	profesional: async (event) => {

@@ -42,21 +42,21 @@ export const actions: Actions = {
 	renombrar: async (event) => {
 		const f = await event.request.formData();
 		if (!ids(f, 'id')) return { ok: false };
-		return intentar(() => apiDe(event).patch(`/v1/grupos/${f.get('id')}`, { nombre: String(f.get('nombre') ?? '') }));
+		return intentar(() => apiDe(event).patch(`/v1/grupos/${encodeURIComponent(String(f.get('id') ?? ''))}`, { nombre: String(f.get('nombre') ?? '') }));
 	},
 	borrar: async (event) => {
 		const f = await event.request.formData();
 		if (!ids(f, 'id')) return { ok: false };
-		return intentar(() => apiDe(event).borrar(`/v1/grupos/${f.get('id')}`));
+		return intentar(() => apiDe(event).borrar(`/v1/grupos/${encodeURIComponent(String(f.get('id') ?? ''))}`));
 	},
 	sumar: async (event) => {
 		const f = await event.request.formData();
 		if (!ids(f, 'id', 'negocio')) return { ok: false };
-		return intentar(() => apiDe(event).put(`/v1/grupos/${f.get('id')}/sucursales/${f.get('negocio')}`, {}));
+		return intentar(() => apiDe(event).put(`/v1/grupos/${encodeURIComponent(String(f.get('id') ?? ''))}/sucursales/${encodeURIComponent(String(f.get('negocio') ?? ''))}`, {}));
 	},
 	sacar: async (event) => {
 		const f = await event.request.formData();
 		if (!ids(f, 'id', 'negocio')) return { ok: false };
-		return intentar(() => apiDe(event).borrar(`/v1/grupos/${f.get('id')}/sucursales/${f.get('negocio')}`));
+		return intentar(() => apiDe(event).borrar(`/v1/grupos/${encodeURIComponent(String(f.get('id') ?? ''))}/sucursales/${encodeURIComponent(String(f.get('negocio') ?? ''))}`));
 	}
 };

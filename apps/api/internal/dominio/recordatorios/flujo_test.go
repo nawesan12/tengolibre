@@ -78,7 +78,8 @@ func TestCumpleaniosYHaceMuchoQueNoVenis(t *testing.T) {
 		t.Helper()
 		a.Ahora = en(inicio).AddDate(0, 0, -1)
 		x := reservar(inicio, nombre, telefono, nacimiento)
-		panel(200, "PATCH", "/v1/panel/turnos/"+x.ID, map[string]any{"estado": "atendido"}, nil)
+		// El panel devuelve el turno con el id del cliente (la reserva pública no lo muestra).
+		panel(200, "PATCH", "/v1/panel/turnos/"+x.ID, map[string]any{"estado": "atendido"}, &x)
 		return x
 	}
 	// Paula y Tomás vinieron el 2/9 (60 días antes del 1/11); Tomás ya tiene otro turno. Sofía dejó su

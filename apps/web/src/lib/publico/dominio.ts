@@ -40,3 +40,9 @@ export async function rutaPara(url: URL, buscar: (host: string) => Promise<strin
 	const slug = await buscar(url.hostname.toLowerCase());
 	return slug ? `/${slug}` : undefined;
 }
+
+/** La dirección de TengoLibre: la de los canonical de las páginas de los negocios. */
+export const SITIO = 'https://tengolibre.com.ar';
+
+/** El origen para los links absolutos: TengoLibre en producción; en local, el de la URL. */
+export const sitioDe = (url: URL) => (/^(localhost|127\.0\.0\.1|\[::1\]|::1)$/.test(url.hostname) ? url.origin : SITIO);

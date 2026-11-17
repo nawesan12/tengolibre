@@ -118,7 +118,7 @@ const columnasConAhora = `c.id::text, c.nombre, c.telefono, c.email, c.creado_en
 		AND (t.estado <> 'pendiente_pago' OR t.vence_en > $ahora)) AS proxima,
 	coalesce(sum(t.precio) FILTER (WHERE t.estado = 'atendido'), 0) AS gastado,
 	count(t.id) FILTER (WHERE t.estado = 'ausente') AS ausencias,
-	EXISTS (SELECT 1 FROM penalidades p WHERE p.cliente_id = c.id AND p.levantada_en IS NULL AND p.hasta > now()) AS penalizado`
+	EXISTS (SELECT 1 FROM penalidades p WHERE p.cliente_id = c.id AND p.levantada_en IS NULL AND p.hasta > $ahora) AS penalizado`
 
 const desdeClientes = " FROM clientes c LEFT JOIN turnos t ON t.cliente_id = c.id"
 
@@ -180,10 +180,10 @@ func existe(ctx context.Context, tx pgx.Tx, id string) error {
 
 // Penalizado dice si el cliente tiene una penalidad vigente en el negocio fijado. Lo usa la reserva
 // desde la página pública (turnos.reservar).
-func Penalizado(ctx context.Context, tx pgx.Tx, clienteID string) (bool, error) {
+func Penalizado(ctx context.Context, tx pgx.Tx, clienteID string, ahora time.Time) (bool, error) {
 	var p bool
 	err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM penalidades
-		WHERE cliente_id = $1 AND levantada_en IS NULL AND hasta > now())`, clienteID).Scan(&p)
+		WHERE cliente_id = $1 AND levantada_en IS NULL AND hasta > $2)`, clienteID, ahora).Scan(&p)
 	return p, err
 }
 
@@ -278,7 +278,7 @@ func (s *Servicio) listar(w http.ResponseWriter, r *http.Request) error {
 			arg(strings.Split(v, ","))+"))")
 	}
 	if q.Get("penalizados") == "1" {
-		cond = append(cond, "EXISTS (SELECT 1 FROM penalidades p WHERE p.cliente_id = c.id AND p.levantada_en IS NULL AND p.hasta > now())")
+		cond = append(cond, "EXISTS (SELECT 1 FROM penalidades p WHERE p.cliente_id = c.id AND p.levantada_en IS NULL AND p.hasta > "+arg(ahora)+")")
 	}
 	donde := " WHERE " + strings.Join(cond, " AND ")
 	out := struct {
@@ -456,7 +456,7 @@ func (s *Servicio) ficha(w http.ResponseWriter, r *http.Request) error {
 		if f.Turnos, err = pgx.CollectRows(filas, pgx.RowToStructByPos[TurnoDeCliente]); err != nil {
 			return err
 		}
-		ps, err := leerPenalidades(ctx, tx, "p.cliente_id = $1 AND p.levantada_en IS NULL AND p.hasta > now() ORDER BY p.hasta DESC LIMIT 1", f.ID)
+		ps, err := leerPenalidades(ctx, tx, ahora, "p.cliente_id = $1 AND p.levantada_en IS NULL AND p.hasta > $2 ORDER BY p.hasta DESC LIMIT 1", f.ID, ahora)
 		if err != nil {
 			return err
 		}

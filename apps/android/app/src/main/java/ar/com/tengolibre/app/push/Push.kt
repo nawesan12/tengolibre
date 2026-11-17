@@ -117,6 +117,10 @@ object Push {
         return PendingIntent.getBroadcast(ctx, (que + turnoId).hashCode(), i, mutable or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
+    /** Una acción que toca datos: con el teléfono bloqueado, pide desbloquearlo antes (.authenticationRequired en iOS). */
+    fun accionProtegida(titulo: String, intent: PendingIntent): NotificationCompat.Action =
+        NotificationCompat.Action.Builder(0, titulo, intent).setAuthenticationRequired(true).build()
+
     /** Arma y muestra un aviso con las acciones de su categoría (las mismas que las categorías de iOS). */
     fun mostrar(ctx: Context, d: Map<String, String>) {
         val titulo = d["titulo"] ?: return
@@ -127,6 +131,8 @@ object Push {
         val turnoId = if (ruta.startsWith("turnos/")) ruta.removePrefix("turnos/") else null
         val id = (d["colapso"] ?: ruta.ifEmpty { titulo + cuerpo }).hashCode()
         val clienta = tipo == "cliente"
+        // Los avisos del negocio son de la sesión: si se salió, no se muestran (los de la clienta sí).
+        if (!clienta && api(ctx) == null) return
         val b = NotificationCompat.Builder(ctx, if (clienta) CANAL_CLIENTA else CANAL_AVISOS)
             .setSmallIcon(R.drawable.ic_aviso)
             .setColor(0xFF3CCC90.toInt())
@@ -138,17 +144,40 @@ object Push {
             .setContentIntent(abrir(ctx, ruta, negocio, tipo, id))
         if (turnoId != null) when (d["categoria"]) {
             "TL_RESERVA" -> {
-                b.addAction(0, "Confirmar", accion(ctx, "CONFIRMAR", turnoId, negocio, id))
+                b.addAction(accionProtegida("Confirmar", accion(ctx, "CONFIRMAR", turnoId, negocio, id)))
                 b.addAction(0, "Ver turno", abrir(ctx, ruta, negocio, tipo, id + 1))
             }
             "TL_CANCELO" -> {
-                b.addAction(0, "Avisar a la lista", accion(ctx, "AVISAR", turnoId, negocio, id))
+                b.addAction(accionProtegida("Avisar a la lista", accion(ctx, "AVISAR", turnoId, negocio, id)))
                 b.addAction(0, "Cargar un turno", abrir(ctx, "nuevo", negocio, tipo, id + 1))
             }
-            "TL_HUECO" -> b.addAction(0, "Avisar a la lista", accion(ctx, "AVISAR", turnoId, negocio, id))
+            "TL_HUECO" -> b.addAction(accionProtegida("Avisar a la lista", accion(ctx, "AVISAR", turnoId, negocio, id)))
             "TL_RESENA" -> b.addAction(NotificationCompat.Action.Builder(0, "Responder", accion(ctx, "RESPONDER", turnoId, negocio, id))
-                .addRemoteInput(RemoteInput.Builder("respuesta").setLabel("Gracias por…").build()).setAllowGeneratedReplies(false).build())
+                .addRemoteInput(RemoteInput.Builder("respuesta").setLabel("Gracias por…").build()).setAllowGeneratedReplies(false)
+                .setAuthenticationRequired(true).build())
         }
+        if (!hayPermiso(ctx)) return
+        runCatching { NotificationManagerCompat.from(ctx).notify(id, b.build()) }
+    }
+
+    /** Una acción de un aviso que no salió: el aviso (y la espera de «Responder») se reemplaza por el error, y tocarlo
+     *  abre la app para hacerlo desde ahí. */
+    fun fallo(ctx: Context, id: Int, que: String, turnoId: String, negocio: String?) {
+        val titulo = when (que) {
+            "RESPONDER" -> "No pudimos mandar la respuesta"
+            "AVISAR" -> "No pudimos avisar a la lista"
+            else -> "No pudimos confirmar el turno"
+        }
+        val resena = que == "RESPONDER"
+        val b = NotificationCompat.Builder(ctx, CANAL_AVISOS)
+            .setSmallIcon(R.drawable.ic_aviso)
+            .setColor(0xFF3CCC90.toInt())
+            .setContentTitle(titulo)
+            .setContentText("Tocá para hacerlo desde la app.")
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setGroup("negocio-$negocio")
+            .setContentIntent(abrir(ctx, if (resena) "resenas" else "turnos/$turnoId", negocio, if (resena) "resena" else null, id))
         if (!hayPermiso(ctx)) return
         runCatching { NotificationManagerCompat.from(ctx).notify(id, b.build()) }
     }
@@ -159,9 +188,15 @@ object Push {
 class ServicioPush : FirebaseMessagingService() {
     private val alcance = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /** FCM cambió el token: con la app abierta lo pasa Estado (el viejo se da de baja y los turnos seguidos pasan al
+     *  nuevo); si no, el viejo se da de baja (DELETE borra los de esta sesión) y se registra el nuevo. */
     override fun onNewToken(token: String) {
+        EnPrimerPlano.alNuevoToken?.let { it(token); return }
         val api = Push.api(this) ?: return
-        alcance.launch { runCatching { api.hacer("POST", "/v1/yo/dispositivos", Dispositivo(token = token, modelo = Build.MODEL ?: "Android", version = BuildConfig.VERSION_NAME)) } }
+        alcance.launch {
+            runCatching { api.hacer("DELETE", "/v1/yo/dispositivos") }
+            runCatching { api.hacer("POST", "/v1/yo/dispositivos", Dispositivo(token = token, modelo = Build.MODEL ?: "Android", version = BuildConfig.VERSION_NAME)) }
+        }
     }
 
     override fun onMessageReceived(m: RemoteMessage) {
@@ -177,7 +212,11 @@ class ServicioPush : FirebaseMessagingService() {
 }
 
 /** Lo que hace la app abierta cuando llega un aviso (refrescar, como willPresent en iOS). */
-object EnPrimerPlano { @Volatile var alAviso: (() -> Unit)? = null }
+object EnPrimerPlano {
+    @Volatile var alAviso: (() -> Unit)? = null
+    /** Con la app abierta, el token nuevo de FCM lo pasa Estado (que tiene el viejo). */
+    @Volatile var alNuevoToken: ((String) -> Unit)? = null
+}
 
 /** Las acciones de los avisos que no abren la app: Confirmar, Avisar a la lista, Responder la reseña y Atendido. */
 class AccionesPush : BroadcastReceiver() {
@@ -194,22 +233,33 @@ class AccionesPush : BroadcastReceiver() {
         val texto = RemoteInput.getResultsFromIntent(i)?.getCharSequence("respuesta")?.toString()?.trim()
         val pendiente = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
+            // Sólo cuenta como hecho lo que llegó a la API: «Responder» sin texto o sin la reseña, o «Avisar» sin servicio
+            // o profesional, no.
             val ok = runCatching {
                 when (que) {
-                    "CONFIRMAR" -> api.hacer("PATCH", "/v1/panel/turnos/$turno", CambioEstado("confirmado"))
-                    "ATENDIDO" -> { api.hacer("PATCH", "/v1/panel/turnos/$turno", CambioEstado("atendido")); ActividadTurno.terminar(ctx, turno) }
+                    "CONFIRMAR" -> { api.hacer("PATCH", "/v1/panel/turnos/$turno", CambioEstado("confirmado")); true }
+                    "ATENDIDO" -> { api.hacer("PATCH", "/v1/panel/turnos/$turno", CambioEstado("atendido")); ActividadTurno.terminar(ctx, turno); true }
                     "AVISAR" -> {
                         val t: Turno = api.get("/v1/panel/turnos/$turno")
                         val s = t.servicioId; val p = t.profesionalId
-                        if (s != null && p != null) api.hacer("POST", "/v1/panel/espera/ofertas", Oferta(s, p, t.inicio))
+                        if (s != null && p != null) { api.hacer("POST", "/v1/panel/espera/ofertas", Oferta(s, p, t.inicio)); true } else false
                     }
-                    "RESPONDER" -> if (!texto.isNullOrEmpty()) {
-                        val r: Resenas = api.get("/v1/panel/resenas")
-                        r.resenas.firstOrNull { it.turnoId == turno }?.let { api.hacer("PATCH", "/v1/panel/resenas/${it.id}", Respuesta(texto)) }
+                    "RESPONDER" -> {
+                        if (texto.isNullOrEmpty()) false else {
+                            val r: Resenas = api.get("/v1/panel/resenas")
+                            val x = r.resenas.firstOrNull { it.turnoId == turno }
+                            if (x != null) { api.hacer("PATCH", "/v1/panel/resenas/${x.id}", Respuesta(texto)); true } else false
+                        }
                     }
+                    else -> false
                 }
-            }.isSuccess
-            if (ok && aviso != 0) NotificationManagerCompat.from(ctx).cancel(aviso)
+            }.getOrDefault(false)
+            if (aviso != 0) {
+                if (ok) NotificationManagerCompat.from(ctx).cancel(aviso)
+                // Si no salió, el aviso dice el error (y se va la espera de «Responder»). El de «Atendido» es el del turno
+                // en curso: queda como está para volver a probar.
+                else if (que != "ATENDIDO") Push.fallo(ctx, aviso, que, turno, i.getStringExtra("negocio"))
+            }
             ar.com.tengolibre.app.widgets.Widgets.actualizar(ctx)
             EnPrimerPlano.alAviso?.invoke()
             pendiente.finish()

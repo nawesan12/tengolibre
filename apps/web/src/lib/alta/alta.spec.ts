@@ -1,5 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { aSlug, alternativas, estadoCampo, formatoValido } from './slug.ts';
+import { aSlug, alternativas, estadoCampo, formatoValido, RESERVADOS } from './slug.ts';
 import { franjas, horasSemana, leerHorario, proximosFeriados, segmentosDia } from './agenda.ts';
 import { duracion, pesos, rubroDeApi } from './rubros.ts';
 
@@ -66,5 +67,17 @@ describe('formato', () => {
 		expect(duracion(90)).toBe('1 h 30 min');
 		expect(duracion(60)).toBe('1 h');
 		expect(rubroDeApi('salud')?.clave).toBe('consultorio');
+	});
+});
+
+describe('RESERVADOS', () => {
+	// Tiene que ser la misma lista que negocios.Reservados de la API (si no, el alta dice «libre» a
+	// una dirección que la API rechaza).
+	const go = new URL('../../../../api/internal/dominio/negocios/negocios.go', import.meta.url);
+	it.skipIf(!existsSync(go))('es igual a negocios.Reservados de la API', () => {
+		const bloque = readFileSync(go, 'utf8').match(/var Reservados = map\[string\]bool\{([^}]*)\}/)?.[1] ?? '';
+		const api = [...bloque.matchAll(/"([a-z0-9-]+)":\s*true/g)].map((m) => m[1]).sort();
+		expect(api.length).toBeGreaterThan(10);
+		expect([...RESERVADOS].sort()).toEqual(api);
 	});
 });

@@ -133,7 +133,7 @@ export type TurnoCliente = Turno & {
 };
 
 export type Cupon = { id: string; codigo: string; tipo: 'porcentaje' | 'fijo'; valor: number; hasta: string | null; activo: boolean; usos: number; maxUsos: number | null };
-export type MiReferido = { codigo: string | null; referidos: number; recompensas: Cupon[]; programaActivo: boolean };
+export type MiReferido = { codigo: string | null; referidos: number; recompensas: Cupon[]; programaActivo: boolean; oculto?: boolean };
 
 export type Sugerencia = {
 	dia: number;

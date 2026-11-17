@@ -9,7 +9,7 @@ import (
 // Evento de un turno, ya listo para el calendario.
 type Evento struct {
 	UID, Titulo, Descripcion, URL string
-	Inicio, Fin, Cambio            time.Time
+	Inicio, Fin, Cambio           time.Time
 	// Tentativo: todavía no está confirmado (pendiente o esperando el pago).
 	Tentativo bool
 }

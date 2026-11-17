@@ -90,6 +90,18 @@ fun Raiz() {
 object AccionesTurno {
     @Serializable data class CambioEstado(val estado: String)
 
+    /** Los pasos de estado que acepta la API desde el panel (turnos.go, `pasos`): un cancelado no vuelve. */
+    val pasos: Map<String, Set<String>> = mapOf(
+        "pendiente_pago" to setOf("pendiente", "confirmado", "cancelado"),
+        "pendiente" to setOf("confirmado", "cancelado", "atendido", "ausente"),
+        "confirmado" to setOf("pendiente", "cancelado", "atendido", "ausente"),
+        "atendido" to setOf("ausente", "confirmado"),
+        "ausente" to setOf("atendido", "confirmado"),
+    )
+
+    /** Si se puede volver de un estado a otro («Deshacer» sólo cuando la API lo acepta). */
+    fun puedePasar(de: String, a: String): Boolean = de == a || pasos[de]?.contains(a) == true
+
     suspend fun cambiarEstado(estado: Estado, id: String, nuevo: String) {
         try {
             estado.api.hacer("PATCH", "/v1/panel/turnos/$id", CambioEstado(nuevo))

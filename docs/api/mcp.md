@@ -194,6 +194,10 @@ Cuerpo: `{"nombre": "Claude de Carla", "permisos": ["ver_agenda", …]}` (`permi
 defecto los tres de arriba; `[]` = ninguno). `nombre` de 1 a 60. Hasta 10 claves vigentes por negocio
 (`409 tope`).
 
+Una clave (o conexión OAuth) anda mientras quien la creó siga activa con rol de gestión (dueña o
+encargado). Al desactivarla o pasarla a recepción o profesional (`PATCH /v1/panel/equipo/{id}`) se
+revocan sus claves y conexiones; si deja de gestionar por otro lado, dejan de andar (`401`) igual.
+
 Respuesta `201`: `{"token": Token, "clave": "tlmcp_…", "url": "https://api.tengolibre.com.ar/v1/mcp"}`.
 **`clave` sólo viene acá**: se guarda hasheada y no se puede volver a ver (para otra, crear una nueva).
 

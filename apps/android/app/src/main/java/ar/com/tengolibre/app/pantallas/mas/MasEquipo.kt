@@ -160,7 +160,8 @@ fun ColumnScope.EditarServicio(inicial: Servicio, categorias: List<Categoria>, l
         borrar = if (s.id.isEmpty()) null else ({ estado.intentar("Sacamos el servicio") { estado.api.hacer("DELETE", "/v1/panel/servicios/${s.id}") }; estado.version += 1 }),
         accion = {
             val c = Cuerpo(s.nombre, descripcion, s.duracion, s.precio, s.categoriaId, s.activo)
-            val ok = estado.intentar { if (s.id.isEmpty()) estado.api.hacer("POST", "/v1/panel/servicios", c) else estado.api.hacer("PATCH", "/v1/panel/servicios/${s.id}", c) }
+            // `categoriaId` va siempre: null es «Sin categoría» (si no viene, el PATCH la deja como estaba).
+            val ok = estado.intentar { estado.api.pedir(if (s.id.isEmpty()) "POST" else "PATCH", if (s.id.isEmpty()) "/v1/panel/servicios" else "/v1/panel/servicios/${s.id}", cuerpo = Api.jsonConNulos.encodeToString(c).toByteArray()) }
             if (ok) { estado.version += 1; listo() }
             ok
         }) {
@@ -180,11 +181,12 @@ fun ColumnScope.EditarProducto(inicial: Producto, listo: () -> Unit, cerrar: () 
     var p by remember { mutableStateOf(inicial) }
     var conStock by remember { mutableStateOf(inicial.stock != null) }
     var stock by remember { mutableIntStateOf(inicial.stock ?: 0) }
-    @Serializable data class Cuerpo(val nombre: String, val precio: Int, val stock: Int?, val activo: Boolean, val orden: Int)
+    /** Sin «Controlar stock», el PATCH manda `sinStock: true` (la API no acepta stock y sinStock juntos). */
+    @Serializable data class Cuerpo(val nombre: String, val precio: Int, val stock: Int?, val sinStock: Boolean, val activo: Boolean, val orden: Int)
     HojaEdicion(if (p.id.isEmpty()) "Producto nuevo" else "Editar producto", cerrar, habilitado = p.nombre.isNotBlank(),
         borrar = if (p.id.isEmpty()) null else ({ estado.intentar { estado.api.hacer("DELETE", "/v1/panel/productos/${p.id}") }; listo() }),
         accion = {
-            val c = Cuerpo(p.nombre, p.precio, if (conStock) stock else null, p.activo, p.orden)
+            val c = Cuerpo(p.nombre, p.precio, if (conStock) stock else null, !conStock && p.id.isNotEmpty(), p.activo, p.orden)
             val ok = estado.intentar { if (p.id.isEmpty()) estado.api.hacer("POST", "/v1/panel/productos", c) else estado.api.hacer("PATCH", "/v1/panel/productos/${p.id}", c) }
             if (ok) listo()
             ok
@@ -357,6 +359,8 @@ fun FichaProfesional(id: String, propia: Boolean = false) {
     var bloquear by remember { mutableStateOf(false) }
     var datos by remember { mutableStateOf(false) }
     var pedirLibres by remember { mutableStateOf(false) }
+    /** Si la sesión tiene una profesional vinculada: la API pide los días libres sólo para esa. */
+    var vinculada by remember { mutableStateOf(false) }
 
     @Serializable data class Ps(val profesionales: List<Profesional> = emptyList())
     @Serializable data class Ss(val servicios: List<Servicio> = emptyList())
@@ -371,6 +375,11 @@ fun FichaProfesional(id: String, propia: Boolean = false) {
             val x = ps.profesionales.firstOrNull { it.id == id }
             if (x == null) { error = "No encontramos a esa profesional."; return }
             p = x; error = ""
+            // Sin profesional vinculada, la API responde 409 sin_profesional: no se ofrece pedir.
+            if (propia) {
+                val hoy = Formato.enArgentina(Instant.now()).toLocalDate().toString()
+                vinculada = try { estado.api.pedir("GET", "/v1/panel/dias-libres/turnos", listOf("desde" to hoy)); true } catch (e: ErrorApi) { false }
+            }
         } catch (e: ErrorApi) { error = e.detalle } catch (e: Exception) { error = "Probá de nuevo." }
     }
     LaunchedEffect(estado.version) { cargar() }
@@ -409,13 +418,13 @@ fun FichaProfesional(id: String, propia: Boolean = false) {
             Renglon("${d.motivoTexto} · ${rangoDias(d)}", "${estadoPedido(d.estado)} · ${Formato.cantidad(d.turnos, "turno", "turnos")} para mover") {
                 if (d.estado == "pendiente" && propia) BotonTexto("Cancelar", { alcance.launch { estado.intentar { estado.api.pedir("POST", "/v1/panel/dias-libres/${d.id}/cancelar", cuerpo = "{}".toByteArray()) }; cargar() } }, color = C.error)
             }
-        } } + listOf(@Composable { Box(Modifier.clickable { pedirLibres = true }) { Renglon(if (propia) "Pedir días libres" else "Cargar días libres", simbolo = "beach.umbrella") } })).toTypedArray())
+        } } + (if (propia && vinculada) listOf(@Composable { Box(Modifier.clickable { pedirLibres = true }) { Renglon("Pedir días libres", simbolo = "beach.umbrella") } }) else emptyList())).toTypedArray())
         if (estado.gestiona) Bloque("", "", { RenglonInterruptor("Atiende", x.activo, { v -> alcance.launch { estado.intentar { estado.api.hacer("PATCH", "/v1/panel/profesionales/$id", Activo(v)) }; estado.version += 1 } }, "Si la pausás, no aparece para reservar") })
     }
     Hoja(horario, { horario = false }) { p?.let { EditorHorario(it, listo = { alcance.launch { cargar() } }, cerrar = { horario = false }) } }
     Hoja(bloquear, { bloquear = false }) { NuevoBloqueo(id, listo = { alcance.launch { cargar() } }, cerrar = { bloquear = false }) }
     Hoja(datos, { datos = false }) { p?.let { DatosProfesional(it, listo = { alcance.launch { cargar() } }, cerrar = { datos = false }) } }
-    Hoja(pedirLibres, { pedirLibres = false }) { PedirDiasLibres(id, listo = { alcance.launch { cargar() } }, cerrar = { pedirLibres = false }) }
+    Hoja(pedirLibres, { pedirLibres = false }) { PedirDiasLibres(listo = { alcance.launch { cargar() } }, cerrar = { pedirLibres = false }) }
 }
 
 private fun rangoDias(d: PedidoDias): String {
@@ -527,18 +536,19 @@ fun ColumnScope.NuevoBloqueo(profesionalId: String, listo: () -> Unit, cerrar: (
     }
 }
 
+/** Pedir días libres para la profesional vinculada a la sesión (la API no acepta otra). */
 @Composable
-fun ColumnScope.PedirDiasLibres(profesionalId: String, listo: () -> Unit, cerrar: () -> Unit) {
+fun ColumnScope.PedirDiasLibres(listo: () -> Unit, cerrar: () -> Unit) {
     val estado = LocalEstado.current
     val hoy = Formato.enArgentina(Instant.now()).toLocalDate()
     var desde by remember { mutableStateOf(hoy) }
     var hasta by remember { mutableStateOf(hoy) }
     var motivo by remember { mutableStateOf("vacaciones") }
     var nota by remember { mutableStateOf("") }
-    @Serializable data class Cuerpo(val profesionalId: String, val desde: String, val hasta: String, val motivo: String, val nota: String)
-    HojaEdicion("Días libres", cerrar, guardar = if (estado.esProfesional) "Pedir" else "Cargar", accion = {
-        val ok = estado.intentar(if (estado.esProfesional) "Mandamos el pedido" else "Cargamos los días libres") {
-            estado.api.hacer("POST", "/v1/panel/dias-libres", Cuerpo(profesionalId, desde.toString(), maxOf(desde, hasta).toString(), motivo, nota))
+    @Serializable data class Cuerpo(val desde: String, val hasta: String, val motivo: String, val nota: String)
+    HojaEdicion("Días libres", cerrar, guardar = "Pedir", accion = {
+        val ok = estado.intentar("Mandamos el pedido") {
+            estado.api.hacer("POST", "/v1/panel/dias-libres", Cuerpo(desde.toString(), maxOf(desde, hasta).toString(), motivo, nota))
         }
         if (ok) { estado.version += 1; listo() }
         ok

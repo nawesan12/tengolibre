@@ -371,9 +371,11 @@ struct DetalleTurno: View {
             Momentos.cambioDeEstado(estado, nav, turno, a: nuevo)
             if nuevo == "cancelado" || nuevo == "ausente" {
                 let t = turno
-                estado.avisar(Toast(simbolo: "checkmark", titulo: nuevo == "cancelado" ? "Turno cancelado" : "Marcado ausente", texto: "\(t.cliente.nombre) · \(Formato.horaDe(t.inicio))", accion: "Deshacer")) {
-                    try? await estado.api.hacer("PATCH", "/v1/panel/turnos/\(t.id)", AccionesTurno.CambioEstado(estado: antes))
-                }
+                // Un cancelado no vuelve (la API no lo permite): sin «Deshacer». Si deshacer falla, se dice.
+                let vuelve = AccionesTurno.puedePasar(nuevo, antes)
+                let deshacer: (() async -> Void)? = vuelve ? { await AccionesTurno.cambiarEstado(estado, t.id, antes) } : nil
+                estado.avisar(Toast(simbolo: "checkmark", titulo: nuevo == "cancelado" ? "Turno cancelado" : "Marcado ausente", texto: "\(t.cliente.nombre) · \(Formato.horaDe(t.inicio))", accion: vuelve ? "Deshacer" : ""),
+                              deshacer: deshacer)
                 cerrar()
             }
         } catch {

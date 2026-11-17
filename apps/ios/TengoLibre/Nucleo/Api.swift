@@ -30,6 +30,9 @@ final class Api: @unchecked Sendable {
     var negocio: String?
     /// Se llama cuando la API dice que la sesión ya no vale (401 sin_sesion): la app vuelve al ingreso.
     var alPerderSesion: (@MainActor () -> Void)?
+    /// Se llama cuando un pedido del panel vuelve con 402 o 403: el rol, la membresía o el sólo lectura
+    /// cambiaron (la app los vuelve a pedir).
+    var alNegarAcceso: (@MainActor () -> Void)?
     private let http: URLSession
 
     init(base: URL, token: String? = nil, http: URLSession = .shared) {
@@ -75,14 +78,15 @@ final class Api: @unchecked Sendable {
         struct Campo: Decodable { var path: String; var message: String }
     }
 
-    func pedir(_ metodo: String, _ ruta: String, query: [URLQueryItem] = [], cuerpo: Data? = nil, tipo: String = "application/json") async throws -> Data {
+    /// `negocio` pisa el elegido en `X-Negocio` (una compra de la tienda es del negocio con que se hizo).
+    func pedir(_ metodo: String, _ ruta: String, query: [URLQueryItem] = [], cuerpo: Data? = nil, tipo: String = "application/json", negocio otro: String? = nil) async throws -> Data {
         var c = URLComponents(url: base.appendingPathComponent(ruta), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { c.queryItems = query }
         var r = URLRequest(url: c.url!, timeoutInterval: 20)
         r.httpMethod = metodo
         r.setValue("application/json", forHTTPHeaderField: "Accept")
         if let token { r.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
-        if let negocio, ruta.hasPrefix("/v1/panel/") { r.setValue(negocio, forHTTPHeaderField: "X-Negocio") }
+        if let n = otro ?? negocio, ruta.hasPrefix("/v1/panel/") { r.setValue(n, forHTTPHeaderField: "X-Negocio") }
         if let cuerpo {
             r.httpBody = cuerpo
             r.setValue(tipo, forHTTPHeaderField: "Content-Type")
@@ -103,6 +107,9 @@ final class Api: @unchecked Sendable {
                          reintentarEn: h.value(forHTTPHeaderField: "Retry-After").flatMap(Int.init))
         if e.sinSesion, token != nil, let alPerderSesion {
             await alPerderSesion()
+        }
+        if h.statusCode == 402 || h.statusCode == 403, token != nil, ruta.hasPrefix("/v1/panel/"), let alNegarAcceso {
+            await alNegarAcceso()
         }
         throw e
     }
@@ -187,8 +194,15 @@ enum Guardado {
         return (v, f)
     }
 
-    /// Al cerrar sesión o cambiar de negocio no queda nada del anterior.
+    /// Al cerrar sesión no queda nada guardado.
     static func borrarTodo() {
         try? FileManager.default.removeItem(at: carpeta)
+    }
+
+    /// Al cambiar de negocio: se borra lo del anterior, pero la persona y sus negocios siguen.
+    static func borrarDelNegocio() {
+        let quedan = Set(["persona", "negocios"].map { archivo($0).lastPathComponent })
+        let archivos = (try? FileManager.default.contentsOfDirectory(at: carpeta, includingPropertiesForKeys: nil)) ?? []
+        for a in archivos where !quedan.contains(a.lastPathComponent) { try? FileManager.default.removeItem(at: a) }
     }
 }

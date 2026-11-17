@@ -1,6 +1,7 @@
 package ar.com.tengolibre.app.nucleo
 
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
@@ -156,7 +157,11 @@ object Fecha {
 /** Las fechas de la API (Codable con Fecha.iso en iOS). */
 object FechaSerializer : KSerializer<Instant> {
     override val descriptor = PrimitiveSerialDescriptor("Fecha", PrimitiveKind.STRING)
-    override fun deserialize(decoder: Decoder): Instant = Fecha.iso(decoder.decodeString()) ?: Instant.EPOCH
+    /** Una fecha ilegible no se vuelve 1970: falla la lectura, como el decodificador de iOS (Api.decodificador). */
+    override fun deserialize(decoder: Decoder): Instant {
+        val s = decoder.decodeString()
+        return Fecha.iso(s) ?: throw SerializationException("fecha $s")
+    }
     override fun serialize(encoder: Encoder, value: Instant) = encoder.encodeString(Fecha.texto(value))
 }
 

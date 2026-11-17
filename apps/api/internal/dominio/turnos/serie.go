@@ -329,7 +329,7 @@ func (s *Servicio) reservarSerie(w http.ResponseWriter, r *http.Request) error {
 			if err := validarCliente(&in.Cliente); err != nil {
 				return err
 			}
-			if clienteID, err = clienteDe(ctx, tx, in.Cliente); err != nil {
+			if clienteID, _, err = clienteDe(ctx, tx, in.Cliente); err != nil {
 				return err
 			}
 		}
@@ -428,11 +428,22 @@ func (s *Servicio) cancelarSiguientes(w http.ResponseWriter, r *http.Request) er
 		if err != nil {
 			return err
 		}
+		if err := propio(ctx, tx, t.ProfesionalID); err != nil {
+			return err
+		}
 		if t.SerieID == nil {
 			return problema.Conflicto("sin_serie", "Este turno no es parte de un turno fijo.")
 		}
+		// Un profesional cancela sólo los de su agenda (una serie puede haber cambiado de profesional).
+		var deQuien *string
+		if ses := sesion.De(ctx); ses.Rol == sesion.Profesional {
+			deQuien = &ses.ClerkID
+		}
 		filas, err := tx.Query(ctx, `SELECT id::text FROM turnos WHERE serie_id = $1 AND inicio >= $2
-			AND estado IN ('pendiente_pago', 'pendiente', 'confirmado') ORDER BY inicio FOR UPDATE`, *t.SerieID, t.Inicio)
+			AND estado IN ('pendiente_pago', 'pendiente', 'confirmado')
+			AND ($3::text IS NULL OR profesional_id IN (SELECT p.id FROM profesionales p JOIN miembros m ON m.id = p.miembro_id
+				WHERE m.clerk_id = $3))
+			ORDER BY inicio FOR UPDATE`, *t.SerieID, t.Inicio, deQuien)
 		if err != nil {
 			return err
 		}

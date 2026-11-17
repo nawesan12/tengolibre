@@ -254,7 +254,12 @@ fun BotonTurnoFlotante() {
         Modifier.sombra(forma, if (lectura || off) Color.Transparent else hex(0x17805A, 0.75f), 14.dp, y = 16.dp)
             .height(56.dp).clip(forma).background(if (lectura || off) C.chip else C.menta)
             .clickable {
-                if (lectura) { nav.pestana = Pestana.mas; nav.pilaMas.add(Destinos.destinoSuscripcion); return@clickable }
+                if (lectura) {
+                    // La suscripción la elige quien gestiona: al resto sólo se le explica (sin abrir Suscripción).
+                    if (estado.gestiona) { nav.pestana = Pestana.mas; nav.pilaMas.add(Destinos.destinoSuscripcion) }
+                    else estado.avisar(Toast("lock", "Por ahora no se cargan turnos", "La suscripción la elige la dueña o el dueño del negocio."))
+                    return@clickable
+                }
                 if (off) return@clickable
                 Haptico.suave()
                 nav.nuevo = NuevoTurnoInicio()

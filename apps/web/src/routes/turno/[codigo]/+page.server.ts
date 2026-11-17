@@ -8,6 +8,11 @@ import type { Actions, PageServerLoad } from './$types';
 
 const ACTIVOS = ['pendiente', 'confirmado', 'pendiente_pago'];
 const activo = (e: string) => ACTIVOS.includes(e);
+/** El código de la URL, sólo si tiene el formato de la API (va tal cual en la ruta del pedido). */
+const codigo = (c: string) => {
+	if (!codigoValido(c)) error(404, 'No encontramos ese turno.');
+	return c;
+};
 
 export const load: PageServerLoad = async ({ params, url, fetch, setHeaders }) => {
 	if (!codigoValido(params.codigo)) error(404, 'No encontramos ese turno.');
@@ -72,7 +77,7 @@ export const load: PageServerLoad = async ({ params, url, fetch, setHeaders }) =
 
 export const actions: Actions = {
 	cancelar: async ({ params, fetch }) => {
-		const r = await intentar(() => apiPublica(fetch).post<TurnoCliente>(`/v1/t/${params.codigo}/cancelar`));
+		const r = await intentar(() => apiPublica(fetch).post<TurnoCliente>(`/v1/t/${codigo(params.codigo)}/cancelar`));
 		if (!('ok' in r)) return r;
 		return { cancelado: true };
 	},
@@ -80,18 +85,18 @@ export const actions: Actions = {
 		const f = await request.formData();
 		const inicio = String(f.get('inicio') ?? '');
 		if (isNaN(Date.parse(inicio))) return fail(400, { error: 'Elegí un horario.', codigo: 'invalido', campos: {} });
-		const r = await intentar(() => apiPublica(fetch).post<TurnoCliente>(`/v1/t/${params.codigo}/reprogramar`, { inicio }));
+		const r = await intentar(() => apiPublica(fetch).post<TurnoCliente>(`/v1/t/${codigo(params.codigo)}/reprogramar`, { inicio }));
 		if (!('ok' in r)) return r;
-		redirect(303, `/turno/${params.codigo}?cambiado=1`);
+		redirect(303, `/turno/${codigo(params.codigo)}?cambiado=1`);
 	},
 	pagar: async ({ params, fetch }) => {
-		const r = await intentar(() => apiPublica(fetch).post<{ url: string; monto: number }>(`/v1/t/${params.codigo}/pagar`));
+		const r = await intentar(() => apiPublica(fetch).post<{ url: string; monto: number }>(`/v1/t/${codigo(params.codigo)}/pagar`));
 		if (!('ok' in r)) return r;
 		if (!/^https:\/\//.test(r.datos.url)) return fail(502, { error: 'No pudimos armar el link de pago. Probá en un rato.', codigo: 'sin_link', campos: {} });
 		redirect(303, r.datos.url, { external: true });
 	},
 	confirmar: async ({ params, fetch }) => {
-		const r = await intentar(() => apiPublica(fetch).post(`/v1/t/${params.codigo}/confirmar`));
+		const r = await intentar(() => apiPublica(fetch).post(`/v1/t/${codigo(params.codigo)}/confirmar`));
 		if (!('ok' in r)) return r;
 		return { confirmado: true };
 	},
@@ -99,13 +104,13 @@ export const actions: Actions = {
 		const f = await request.formData();
 		const inicio = String(f.get('inicio') ?? '');
 		if (isNaN(Date.parse(inicio))) return fail(400, { error: 'Elegí un día.', codigo: 'invalido', campos: {} });
-		const r = await intentar(() => apiPublica(fetch).post<Turno>(`/v1/t/${params.codigo}/repetir`, { inicio }));
+		const r = await intentar(() => apiPublica(fetch).post<Turno>(`/v1/t/${codigo(params.codigo)}/repetir`, { inicio }));
 		if (!('ok' in r)) return r;
 		if (r.datos.pago?.url && /^https:\/\//.test(r.datos.pago.url)) redirect(303, r.datos.pago.url, { external: true });
 		redirect(303, `/turno/${r.datos.codigo}?nuevo=1`);
 	},
 	referido: async ({ params, fetch }) => {
-		const r = await intentar(() => apiPublica(fetch).post<MiReferido>(`/v1/t/${params.codigo}/referido`));
+		const r = await intentar(() => apiPublica(fetch).post<MiReferido>(`/v1/t/${codigo(params.codigo)}/referido`));
 		if (!('ok' in r)) return r;
 		return { referidoCreado: true };
 	}

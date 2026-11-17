@@ -98,6 +98,9 @@ func (s *Servicio) compraGoogle(w http.ResponseWriter, r *http.Request) error {
 	if !strings.EqualFold(sus.Identificadores.Cuenta, negocio) {
 		return problema.Conflicto("otro_negocio", "Esa suscripción es de otro negocio. Entrá a ese negocio para verla.")
 	}
+	if !s.aceptaGoogle(*sus) {
+		return problema.Invalido("Esa compra es de prueba y no se cobró.", problema.Campo{Ruta: "token", Mensaje: "prueba"})
+	}
 	var x *Suscripcion
 	err = s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) (err error) {
 		if err = conciliarGoogle(ctx, tx, negocio, in.Token, *sus, "", s.ahora()); err != nil {
@@ -154,6 +157,11 @@ func (s *Servicio) notificacionGoogle(w http.ResponseWriter, r *http.Request) er
 	if err != nil {
 		return err // que Pub/Sub reintente
 	}
+	if !s.aceptaGoogle(*sus) {
+		s.log().Info("googleplay: compra de prueba ignorada", "tipo", n.Sus.Tipo)
+		w.WriteHeader(http.StatusOK)
+		return nil
+	}
 	negocio := strings.ToLower(sus.Identificadores.Cuenta)
 	if !esUUID.MatchString(negocio) {
 		s.log().Warn("googleplay: suscripción sin negocio", "tipo", n.Sus.Tipo)
@@ -176,6 +184,12 @@ func (s *Servicio) notificacionGoogle(w http.ResponseWriter, r *http.Request) er
 	s.log().Info("googleplay: notificación conciliada", "tipo", n.Sus.Tipo, "negocio", negocio)
 	w.WriteHeader(http.StatusOK)
 	return nil
+}
+
+// aceptaGoogle: las compras de prueba (testPurchase, cuentas de licencia de prueba de Play) no se
+// cobran; sólo valen con PruebasGoogle (desarrollo, tests, o un rato para la revisión de Google).
+func (s *Servicio) aceptaGoogle(sus googleplay.Suscripcion) bool {
+	return s.PruebasGoogle || sus.Prueba == nil
 }
 
 func itoa(n int) string {
@@ -242,11 +256,12 @@ func conciliarGoogle(ctx context.Context, tx pgx.Tx, negocio, token string, sus 
 			return err
 		}
 	}
-	nuevoPlan := plan.Clave
+	// Dada de baja, el plan sale de las que sigan valiendo (puede haber otra, de otro origen).
 	if estado == "cancelada" {
-		nuevoPlan = "sin_plan"
-	}
-	if _, err := tx.Exec(ctx, "UPDATE negocios SET plan = $1 WHERE id = app.negocio_actual()", nuevoPlan); err != nil {
+		if err := recalcularPlan(ctx, tx, ahora); err != nil {
+			return err
+		}
+	} else if _, err := tx.Exec(ctx, "UPDATE negocios SET plan = $1 WHERE id = app.negocio_actual()", plan.Clave); err != nil {
 		return err
 	}
 	if evento == "" {
@@ -301,6 +316,9 @@ func (s *Servicio) SondearGoogle(ctx context.Context, ahora time.Time) (int, err
 		if err != nil {
 			errs = append(errs, err)
 			continue
+		}
+		if !s.aceptaGoogle(*sus) {
+			continue // de prueba: vence sola (proximo_cobro) sin abrir nada
 		}
 		err = s.Pool.EnNegocio(ctx, p.negocio, func(tx pgx.Tx) error {
 			return conciliarGoogle(ctx, tx, p.negocio, p.token, *sus, "sondeo", ahora)

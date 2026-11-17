@@ -96,6 +96,23 @@ func validarProfesional(p *Profesional) error {
 	return nil
 }
 
+// miembroDelNegocio: la cuenta atada al profesional tiene que ser del equipo del negocio fijado (la
+// FK a miembros no mira el negocio, y RLS no corre sobre las FK: sin esto se ataba una cuenta de
+// otro negocio, que pasaba a ver esta agenda).
+func miembroDelNegocio(ctx context.Context, tx pgx.Tx, id *string) error {
+	if id == nil || *id == "" {
+		return nil
+	}
+	var ok bool
+	if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM miembros WHERE id::text = $1 AND negocio_id = app.negocio_actual())", *id).Scan(&ok); err != nil {
+		return err
+	}
+	if !ok {
+		return problema.Invalido("Esa cuenta no es del equipo del negocio.", problema.Campo{Ruta: "miembroId", Mensaje: "ajeno"})
+	}
+	return nil
+}
+
 func (s *Servicio) crearProfesional(w http.ResponseWriter, r *http.Request) error {
 	p := Profesional{Activo: true}
 	if err := web.Leer(w, r, &p); err != nil {
@@ -105,6 +122,9 @@ func (s *Servicio) crearProfesional(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
+		if err := miembroDelNegocio(ctx, tx, p.MiembroID); err != nil {
+			return err
+		}
 		err := tx.QueryRow(ctx, `INSERT INTO profesionales (negocio_id, miembro_id, nombre, especialidad, bio, foto, email, telefono, orden, activo)
 			VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id::text`,
 			p.MiembroID, p.Nombre, p.Especialidad, p.Bio, p.Foto, p.Email, p.Telefono, p.Orden, p.Activo).Scan(&p.ID)
@@ -141,6 +161,9 @@ func (s *Servicio) editarProfesional(w http.ResponseWriter, r *http.Request) err
 		// Servicios y horario tienen su propio PUT.
 		p.ID, p.Servicios, p.Horario = id, servicios, horario
 		if err := validarProfesional(&p); err != nil {
+			return err
+		}
+		if err := miembroDelNegocio(ctx, tx, p.MiembroID); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `UPDATE profesionales SET miembro_id = $2, nombre = $3, especialidad = $4, bio = $5, foto = $6,

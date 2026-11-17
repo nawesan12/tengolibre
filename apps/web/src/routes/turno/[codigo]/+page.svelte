@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance, type SubmitFunction } from '$app/forms';
 	import { page } from '$app/state';
 	import { DIAS, ESTADOS, dia, fecha, hora, pesos } from '#lib/formato.ts';
 	import Icono from '#lib/ui/Icono.svelte';
@@ -49,6 +49,18 @@
 	const sello = $derived(cancelado ? 'CANCELADO' : sena > 0 ? 'SEÑA OK' : t.conMembresia ? 'MEMBRESÍA' : '');
 	const minutosQuedan = $derived(t.venceEn ? Math.max(0, Math.round((Date.parse(t.venceEn) - Date.now()) / 60000)) : null);
 	let nueva = $state('');
+	// Mientras va un pedido (pagar, confirmar, cancelar, repetir…), todos los botones quedan quietos: nada de dobles.
+	let enviando = $state('');
+	const enviar =
+		(cual: string): SubmitFunction =>
+		({ cancel }) => {
+			if (enviando) return cancel();
+			enviando = cual;
+			return async ({ update }) => {
+				await update();
+				enviando = '';
+			};
+		};
 	let copiado = $state(false);
 	async function compartir(e: MouseEvent) {
 		e.preventDefault();
@@ -103,8 +115,8 @@
 						<span class="tc-medio"><b>{t.servicio}</b>{#if falta}<span class="tl-num">Seña {pesos(falta)}</span>{/if}</span>
 						{#if minutosQuedan !== null}<span class="tc-fin tl-num">{minutosQuedan} MIN</span>{/if}
 					</div>
-					<form method="POST" action="?/pagar" use:enhance class="pila">
-						<button class="cta mp">Intentar de nuevo</button>
+					<form method="POST" action="?/pagar" use:enhance={enviar('pagar')} class="pila">
+						<button class="cta mp" disabled={!!enviando}>{enviando === 'pagar' ? 'Abriendo Mercado Pago…' : 'Intentar de nuevo'}</button>
 					</form>
 					{#if data.puedeCambiar}<a class="cta-2" href={`${base}?cambiar=1`}>Elegir otro horario</a>{/if}
 				</section>
@@ -120,8 +132,8 @@
 					{#if falta}
 						<div class="renglon chip"><span>Seña · {t.servicio}</span><b class="tl-num">{pesos(falta)}</b></div>
 					{/if}
-					<form method="POST" action="?/pagar" use:enhance class="pila">
-						<button class="cta mp">Pagar con Mercado Pago</button>
+					<form method="POST" action="?/pagar" use:enhance={enviar('pagar')} class="pila">
+						<button class="cta mp" disabled={!!enviando}>{enviando === 'pagar' ? 'Abriendo Mercado Pago…' : 'Pagar con Mercado Pago'}</button>
 					</form>
 				</section>
 			{/if}
@@ -151,9 +163,9 @@
 				<span class="chico sub">
 					Tus datos ya los tenemos.{#if r.pago?.monto}{' '}{r.pago.modo === 'total' ? 'Se paga por adelantado' : 'La seña es la misma'}: <span class="tl-num">{pesos(r.pago.monto)}</span>.{/if}
 				</span>
-				<form method="POST" action="?/repetir" use:enhance class="pila">
+				<form method="POST" action="?/repetir" use:enhance={enviar('repetir')} class="pila">
 					<input type="hidden" name="inicio" value={e.inicio} />
-					<button class="cta">{r.pago?.monto ? (r.pago.modo === 'total' ? 'Reservar y pagar' : 'Reservar y pagar seña') : 'Reservar'}</button>
+					<button class="cta" disabled={!!enviando}>{enviando === 'repetir' ? 'Reservando…' : r.pago?.monto ? (r.pago.modo === 'total' ? 'Reservar y pagar' : 'Reservar y pagar seña') : 'Reservar'}</button>
 				</form>
 				<a class="cta-2" href={reservarDeNuevo}>Elegir otro día u hora</a>
 			</section>
@@ -203,8 +215,8 @@
 
 		{#if activo}
 			{#if t.estado === 'pendiente'}
-				<form method="POST" action="?/confirmar" use:enhance class="pila">
-					<button class="cta">Confirmo que voy</button>
+				<form method="POST" action="?/confirmar" use:enhance={enviar('confirmar')} class="pila">
+					<button class="cta" disabled={!!enviando}>{enviando === 'confirmar' ? 'Confirmando…' : 'Confirmo que voy'}</button>
 				</form>
 			{:else if t.confirmadoEn && (t.confirmadoPor === 'web' || t.confirmadoPor === 'whatsapp')}
 				<span class="confirmado"><Icono nombre="check_circle" tam={18} lleno />Confirmaste{t.confirmadoPor === 'whatsapp' ? ' por WhatsApp' : ''} · <span class="tl-num">{hora(t.confirmadoEn, z)}</span></span>
@@ -220,14 +232,14 @@
 						<h2 id="t-cambio">¿Para cuándo lo&nbsp;pasamos?</h2>
 						<TiraDias dias={data.dias} elegida={data.fecha} chica href={(x) => `${base}?cambiar=1&fecha=${x}`} />
 						{#if data.fecha && data.horarios.length}
-							<form method="POST" action="?/reprogramar" use:enhance class="pila">
+							<form method="POST" action="?/reprogramar" use:enhance={enviar('reprogramar')} class="pila">
 								<fieldset>
 									<legend class="visualmente-oculto">Nuevo horario del {data.fecha}</legend>
 									<Horarios horarios={data.horarios} nombre="inicio" chica bind:elegida={nueva} />
 								</fieldset>
 								<span class="chico sub">{sinViuda(`${sena > 0 ? 'La seña pasa al turno nuevo. ' : ''}Mismo servicio${t.profesional ? ` y con ${t.profesional}` : ''}.`)}</span>
 								<div class="fila">
-									<button class="cta">{nueva ? `Cambiar a las ${hora(nueva, z)}` : 'Cambiar a este horario'}</button>
+									<button class="cta" disabled={!!enviando}>{enviando === 'reprogramar' ? 'Cambiando…' : nueva ? `Cambiar a las ${hora(nueva, z)}` : 'Cambiar a este horario'}</button>
 									<a class="cta-texto" href={base}>No</a>
 								</div>
 							</form>
@@ -243,8 +255,8 @@
 					<section class="caja peligro" aria-labelledby="t-cancelar">
 						<h2 id="t-cancelar">¿Cancelás el&nbsp;turno?</h2>
 						<p class="texto">Estás a tiempo. El horario queda libre para otra&nbsp;persona.</p>
-						<form method="POST" action="?/cancelar" use:enhance class="fila">
-							<button class="cta rojo">Sí, cancelar</button>
+						<form method="POST" action="?/cancelar" use:enhance={enviar('cancelar')} class="fila">
+							<button class="cta rojo" disabled={!!enviando}>{enviando === 'cancelar' ? 'Cancelando…' : 'Sí, cancelar'}</button>
 							<a class="cta-texto" href={base}>No, lo mantengo</a>
 						</form>
 					</section>
@@ -267,7 +279,9 @@
 			{/if}
 		{:else if cancelado}
 			<div class="estado">
-				<p class="texto">Cancelaste el turno. Le avisamos a {n.nombre}.</p>
+				<!-- «Cancelaste» sólo si la persona lo acaba de cancelar acá: la API no dice quién lo canceló
+				     (pudo ser el negocio), así que si no, el texto neutro. -->
+				<p class="texto">{form && 'cancelado' in form ? sinViuda(`Cancelaste el turno. Le avisamos a ${n.nombre}.`) : 'Este turno está\u00a0cancelado.'}</p>
 				<a class="cta" href={`/${n.slug}/reservar`}>Sacar otro turno</a>
 			</div>
 		{:else if t.estado === 'ausente'}
@@ -299,7 +313,7 @@
 			</section>
 		{/if}
 
-		{#if data.referido?.programaActivo}
+		{#if data.referido?.programaActivo && !data.referido.oculto}
 			<section class="recomenda tl-petroleo" aria-labelledby="t-ref">
 				<span class="ref-cab"><Icono nombre="redeem" lleno /><h2 id="t-ref">Recomendá {n.nombre}</h2></span>
 				{#if data.referido.codigo}
@@ -320,8 +334,8 @@
 					{/each}
 				{:else}
 					<span class="ref-texto">Pedí tu código y compartilo: cuando alguien reserva con él, te ganás un&nbsp;descuento.</span>
-					<form method="POST" action="?/referido" use:enhance>
-						<button class="ref-boton">Quiero mi código</button>
+					<form method="POST" action="?/referido" use:enhance={enviar('referido')}>
+						<button class="ref-boton" disabled={!!enviando}>Quiero mi código</button>
 					</form>
 				{/if}
 			</section>

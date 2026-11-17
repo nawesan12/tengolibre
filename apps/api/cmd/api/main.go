@@ -85,7 +85,8 @@ func correr() error {
 	av := &avisos.Servicio{Pool: app, Sesion: ses, AlLiberarse: espera.Liberado}
 
 	// Plata. Vencida la prueba sin suscripción, el panel queda de sólo lectura salvo lo de abajo.
-	sus := &suscripcion.Servicio{Pool: app, Sesion: ses, TokenPlataforma: cfg.MPTokenPlataforma, Sitio: cfg.Sitio, ClaveGoogle: cfg.PlayClaveWebhook}
+	sus := &suscripcion.Servicio{Pool: app, Sesion: ses, TokenPlataforma: cfg.MPTokenPlataforma, Sitio: cfg.Sitio, ClaveGoogle: cfg.PlayClaveWebhook,
+		SandboxApple: cfg.AppleSandbox, PruebasGoogle: cfg.GooglePruebas}
 	// Google Play: sin la cuenta de servicio, la suscripción desde Android queda apagada.
 	if play, err := googleplay.Desde(cfg.PlayCuenta); err != nil {
 		slog.Warn("suscripción: la cuenta de Google Play no sirve, comprar desde Android queda apagado", "error", err)
@@ -107,6 +108,7 @@ func correr() error {
 	mem := &membresias.Servicio{Pool: app, Sesion: ses, Escritura: sus.Escritura}
 	// El orden de Extras importa: membresía, después cupón, y el cobro último (sobre el precio final).
 	tur := &turnos.Servicio{Pool: app, Sesion: ses, Avisar: av.Avisar, Extras: []turnos.Extra{mem, pro, cob}}
+	cob.CancelarTurno = tur.AlCancelar
 	go cob.RenovarCada(ctx, 6*time.Hour)
 	// Tiempo real: los cambios que avisa Postgres van por SSE a los paneles abiertos.
 	tr := &tiemporeal.Servicio{Pool: app, Sesion: ses}

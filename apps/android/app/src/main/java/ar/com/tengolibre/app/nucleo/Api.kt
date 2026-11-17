@@ -59,6 +59,9 @@ class Api(val base: String, var token: String? = null, val http: OkHttpClient = 
     @Volatile var negocio: String? = null
     /** Se llama cuando la API dice que la sesión ya no vale (401 sin_sesion): la app vuelve al ingreso. */
     var alPerderSesion: (suspend () -> Unit)? = null
+    /** Se llama cuando un pedido del panel vuelve con 402 o 403: el rol, la membresía o el sólo lectura cambiaron (la app
+     *  los vuelve a pedir). */
+    var alNegarAcceso: (() -> Unit)? = null
 
     @Serializable
     private data class Problema(
@@ -68,11 +71,12 @@ class Api(val base: String, var token: String? = null, val http: OkHttpClient = 
         @Serializable data class Campo(val path: String = "", val message: String = "")
     }
 
-    suspend fun pedir(metodo: String, ruta: String, query: List<Pair<String, String>> = emptyList(), cuerpo: ByteArray? = null, tipo: String = "application/json"): String {
+    /** `negocio` pisa el elegido en `X-Negocio` (una compra de la tienda es del negocio con que se hizo). */
+    suspend fun pedir(metodo: String, ruta: String, query: List<Pair<String, String>> = emptyList(), cuerpo: ByteArray? = null, tipo: String = "application/json", negocio: String? = null): String {
         val url = (base.trimEnd('/') + ruta).toHttpUrl().newBuilder().apply { query.forEach { (k, v) -> addQueryParameter(k, v) } }.build()
         val r = Request.Builder().url(url).header("Accept", "application/json")
         token?.let { r.header("Authorization", "Bearer $it") }
-        negocio?.let { if (ruta.startsWith("/v1/panel/")) r.header("X-Negocio", it) }
+        (negocio ?: this.negocio)?.let { if (ruta.startsWith("/v1/panel/")) r.header("X-Negocio", it) }
         val cuerpoHttp = cuerpo?.toRequestBody(tipo.toMediaType()) ?: if (metodo in listOf("POST", "PUT", "PATCH")) ByteArray(0).toRequestBody(null) else null
         r.method(metodo, cuerpoHttp)
         val (codigo, texto, reintentar) = try {
@@ -89,6 +93,7 @@ class Api(val base: String, var token: String? = null, val http: OkHttpClient = 
         val e = ErrorApi(codigo, p.code ?: "interno", p.title ?: "Algo salió mal",
             p.issues?.firstOrNull()?.message ?: p.detail ?: p.title ?: "Probá de nuevo en un rato.", p.restantes, reintentar?.toIntOrNull())
         if (e.sinSesion && token != null) alPerderSesion?.invoke()
+        if ((codigo == 402 || codigo == 403) && token != null && ruta.startsWith("/v1/panel/")) alNegarAcceso?.invoke()
         throw e
     }
 
@@ -136,6 +141,9 @@ class Api(val base: String, var token: String? = null, val http: OkHttpClient = 
         fun urlConfigurada(): String = BuildConfig.API.ifEmpty { "https://api.tengolibre.com.ar" }
 
         val json = Json { ignoreUnknownKeys = true; explicitNulls = false; coerceInputValues = true; encodeDefaults = true }
+
+        /** Como [json] pero manda los null: para vaciar un campo en un PATCH (sin el campo, la API lo deja como estaba). */
+        val jsonConNulos = Json(json) { explicitNulls = true }
 
         fun cliente(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).writeTimeout(60, TimeUnit.SECONDS)

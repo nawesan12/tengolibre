@@ -29,6 +29,12 @@ object Guardado {
         return runCatching { f.readText() to Instant.ofEpochMilli(f.lastModified()) }.getOrNull()
     }
 
-    /** Al cerrar sesión o cambiar de negocio no queda nada del anterior. */
+    /** Al cerrar sesión no queda nada guardado. */
     fun borrarTodo() { carpeta?.deleteRecursively() }
+
+    /** Al cambiar de negocio: se borra lo del anterior, pero la persona y sus negocios siguen. */
+    fun borrarDelNegocio() {
+        val quedan = setOf("persona", "negocios").map { URLEncoder.encode(it, "UTF-8") }.toSet()
+        carpeta?.listFiles()?.forEach { if (it.name !in quedan) runCatching { it.deleteRecursively() } }
+    }
 }

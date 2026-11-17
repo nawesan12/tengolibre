@@ -15,6 +15,11 @@
 		[dias ? `Vence en ${dias} ${dias === 1 ? 'día' : 'días'}` : '', `Para ${i.email}`].filter(Boolean).join(' · ').toLocaleUpperCase('es-AR')
 	);
 	let enviando = $state(false);
+	// Volviendo del ingreso (?aceptar=1): el botón queda enfocado, listo para aceptar con un toque o Enter.
+	let boton = $state<HTMLButtonElement>();
+	$effect(() => {
+		if (data.volviendo && !error) boton?.focus();
+	});
 </script>
 
 <svelte:head>
@@ -86,7 +91,7 @@
 					};
 				}}
 			>
-				<button class="tl-cta aceptar" disabled={enviando}>Aceptar la invitación</button>
+				<button class="tl-cta aceptar" disabled={enviando} bind:this={boton}>Aceptar la invitación</button>
 			</form>
 			{#if error}
 				<form method="POST" action="/salir">

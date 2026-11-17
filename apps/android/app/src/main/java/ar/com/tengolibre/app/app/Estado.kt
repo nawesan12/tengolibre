@@ -122,6 +122,8 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         private set
     private var toastTarea: Job? = null
     private var deshacer: (suspend () -> Unit)? = null
+    /** Cuándo se volvieron a pedir el rol y el acceso por un 402/403 (una vez cada 30 s, sin bucles). */
+    private var accesoRevisadoEn: Instant? = null
     /** Se llama al cambiar algo que muestran los widgets. */
     var alRecargarWidgets: () -> Unit = {}
     /** Abre una URL en una Custom Tab (la pone MainActivity). */
@@ -153,6 +155,7 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     init {
         this.api.negocio = Preferencias.texto("negocio")
         this.api.alPerderSesion = { sesionPerdida() }
+        this.api.alNegarAcceso = { alcance.launch { accesoNegado() } }
     }
 
     fun recargarWidgets() = alRecargarWidgets()
@@ -219,9 +222,11 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         despuesDeEntrar()
     }
 
-    /** Trabajar con otro negocio (o sucursal): todo lo guardado era del anterior. */
+    /** Trabajar con otro negocio (o sucursal): lo guardado del anterior se borra (la persona y sus negocios, recién
+     *  guardados al entrar, siguen). Al abrir, el anterior es el que quedó elegido. */
     fun usar(n: NegocioDeLaPersona) {
-        if (negocio?.id != n.id) Guardado.borrarTodo()
+        val anterior = negocio?.id ?: negocioGuardado
+        if (anterior != null && anterior != n.id) Guardado.borrarDelNegocio()
         negocio = n
         negocioGuardado = n.id
         api.negocio = n.id
@@ -251,6 +256,37 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         val c: SinLeer? = runCatching { api.get<SinLeer>("/v1/panel/campanita/sin-leer") }.getOrNull()
         if (a != null) acceso = a
         if (c != null) sinLeer = c.sinLeer
+    }
+
+    /** Un pedido del panel volvió con 402 o 403: el rol, la membresía o el sólo lectura cambiaron. Se vuelven a pedir
+     *  /v1/yo y el acceso, como mucho una vez cada 30 s (los propios pedidos de acá también pueden dar 403 y no tienen
+     *  que volver a llamar). */
+    suspend fun accesoNegado() {
+        val r = accesoRevisadoEn
+        if (r != null && Instant.now().isBefore(r.plusSeconds(30))) return
+        accesoRevisadoEn = Instant.now()
+        if (api.token == null) return
+        val negocioAntes = negocio; val bloqueadoAntes = acceso?.bloqueado
+        val y = api.opcional<Yo>("/v1/yo")
+        if (y != null) {
+            negocios = y.negocios
+            Guardado.guardar(y.negocios, "negocios")
+            val actual = negocio?.id
+            if (actual != null) {
+                val n = negocios.firstOrNull { it.id == actual }
+                if (n != null) {
+                    negocio = n
+                } else if (negocios.isNotEmpty()) {
+                    // Ya no es parte de ese negocio: se trabaja con otro de los suyos.
+                    usar(negocios.first())
+                } else if (modo != "cliente") {
+                    negocio = null; fase = Fase.alta; return
+                }
+            }
+        }
+        refrescar()
+        // Las pantallas se vuelven a pedir sólo si algo cambió (un 403 de una pantalla que ese rol no ve no las recarga).
+        if (negocioAntes != negocio || bloqueadoAntes != acceso?.bloqueado) version += 1
     }
 
     // MARK: Ingreso
@@ -310,6 +346,7 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     }
 
     suspend fun salir() {
+        dejarDeSeguirTodos()
         runCatching { api.hacer("POST", "/v1/auth/salir") }
         olvidarSesion()
         fase = Fase.afuera
@@ -319,19 +356,28 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
      *  Después se olvida la sesión y se vuelve al ingreso. */
     suspend fun borrarCuenta() {
         api.hacer("DELETE", "/v1/auth/cuenta")
+        dejarDeSeguirTodos()
         olvidarSesion()
         fase = Fase.afuera
         avisar(Toast("checkmark", "Tu cuenta quedó desactivada", "Tus datos personales se borran a los 30 días."))
     }
 
+    /** Todo lo de la sesión: también el token de avisos (si no, al volver a entrar no se registra de nuevo), el negocio
+     *  elegido, el modo y los permisos vistos. */
     private fun olvidarSesion() {
         api.token = null
+        api.negocio = null
         Llavero.borrar("token")
         Guardado.borrarTodo()
         persona = null
         negocios = emptyList()
         negocio = null
         acceso = null
+        tokenPush = null
+        negocioGuardado = null
+        modo = ""
+        permisosVistos = false
+        accesoRevisadoEn = null
     }
 
     private fun sesionPerdida() {
@@ -396,7 +442,8 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     suspend fun pedirPermisoPush(): Boolean = alPedirPermisoPush()
 
     @Serializable private data class SeguirTurno(val token: String, val plataforma: String = "android", val entorno: String = "produccion")
-    @Serializable private data class SoloToken(val token: String, val plataforma: String = "android")
+    /** DELETE /v1/t/{codigo}/dispositivo sólo acepta el token (turnos/rutas.go, dejarDeSeguir). */
+    @Serializable private data class SoloToken(val token: String)
 
     /** Anota este teléfono en cada turno (por su código) para que le lleguen sus avisos. Una vez por turno y token. */
     suspend fun seguirTurnos(codigos: List<String>) {
@@ -415,11 +462,37 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         runCatching { api.hacer("DELETE", "/v1/t/$codigo/dispositivo", SoloToken(token)) }
     }
 
+    /** Al salir: este teléfono deja de recibir los avisos de todos los turnos que seguía (como al sacarlos de la lista).
+     *  Si falla la red, igual se olvida la lista: al volver a entrar se anotan de nuevo. */
+    private suspend fun dejarDeSeguirTodos() {
+        val token = tokenPush ?: return
+        val clave = "seguidos-${token.take(16)}"
+        for (c in Preferencias.lista(clave)) runCatching { api.hacer("DELETE", "/v1/t/$c/dispositivo", SoloToken(token)) }
+        Preferencias.ponerLista(clave, emptyList())
+    }
+
     @Serializable private data class Dispositivo(val plataforma: String = "android", val token: String, val entorno: String = "produccion", val modelo: String, val version: String)
 
     suspend fun registrarTokenPush(token: String) {
         if (token == tokenPush || api.token == null) return
         tokenPush = token
         runCatching { api.hacer("POST", "/v1/yo/dispositivos", Dispositivo(token = token, modelo = Build.MODEL ?: "Android", version = BuildConfig.VERSION_NAME)) }
+    }
+
+    /** FCM cambió el token (onNewToken): el viejo se da de baja en la API (DELETE /v1/yo/dispositivos borra los de esta
+     *  sesión), se registra el nuevo y los turnos que seguía la clienta pasan al nuevo. */
+    suspend fun cambiarTokenPush(nuevo: String) {
+        val viejo = tokenPush
+        if (nuevo == viejo || api.token == null) return
+        if (viejo != null) runCatching { api.hacer("DELETE", "/v1/yo/dispositivos") }
+        tokenPush = null
+        registrarTokenPush(nuevo)
+        if (viejo != null) {
+            val clave = "seguidos-${viejo.take(16)}"
+            val seguidos = Preferencias.lista(clave)
+            for (c in seguidos) runCatching { api.hacer("DELETE", "/v1/t/$c/dispositivo", SoloToken(viejo)) }
+            Preferencias.ponerLista(clave, emptyList())
+            seguirTurnos(seguidos)
+        }
     }
 }

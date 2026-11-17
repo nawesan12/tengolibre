@@ -169,7 +169,20 @@ struct EditarServicio: View {
     @Environment(Estado.self) private var estado
     @State private var descripcion = ""
 
-    private struct Cuerpo: Encodable { var nombre: String; var descripcion: String; var duracion: Int; var precio: Int; var categoriaId: String?; var activo: Bool }
+    private struct Cuerpo: Encodable {
+        var nombre: String; var descripcion: String; var duracion: Int; var precio: Int; var categoriaId: String?; var activo: Bool
+        enum CodingKeys: String, CodingKey { case nombre, descripcion, duracion, precio, categoriaId, activo }
+        /// `categoriaId` va siempre: null es «Sin categoría» (si no viene, el PATCH la deja como estaba).
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(nombre, forKey: .nombre)
+            try c.encode(descripcion, forKey: .descripcion)
+            try c.encode(duracion, forKey: .duracion)
+            try c.encode(precio, forKey: .precio)
+            try c.encode(categoriaId, forKey: .categoriaId)
+            try c.encode(activo, forKey: .activo)
+        }
+    }
 
     var body: some View {
         HojaEdicion(titulo: servicio.id.isEmpty ? "Servicio nuevo" : "Editar servicio", habilitado: servicio.nombre.trimmingCharacters(in: .whitespaces).count >= 2,
@@ -219,7 +232,8 @@ struct EditarProducto: View {
     @State private var conStock = false
     @State private var stock = 0
 
-    private struct Cuerpo: Encodable { var nombre: String; var precio: Int; var stock: Int?; var activo: Bool; var orden: Int }
+    /// Sin «Controlar stock», el PATCH manda `sinStock: true` (la API no acepta stock y sinStock juntos).
+    private struct Cuerpo: Encodable { var nombre: String; var precio: Int; var stock: Int?; var sinStock: Bool; var activo: Bool; var orden: Int }
 
     var body: some View {
         HojaEdicion(titulo: producto.id.isEmpty ? "Producto nuevo" : "Editar producto", habilitado: !producto.nombre.trimmingCharacters(in: .whitespaces).isEmpty,
@@ -239,7 +253,7 @@ struct EditarProducto: View {
     }
 
     private func guardar() async -> Bool {
-        let c = Cuerpo(nombre: producto.nombre, precio: producto.precio, stock: conStock ? stock : nil, activo: producto.activo, orden: producto.orden)
+        let c = Cuerpo(nombre: producto.nombre, precio: producto.precio, stock: conStock ? stock : nil, sinStock: !conStock && !producto.id.isEmpty, activo: producto.activo, orden: producto.orden)
         let ok = await estado.intentar {
             if producto.id.isEmpty { try await estado.api.hacer("POST", "/v1/panel/productos", c) }
             else { try await estado.api.hacer("PATCH", "/v1/panel/productos/\(producto.id)", c) }
@@ -462,6 +476,8 @@ struct FichaProfesional: View {
     @State private var bloquear = false
     @State private var datos = false
     @State private var pedirLibres = false
+    /// Si la sesión tiene una profesional vinculada: la API pide los días libres sólo para esa.
+    @State private var vinculada = false
 
     var body: some View {
         PantallaMas(titulo: p?.nombre ?? (propia ? "Mi horario" : "Profesional"), subtitulo: p?.especialidad ?? "", volver: propia ? "Más" : "Equipo",
@@ -506,7 +522,10 @@ struct FichaProfesional: View {
                             }
                         }
                     }
-                    Button { pedirLibres = true } label: { Renglon(titulo: propia ? "Pedir días libres" : "Cargar días libres", simbolo: "beach.umbrella") }.buttonStyle(.plain)
+                    // Sólo los propios: la API no carga días libres para otra persona del equipo.
+                    if propia && vinculada {
+                        Button { pedirLibres = true } label: { Renglon(titulo: "Pedir días libres", simbolo: "beach.umbrella") }.buttonStyle(.plain)
+                    }
                 }
                 if estado.gestiona {
                     Bloque {
@@ -519,7 +538,7 @@ struct FichaProfesional: View {
         .sheet(isPresented: $horario) { if let p { EditorHorario(profesional: p) { await cargar() } } }
         .sheet(isPresented: $bloquear) { NuevoBloqueo(profesionalId: id) { await cargar() } }
         .sheet(isPresented: $datos) { if let p { DatosProfesional(p: p) { await cargar() } } }
-        .sheet(isPresented: $pedirLibres) { PedirDiasLibres(profesionalId: id) { await cargar() } }
+        .sheet(isPresented: $pedirLibres) { PedirDiasLibres { await cargar() } }
     }
 
     private func rangoDias(_ d: PedidoDias) -> String {
@@ -546,6 +565,10 @@ struct FichaProfesional: View {
             bloqueos = bs?.bloqueos ?? []
             pedidos = ds?.pedidos ?? []
             error = ""
+            // Sin profesional vinculada, la API responde 409 sin_profesional: no se ofrece pedir.
+            if propia {
+                vinculada = (try? await estado.api.pedir("GET", "/v1/panel/dias-libres/turnos", query: [URLQueryItem(name: "desde", value: Formato.diaISO(Date()))])) != nil
+            }
         } catch let e as ErrorApi { error = e.detalle } catch { self.error = "Probá de nuevo." }
     }
 
@@ -722,8 +745,8 @@ struct NuevoBloqueo: View {
     }
 }
 
+/// Pedir días libres para la profesional vinculada a la sesión (la API no acepta otra).
 struct PedirDiasLibres: View {
-    var profesionalId: String
     var listo: () async -> Void
     @Environment(Estado.self) private var estado
     @State private var desde = Date()
@@ -731,12 +754,12 @@ struct PedirDiasLibres: View {
     @State private var motivo = "vacaciones"
     @State private var nota = ""
 
-    private struct Cuerpo: Encodable { var profesionalId: String; var desde: String; var hasta: String; var motivo: String; var nota: String }
+    private struct Cuerpo: Encodable { var desde: String; var hasta: String; var motivo: String; var nota: String }
 
     var body: some View {
-        HojaEdicion(titulo: "Días libres", guardar: estado.esProfesional ? "Pedir" : "Cargar", accion: {
-            let ok = await estado.intentar(estado.esProfesional ? "Mandamos el pedido" : "Cargamos los días libres") {
-                try await estado.api.hacer("POST", "/v1/panel/dias-libres", Cuerpo(profesionalId: profesionalId, desde: Formato.diaISO(desde), hasta: Formato.diaISO(max(desde, hasta)), motivo: motivo, nota: nota))
+        HojaEdicion(titulo: "Días libres", guardar: "Pedir", accion: {
+            let ok = await estado.intentar("Mandamos el pedido") {
+                try await estado.api.hacer("POST", "/v1/panel/dias-libres", Cuerpo(desde: Formato.diaISO(desde), hasta: Formato.diaISO(max(desde, hasta)), motivo: motivo, nota: nota))
             }
             if ok { estado.version += 1; await listo() }
             return ok

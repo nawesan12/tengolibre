@@ -317,7 +317,11 @@ fun ColumnScope.EditarPlan(inicial: PlanMembresia, servicios: List<Servicio>, li
         accion = {
             val c = Cuerpo(plan.nombre, plan.descripcion, plan.precio, plan.visitas, plan.duracionDias, plan.prioridadDias,
                 beneficios.split("\n").map { it.trim() }.filter { it.isNotEmpty() }, if (conTope) tope else null, plan.servicios, plan.activo)
-            val ok = estado.intentar { if (plan.id.isEmpty()) estado.api.hacer("POST", "/v1/panel/membresias/planes", c) else estado.api.hacer("PATCH", "/v1/panel/membresias/planes/${plan.id}", c) }
+            // `topeSocios` va siempre: null es «sin cupo» (si no viene, el PATCH deja el cupo como estaba).
+            val ok = estado.intentar {
+                estado.api.pedir(if (plan.id.isEmpty()) "POST" else "PATCH", if (plan.id.isEmpty()) "/v1/panel/membresias/planes" else "/v1/panel/membresias/planes/${plan.id}",
+                    cuerpo = Api.jsonConNulos.encodeToString(c).toByteArray())
+            }
             if (ok) listo()
             ok
         }) {

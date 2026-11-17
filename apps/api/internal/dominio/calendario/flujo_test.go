@@ -82,7 +82,9 @@ func TestCalendarioParaSuscribirse(t *testing.T) {
 	if todo.URL == nil || !strings.HasPrefix(*todo.URL, "https://tengolibre.com.ar/cal/") || !strings.HasSuffix(*todo.URL, ".ics") {
 		t.Fatalf("url: %+v", todo)
 	}
-	ruta := func(c calendario.Calendario) string { return "/v1" + strings.TrimPrefix(*c.URL, "https://tengolibre.com.ar") }
+	ruta := func(c calendario.Calendario) string {
+		return "/v1" + strings.TrimPrefix(*c.URL, "https://tengolibre.com.ar")
+	}
 
 	ics := string(a.Esperar(200, P{Metodo: "GET", Ruta: ruta(todo)}, nil).Cuerpo)
 	if strings.Count(ics, "BEGIN:VEVENT") != 2 || !strings.Contains(ics, "X-WR-CALNAME:El Corte") ||
@@ -135,4 +137,3 @@ func sql(t *testing.T, a *prueba.API, q string, args ...any) {
 		t.Fatal(err)
 	}
 }
-

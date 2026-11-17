@@ -110,7 +110,7 @@ func aMinutos(h string) int {
 
 // calcularMapa arma el mapa de [ini, fin) (medianoches locales) en el negocio fijado. clasificar
 // pone el estado de cada celda con horario.
-func calcularMapa(ctx context.Context, tx pgx.Tx, zona *time.Location, ini, fin time.Time, clasificar func(c Celda) string) (Mapa, error) {
+func calcularMapa(ctx context.Context, tx pgx.Tx, zona *time.Location, ini, fin, ahora time.Time, clasificar func(c Celda) string) (Mapa, error) {
 	type franja struct{ desde, hasta int }
 	horarios := map[string]map[int][]franja{} // profesional → día → franjas
 	filas, err := tx.Query(ctx, `SELECT h.profesional_id::text, h.dia, to_char(h.desde, 'HH24:MI'), to_char(h.hasta, 'HH24:MI')
@@ -165,7 +165,7 @@ func calcularMapa(ctx context.Context, tx pgx.Tx, zona *time.Location, ini, fin 
 	type turno struct{ inicio, fin time.Time }
 	turnos := map[string][]turno{} // profesional + fecha
 	filas, err = tx.Query(ctx, `SELECT t.profesional_id::text, t.inicio, t.fin FROM turnos t
-		WHERE t.inicio >= $1 AND t.inicio < $2 AND t.estado <> 'cancelado' AND t.profesional_id IS NOT NULL AND `+vivo, ini, fin)
+		WHERE t.inicio >= $1 AND t.inicio < $2 AND t.estado <> 'cancelado' AND t.profesional_id IS NOT NULL AND `+vivo(3), ini, fin, ahora)
 	if err != nil {
 		return Mapa{}, err
 	}
@@ -384,7 +384,7 @@ func horasMuertas(ctx context.Context, tx pgx.Tx, ahora time.Time) (HorasMuertas
 	fin := time.Date(h.Year(), h.Month(), h.Day(), 0, 0, 0, 0, zona)
 	ini := fin.AddDate(0, 0, -7*SemanasHorasMuertas)
 	out := HorasMuertas{Desde: ini.Format(time.DateOnly), Hasta: fin.AddDate(0, 0, -1).Format(time.DateOnly), Semanas: SemanasHorasMuertas}
-	if out.Mapa, err = calcularMapa(ctx, tx, zona, ini, fin, clasificarVacio); err != nil {
+	if out.Mapa, err = calcularMapa(ctx, tx, zona, ini, fin, ahora, clasificarVacio); err != nil {
 		return out, err
 	}
 	out.Peor = peorFranja(out.Mapa)

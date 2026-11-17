@@ -315,6 +315,21 @@ struct EditarPlan: View {
     private struct Cuerpo: Encodable {
         var nombre: String; var descripcion: String; var precio: Int; var visitas: Int; var duracionDias: Int; var prioridadDias: Int
         var beneficios: [String]; var topeSocios: Int?; var servicios: [String]; var activo: Bool
+        enum CodingKeys: String, CodingKey { case nombre, descripcion, precio, visitas, duracionDias, prioridadDias, beneficios, topeSocios, servicios, activo }
+        /// `topeSocios` va siempre: null es «sin cupo» (si no viene, el PATCH deja el cupo como estaba).
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(nombre, forKey: .nombre)
+            try c.encode(descripcion, forKey: .descripcion)
+            try c.encode(precio, forKey: .precio)
+            try c.encode(visitas, forKey: .visitas)
+            try c.encode(duracionDias, forKey: .duracionDias)
+            try c.encode(prioridadDias, forKey: .prioridadDias)
+            try c.encode(beneficios, forKey: .beneficios)
+            try c.encode(topeSocios, forKey: .topeSocios)
+            try c.encode(servicios, forKey: .servicios)
+            try c.encode(activo, forKey: .activo)
+        }
     }
 
     private func guardar() async -> Bool {

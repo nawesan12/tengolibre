@@ -7,7 +7,7 @@
 export const RESERVADOS = new Set([
 	'admin', 'api', 'explorar', 'iniciar-sesion', 'invitacion', 'mi-cuenta', 'mis-turnos', 'panel', 'presentacion',
 	'recuperar-contrasena', 'registrarse', 'review', 'resena', 'sin-conexion', 'turno', 'ingresar', 'precios', 'ayuda',
-	'legal', 'terminos', 'privacidad', 'www', 'cal', 'empezar', 'og', 'salir'
+	'legal', 'terminos', 'privacidad', 'www', 'cal', 'espera', 'conectar', 'empezar', 'salir', 'fotos', 'logos', 'marca', 'og'
 ]);
 
 /** Del nombre (o lo que se escriba) a una dirección válida: minúsculas, sin acentos, guiones. */

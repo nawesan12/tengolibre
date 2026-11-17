@@ -166,9 +166,10 @@ final class DatosDia {
             try await estado.api.hacer("PATCH", "/v1/panel/turnos/\(t.id)", AccionesTurno.CambioEstado(estado: nuevo))
             Haptico.exito()
             let texto = ["atendido": "Marcado atendido", "ausente": "Marcado ausente", "confirmado": "Turno confirmado", "cancelado": "Turno cancelado"][nuevo] ?? "Listo"
-            estado.avisar(Toast(simbolo: "checkmark", titulo: texto, texto: "\(t.cliente.nombre) · \(Formato.horaDe(t.inicio))", accion: "Deshacer")) {
-                try? await estado.api.hacer("PATCH", "/v1/panel/turnos/\(t.id)", AccionesTurno.CambioEstado(estado: antes))
-            }
+            // Un cancelado no vuelve (la API no lo permite): sin «Deshacer». Si deshacer falla, se dice.
+            let vuelve = AccionesTurno.puedePasar(nuevo, antes)
+            let deshacer: (() async -> Void)? = vuelve ? { await AccionesTurno.cambiarEstado(estado, t.id, antes) } : nil
+            estado.avisar(Toast(simbolo: "checkmark", titulo: texto, texto: "\(t.cliente.nombre) · \(Formato.horaDe(t.inicio))", accion: vuelve ? "Deshacer" : ""), deshacer: deshacer)
         } catch {
             if let j = turnos.firstIndex(where: { $0.id == t.id }) { turnos[j].estado = antes }
             estado.avisar(error)

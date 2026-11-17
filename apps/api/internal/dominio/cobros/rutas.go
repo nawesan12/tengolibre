@@ -275,6 +275,7 @@ func (s *Servicio) devolver(w http.ResponseWriter, r *http.Request) error {
 		return s.traducir(err)
 	}
 	total := devuelto+in.Monto >= monto
+	cancelado := false
 	var t Pago
 	err = s.Pool.EnNegocio(context.WithoutCancel(ctx), negocio, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `UPDATE pagos SET devuelto = least(monto, devuelto + $2), estado = CASE WHEN $3 THEN 'devuelto' ELSE estado END,
@@ -282,9 +283,17 @@ func (s *Servicio) devolver(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 		if total {
-			if _, err := tx.Exec(ctx, `UPDATE turnos SET estado = 'cancelado', vence_en = NULL, actualizado_en = now()
-				WHERE id = $1 AND estado IN ('pendiente_pago', 'pendiente', 'confirmado')`, turnoID); err != nil {
+			tag, err := tx.Exec(ctx, `UPDATE turnos SET estado = 'cancelado', vence_en = NULL, actualizado_en = now()
+				WHERE id = $1 AND estado IN ('pendiente_pago', 'pendiente', 'confirmado')`, turnoID)
+			if err != nil {
 				return err
+			}
+			// Se canceló como cualquier cancelación: vuelve la visita de la membresía y lo demás.
+			cancelado = tag.RowsAffected() > 0
+			if cancelado && s.CancelarTurno != nil {
+				if err := s.CancelarTurno(ctx, tx, turnoID); err != nil {
+					return err
+				}
 			}
 		}
 		if err := tx.QueryRow(ctx, "SELECT id::text, estado, monto, devuelto FROM pagos WHERE id = $1", r.PathValue("id")).
@@ -297,7 +306,7 @@ func (s *Servicio) devolver(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	if total {
+	if cancelado {
 		s.avisar(ctx, negocio, turnoID, "cancelado")
 	}
 	web.JSON(w, http.StatusOK, t)

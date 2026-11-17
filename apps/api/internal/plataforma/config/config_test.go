@@ -31,3 +31,20 @@ func TestProduccionExigeLaBase(t *testing.T) {
 		t.Fatal("sin base en producción tiene que fallar")
 	}
 }
+
+// Las compras de prueba de las tiendas se aceptan en desarrollo y no en producción, salvo que se
+// prenda la variable (la revisión de Apple compra en sandbox).
+func TestComprasDePruebaPorEntorno(t *testing.T) {
+	t.Setenv("TENGOLIBRE_ENTORNO", "desarrollo")
+	if c, _ := Leer(); !c.AppleSandbox || !c.GooglePruebas {
+		t.Fatal("en desarrollo van prendidas")
+	}
+	t.Setenv("TENGOLIBRE_ENTORNO", "produccion")
+	if c, _ := Leer(); c.AppleSandbox || c.GooglePruebas {
+		t.Fatal("en producción van apagadas")
+	}
+	t.Setenv("TENGOLIBRE_APPLE_SANDBOX", "1")
+	if c, _ := Leer(); !c.AppleSandbox || c.GooglePruebas {
+		t.Fatal("la variable prende sólo la de Apple")
+	}
+}

@@ -42,6 +42,8 @@ export const volverValido = (v: string | null | undefined): v is string =>
 	!!v &&
 	v.length < 2000 &&
 	!v.includes('\\') &&
+	// Nada de caracteres de control (saltos de línea, tabulaciones, NUL): no pueden ir en un Location.
+	!/[\x00-\x1f\x7f]/.test(v) &&
 	// La reserva de un negocio también: el socio ingresa para usar su membresía. Y /conectar: dar
 	// permiso a un asistente de IA (OAuth del MCP).
 	(/^\/(panel|admin|empezar|invitacion|mi-cuenta|conectar)(\/[^/]|\?|$)/.test(v) || /^\/[a-z0-9-]{2,60}\/reservar(\?|$)/.test(v));

@@ -30,19 +30,19 @@ export const actions: Actions = {
 	},
 	editar: async (event) => {
 		const f = await event.request.formData();
-		return accion('cupones', 'Guardamos el cupón.', () => apiDe(event).patch(`/v1/panel/cupones/${f.get('id')}`, cuponDeForm(f, false)));
+		return accion('cupones', 'Guardamos el cupón.', () => apiDe(event).patch(`/v1/panel/cupones/${encodeURIComponent(String(f.get('id') ?? ''))}`, cuponDeForm(f, false)));
 	},
 	activo: async (event) => {
 		const f = await event.request.formData();
 		const activo = f.get('activo') === 'true';
 		return accion('cupones', activo ? 'Activamos el cupón.' : 'Pausamos el cupón.', () =>
-			apiDe(event).patch(`/v1/panel/cupones/${f.get('id')}`, { activo })
+			apiDe(event).patch(`/v1/panel/cupones/${encodeURIComponent(String(f.get('id') ?? ''))}`, { activo })
 		);
 	},
 	borrar: async (event) => {
 		const f = await event.request.formData();
 		return accion('cupones', 'Sacamos el cupón (si ya se usó, queda pausado).', () =>
-			apiDe(event).borrar(`/v1/panel/cupones/${f.get('id')}`)
+			apiDe(event).borrar(`/v1/panel/cupones/${encodeURIComponent(String(f.get('id') ?? ''))}`)
 		);
 	}
 };

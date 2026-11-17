@@ -212,7 +212,12 @@ struct BotonTurnoFlotante: View {
     var body: some View {
         let lectura = estado.soloLectura, off = estado.sinConexion
         Button {
-            if lectura { nav.pestana = .mas; nav.pilaMas.append(DestinoMas.suscripcion); return }
+            if lectura {
+                // La suscripción la elige quien gestiona: al resto sólo se le explica (sin abrir Suscripción).
+                if estado.gestiona { nav.pestana = .mas; nav.pilaMas.append(DestinoMas.suscripcion) }
+                else { estado.avisar(Toast(simbolo: "lock", titulo: "Por ahora no se cargan turnos", texto: "La suscripción la elige la dueña o el dueño del negocio.")) }
+                return
+            }
             if off { return }
             Haptico.suave()
             nav.nuevo = NuevoTurnoInicio()

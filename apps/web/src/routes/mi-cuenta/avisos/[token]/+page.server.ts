@@ -9,7 +9,7 @@ export const load: PageServerLoad = async ({ params, fetch, setHeaders }) => {
 	if (!codigoValido(params.token)) error(404, 'Ese link no existe o ya no sirve.');
 	setHeaders({ 'cache-control': 'no-store' });
 	return {
-		preferencias: await o404(apiPublica(fetch).get<Preferencias>(`/v1/preferencias/${params.token}`), 'Ese link no existe o ya no sirve.')
+		preferencias: await o404(apiPublica(fetch).get<Preferencias>(`/v1/preferencias/${encodeURIComponent(params.token)}`), 'Ese link no existe o ya no sirve.')
 	};
 };
 
@@ -25,7 +25,7 @@ export const actions: Actions = {
 		// Los avisos nuevos van sólo si la API los mandó al cargar (si no, los rechaza).
 		const hay = new Set(String(f.get('campos') ?? '').split(','));
 		for (const k of PREFERENCIAS_NUEVAS) if (hay.has(k)) cuerpo[k] = !nada && f.get(k) === 'on';
-		const r = await intentar(() => apiPublica(fetch).put<Preferencias>(`/v1/preferencias/${params.token}`, cuerpo));
+		const r = await intentar(() => apiPublica(fetch).put<Preferencias>(`/v1/preferencias/${encodeURIComponent(params.token)}`, cuerpo));
 		if (!('ok' in r)) return r;
 		return { guardado: true, nada };
 	}

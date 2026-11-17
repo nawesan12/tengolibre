@@ -72,7 +72,11 @@ const precio = (v: FormDataEntryValue | null) => numero(v === null ? null : Stri
 const ids = (f: FormData) =>
 	String(f.get('ids') ?? '')
 		.split(',')
-		.filter(Boolean);
+		.filter(Boolean)
+		.map(encodeURIComponent);
+
+/** El id del formulario, codificado para ir en la ruta de la API. */
+const idDe = (f: FormData) => encodeURIComponent(String(f.get('id') ?? ''));
 
 export const actions: Actions = {
 	crear: async (event) => {
@@ -81,23 +85,23 @@ export const actions: Actions = {
 	},
 	editar: async (event) => {
 		const f = await event.request.formData();
-		return intentar(() => apiDe(event).patch(`/v1/panel/servicios/${f.get('id')}`, cambiosDe(f)));
+		return intentar(() => apiDe(event).patch(`/v1/panel/servicios/${idDe(f)}`, cambiosDe(f)));
 	},
 	foto: async (event) => {
 		const f = await event.request.formData();
 		const api = apiDe(event);
 		return intentar(async () => {
 			const url = await subirImagen(event, f.get('archivo'));
-			return api.patch(`/v1/panel/servicios/${f.get('id')}`, { foto: url });
+			return api.patch(`/v1/panel/servicios/${idDe(f)}`, { foto: url });
 		});
 	},
 	sacarFoto: async (event) => {
 		const f = await event.request.formData();
-		return intentar(() => apiDe(event).patch(`/v1/panel/servicios/${f.get('id')}`, { foto: null }));
+		return intentar(() => apiDe(event).patch(`/v1/panel/servicios/${idDe(f)}`, { foto: null }));
 	},
 	borrar: async (event) => {
 		const f = await event.request.formData();
-		return intentar(() => apiDe(event).borrar(`/v1/panel/servicios/${f.get('id')}`));
+		return intentar(() => apiDe(event).borrar(`/v1/panel/servicios/${idDe(f)}`));
 	},
 	// El orden nuevo de los servicios de una categoría (o de las categorías): uno por uno, con su lugar.
 	ordenar: async (event) => {
@@ -117,11 +121,11 @@ export const actions: Actions = {
 	},
 	renombrarCategoria: async (event) => {
 		const f = await event.request.formData();
-		return intentar(() => apiDe(event).patch(`/v1/panel/categorias/${f.get('id')}`, { nombre: String(f.get('nombre') ?? '') }));
+		return intentar(() => apiDe(event).patch(`/v1/panel/categorias/${idDe(f)}`, { nombre: String(f.get('nombre') ?? '') }));
 	},
 	borrarCategoria: async (event) => {
 		const f = await event.request.formData();
-		return intentar(() => apiDe(event).borrar(`/v1/panel/categorias/${f.get('id')}`));
+		return intentar(() => apiDe(event).borrar(`/v1/panel/categorias/${idDe(f)}`));
 	},
 
 	// Productos (docs/api/caja.md): POST/PATCH/DELETE /v1/panel/productos.
@@ -150,11 +154,11 @@ export const actions: Actions = {
 			else c.stock = stock;
 		}
 		if (f.has('conActivo')) c.activo = f.get('activo') === 'on';
-		return intentar(() => apiDe(event).patch(`/v1/panel/productos/${f.get('id')}`, c));
+		return intentar(() => apiDe(event).patch(`/v1/panel/productos/${idDe(f)}`, c));
 	},
 	borrarProducto: async (event) => {
 		const f = await event.request.formData();
-		return intentar(() => apiDe(event).borrar(`/v1/panel/productos/${f.get('id')}`));
+		return intentar(() => apiDe(event).borrar(`/v1/panel/productos/${idDe(f)}`));
 	},
 	ordenarProductos: async (event) => {
 		const f = await event.request.formData();

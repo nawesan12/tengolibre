@@ -60,7 +60,8 @@ profesional bloqueado). Si el negocio cobra, queda `pendiente_pago` por 15 minut
 Checkout Pro; si Mercado Pago no respondió, `pago.url` viene vacío y se pide con
 `POST /v1/t/{codigo-nuevo}/pagar`. Avisa como cualquier reserva (mail y campanita).
 
-Respuesta 201: el `Turno` nuevo (sin `cliente.id`), con su propio `codigo` para el link:
+Respuesta 201: el `Turno` nuevo (sin `cliente.id` y con el cliente enmascarado como en `GET /v1/t/{codigo}`:
+nombre de pila, `email` como `ju***@gmail.com`, `telefono` con los últimos 4 dígitos), con su propio `codigo` para el link:
 
 ```json
 { "id": "uuid", "codigo": "…", "estado": "pendiente_pago", "venceEn": "…", "pago": { "monto": 6600, "modo": "porcentaje", "url": "https://…" }, "...": "Turno" }

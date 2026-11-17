@@ -83,6 +83,8 @@ class MainActivity : ComponentActivity() {
         EstadoNegocio.hayWidget = { Widgets.hay(applicationContext) }
         // Con la app abierta, un aviso que llega pone al día la campanita y la pantalla (willPresent en iOS).
         EnPrimerPlano.alAviso = { lifecycleScope.launch { estado.version += 1; estado.refrescar() } }
+        // FCM cambió el token con la app abierta: Estado da de baja el viejo y registra el nuevo.
+        EnPrimerPlano.alNuevoToken = { t -> lifecycleScope.launch { estado.cambiarTokenPush(t) } }
         // Renovaciones y compras de Google Play que quedaron sin registrar.
         Compras.escuchar(applicationContext, estado)
         atender(intent)
@@ -115,6 +117,12 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         if (::estado.isInitialized) estado.enVivo.parar()
+    }
+
+    override fun onDestroy() {
+        // Sin la app abierta, el token nuevo de FCM lo registra ServicioPush solo.
+        EnPrimerPlano.alNuevoToken = null
+        super.onDestroy()
     }
 
     /** La vuelta de Clerk (ar.com.tengolibre.app://callback), un link tengolibre:// o un App Link. */

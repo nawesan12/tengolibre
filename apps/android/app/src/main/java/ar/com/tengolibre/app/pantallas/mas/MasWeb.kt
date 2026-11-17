@@ -591,11 +591,16 @@ fun Configuracion() {
     @Serializable data class Espera(val minutos: Int = 30, val automatica: Boolean = true)
     @Serializable data class Encargado(val id: String, val nombre: String = "", val email: String = "", val recibe: Boolean = false)
     @Serializable data class Mensual(val activo: Boolean = false, val encargados: List<Encargado> = emptyList())
+    /** Lo que acepta el PUT del reporte mensual: `activo` y los encargados que cambian, sólo {id, recibe}. */
+    @Serializable data class CambioEncargado(val id: String, val recibe: Boolean)
+    @Serializable data class CambioMensual(val activo: Boolean, val encargados: List<CambioEncargado>)
     val estado = LocalEstado.current
     var a by remember { mutableStateOf<Ajustes?>(null) }
     var av by remember { mutableStateOf(Avisos()) }
     var es by remember { mutableStateOf(Espera()) }
     var me by remember { mutableStateOf<Mensual?>(null) }
+    /** El reporte mensual como vino (para mandar sólo los encargados que cambiaron). */
+    var meAntes by remember { mutableStateOf<Mensual?>(null) }
     var error by remember { mutableStateOf("") }
     suspend fun cargar() {
         try {
@@ -603,8 +608,18 @@ fun Configuracion() {
             estado.api.opcional<Avisos>("/v1/panel/ajustes/avisos")?.let { av = it }
             estado.api.opcional<Espera>("/v1/panel/ajustes/espera")?.let { es = it }
             me = estado.api.opcional("/v1/panel/reportes/mensual/ajustes")
+            meAntes = me
             error = ""
         } catch (e: ErrorApi) { error = e.detalle } catch (e: Exception) { error = "Probá de nuevo." }
+    }
+    /** La API rechaza campos de más (nombre, email) y un encargado sólo puede cambiarse a sí mismo: van `activo` y los
+     *  encargados que cambiaron. */
+    suspend fun guardarMensual() {
+        val m = me ?: return
+        val antes = meAntes?.encargados.orEmpty().associate { it.id to it.recibe }
+        val cambios = m.encargados.filter { antes[it.id] != it.recibe }.map { CambioEncargado(it.id, it.recibe) }
+        val ok = estado.intentar("Guardamos el reporte mensual") { estado.api.hacer("PUT", "/v1/panel/reportes/mensual/ajustes", CambioMensual(m.activo, cambios)) }
+        if (ok) meAntes = m
     }
     LaunchedEffect(Unit) { cargar() }
     PantallaMas("Configuración", "Reservas, cancelaciones y avisos", cargando = a == null && error.isEmpty(), error = error, recargar = { cargar() }) {
@@ -629,7 +644,7 @@ fun Configuracion() {
         me?.let { m ->
             Bloque("Reporte mensual por mail", "", *(listOf<@Composable () -> Unit>({ RenglonInterruptor("Mandarlo el 1° de cada mes", m.activo, { me = m.copy(activo = it) }) }) +
                 m.encargados.mapIndexed { i, e -> @Composable { RenglonInterruptor(e.nombre, e.recibe, { v -> me = m.copy(encargados = m.encargados.toMutableList().also { it[i] = e.copy(recibe = v) }) }, e.email) } } +
-                listOf(@Composable { GuardarEnBloque { estado.intentar("Guardamos el reporte mensual") { estado.api.hacer("PUT", "/v1/panel/reportes/mensual/ajustes", me) } } })).toTypedArray())
+                listOf(@Composable { GuardarEnBloque { guardarMensual() } })).toTypedArray())
         }
         IrA("message", "WhatsApp", DestinoMas.whatsapp)
         IrA("exclamationmark.shield", "Ausencias y penalidades", DestinoMas.penalidades)

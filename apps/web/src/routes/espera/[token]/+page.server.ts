@@ -5,6 +5,12 @@ import { codigoValido, o404, opcional } from '#lib/publico/api.server.ts';
 import type { OfertaPublica, Turno, Web } from '#lib/publico/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
+/** El token de la URL, sólo si tiene el formato de la API (va tal cual en la ruta del pedido). */
+const token = (t: string) => {
+	if (!codigoValido(t)) error(404, 'Ese link no existe o ya no sirve.');
+	return t;
+};
+
 /**
  * «Se liberó lo que esperabas» (docs/api/espera-ofertas.md): el lugar que se le ofrece a quien
  * esperaba en la lista; lo toma de un toque o lo pasa al siguiente. El mail linkea acá.
@@ -23,14 +29,14 @@ export const load: PageServerLoad = async ({ params, fetch, setHeaders }) => {
 
 export const actions: Actions = {
 	tomar: async ({ params, fetch }) => {
-		const r = await intentar(() => apiPublica(fetch).post<Turno>(`/v1/espera/${params.token}/tomar`));
+		const r = await intentar(() => apiPublica(fetch).post<Turno>(`/v1/espera/${token(params.token)}/tomar`));
 		if (!('ok' in r)) return r;
 		// Con seña, a Mercado Pago; sin link (MP no respondió), lo pide el link del turno.
 		if (r.datos.pago?.url && /^https:\/\//.test(r.datos.pago.url)) redirect(303, r.datos.pago.url, { external: true });
 		redirect(303, `/turno/${r.datos.codigo}?nuevo=1`);
 	},
 	pasar: async ({ params, fetch }) => {
-		const r = await intentar(() => apiPublica(fetch).post<OfertaPublica>(`/v1/espera/${params.token}/pasar`));
+		const r = await intentar(() => apiPublica(fetch).post<OfertaPublica>(`/v1/espera/${token(params.token)}/pasar`));
 		if (!('ok' in r)) return r;
 		return { pasada: true };
 	}

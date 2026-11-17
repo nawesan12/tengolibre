@@ -351,6 +351,15 @@ func (s *Servicio) cambiarMiembro(w http.ResponseWriter, r *http.Request) error 
 		if duenias == 0 {
 			return problema.Conflicto("sin_duenio", "El negocio tiene que quedar con al menos una persona dueña.")
 		}
+		// Quien deja de gestionar el negocio (desactivado, o pasó a recepción o profesional) se queda
+		// sin las claves del asistente que creó ni sus conexiones OAuth: si no, seguiría operando la
+		// agenda por el MCP con permisos que ya no tiene.
+		if !m.Activo || (m.Rol != sesion.Duenio && m.Rol != sesion.Encargado) {
+			if _, err := tx.Exec(ctx, `UPDATE mcp_tokens SET revocado_en = now()
+				WHERE creado_por = $1 AND creado_por <> '' AND revocado_en IS NULL`, m.ClerkID); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	if err != nil {

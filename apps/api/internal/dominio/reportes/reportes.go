@@ -11,6 +11,7 @@ import (
 	"math"
 	"net/http"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -57,14 +58,18 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 // MaxDias de un reporte.
 const MaxDias = 366
 
-// vivo: los turnos que cuentan. Un pendiente_pago vencido es un horario que nunca se tomó.
-const vivo = "NOT (t.estado = 'pendiente_pago' AND t.vence_en <= now())"
+// vivo: los turnos que cuentan. Un pendiente_pago vencido es un horario que nunca se tomó. n es el
+// parámetro con el ahora de la API (no now() de la base: los tests corren con su reloj).
+func vivo(n int) string {
+	return "NOT (t.estado = 'pendiente_pago' AND t.vence_en <= $" + strconv.Itoa(n) + ")"
+}
 
 // rango de fechas del negocio fijado: desde y hasta inclusive, en su zona.
 type rango struct {
 	zona         *time.Location
 	desde, hasta string    // AAAA-MM-DD
 	ini, fin     time.Time // [ini, fin)
+	ahora        time.Time // para saber qué pendiente_pago ya venció
 }
 
 func zonaDe(ctx context.Context, tx pgx.Tx) (*time.Location, error) {
@@ -79,9 +84,9 @@ func zonaDe(ctx context.Context, tx pgx.Tx) (*time.Location, error) {
 	return z, nil
 }
 
-func nuevoRango(zona *time.Location, desde, hasta time.Time) rango {
+func nuevoRango(zona *time.Location, desde, hasta, ahora time.Time) rango {
 	return rango{zona: zona, desde: desde.Format(time.DateOnly), hasta: hasta.Format(time.DateOnly),
-		ini: desde, fin: hasta.AddDate(0, 0, 1)}
+		ini: desde, fin: hasta.AddDate(0, 0, 1), ahora: ahora}
 }
 
 // leerRango: ?desde=&hasta= (AAAA-MM-DD). Por defecto, los últimos 30 días hasta hoy.
@@ -104,7 +109,7 @@ func leerRango(r *http.Request, zona *time.Location, ahora time.Time) (rango, er
 	if hasta.Before(desde) || hasta.Sub(desde) > (MaxDias-1)*24*time.Hour+time.Hour {
 		return rango{}, problema.Invalido("desde y hasta van en orden y con hasta 366 días.")
 	}
-	return nuevoRango(zona, desde, hasta), nil
+	return nuevoRango(zona, desde, hasta, ahora), nil
 }
 
 // Fila de un reporte por profesional o por servicio.
@@ -192,9 +197,9 @@ func agrupar(ctx context.Context, tx pgx.Tx, rg rango, id, copia, tabla string) 
 		coalesce(sum(t.precio) FILTER (WHERE t.estado = 'atendido'), 0),
 		coalesce(sum(extract(epoch FROM t.fin - t.inicio) / 60) FILTER (WHERE t.estado <> 'cancelado'), 0)::int
 		FROM turnos t LEFT JOIN `+tabla+` x ON x.id = t.`+id+`
-		WHERE t.inicio >= $1 AND t.inicio < $2 AND `+vivo+`
+		WHERE t.inicio >= $1 AND t.inicio < $2 AND `+vivo(3)+`
 		GROUP BY t.`+id+`, CASE WHEN t.`+id+` IS NULL THEN t.`+copia+` END
-		ORDER BY 6 DESC, 3 DESC, 2`, rg.ini, rg.fin)
+		ORDER BY 6 DESC, 3 DESC, 2`, rg.ini, rg.fin, rg.ahora)
 	if err != nil {
 		return nil, err
 	}
@@ -243,8 +248,8 @@ func disponibles(ctx context.Context, tx pgx.Tx, rg rango) (map[string]int, map[
 // armar el reporte del rango en el negocio fijado.
 func armar(ctx context.Context, tx pgx.Tx, rg rango) (Reporte, error) {
 	rep := Reporte{Desde: rg.desde, Hasta: rg.hasta, PorEstado: map[string]int{}, PorDia: []Dia{}}
-	filas, err := tx.Query(ctx, "SELECT t.estado, count(*) FROM turnos t WHERE t.inicio >= $1 AND t.inicio < $2 AND "+vivo+" GROUP BY 1",
-		rg.ini, rg.fin)
+	filas, err := tx.Query(ctx, "SELECT t.estado, count(*) FROM turnos t WHERE t.inicio >= $1 AND t.inicio < $2 AND "+vivo(3)+" GROUP BY 1",
+		rg.ini, rg.fin, rg.ahora)
 	if err != nil {
 		return rep, err
 	}
@@ -298,7 +303,7 @@ func armar(ctx context.Context, tx pgx.Tx, rg rango) (Reporte, error) {
 		count(*) FILTER (WHERE t.estado <> 'cancelado'), count(*) FILTER (WHERE t.estado = 'atendido'),
 		coalesce(sum(t.precio) FILTER (WHERE t.estado = 'atendido'), 0),
 		coalesce(sum(extract(epoch FROM t.fin - t.inicio) / 60) FILTER (WHERE t.estado <> 'cancelado'), 0)::int
-		FROM turnos t WHERE t.inicio >= $1 AND t.inicio < $2 AND `+vivo+` GROUP BY 1`, rg.ini, rg.fin, rg.zona.String())
+		FROM turnos t WHERE t.inicio >= $1 AND t.inicio < $2 AND `+vivo(4)+` GROUP BY 1`, rg.ini, rg.fin, rg.zona.String(), rg.ahora)
 	if err != nil {
 		return rep, err
 	}
@@ -327,14 +332,14 @@ func armar(ctx context.Context, tx pgx.Tx, rg rango) (Reporte, error) {
 
 	if err := tx.QueryRow(ctx, `WITH en_rango AS (
 			SELECT DISTINCT t.cliente_id FROM turnos t
-			WHERE t.inicio >= $1 AND t.inicio < $2 AND t.estado <> 'cancelado' AND `+vivo+`
+			WHERE t.inicio >= $1 AND t.inicio < $2 AND t.estado <> 'cancelado' AND `+vivo(3)+`
 		), primera AS (
 			SELECT t.cliente_id, min(t.inicio) AS primera FROM turnos t
-			WHERE t.cliente_id IN (SELECT cliente_id FROM en_rango) AND t.estado <> 'cancelado' AND `+vivo+`
+			WHERE t.cliente_id IN (SELECT cliente_id FROM en_rango) AND t.estado <> 'cancelado' AND `+vivo(3)+`
 			GROUP BY t.cliente_id
 		)
 		SELECT count(*) FILTER (WHERE primera >= $1), count(*) FILTER (WHERE primera < $1) FROM primera`,
-		rg.ini, rg.fin).Scan(&rep.ClientesNuevos, &rep.ClientesRecurrentes); err != nil {
+		rg.ini, rg.fin, rg.ahora).Scan(&rep.ClientesNuevos, &rep.ClientesRecurrentes); err != nil {
 		return rep, err
 	}
 

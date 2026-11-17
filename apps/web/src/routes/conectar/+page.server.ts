@@ -70,6 +70,8 @@ export const actions: Actions = {
 			destino = (await apiDe(event).post<{ redirect: string }>(`/v1/oauth/solicitudes/${solicitud}/cancelar`)).redirect;
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
+			// Sesión vencida: a ingresar y de vuelta a este pedido, como al permitir.
+			if (e.estado === 401) redirect(303, ingresar(solicitud));
 			if (e.estado === 404) redirect(303, '/conectar?error=vencida');
 			return fail(e.estado, { error: e.message });
 		}

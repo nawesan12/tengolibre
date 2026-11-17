@@ -81,11 +81,11 @@ func TestReservaDePuntaAPunta(t *testing.T) {
 
 	// La página pública muestra el negocio, el servicio y los dos profesionales, sin datos de contacto.
 	var pag struct {
-		Negocio       negocios.Negocio       `json:"negocio"`
-		Servicios     []catalogo.Prestacion  `json:"servicios"`
-		Profesionales []map[string]any       `json:"profesionales"`
-		Galeria       []any                  `json:"galeria"`
-		Resenas       struct{ Cantidad int } `json:"resenas"`
+		Negocio       negocios.Negocio        `json:"negocio"`
+		Servicios     []catalogo.Prestacion   `json:"servicios"`
+		Profesionales []map[string]any        `json:"profesionales"`
+		Galeria       []any                   `json:"galeria"`
+		Resenas       struct{ Cantidad int }  `json:"resenas"`
 		Atencion      []disponibilidad.Franja `json:"horarioAtencion"`
 	}
 	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/p/el-corte"}, &pag)
@@ -300,4 +300,93 @@ func TestHorarioAtencion(t *testing.T) {
 	if got := turnos.HorarioAtencion(nil); got == nil || len(got) != 0 {
 		t.Fatalf("sin profesionales: %v", got)
 	}
+}
+
+// TestRolProfesional: un profesional ve y toca sólo los turnos de su agenda (como en la agenda), reserva
+// sólo en la suya y no carga sobreturnos. La cuenta atada a un profesional tiene que ser del equipo.
+func TestRolProfesional(t *testing.T) {
+	a, negocio, servicio, ana, beto := armar(t)
+	const profe = "user_profe00001"
+	dueña := func(estado int, metodo, ruta string, cuerpo, v any) {
+		t.Helper()
+		a.Esperar(estado, P{Metodo: metodo, Ruta: ruta, Quien: duenia, Negocio: negocio, Cuerpo: cuerpo}, v)
+	}
+	como := func(estado int, metodo, ruta string, cuerpo, v any) {
+		t.Helper()
+		a.Esperar(estado, P{Metodo: metodo, Ruta: ruta, Quien: profe, Negocio: negocio, Cuerpo: cuerpo}, v)
+	}
+	var m negocios.Miembro
+	dueña(201, "POST", "/v1/panel/equipo", map[string]string{"clerkId": profe, "rol": "profesional"}, &m)
+
+	// Una cuenta de otro negocio no se ata a un profesional de este.
+	const ajeno = "user_ajeno00001"
+	var otro negocios.Negocio
+	a.Esperar(201, P{Metodo: "POST", Ruta: "/v1/negocios", Quien: ajeno, Cuerpo: map[string]string{"slug": "otro", "nombre": "Otro"}}, &otro)
+	var eq struct {
+		Miembros []negocios.Miembro `json:"miembros"`
+	}
+	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/panel/equipo", Quien: ajeno, Negocio: otro.ID}, &eq)
+	dueña(400, "PATCH", "/v1/panel/profesionales/"+ana, map[string]any{"miembroId": eq.Miembros[0].ID}, nil)
+	dueña(400, "POST", "/v1/panel/profesionales", map[string]any{"nombre": "Ceci", "miembroId": eq.Miembros[0].ID}, nil)
+	dueña(200, "PATCH", "/v1/panel/profesionales/"+ana, map[string]any{"miembroId": m.ID}, nil)
+
+	turno := func(prof, hora string) turnos.Turno {
+		var x turnos.Turno
+		dueña(201, "POST", "/v1/panel/turnos", map[string]any{"servicioId": servicio, "profesionalId": prof,
+			"inicio": en("2026-11-02 " + hora).Format(time.RFC3339), "cliente": map[string]string{"nombre": "X", "telefono": "1" + hora[:2]}}, &x)
+		return x
+	}
+	deAna, deBeto := turno(ana, "09:00"), turno(beto, "09:00")
+	como(200, "GET", "/v1/panel/turnos/"+deAna.ID, nil, nil)
+	como(404, "GET", "/v1/panel/turnos/"+deBeto.ID, nil, nil)
+	como(404, "PATCH", "/v1/panel/turnos/"+deBeto.ID, map[string]string{"estado": "cancelado"}, nil)
+	como(404, "POST", "/v1/panel/turnos/"+deBeto.ID+"/reprogramar", map[string]any{"inicio": en("2026-11-02 10:30")}, nil)
+	como(404, "POST", "/v1/panel/turnos/"+deBeto.ID+"/cancelar-siguientes", nil, nil)
+	como(400, "POST", "/v1/panel/turnos/"+deAna.ID+"/reprogramar", map[string]any{"inicio": en("2026-11-02 10:30"), "profesionalId": beto}, nil)
+	como(403, "POST", "/v1/panel/turnos/"+deAna.ID+"/reprogramar", map[string]any{"inicio": en("2026-11-02 09:00"), "forzar": true}, nil)
+	como(200, "POST", "/v1/panel/turnos/"+deAna.ID+"/reprogramar", map[string]any{"inicio": en("2026-11-02 10:30")}, nil)
+	if x := a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/panel/turnos/" + deBeto.ID, Quien: duenia, Negocio: negocio}, nil); x.Estado != 200 {
+		t.Fatal("la dueña ve todo")
+	}
+	nuevo := map[string]any{"servicioId": servicio, "inicio": en("2026-11-02 09:30").Format(time.RFC3339),
+		"cliente": map[string]string{"nombre": "Y", "telefono": "199"}}
+	nuevo["profesionalId"] = beto
+	como(400, "POST", "/v1/panel/turnos", nuevo, nil)
+	nuevo["profesionalId"], nuevo["forzar"] = ana, true
+	como(403, "POST", "/v1/panel/turnos", nuevo, nil)
+	delete(nuevo, "profesionalId")
+	delete(nuevo, "forzar")
+	var x turnos.Turno
+	como(201, "POST", "/v1/panel/turnos", nuevo, &x)
+	if x.ProfesionalID == nil || *x.ProfesionalID != ana {
+		t.Fatalf("sin elegir, reserva en su agenda: %+v", x.ProfesionalID)
+	}
+}
+
+// TestSobreturnoEnElPasado: un sobreturno (forzar) en un horario que ya pasó sólo entra si ese
+// horario estaba libre; para adelante, forzar sigue siendo forzar.
+func TestSobreturnoEnElPasado(t *testing.T) {
+	a, negocio, servicio, ana, _ := armar(t)
+	forzar := func(estado int, inicio string) {
+		t.Helper()
+		a.Esperar(estado, P{Metodo: "POST", Ruta: "/v1/panel/turnos", Quien: duenia, Negocio: negocio, Cuerpo: map[string]any{
+			"servicioId": servicio, "profesionalId": ana, "inicio": en(inicio).Format(time.RFC3339), "forzar": true,
+			"cliente": map[string]string{"nombre": "Z", "telefono": "155"}}}, nil)
+	}
+	forzar(201, "2026-10-26 09:00") // lunes pasado, libre: se carga lo que se atendió
+	forzar(409, "2026-10-26 09:00") // ya ocupado
+	forzar(201, "2026-11-02 09:00")
+	forzar(201, "2026-11-02 09:00") // para adelante, el sobreturno se permite
+}
+
+// TestTopeDeReservasPublicas: la página pública acepta hasta 10 reservas cada 10 minutos por IP en un
+// negocio (cuentan también las que fallan).
+func TestTopeDeReservasPublicas(t *testing.T) {
+	a, _, _, _, _ := armar(t)
+	for range 10 {
+		a.Esperar(400, P{Metodo: "POST", Ruta: "/v1/p/el-corte/turnos", Cuerpo: map[string]any{"cliente": map[string]string{}}}, nil)
+	}
+	a.Esperar(429, P{Metodo: "POST", Ruta: "/v1/p/el-corte/turnos", Cuerpo: map[string]any{"cliente": map[string]string{}}}, nil)
+	a.Ahora = a.Ahora.Add(11 * time.Minute)
+	a.Esperar(400, P{Metodo: "POST", Ruta: "/v1/p/el-corte/turnos", Cuerpo: map[string]any{"cliente": map[string]string{}}}, nil)
 }

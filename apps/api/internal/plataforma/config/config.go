@@ -60,6 +60,11 @@ type Config struct {
 	// 90 días, con sus clientes. Apagada por defecto; `tengolibrectl purga-negocios --listar` muestra
 	// antes qué se borraría.
 	PurgaNegocios bool
+	// AppleSandbox (TENGOLIBRE_APPLE_SANDBOX=1) y GooglePruebas (TENGOLIBRE_GOOGLE_PRUEBAS=1): aceptar
+	// las compras de prueba de la App Store (sandbox, Xcode) y de Google Play (testPurchase), que no se
+	// cobran. Prendidas por defecto sólo en desarrollo (=0 las apaga); en producción, apagadas. La
+	// revisión de Apple compra en sandbox: para eso se prende un rato y se apaga cuando aprueban.
+	AppleSandbox, GooglePruebas bool
 }
 
 // Desarrollo dice si se está corriendo en local.
@@ -114,6 +119,8 @@ func Leer() (Config, error) {
 
 		PurgaNegocios: os.Getenv("TENGOLIBRE_PURGA_NEGOCIOS") == "1",
 	}
+	c.AppleSandbox = prendida("TENGOLIBRE_APPLE_SANDBOX", c.Entorno == "desarrollo")
+	c.GooglePruebas = prendida("TENGOLIBRE_GOOGLE_PRUEBAS", c.Entorno == "desarrollo")
 	switch c.Entorno {
 	case "desarrollo", "staging", "produccion":
 	default:
@@ -171,6 +178,17 @@ func (c Config) ExigirCorreo() error {
 		return nil
 	}
 	return fmt.Errorf("falta configurar el correo: TENGOLIBRE_SMTP, TENGOLIBRE_SMTP_USUARIO y TENGOLIBRE_SMTP_CLAVE")
+}
+
+// prendida: "1" prende, "0" apaga y sin valor queda def.
+func prendida(k string, def bool) bool {
+	switch os.Getenv(k) {
+	case "1":
+		return true
+	case "0":
+		return false
+	}
+	return def
 }
 
 func valor(k, def string) string { return conDefecto(os.Getenv(k), def) }

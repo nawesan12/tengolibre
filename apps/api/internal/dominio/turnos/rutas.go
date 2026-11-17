@@ -220,6 +220,9 @@ func (s *Servicio) reservarPublico(w http.ResponseWriter, r *http.Request) error
 	if err != nil {
 		return err
 	}
+	if err := s.limite.PermitirPublico(r, "reservar", id, s.TopePublico, s.ahora()); err != nil {
+		return err
+	}
 	var in Pedido
 	if err := web.Leer(w, r, &in); err != nil {
 		return err
@@ -251,6 +254,14 @@ func (s *Servicio) reservarPublico(w http.ResponseWriter, r *http.Request) error
 	}
 	s.despuesDeReservar(ctx, id, &t)
 	s.avisar(ctx, id, t.ID, "reservado")
+	// Lo que vuelve es lo que tipeó quien reservó: con el teléfono de un cliente que ya existía no se
+	// ve su nombre, su email ni su id. El socio con sesión ve los suyos (sin el id).
+	if in.UsarMembresia {
+		t.Cliente = Cliente{Nombre: t.Cliente.Nombre, Telefono: t.Cliente.Telefono, Email: t.Cliente.Email}
+	} else {
+		t.Cliente = Cliente{Nombre: strings.TrimSpace(in.Cliente.Nombre), Telefono: limpiarTelefono(in.Cliente.Telefono),
+			Email: strings.ToLower(strings.TrimSpace(in.Cliente.Email))}
+	}
 	web.JSON(w, http.StatusCreated, t)
 	return nil
 }
@@ -273,9 +284,27 @@ func (s *Servicio) reservarPanel(w http.ResponseWriter, r *http.Request) error {
 	if err := web.Leer(w, r, &in); err != nil {
 		return err
 	}
+	if err := sinForzar(ctx, in.Forzar); err != nil {
+		return err
+	}
 	negocio := sesion.De(ctx).NegocioID
 	var t Turno
 	err := s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) (err error) {
+		// Un profesional reserva en su agenda: sin elegir, el primero libre de los suyos.
+		if sesion.De(ctx).Rol == sesion.Profesional {
+			if in.ProfesionalID == "" {
+				if err := tx.QueryRow(ctx, `SELECT p.id::text FROM profesionales p JOIN miembros m ON m.id = p.miembro_id
+					WHERE m.clerk_id = $1 AND p.activo ORDER BY p.orden, p.creado_en LIMIT 1`, sesion.De(ctx).ClerkID).Scan(&in.ProfesionalID); err != nil {
+					if errors.Is(err, pgx.ErrNoRows) {
+						return problema.SinPermiso("Tu cuenta no tiene una agenda de profesional en este negocio.")
+					}
+					return err
+				}
+			}
+			if err := propio(ctx, tx, &in.ProfesionalID); err != nil {
+				return problema.Invalido("Sólo podés reservar en tu agenda.", problema.Campo{Ruta: "profesionalId", Mensaje: "ajeno"})
+			}
+		}
 		if t, err = reservar(ctx, tx, in, "panel", s.ahora()); err != nil {
 			return err
 		}
@@ -398,9 +427,30 @@ func (s *Servicio) delCliente(ctx context.Context, cod string, fn func(tx pgx.Tx
 			s.ahora().Add(time.Duration(a.CancelarHastaHoras)*time.Hour).Before(out.Inicio)
 		return nil
 	})
-	out.Cliente.ID = ""
+	out.Cliente = Enmascarar(out.Cliente)
 	out.LlamarDesde, out.LlamarMotivo = nil, nil
 	return out, negocio, err
+}
+
+// Enmascarar los datos del cliente para lo público (el link del turno): el link lo puede tener quien
+// reservó con el teléfono de otro, así que no muestra el nombre completo, el email ni el teléfono
+// enteros (ni el id). Queda el nombre de pila, el email como «ju***@gmail.com» y el teléfono con los
+// últimos 4 dígitos.
+func Enmascarar(c Cliente) Cliente {
+	out := Cliente{}
+	if f := strings.Fields(c.Nombre); len(f) > 0 {
+		out.Nombre = f[0]
+	}
+	if usuario, dominio, ok := strings.Cut(c.Email, "@"); ok {
+		r := []rune(usuario)
+		out.Email = string(r[:min(2, len(r))]) + "***@" + dominio
+	}
+	if n := len(c.Telefono); n > 4 {
+		out.Telefono = strings.Repeat("*", n-4) + c.Telefono[n-4:]
+	} else if n > 0 {
+		out.Telefono = strings.Repeat("*", n)
+	}
+	return out
 }
 
 func (s *Servicio) verTurno(w http.ResponseWriter, r *http.Request) error {
@@ -531,12 +581,42 @@ func (s *Servicio) agenda(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// propio: un profesional (rol) sólo ve y toca los turnos de su agenda, la de los profesionales
+// atados a su cuenta (el mismo filtro que la agenda); uno ajeno es 404. Los demás roles, todos.
+func propio(ctx context.Context, tx pgx.Tx, profesionalID *string) error {
+	ses := sesion.De(ctx)
+	if ses.Rol != sesion.Profesional {
+		return nil
+	}
+	if profesionalID != nil {
+		var ok bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM profesionales p JOIN miembros m ON m.id = p.miembro_id
+			WHERE p.id::text = $1 AND m.clerk_id = $2)`, *profesionalID, ses.ClerkID).Scan(&ok); err != nil {
+			return err
+		}
+		if ok {
+			return nil
+		}
+	}
+	return problema.NoEncontrado("No encontramos ese turno.")
+}
+
+// sinForzar: el sobreturno lo decide recepción o la gestión, no un profesional.
+func sinForzar(ctx context.Context, forzar bool) error {
+	if forzar && sesion.De(ctx).Rol == sesion.Profesional {
+		return problema.SinPermiso("Un sobreturno lo carga recepción o quien gestiona el negocio.")
+	}
+	return nil
+}
+
 func (s *Servicio) verPanel(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	var t Turno
 	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) (err error) {
-		t, err = leerTurno(ctx, tx, "t.id = $1", r.PathValue("id"), false)
-		return err
+		if t, err = leerTurno(ctx, tx, "t.id = $1", r.PathValue("id"), false); err != nil {
+			return err
+		}
+		return propio(ctx, tx, t.ProfesionalID)
 	})
 	if err != nil {
 		return err
@@ -565,9 +645,23 @@ func (s *Servicio) cambiar(w http.ResponseWriter, r *http.Request) error {
 		if t, err = leerTurno(ctx, tx, "t.id = $1", r.PathValue("id"), true); err != nil {
 			return err
 		}
+		if err := propio(ctx, tx, t.ProfesionalID); err != nil {
+			return err
+		}
 		antes = t.Estado
 		if in.Estado != nil && !PuedePasar(t.Estado, *in.Estado) {
 			return problema.Conflicto("estado", "No se puede pasar de "+t.Estado+" a "+*in.Estado+".")
+		}
+		// Un pendiente_pago vencido ya no guardaba el horario: se confirma sólo si sigue libre.
+		if in.Estado != nil && t.Estado == "pendiente_pago" && (*in.Estado == "pendiente" || *in.Estado == "confirmado") &&
+			t.VenceEn != nil && !t.VenceEn.After(s.ahora()) {
+			libre, err := SigueLibre(ctx, tx, t.ID, s.ahora())
+			if err != nil {
+				return err
+			}
+			if !libre {
+				return problema.Conflicto("horario_ocupado", "Se venció el plazo para pagar y ese horario ya no está libre. Reprogramalo o cancelalo.")
+			}
 		}
 		if _, err := tx.Exec(ctx, `UPDATE turnos SET estado = coalesce($2, estado), nota = coalesce($3, nota),
 			vence_en = CASE WHEN coalesce($2, estado) = 'pendiente_pago' THEN vence_en END, actualizado_en = now() WHERE id = $1`,
@@ -602,12 +696,23 @@ func (s *Servicio) reprogramarPanel(w http.ResponseWriter, r *http.Request) erro
 	if err := web.Leer(w, r, &in); err != nil {
 		return err
 	}
+	if err := sinForzar(ctx, in.Forzar); err != nil {
+		return err
+	}
 	negocio := sesion.De(ctx).NegocioID
 	var t Turno
 	err := s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
 		actual, err := leerTurno(ctx, tx, "t.id = $1", r.PathValue("id"), true)
 		if err != nil {
 			return err
+		}
+		if err := propio(ctx, tx, actual.ProfesionalID); err != nil {
+			return err
+		}
+		if in.ProfesionalID != "" {
+			if err := propio(ctx, tx, &in.ProfesionalID); err != nil {
+				return problema.Invalido("Sólo podés mover el turno dentro de tu agenda.", problema.Campo{Ruta: "profesionalId", Mensaje: "ajeno"})
+			}
 		}
 		t, err = reprogramar(ctx, tx, actual, in.Inicio, in.ProfesionalID, s.ahora(), in.Forzar)
 		return err

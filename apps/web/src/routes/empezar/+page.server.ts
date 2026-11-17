@@ -11,6 +11,7 @@ import { PUBLIC_CLERK_PUBLICABLE } from '$app/env/public';
 import { Api, apiDe, type Persona } from '#lib/server/api.ts';
 import { intentar } from '#lib/server/acciones.ts';
 import { COOKIE_VOLVER, elegirNegocio, volverValido } from '#lib/server/sesion.ts';
+import { conSesion } from '#lib/cuenta/ingreso.server.ts';
 import { fapiDe } from '#lib/clerk.ts';
 import { esPaso, conNegocio, siguiente, urlPaso, type Paso } from '#lib/alta/pasos.ts';
 import { rubroDe } from '#lib/alta/rubros.ts';
@@ -70,11 +71,13 @@ export const load: PageServerLoad = async (event) => {
 	const editando = conNegocio(paso) || url.searchParams.get('n') === '1';
 	if (editando && !locals.negocio) redirect(303, '/empezar');
 
-	const api = apiDe(event);
-	const [persona, cargado] = await Promise.all([
-		paso === 'equipo' ? api.get<Persona>('/v1/auth/persona').catch(() => null) : Promise.resolve(null),
-		editando ? cargar(api, paso) : Promise.resolve(null)
-	]);
+	// Sesión vencida (401): se borra y a ingresar, con la vuelta a este paso (no un 500).
+	const [persona, cargado] = await conSesion(event, (api) =>
+		Promise.all([
+			paso === 'equipo' ? api.get<Persona>('/v1/auth/persona').catch(() => null) : Promise.resolve(null),
+			editando ? cargar(api, paso) : Promise.resolve(null)
+		])
+	);
 	return {
 		modo: 'onboarding' as const,
 		paso,

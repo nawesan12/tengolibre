@@ -19,6 +19,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/tope"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/web"
 )
 
@@ -30,6 +31,10 @@ type Servicio struct {
 	// Turnos reserva cuando alguien toma el lugar (o recepción se lo da). nil: tomar no anda (el
 	// worker no lo necesita).
 	Turnos *turnos.Servicio
+	// TopePublico: cuántas anotaciones desde la página pública por IP y por negocio (vacío:
+	// tope.PorDefecto).
+	TopePublico tope.Publico
+	limite      tope.Contador
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -142,6 +147,9 @@ func (s *Servicio) anotarse(w http.ResponseWriter, r *http.Request) error {
 	}
 	if negocio == nil {
 		return problema.NoEncontrado("No encontramos ese negocio.")
+	}
+	if err := s.limite.PermitirPublico(r, "espera", *negocio, s.TopePublico, s.ahora()); err != nil {
+		return err
 	}
 	var a Anotado
 	err = s.Pool.EnNegocio(ctx, *negocio, func(tx pgx.Tx) error {

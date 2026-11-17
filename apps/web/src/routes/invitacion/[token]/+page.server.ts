@@ -1,5 +1,5 @@
 import { error, redirect, type RequestEvent } from '@sveltejs/kit';
-import { apiDe, apiPublica, ErrorApi } from '#lib/server/api.ts';
+import { apiDe, apiPublica } from '#lib/server/api.ts';
 import { intentar } from '#lib/server/acciones.ts';
 import { elegirNegocio } from '#lib/server/sesion.ts';
 import { codigoValido, o404, opcional } from '#lib/publico/api.server.ts';
@@ -14,25 +14,14 @@ type Aceptada = { negocio: { id: string; slug: string; nombre: string; rol: stri
 const aceptar = (e: Pick<RequestEvent, 'locals' | 'fetch'>, token: string) => apiDe(e).post<Aceptada>(`/v1/invitaciones/${token}/aceptar`);
 
 export const load: PageServerLoad = async (event) => {
-	const { params, fetch, locals, url, cookies, setHeaders } = event;
+	const { params, fetch, locals, url, setHeaders } = event;
 	if (!codigoValido(params.token)) error(404, 'Esa invitación no existe o ya no sirve.');
 	setHeaders({ 'cache-control': 'no-store' });
-	const invitacion = await o404(apiPublica(fetch).get<Invitacion>(`/v1/invitaciones/${params.token}`), 'Esa invitación no existe o ya no sirve.');
+	const invitacion = await o404(apiPublica(fetch).get<Invitacion>(`/v1/invitaciones/${encodeURIComponent(params.token)}`), 'Esa invitación no existe o ya no sirve.');
 	const usable = !invitacion.vencida && !invitacion.aceptada;
-	// Sin sesión: a ingresar, y de vuelta acá para aceptarla sola.
+	// Sin sesión: a ingresar, y de vuelta acá con el botón listo. Aceptar es sólo por POST (la acción):
+	// un GET (un link abierto por un antivirus o una vista previa del chat) no suma a nadie al equipo.
 	if (usable && !locals.token) redirect(303, `/ingresar?volver=${encodeURIComponent(`/invitacion/${params.token}?aceptar=1`)}`);
-	// Volviendo del ingreso: se acepta y al panel de ese negocio.
-	let falla = '';
-	if (usable && url.searchParams.has('aceptar')) {
-		try {
-			const r = await aceptar(event, params.token);
-			elegirNegocio(cookies, r.negocio.id);
-		} catch (e) {
-			if (!(e instanceof ErrorApi)) throw e;
-			falla = e.message;
-		}
-		if (!falla) redirect(303, '/panel');
-	}
 	// La página pública del negocio da su color y cómo escribirle (si no está publicada, sin eso).
 	const p = await opcional(apiPublica(fetch).get<Pagina>(`/v1/p/${invitacion.slug}`), null);
 	const negocio = {
@@ -41,7 +30,7 @@ export const load: PageServerLoad = async (event) => {
 		whatsapp: p ? linkWhatsapp(p.negocio.whatsapp || '') : '',
 		publicada: !!p
 	};
-	return { invitacion, usable, falla, negocio };
+	return { invitacion, usable, falla: '', volviendo: usable && url.searchParams.has('aceptar'), negocio };
 };
 
 export const actions: Actions = {

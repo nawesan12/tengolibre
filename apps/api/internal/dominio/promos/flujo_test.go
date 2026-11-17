@@ -107,7 +107,7 @@ func TestReferidos(t *testing.T) {
 
 	var mio promos.MiReferido
 	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/t/" + ana.Codigo + "/referido"}, &mio)
-	if mio.Codigo == nil || len(*mio.Codigo) != 6 {
+	if mio.Codigo == nil || len(*mio.Codigo) != promos.LargoReferido {
 		t.Fatalf("código: %+v", mio)
 	}
 	codigo := *mio.Codigo
@@ -122,10 +122,16 @@ func TestReferidos(t *testing.T) {
 		t.Fatal("el código no valida")
 	}
 
-	// Beto reserva con el código de Ana: Ana gana un cupón. Ana con su propio código, o Beto otra vez, no cuentan.
-	e.Reservar(201, "09:30", "2222", map[string]any{"referido": codigo})
+	// Beto reserva con el código de Ana: Ana gana un cupón cuando el turno de Beto queda confirmado (no
+	// al reservar). Ana con su propio código, o Beto otra vez, no cuentan.
+	beto := e.Reservar(201, "09:30", "2222", map[string]any{"referido": codigo})
 	e.Reservar(201, "10:00", "1111", map[string]any{"referido": codigo})
 	e.Reservar(201, "10:30", "2222", map[string]any{"referido": codigo})
+	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/t/" + ana.Codigo + "/referido"}, &mio)
+	if mio.Referidos != 1 || len(mio.Recompensas) != 0 {
+		t.Fatalf("con el turno de Beto pendiente no hay premio: %+v", mio)
+	}
+	e.Panel(200, "PATCH", "/v1/panel/turnos/"+beto.ID, map[string]string{"estado": "confirmado"}, nil)
 	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/t/" + ana.Codigo + "/referido"}, &mio)
 	if mio.Referidos != 1 || len(mio.Recompensas) != 1 {
 		t.Fatalf("después de Beto: %+v", mio)
@@ -135,19 +141,20 @@ func TestReferidos(t *testing.T) {
 		premio.Hasta == nil || !premio.Hasta.Equal(e.Ahora.AddDate(0, 0, 90)) {
 		t.Fatalf("recompensa: %+v", premio)
 	}
-	// Carla suma la segunda; Dani ya pasa el tope.
-	e.Reservar(201, "11:00", "3333", map[string]any{"referido": codigo})
+	// Carla suma la segunda (el premio, cuando venga); Dani ya pasa el tope.
+	carla := e.Reservar(201, "11:00", "3333", map[string]any{"referido": codigo})
 	e.Reservar(201, "11:30", "4444", map[string]any{"referido": codigo})
 	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/t/" + ana.Codigo + "/referido"}, &mio)
-	if mio.Referidos != 2 || len(mio.Recompensas) != 2 {
+	if mio.Referidos != 2 || len(mio.Recompensas) != 1 {
 		t.Fatalf("tope: %+v", mio)
 	}
 	// Un código inventado se ignora (la reserva sale igual).
 	e.Reservar(201, "12:00", "5555", map[string]any{"referido": "NOEXISTE"})
 
 	// Ana usa su premio.
-	if x := e.Reservar(201, "12:30", "1111", map[string]any{"cupon": premio.Codigo}); x.Precio != 7000 {
-		t.Fatalf("premio: %d", x.Precio)
+	conPremio := e.Reservar(201, "12:30", "1111", map[string]any{"cupon": premio.Codigo})
+	if conPremio.Precio != 7000 {
+		t.Fatalf("premio: %d", conPremio.Precio)
 	}
 	var l struct {
 		Referidos []promos.Referido `json:"referidos"`
@@ -165,4 +172,82 @@ func TestReferidos(t *testing.T) {
 		u.Usos[1].Referido != "Cliente 2222" || u.Usos[1].Refiere != "Cliente 1111" || u.Usos[1].Estado != "premio_usado" {
 		t.Fatalf("usos: %+v", u.Usos)
 	}
+
+	// Carla cancela: su lugar vuelve (Eva entra en el tope) y no hay premio. Ana cancela el turno con
+	// el premio: el cupón vuelve a servir.
+	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/t/" + carla.Codigo + "/cancelar"}, nil)
+	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/t/" + conPremio.Codigo + "/cancelar"}, nil)
+	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/t/" + ana.Codigo + "/referido"}, &mio)
+	if mio.Referidos != 1 || len(mio.Recompensas) != 1 || mio.Recompensas[0].Usos != 0 {
+		t.Fatalf("después de cancelar: %+v", mio)
+	}
+	eva := e.Reservar(201, "11:00", "6666", map[string]any{"referido": codigo})
+	e.Panel(200, "PATCH", "/v1/panel/turnos/"+eva.ID, map[string]string{"estado": "atendido"}, nil)
+	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/t/" + ana.Codigo + "/referido"}, &mio)
+	if mio.Referidos != 2 || len(mio.Recompensas) != 2 {
+		t.Fatalf("Eva entra en el lugar de Carla: %+v", mio)
+	}
+	if x := e.Reservar(201, "12:30", "1111", map[string]any{"cupon": premio.Codigo}); x.Precio != 7000 {
+		t.Fatalf("el premio devuelto vuelve a servir: %d", x.Precio)
+	}
+}
+
+// TestTelefonoDeOtroCliente: quien reserva desde la web con el teléfono de una clienta que ya tiene su
+// email de confianza no ve sus datos (ni su id) en la respuesta ni en el link, y el link no muestra ni
+// da su código de referidos. La dueña real, desde su propio turno, sí.
+func TestTelefonoDeOtroCliente(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.Panel(200, "PUT", "/v1/panel/referidos/config", map[string]any{"activo": true, "tipo": "fijo", "valor": 1000}, nil)
+	var suyo struct {
+		ID     string `json:"id"`
+		Codigo string `json:"codigo"`
+	}
+	e.Panel(201, "POST", "/v1/panel/turnos", map[string]any{"servicioId": e.Servicio, "profesionalId": e.Profesional,
+		"inicio":  cobrosprueba.En("2026-11-02 09:00").Format(time.RFC3339),
+		"cliente": map[string]string{"nombre": "Verónica Paz", "telefono": "7777", "email": "vero@ejemplo.com"}}, &suyo)
+	var mio promos.MiReferido
+	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/t/" + suyo.Codigo + "/referido"}, &mio)
+	if mio.Codigo == nil || mio.Oculto {
+		t.Fatalf("la dueña ve su código: %+v", mio)
+	}
+
+	var otro map[string]any
+	e.Esperar(201, P{Metodo: "POST", Ruta: "/v1/p/el-corte/turnos", Cuerpo: map[string]any{"servicioId": e.Servicio,
+		"profesionalId": e.Profesional, "inicio": cobrosprueba.En("2026-11-02 10:00").Format(time.RFC3339),
+		"cliente": map[string]string{"nombre": "Intruso", "telefono": "7777", "email": "intruso@ejemplo.com"}}}, &otro)
+	c := otro["cliente"].(map[string]any)
+	if c["nombre"] != "Intruso" || c["email"] != "intruso@ejemplo.com" || c["id"] != nil {
+		t.Fatalf("la reserva devolvió datos que no tipeó: %+v", c)
+	}
+	var link map[string]any
+	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/t/" + otro["codigo"].(string)}, &link)
+	if c := link["cliente"].(map[string]any); c["nombre"] != "Verónica" || c["email"] != "ve***@ejemplo.com" || c["telefono"] != "****" ||
+		c["id"] != nil {
+		t.Fatalf("el link muestra los datos de la clienta: %+v", c)
+	}
+	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/t/" + otro["codigo"].(string) + "/referido"}, &mio)
+	if mio.Codigo != nil || !mio.Oculto || len(mio.Recompensas) != 0 {
+		t.Fatalf("el link ajeno muestra el código: %+v", mio)
+	}
+	e.Esperar(409, P{Metodo: "POST", Ruta: "/v1/t/" + otro["codigo"].(string) + "/referido"}, nil)
+	// El email de confianza no se pisó.
+	var email string
+	e.Fila("SELECT email FROM clientes WHERE telefono = '7777'", nil, &email)
+	if email != "vero@ejemplo.com" {
+		t.Fatalf("email: %q", email)
+	}
+}
+
+// TestTopeDeValidaciones: probar códigos desde la página tiene tope por IP (cupones y referidos suman).
+func TestTopeDeValidaciones(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	for i := range promos.ValidarPorIP {
+		ruta := "/v1/p/el-corte/cupones/validar"
+		if i%2 == 1 {
+			ruta = "/v1/p/el-corte/referidos/validar"
+		}
+		e.Esperar(200, P{Metodo: "POST", Ruta: ruta, Cuerpo: map[string]string{"codigo": "PRUEBA" + strings.Repeat("X", i%5)}}, nil)
+	}
+	e.Esperar(429, P{Metodo: "POST", Ruta: "/v1/p/el-corte/referidos/validar", Cuerpo: map[string]string{"codigo": "OTRO"}}, nil)
+	e.Esperar(429, P{Metodo: "POST", Ruta: "/v1/p/el-corte/cupones/validar", Cuerpo: map[string]string{"codigo": "OTRO"}}, nil)
 }

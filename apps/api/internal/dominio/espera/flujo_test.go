@@ -312,14 +312,24 @@ func TestOfrecerElHuecoSolo(t *testing.T) {
 			eva = *c.EsperaID
 		}
 	}
+	// El teléfono que dejó Eva en la web ya era de una clienta del negocio con su email de confianza:
+	// lo que se anotó en la lista de espera no lo pisa ni pasa a ser de confianza.
+	e.Fila(`INSERT INTO clientes (negocio_id, nombre, telefono, email) VALUES ($1, 'Eva Real', '11555', 'eva.real@ejemplo.com')`,
+		[]any{e.negocio})
 	var cargado struct {
 		Oferta espera.Oferta `json:"oferta"`
 		Turno  *turnos.Turno `json:"turno"`
 	}
 	e.panel(200, "POST", "/v1/panel/espera/ofertas/"+o.ID+"/cargar", map[string]string{"esperaId": eva}, &cargado)
-	if cargado.Oferta.Estado != "cargada" || cargado.Turno == nil || cargado.Turno.Cliente.Nombre != "Eva" || cargado.Turno.Estado != "confirmado" ||
+	if cargado.Oferta.Estado != "cargada" || cargado.Turno == nil || cargado.Turno.Cliente.Nombre != "Eva Real" || cargado.Turno.Estado != "confirmado" ||
 		cargado.Oferta.Cola[0].Estado != "cancelada" || cargado.Oferta.Cola[1].Estado != "tomada" {
 		t.Fatalf("cargar: %+v", cargado)
+	}
+	var email string
+	var confiable bool
+	e.Fila("SELECT email, email_confiable FROM clientes WHERE negocio_id = $1 AND telefono = '11555'", []any{e.negocio}, &email, &confiable)
+	if email != "eva.real@ejemplo.com" || !confiable {
+		t.Fatalf("la lista de espera pisó el email de confianza: %q %v", email, confiable)
 	}
 	// Nadie más espera ese horario.
 	e.panel(409, "POST", "/v1/panel/espera/ofertas", map[string]any{"servicioId": e.servicio, "profesionalId": e.beto,
@@ -338,4 +348,14 @@ func TestOfertaAgotada(t *testing.T) {
 		t.Fatalf("ofertas: %+v", os)
 	}
 	e.notificacion("Nadie de la lista tomó el hueco de las 09:00")
+}
+
+// TestTopeDeLaListaDeEspera: anotarse desde la página tiene tope por IP en el negocio.
+func TestTopeDeLaListaDeEspera(t *testing.T) {
+	e := armar(t)
+	for i := range 10 {
+		e.anotar("Persona"+strings.Repeat("a", i), "", "manana")
+	}
+	e.Esperar(429, P{Metodo: "POST", Ruta: "/v1/p/el-corte/espera", Cuerpo: map[string]any{"servicioId": e.servicio,
+		"nombre": "Once", "email": "once@ejemplo.com", "desde": "2026-11-02", "momento": "manana"}}, nil)
 }

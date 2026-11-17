@@ -58,8 +58,12 @@ type Servicio struct {
 	OtrosAvisos map[string]mercadopago.Receptor
 	// Avisar como en turnos (el pago confirma el turno). nil: no se avisa.
 	Avisar func(ctx context.Context, negocioID, turnoID, evento string)
-	Ahora  func() time.Time
-	Log    *slog.Logger
+	// CancelarTurno: lo que corre al cancelar un turno, como en turnos (turnos.Servicio.AlCancelar: la
+	// visita de la membresía, el cobro pendiente). Lo usa la devolución total, que cancela el turno.
+	// nil: nada.
+	CancelarTurno func(ctx context.Context, tx pgx.Tx, turnoID string) error
+	Ahora         func() time.Time
+	Log           *slog.Logger
 }
 
 func (s *Servicio) ahora() time.Time {

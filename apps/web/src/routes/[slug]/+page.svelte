@@ -12,9 +12,14 @@
 <svelte:head>
 	<title>{n.nombre} · Turnos online</title>
 	<meta name="description" content={descripcion} />
+	<link rel="canonical" href={data.canonical} />
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content={data.canonical} />
 	<meta property="og:title" content={n.nombre} />
 	<meta property="og:description" content={descripcion} />
-	{#if w.portada || n.logo}<meta property="og:image" content={w.portada ?? n.logo} />{/if}
+	<!-- Sin portada ni logo, la imagen de marca de Tengo Libre (nunca un link sin imagen). -->
+	<meta property="og:image" content={w.portada || n.logo || data.ogImagen} />
+	<meta name="twitter:card" content={n.logo && !w.portada ? 'summary' : 'summary_large_image'} />
 	<meta name="theme-color" content={w.colorPrimario} />
 	{#if data.vista}<meta name="robots" content="noindex" />{/if}
 </svelte:head>

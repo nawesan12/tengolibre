@@ -4,6 +4,8 @@ import { campos, intentar } from '#lib/server/acciones.ts';
 import { cobro, opcional, pagina, primerLugar } from '#lib/publico/api.server.ts';
 import { hora } from '#lib/formato.ts';
 import { esFecha } from '#lib/publico/calendario.ts';
+import { sitioDe } from '#lib/publico/dominio.ts';
+import { slugDelHost } from '#lib/publico/dominio.server.ts';
 import { CUALQUIERA, type Paso } from '#lib/publico/reserva.ts';
 import type { Dia, Horario, MiMembresia, Plan, ResenaPublica, Resumen, Turno, Validacion } from '#lib/publico/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -45,13 +47,18 @@ export const load: PageServerLoad = async (event) => {
 	if (servicio && profesionales.length === 0) aviso = 'Por ahora nadie del equipo hace este servicio online.';
 	if (servicio && profesionalId) {
 		paso = 'dia';
-		dias = (await api.get<{ dias: Dia[] }>(`/v1/p/${slug}/dias?${filtro({})}`)).dias;
+		// Si la API no responde, el aviso y la reserva sigue en pie (nada de un 500 en la cara).
+		const d = await opcional(api.get<{ dias: Dia[] }>(`/v1/p/${slug}/dias?${filtro({})}`), null);
+		if (!d) aviso = 'No pudimos traer los horarios. Probá de nuevo en un rato.';
+		dias = d?.dias ?? [];
 		// Sin día elegido: el primero con lugar.
 		if (!fecha) fecha = dias.find((d) => d.libres > 0)?.fecha ?? '';
 	}
 	if (paso === 'dia' && fecha) {
 		paso = 'horario';
-		horarios = (await api.get<{ horarios: Horario[] }>(`/v1/p/${slug}/libres?${filtro({ fecha })}`)).horarios;
+		const hs = await opcional(api.get<{ horarios: Horario[] }>(`/v1/p/${slug}/libres?${filtro({ fecha })}`), null);
+		if (!hs) aviso = 'No pudimos traer los horarios. Probá de nuevo en un rato.';
+		horarios = hs?.horarios ?? [];
 		if (inicio) {
 			horario = horarios.find((h) => Date.parse(h.inicio) === Date.parse(inicio)) ?? null;
 			if (horario) paso = 'datos';
@@ -59,7 +66,7 @@ export const load: PageServerLoad = async (event) => {
 			else aviso = 'Ese horario ya no está libre. Elegí otro.';
 		}
 		// Ese día está lleno: lo más cerca que haya después.
-		if (!horarios.length) {
+		if (hs && !horarios.length) {
 			const otro = dias.find((d) => d.libres > 0 && d.fecha > fecha) ?? dias.find((d) => d.libres > 0 && d.fecha !== fecha);
 			if (otro) {
 				const hs = await opcional(api.get<{ horarios: Horario[] }>(`/v1/p/${slug}/libres?${filtro({ fecha: otro.fecha })}`), { horarios: [] });
@@ -70,10 +77,11 @@ export const load: PageServerLoad = async (event) => {
 
 	// Socios: con sesión, su membresía (si cubre el servicio, la puede usar); sin sesión, si el negocio
 	// tiene planes, la invitación a ingresar.
-	const [c, resenas, planes] = await Promise.all([
+	const [c, resenas, planes, delHost] = await Promise.all([
 		cobro(fetch, slug),
 		opcional(api.get<Resumen & { resenas: ResenaPublica[] }>(`/v1/p/${slug}/resenas`), null),
-		opcional(api.get<{ planes: Plan[] }>(`/v1/p/${slug}/membresias`), { planes: [] })
+		opcional(api.get<{ planes: Plan[] }>(`/v1/p/${slug}/membresias`), { planes: [] }),
+		slugDelHost(fetch, url.hostname)
 	]);
 	let membresia: MiMembresia | null = null;
 	if (paso === 'datos' && servicio && locals.token) {
@@ -93,6 +101,13 @@ export const load: PageServerLoad = async (event) => {
 	}
 
 	return {
+		// El paso a paso no se indexa: el canonical es la página del negocio (su dominio propio, si se ve ahí).
+		canonical: delHost === p.negocio.slug ? `${url.origin}/` : `${sitioDe(url)}/${p.negocio.slug}`,
+		// El ingreso (Clerk y la cookie de sesión) vive en tengolibre.com.ar: en un dominio propio el
+		// socio ingresa allá y sigue reservando ahí mismo.
+		ingresar: delHost === p.negocio.slug
+			? `${sitioDe(url)}/ingresar?volver=${encodeURIComponent(`/${p.negocio.slug}/reservar${url.search}`)}`
+			: `/ingresar?volver=${encodeURIComponent(url.pathname + url.search)}`,
 		pagina: p,
 		negocio: p.negocio,
 		categorias: p.categorias,
@@ -131,7 +146,7 @@ export const actions: Actions = {
 		const profesionalId = texto(f, 'profesionalId');
 		const r = await intentar(() =>
 			// Con la sesión, si la hay: la API la usa sólo si se pide usar la membresía.
-			apiDe(event).post<Turno>(`/v1/p/${params.slug}/turnos`, {
+			apiDe(event).post<Turno>(`/v1/p/${encodeURIComponent(params.slug)}/turnos`, {
 				servicioId: texto(f, 'servicioId'),
 				profesionalId: profesionalId === CUALQUIERA ? '' : profesionalId,
 				inicio: texto(f, 'inicio'),
@@ -160,7 +175,7 @@ export const actions: Actions = {
 		const codigo = texto(f, 'cupon');
 		if (!codigo) return fail(400, { valores, cupon: { valido: false, motivo: 'Escribí el código del cupón.' } as Validacion });
 		const v = await opcional(
-			apiPublica(fetch).post<Validacion>(`/v1/p/${params.slug}/cupones/validar`, { codigo, servicioId: texto(f, 'servicioId') }),
+			apiPublica(fetch).post<Validacion>(`/v1/p/${encodeURIComponent(params.slug)}/cupones/validar`, { codigo, servicioId: texto(f, 'servicioId') }),
 			{ valido: false, motivo: 'No pudimos revisar el cupón. Probá de nuevo.' } as Validacion
 		);
 		return { valores, cupon: v };
@@ -171,7 +186,7 @@ export const actions: Actions = {
 		const valores = campos(f);
 		const profesionalId = texto(f, 'profesionalId');
 		const r = await intentar(() =>
-			apiPublica(fetch).post<{ servicio: string; desde: string; hasta: string }>(`/v1/p/${params.slug}/espera`, {
+			apiPublica(fetch).post<{ servicio: string; desde: string; hasta: string }>(`/v1/p/${encodeURIComponent(params.slug)}/espera`, {
 				servicioId: texto(f, 'servicioId'),
 				profesionalId: profesionalId === CUALQUIERA ? '' : profesionalId,
 				nombre: texto(f, 'nombre'),

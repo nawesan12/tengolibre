@@ -87,20 +87,39 @@ object Compras {
         }.sortedBy { it.micros }
     }
 
+    /** Esta cuenta de Google ya paga la suscripción de otro negocio: Play no deja comprar el mismo plan dos veces. */
+    val yaPagaOtro = ErrorApi(409, "otro_negocio_tienda", "Esta cuenta de Google ya paga otro negocio",
+        "Para pagar este negocio, cambiá de cuenta de Google en Play Store o pagá desde la web.")
+
+    /** Las suscripciones vigentes de esta cuenta de Google (las de Tengo Libre). */
+    private suspend fun vigentes(c: BillingClient): List<Purchase> =
+        runCatching { c.queryPurchasesAsync(QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.SUBS).build()).purchasesList }.getOrNull().orEmpty()
+            .filter { it.products.any { id -> id in productos } && it.purchaseState == Purchase.PurchaseState.PURCHASED }
+
+    private fun deOtro(compra: Purchase, negocio: String): Boolean =
+        compra.accountIdentifiers?.obfuscatedAccountId?.let { !it.equals(negocio, ignoreCase = true) } == true
+
     /** Compra para el negocio elegido y le pasa el token a la API. */
     suspend fun comprar(actividad: Activity, p: Plan, estado: Estado): Resultado {
         val negocio = estado.negocio?.id ?: return Resultado.cancelado
         this.estado = estado
         val c = conectado(actividad) ?: throw ErrorApi.desconocido
+        // Si esta cuenta de Google ya paga otro negocio, se avisa antes de abrir la compra.
+        if (vigentes(c).any { deOtro(it, negocio) }) throw yaPagaOtro
         val e = CompletableDeferred<Pair<BillingResult, List<Purchase>?>>().also { esperando = it }
         val params = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(listOf(BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(p.detalle).setOfferToken(p.oferta).build()))
             .setObfuscatedAccountId(negocio)
             .build()
         val inicio = c.launchBillingFlow(actividad, params)
-        if (inicio.responseCode != BillingClient.BillingResponseCode.OK) { esperando = null; return Resultado.cancelado }
+        if (inicio.responseCode != BillingClient.BillingResponseCode.OK) {
+            esperando = null
+            if (inicio.responseCode == BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED) return yaLaTiene(c, negocio, estado)
+            return Resultado.cancelado
+        }
         val (r, compras) = e.await()
         esperando = null
+        if (r.responseCode == BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED) return yaLaTiene(c, negocio, estado)
         if (r.responseCode != BillingClient.BillingResponseCode.OK) return Resultado.cancelado
         val compra = compras?.firstOrNull { it.products.any { id -> id in productos } } ?: return Resultado.cancelado
         if (compra.purchaseState == Purchase.PurchaseState.PENDING) return Resultado.pendiente
@@ -108,25 +127,43 @@ object Compras {
         return Resultado.listo
     }
 
+    /** Play dice que la cuenta ya tiene el plan: si es de este negocio se registra (quedó sin mandar a la API); si es de
+     *  otro, se explica. */
+    private suspend fun yaLaTiene(c: BillingClient, negocio: String, estado: Estado): Resultado {
+        val l = vigentes(c)
+        val propia = l.firstOrNull { !deOtro(it, negocio) } ?: throw yaPagaOtro
+        registrar(propia, estado)
+        return Resultado.listo
+    }
+
     @Serializable private data class Cuerpo(val producto: String, val token: String)
 
-    /** Manda a la API una compra de Play y la reconoce (si no, Play la devuelve a los tres días). */
+    /** Manda a la API una compra de Play y, si la API la tomó, la reconoce (si no, Play la devuelve a los tres días). Va
+     *  con el negocio de la compra (obfuscatedAccountId), no con el elegido ahora: una renovación o una compra de otro
+     *  teléfono puede ser de otro negocio de la persona. Si la API la rechaza, no se reconoce; si el reconocimiento falla,
+     *  queda para la próxima vez que se abra la app (escuchar). */
     suspend fun registrar(compra: Purchase, estado: Estado) {
         if (compra.purchaseState != Purchase.PurchaseState.PURCHASED) return
         val producto = compra.products.firstOrNull { it in productos } ?: return
-        estado.api.hacer("POST", "/v1/panel/suscripcion/google", Cuerpo(producto, compra.purchaseToken))
+        val negocio = compra.accountIdentifiers?.obfuscatedAccountId ?: estado.negocio?.id
+        estado.api.pedir("POST", "/v1/panel/suscripcion/google", cuerpo = Api.json.encodeToString(Cuerpo(producto, compra.purchaseToken)).toByteArray(), negocio = negocio)
         if (!compra.isAcknowledged) cliente?.acknowledgePurchase(AcknowledgePurchaseParams.newBuilder().setPurchaseToken(compra.purchaseToken).build())
         estado.version += 1
         estado.refrescar()
     }
 
-    /** «Restaurar compras»: vuelve a mandar a la API las suscripciones vigentes de esta cuenta de Google. */
+    /** «Restaurar compras»: vuelve a mandar a la API las suscripciones vigentes de esta cuenta de Google. Una que falla no
+     *  corta las demás; si no se pudo ninguna, se dice por qué. */
     suspend fun restaurar(ctx: Context, estado: Estado): Int {
         this.estado = estado
         val c = conectado(ctx) ?: return 0
         val r = c.queryPurchasesAsync(QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.SUBS).build())
         var n = 0
-        r.purchasesList.filter { it.products.any { id -> id in productos } }.forEach { registrar(it, estado); n++ }
+        var error: Exception? = null
+        for (compra in r.purchasesList.filter { it.products.any { id -> id in productos } }) {
+            try { registrar(compra, estado); n++ } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { if (error == null) error = e }
+        }
+        if (n == 0) error?.let { throw it }
         return n
     }
 

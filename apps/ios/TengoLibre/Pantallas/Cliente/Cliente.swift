@@ -357,8 +357,14 @@ struct TurnoClienteHoja: View {
 
     private func post(_ que: String, _ ok: String) async {
         do {
-            let t: TurnoCli = try await estado.api.enviar("POST", "/v1/t/\(turno.codigo)/\(que)", [String: String]())
-            turno = t
+            if que == "confirmar" {
+                // Confirmar responde {estado, confirmadoPor, confirmadoEn}, no el turno: se vuelve a pedir.
+                _ = try await estado.api.pedir("POST", "/v1/t/\(turno.codigo)/confirmar", cuerpo: Data("{}".utf8))
+                if let t: TurnoCli = try? await estado.api.get("/v1/t/\(turno.codigo)") { turno = t }
+            } else {
+                let t: TurnoCli = try await estado.api.enviar("POST", "/v1/t/\(turno.codigo)/\(que)", [String: String]())
+                turno = t
+            }
             Haptico.exito()
             estado.avisar(ok)
             await listo()

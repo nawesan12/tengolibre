@@ -64,8 +64,15 @@ type Servicio struct {
 	// ClaveGoogle protege el webhook de RTDN (vacía: apagado).
 	Google      Consultor
 	ClaveGoogle string
-	Ahora       func() time.Time
-	Log         *slog.Logger
+	// SandboxApple y PruebasGoogle aceptan compras de prueba (App Store sandbox o Xcode, y las
+	// testPurchase de Google Play), que no se cobran. Apagadas, esas compras no abren el panel: si no,
+	// cualquiera con una cuenta de prueba se suscribe gratis. Prendidas en desarrollo y en los tests;
+	// en producción están apagadas. La revisión de Apple (y la de Google) compra en sandbox: para eso
+	// se prende la variable (TENGOLIBRE_APPLE_SANDBOX=1 / TENGOLIBRE_GOOGLE_PRUEBAS=1) un rato y se
+	// vuelve a apagar cuando aprueban.
+	SandboxApple, PruebasGoogle bool
+	Ahora                       func() time.Time
+	Log                         *slog.Logger
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -131,6 +138,21 @@ func LeerCobros(ctx context.Context, tx pgx.Tx, ahora time.Time, a *Acceso) erro
 	return err
 }
 
+// vigenteSQL: la condición de una suscripción que vale (la misma de LeerAcceso), con $1 = ahora.
+const vigenteSQL = `((s.estado = 'autorizada' AND (s.origen NOT IN ('apple', 'google') OR s.proximo_cobro > $1::timestamptz - interval '1 day'))
+	OR (s.estado = 'pausada' AND (s.gracia_hasta IS NULL OR s.gracia_hasta > $1)))`
+
+// recalcularPlan deja negocios.plan como dicen las suscripciones que siguen valiendo (de cualquier
+// origen: Mercado Pago, App Store, Google Play), la de mejor plan; sin ninguna, sin_plan. Se llama
+// al dar de baja una: si quedaba otra vigente (pasó del iPhone a la web), el negocio no se queda sin
+// plan por la que se fue.
+func recalcularPlan(ctx context.Context, tx pgx.Tx, ahora time.Time) error {
+	_, err := tx.Exec(ctx, `UPDATE negocios SET plan = coalesce((SELECT s.plan FROM suscripciones s WHERE `+vigenteSQL+`
+			ORDER BY s.plan = 'completo' DESC, s.creado_en DESC LIMIT 1), 'sin_plan')
+		WHERE id = app.negocio_actual()`, ahora)
+	return err
+}
+
 // LeerAcceso del negocio fijado en tx. Una suscripción pausada cuenta mientras dure la gracia.
 func LeerAcceso(ctx context.Context, tx pgx.Tx, ahora time.Time) (Acceso, error) {
 	var a Acceso
@@ -138,9 +160,7 @@ func LeerAcceso(ctx context.Context, tx pgx.Tx, ahora time.Time) (Acceso, error)
 	var plan string
 	// Una de Apple o Google Play autorizada vale hasta que vence (más un día, por si la renovación llega tarde): si
 	// la App Store no avisó que renovó, no sigue abierta para siempre.
-	err := tx.QueryRow(ctx, `SELECT n.prueba_hasta, n.plan, EXISTS (SELECT 1 FROM suscripciones s WHERE
-			(s.estado = 'autorizada' AND (s.origen NOT IN ('apple', 'google') OR s.proximo_cobro > $1::timestamptz - interval '1 day'))
-			OR (s.estado = 'pausada' AND (s.gracia_hasta IS NULL OR s.gracia_hasta > $1)))
+	err := tx.QueryRow(ctx, `SELECT n.prueba_hasta, n.plan, EXISTS (SELECT 1 FROM suscripciones s WHERE `+vigenteSQL+`)
 		FROM negocios n WHERE n.id = app.negocio_actual()`, ahora).Scan(&hasta, &plan, &a.ConSuscripcion)
 	if err != nil {
 		return a, err

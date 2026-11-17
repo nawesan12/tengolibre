@@ -68,7 +68,7 @@ object ActividadTurno {
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(Push.abrir(ctx, "turnos/$turno", null, null, AVISO))
-            .addAction(0, "Atendido", Push.accion(ctx, "ATENDIDO", turno, null, AVISO))
+            .addAction(Push.accionProtegida("Atendido", Push.accion(ctx, "ATENDIDO", turno, null, AVISO)))
             // Android 16: pedirla como Live Update (EXTRA_REQUEST_PROMOTED_ONGOING); antes se ignora.
             .addExtras(Bundle().apply { putBoolean("android.requestPromotedOngoing", true) })
         runCatching { NotificationManagerCompat.from(ctx).notify(AVISO, b.build()) }

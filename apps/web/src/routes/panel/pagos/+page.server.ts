@@ -76,7 +76,7 @@ export const actions: Actions = {
 		const parcial = f.get('cuanto') === 'parte';
 		const monto = parcial ? (numero(f.get('monto')) ?? 0) : 0;
 		return accion('pagos', parcial ? 'Devolvimos esa parte del pago.' : 'Devolvimos el pago entero y cancelamos el turno.', () =>
-			apiDe(event).post(`/v1/panel/pagos/${f.get('id')}/devolver`, monto > 0 ? { monto } : {})
+			apiDe(event).post(`/v1/panel/pagos/${encodeURIComponent(String(f.get('id') ?? ''))}/devolver`, monto > 0 ? { monto } : {})
 		);
 	}
 };

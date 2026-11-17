@@ -504,6 +504,10 @@
  "/v1/panel/dias-libres": {
   "pedidos": []
  },
+ "/v1/panel/dias-libres/turnos": {
+  "cantidad": 0,
+  "turnos": []
+ },
  "/v1/panel/mercadopago": {
   "disponible": true,
   "conectada": false,

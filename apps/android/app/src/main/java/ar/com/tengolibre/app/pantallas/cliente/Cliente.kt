@@ -292,7 +292,13 @@ fun ColumnScope.TurnoClienteHoja(inicial: TurnoCli, listo: () -> Unit, cerrar: (
     }
     fun post(que: String, ok: String) = alcance.launch {
         try {
-            turno = estado.api.enviar("POST", "/v1/t/${turno.codigo}/$que", emptyMap<String, String>())
+            if (que == "confirmar") {
+                // Confirmar responde {estado, confirmadoPor, confirmadoEn}, no el turno: se vuelve a pedir.
+                estado.api.pedir("POST", "/v1/t/${turno.codigo}/confirmar", cuerpo = "{}".toByteArray())
+                estado.api.opcional<TurnoCli>("/v1/t/${turno.codigo}")?.let { turno = it }
+            } else {
+                turno = estado.api.enviar("POST", "/v1/t/${turno.codigo}/$que", emptyMap<String, String>())
+            }
             Haptico.exito(); estado.avisar(ok); listo()
         } catch (e: Exception) { estado.avisar(e) }
     }

@@ -176,9 +176,10 @@ class DatosDia {
             estado.api.hacer("PATCH", "/v1/panel/turnos/${t.id}", AccionesTurno.CambioEstado(nuevo))
             Haptico.exito()
             val texto = mapOf("atendido" to "Marcado atendido", "ausente" to "Marcado ausente", "confirmado" to "Turno confirmado", "cancelado" to "Turno cancelado")[nuevo] ?: "Listo"
-            estado.avisar(Toast("checkmark", texto, "${t.cliente.nombre} · ${Formato.horaDe(t.inicio)}", "Deshacer")) {
-                runCatching { estado.api.hacer("PATCH", "/v1/panel/turnos/${t.id}", AccionesTurno.CambioEstado(antes)) }
-            }
+            // Un cancelado no vuelve (la API no lo permite): sin «Deshacer». Si deshacer falla, se dice.
+            val vuelve = AccionesTurno.puedePasar(nuevo, antes)
+            val deshacer: (suspend () -> Unit)? = if (vuelve) ({ AccionesTurno.cambiarEstado(estado, t.id, antes) }) else null
+            estado.avisar(Toast("checkmark", texto, "${t.cliente.nombre} · ${Formato.horaDe(t.inicio)}", if (vuelve) "Deshacer" else ""), deshacer)
         } catch (e: Exception) {
             turnos = turnos.map { if (it.id == t.id) it.copy(estado = antes) else it }
             estado.avisar(e)

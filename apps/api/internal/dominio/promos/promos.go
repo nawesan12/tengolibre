@@ -7,7 +7,6 @@ package promos
 import (
 	"context"
 	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"net/http"
 	"strings"
@@ -19,6 +18,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/tope"
 )
 
 // Servicio de promos.
@@ -28,6 +28,28 @@ type Servicio struct {
 	// Escritura: el chequeo de sólo lectura de la suscripción. nil: no se chequea.
 	Escritura func(http.HandlerFunc) http.HandlerFunc
 	Ahora     func() time.Time
+	// TopeValidar: cuántas validaciones de cupón o código de referido por IP cada VentanaValidar (0:
+	// ValidarPorIP). Sin tope, los códigos se adivinan probando.
+	TopeValidar int
+	limite      tope.Contador
+}
+
+// Validaciones públicas de cupones y referidos por IP (sumadas) en cada ventana.
+const (
+	ValidarPorIP   = 20
+	VentanaValidar = 10 * time.Minute
+)
+
+// permitirValidar: el tope por IP de las validaciones públicas (429 al pasarse).
+func (s *Servicio) permitirValidar(r *http.Request) error {
+	max := ValidarPorIP
+	if s.TopeValidar > 0 {
+		max = s.TopeValidar
+	}
+	if !s.limite.Permitir("validar:"+tope.IP(r), max, VentanaValidar, s.ahora()) {
+		return tope.Demasiados("demasiados_intentos", "Probaste muchos códigos seguidos. Esperá unos minutos y volvé a intentar.")
+	}
+	return nil
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -139,17 +161,16 @@ func leerReferidos(ctx context.Context, tx pgx.Tx) (AjustesReferidos, error) {
 	return a, err
 }
 
-func azar(n int) string {
-	b := make([]byte, n)
-	_, _ = rand.Read(b)
-	return strings.ToUpper(hex.EncodeToString(b))
-}
-
 // alfabeto de los códigos de referido: sin 0/O ni 1/I, que se confunden al dictarlos.
 const alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
-func codigoReferido() string {
-	b := make([]byte, 6)
+// LargoReferido: 32^8 (un billón) de códigos posibles, con el límite de intentos de validar no se
+// adivina uno ajeno.
+const LargoReferido = 8
+
+// alAzar: n caracteres de alfabeto (32 símbolos: un byte módulo 32 no tiene sesgo).
+func alAzar(n int) string {
+	b := make([]byte, n)
 	_, _ = rand.Read(b)
 	for i := range b {
 		b[i] = alfabeto[int(b[i])%len(alfabeto)]
@@ -157,11 +178,40 @@ func codigoReferido() string {
 	return string(b)
 }
 
+func codigoReferido() string { return alAzar(LargoReferido) }
+
+// liberarVencidos devuelve los usos del cupón (por código) que tomaron reservas pendiente_pago
+// vencidas: ese horario nunca se pagó, y el turno no cambia de estado al vencer (el trigger
+// promos_del_turno no se entera). Lo mismo con los usos del código de referido sin premiar.
+func liberarVencidos(ctx context.Context, tx pgx.Tx, cupon, referido string, ahora time.Time) error {
+	if cupon != "" {
+		if _, err := tx.Exec(ctx, `WITH usados AS (
+				DELETE FROM cupon_usos u USING turnos t, cupones c
+				WHERE c.codigo = $1 AND u.cupon_id = c.id AND t.id = u.turno_id AND t.estado = 'pendiente_pago' AND t.vence_en <= $2
+				RETURNING u.cupon_id)
+			UPDATE cupones c SET usos = greatest(c.usos - (SELECT count(*) FROM usados), 0)
+			WHERE c.id IN (SELECT cupon_id FROM usados)`, Normalizar(cupon), ahora); err != nil {
+			return err
+		}
+	}
+	if referido != "" {
+		if _, err := tx.Exec(ctx, `DELETE FROM referido_usos u USING turnos t, referidos r
+			WHERE r.codigo = $1 AND u.referido_id = r.id AND t.id = u.turno_id AND u.premiado_en IS NULL
+				AND t.estado = 'pendiente_pago' AND t.vence_en <= $2`, Normalizar(referido), ahora); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // AlReservar (turnos.Extra): aplica el cupón y registra el referido. Un cupón que no sirve frena la
 // reserva (mejor que cobrarle a alguien el precio entero sin avisar); un referido que no sirve se
 // ignora, como en Jiku: el premio es para otro.
 func (s *Servicio) AlReservar(ctx context.Context, tx pgx.Tx, r *turnos.Reserva) error {
 	t := r.Turno
+	if err := liberarVencidos(ctx, tx, r.Pedido.Cupon, r.Pedido.Referido, r.Ahora); err != nil {
+		return err
+	}
 	if r.Pedido.Cupon != "" {
 		c, motivo, err := vigente(ctx, tx, r.Pedido.Cupon, &t.Precio, r.Ahora)
 		if err != nil {
@@ -222,21 +272,22 @@ func (s *Servicio) referir(ctx context.Context, tx pgx.Tx, r *turnos.Reserva) er
 	if duenio == r.Turno.Cliente.ID || repetido || (a.Tope != nil && usos >= *a.Tope) {
 		return nil
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO referido_usos (negocio_id, referido_id, turno_id, cliente_id) VALUES (app.negocio_actual(), $1, $2, $3)`,
-		id, r.Turno.ID, r.Turno.Cliente.ID); err != nil {
+	// El premio no se da acá: lo da app.premiar_referido cuando el turno queda confirmado o atendido
+	// (trigger promos_del_turno), así un pendiente_pago que nunca se paga no premia. Un turno que ya
+	// nace confirmado (el panel, que no cobra seña) se premia en el momento.
+	if _, err := tx.Exec(ctx, `INSERT INTO referido_usos (negocio_id, referido_id, turno_id, cliente_id, premio_desde)
+		VALUES (app.negocio_actual(), $1, $2, $3, $4)`, id, r.Turno.ID, r.Turno.Cliente.ID, r.Ahora); err != nil {
 		return err
 	}
-	if a.Tipo == nil || a.Valor == nil {
-		return nil
+	if r.Origen == "panel" && (r.Turno.Estado == "confirmado" || r.Turno.Estado == "atendido") {
+		_, err = tx.Exec(ctx, "SELECT app.premiar_referido($1)", r.Turno.ID)
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO cupones (negocio_id, codigo, tipo, valor, max_usos, desde, hasta, referido_id)
-		VALUES (app.negocio_actual(), $1, $2, $3, 1, $4, $5, $6)`,
-		"REF-"+codigo+"-"+azar(4), *a.Tipo, *a.Valor, r.Ahora, r.Ahora.AddDate(0, 0, 90), id)
 	return err
 }
 
 // DespuesDeReservar (turnos.Extra): nada.
 func (s *Servicio) DespuesDeReservar(context.Context, string, *turnos.Turno) {}
 
-// AlCancelar (turnos.Extra): el uso del cupón no se devuelve (como Jiku).
+// AlCancelar (turnos.Extra): nada acá. Al cancelar, el trigger promos_del_turno (00029) devuelve el
+// uso del cupón y el lugar del referido, por cualquier camino que se cancele.
 func (s *Servicio) AlCancelar(context.Context, pgx.Tx, string) error { return nil }

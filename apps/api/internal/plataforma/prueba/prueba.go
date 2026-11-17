@@ -4,12 +4,15 @@ package prueba
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db/pruebadb"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/servidor"
@@ -96,4 +99,25 @@ func (a *API) Esperar(estado int, p Pedido, v any) Respuesta {
 		r.Leer(a.T, v)
 	}
 	return r
+}
+
+// Fila corre una consulta como superusuario (sin RLS) y escanea la primera fila en dest: para mirar
+// lo que la API no muestra o preparar casos.
+func (a *API) Fila(q string, args []any, dest ...any) {
+	a.T.Helper()
+	ctx := context.Background()
+	c, err := pgx.Connect(ctx, a.Bases.AdminURL)
+	if err != nil {
+		a.T.Fatal(err)
+	}
+	defer c.Close(ctx)
+	if len(dest) == 0 {
+		if _, err := c.Exec(ctx, q, args...); err != nil {
+			a.T.Fatal(err)
+		}
+		return
+	}
+	if err := c.QueryRow(ctx, q, args...).Scan(dest...); err != nil {
+		a.T.Fatal(err)
+	}
 }

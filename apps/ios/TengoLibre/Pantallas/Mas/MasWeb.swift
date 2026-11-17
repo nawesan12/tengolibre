@@ -598,12 +598,17 @@ struct Configuracion: View {
     struct Espera: Codable { var minutos: Int; var automatica: Bool }
     struct Encargado: Codable, Hashable { var id: String; var nombre: String; var email: String; var recibe: Bool }
     struct Mensual: Codable { var activo: Bool; var encargados: [Encargado] }
+    /// Lo que acepta el PUT del reporte mensual: `activo` y los encargados que cambian, sólo {id, recibe}.
+    private struct CambioMensual: Encodable { var activo: Bool; var encargados: [CambioEncargado] }
+    private struct CambioEncargado: Encodable { var id: String; var recibe: Bool }
 
     @Environment(Estado.self) private var estado
     @State private var a: Ajustes?
     @State private var av = Avisos(resenaDemoraHoras: 2, resumenDiario: true)
     @State private var es = Espera(minutos: 30, automatica: true)
     @State private var me: Mensual?
+    /// El reporte mensual como vino (para mandar sólo los encargados que cambiaron).
+    @State private var meAntes: Mensual?
     @State private var error = ""
 
     var body: some View {
@@ -636,7 +641,7 @@ struct Configuracion: View {
                     Bloque(titulo: "Reporte mensual por mail") {
                         RenglonInterruptor(titulo: "Mandarlo el 1° de cada mes", activo: mb.activo)
                         ForEach(mb.encargados) { $e in RenglonInterruptor(titulo: e.nombre, detalle: e.email, activo: $e.recibe) }
-                        BotonGuardar { await estado.intentar("Guardamos el reporte mensual") { try await estado.api.hacer("PUT", "/v1/panel/reportes/mensual/ajustes", me) } }.padding(12)
+                        BotonGuardar { await guardarMensual() }.padding(12)
                     }
                 }
                 NavigationLink(value: DestinoMas.whatsapp) { FilaLista(simbolo: "message", titulo: "WhatsApp") }.buttonStyle(.plain).tarjeta()
@@ -653,8 +658,21 @@ struct Configuracion: View {
             if let x: Avisos = try? await estado.api.get("/v1/panel/ajustes/avisos") { av = x }
             if let x: Espera = try? await estado.api.get("/v1/panel/ajustes/espera") { es = x }
             me = try? await estado.api.get("/v1/panel/reportes/mensual/ajustes")
+            meAntes = me
             error = ""
         } catch let e as ErrorApi { error = e.detalle } catch { self.error = "Probá de nuevo." }
+    }
+
+    /// La API rechaza campos de más (nombre, email) y un encargado sólo puede cambiarse a sí mismo: van
+    /// `activo` y los encargados que cambiaron.
+    private func guardarMensual() async {
+        guard let me else { return }
+        let antes = Dictionary((meAntes?.encargados ?? []).map { ($0.id, $0.recibe) }, uniquingKeysWith: { a, _ in a })
+        let cambios = me.encargados.filter { antes[$0.id] != $0.recibe }.map { CambioEncargado(id: $0.id, recibe: $0.recibe) }
+        let ok = await estado.intentar("Guardamos el reporte mensual") {
+            try await estado.api.hacer("PUT", "/v1/panel/reportes/mensual/ajustes", CambioMensual(activo: me.activo, encargados: cambios))
+        }
+        if ok { meAntes = me }
     }
 }
 

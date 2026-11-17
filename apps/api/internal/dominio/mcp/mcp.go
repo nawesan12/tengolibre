@@ -28,6 +28,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/tope"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/web"
 )
 
@@ -54,7 +55,7 @@ type Servicio struct {
 	// Topes por IP del servidor público (0: PedidosPorMinuto y ReservasPorHora).
 	TopePedidos, TopeReservas int
 
-	limite limite
+	limite tope.Contador
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -189,7 +190,10 @@ func (s *Servicio) conectar(ctx context.Context, clave string) (*conexion, error
 		var zona string
 		err := tx.QueryRow(ctx, `SELECT k.id::text, k.nombre, k.permisos, n.activo, n.zona_horaria FROM mcp_tokens k
 			JOIN negocios n ON n.id = k.negocio_id WHERE k.hash = $1 AND k.revocado_en IS NULL
-			AND (k.acceso_vence IS NULL OR k.acceso_vence > now())`, h).
+			AND (k.acceso_vence IS NULL OR k.acceso_vence > now())
+			-- Quien la creó tiene que seguir gestionando el negocio (activo, dueña o encargado).
+			AND EXISTS (SELECT 1 FROM miembros m WHERE m.clerk_id = k.creado_por AND m.activo
+				AND m.rol IN ('duenio', 'encargado'))`, h).
 			Scan(&c.tokenID, &c.nombre, &c.permisos, &activo, &zona)
 		if err != nil {
 			return err

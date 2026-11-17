@@ -619,7 +619,7 @@ func resumenNumeros(ctx context.Context, s *Servicio, c *conexion, raw json.RawM
 				count(*) FILTER (WHERE estado = 'cancelado'),
 				count(*) FILTER (WHERE estado IN ('pendiente', 'confirmado', 'pendiente_pago')),
 				coalesce(sum(precio) FILTER (WHERE estado = 'atendido'), 0)
-			FROM turnos WHERE inicio >= $1 AND inicio < $2 AND NOT (estado = 'pendiente_pago' AND vence_en <= now())`, desde, fin).
+			FROM turnos WHERE inicio >= $1 AND inicio < $2 AND NOT (estado = 'pendiente_pago' AND vence_en <= $3)`, desde, fin, ahora).
 			Scan(&r.Turnos, &r.Atendidos, &r.Ausentes, &r.Cancelados, &r.PorVenir, &r.Facturado); err != nil {
 			return err
 		}

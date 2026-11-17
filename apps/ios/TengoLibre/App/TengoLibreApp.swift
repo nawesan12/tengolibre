@@ -95,21 +95,22 @@ final class Delegado: NSObject, UIApplicationDelegate, UNUserNotificationCenterD
         return true
     }
 
-    /// Las acciones de cada aviso (las categorías las pone la API: push/envio.go, CategoriasAPNs).
+    /// Las acciones de cada aviso (las categorías las pone la API: push/envio.go, CategoriasAPNs). Las que
+    /// tocan datos (confirmar, avisar a la lista, responder) piden desbloquear el iPhone.
     static let categorias: Set<UNNotificationCategory> = [
         UNNotificationCategory(identifier: "TL_RESERVA", actions: [
-            UNNotificationAction(identifier: "CONFIRMAR", title: "Confirmar", options: [], icon: UNNotificationActionIcon(systemImageName: "checkmark.circle")),
+            UNNotificationAction(identifier: "CONFIRMAR", title: "Confirmar", options: [.authenticationRequired], icon: UNNotificationActionIcon(systemImageName: "checkmark.circle")),
             UNNotificationAction(identifier: "VER", title: "Ver turno", options: [.foreground], icon: UNNotificationActionIcon(systemImageName: "calendar"))
         ], intentIdentifiers: []),
         UNNotificationCategory(identifier: "TL_CANCELO", actions: [
-            UNNotificationAction(identifier: "AVISAR", title: "Avisar a la lista", options: [], icon: UNNotificationActionIcon(systemImageName: "megaphone")),
+            UNNotificationAction(identifier: "AVISAR", title: "Avisar a la lista", options: [.authenticationRequired], icon: UNNotificationActionIcon(systemImageName: "megaphone")),
             UNNotificationAction(identifier: "CARGAR", title: "Cargar un turno", options: [.foreground], icon: UNNotificationActionIcon(systemImageName: "plus"))
         ], intentIdentifiers: []),
         UNNotificationCategory(identifier: "TL_HUECO", actions: [
-            UNNotificationAction(identifier: "AVISAR", title: "Avisar a la lista", options: [], icon: UNNotificationActionIcon(systemImageName: "megaphone"))
+            UNNotificationAction(identifier: "AVISAR", title: "Avisar a la lista", options: [.authenticationRequired], icon: UNNotificationActionIcon(systemImageName: "megaphone"))
         ], intentIdentifiers: []),
         UNNotificationCategory(identifier: "TL_RESENA", actions: [
-            UNTextInputNotificationAction(identifier: "RESPONDER", title: "Responder", options: [], icon: UNNotificationActionIcon(systemImageName: "arrowshape.turn.up.left"),
+            UNTextInputNotificationAction(identifier: "RESPONDER", title: "Responder", options: [.authenticationRequired], icon: UNNotificationActionIcon(systemImageName: "arrowshape.turn.up.left"),
                                           textInputButtonTitle: "Mandar", textInputPlaceholder: "Gracias por…")
         ], intentIdentifiers: [])
     ]
@@ -160,6 +161,18 @@ final class Delegado: NSObject, UIApplicationDelegate, UNUserNotificationCenterD
 /// Lo que se puede hacer con un turno sin abrir su pantalla (push, deslizar, menú contextual).
 enum AccionesTurno {
     struct CambioEstado: Encodable { var estado: String }
+
+    /// Los pasos de estado que acepta la API desde el panel (turnos.go, `pasos`): un cancelado no vuelve.
+    static let pasos: [String: Set<String>] = [
+        "pendiente_pago": ["pendiente", "confirmado", "cancelado"],
+        "pendiente": ["confirmado", "cancelado", "atendido", "ausente"],
+        "confirmado": ["pendiente", "cancelado", "atendido", "ausente"],
+        "atendido": ["ausente", "confirmado"],
+        "ausente": ["atendido", "confirmado"]
+    ]
+
+    /// Si se puede volver de un estado a otro («Deshacer» sólo cuando la API lo acepta).
+    static func puedePasar(_ de: String, _ a: String) -> Bool { de == a || pasos[de]?.contains(a) == true }
 
     @MainActor
     static func cambiarEstado(_ estado: Estado, _ id: String, _ nuevo: String) async {

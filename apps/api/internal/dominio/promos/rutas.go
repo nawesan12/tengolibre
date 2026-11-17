@@ -253,14 +253,15 @@ type UsoReferido struct {
 	TurnoInicio *time.Time `json:"turnoInicio"`
 }
 
-// usosReferidos: los últimos 100 usos de códigos. El cupón de premio nace en la misma transacción
-// que el uso (mismo creado_en y mismo referido), así se los empareja.
+// usosReferidos: los últimos 100 usos de códigos. El premio sale cuando el turno queda confirmado o
+// atendido (cupon_id); los usos de antes de 00029 lo tenían en la misma transacción (mismo creado_en
+// y mismo referido), así se los empareja.
 func (s *Servicio) usosReferidos(w http.ResponseWriter, r *http.Request) error {
 	out := []UsoReferido{}
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
 		filas, err := tx.Query(ctx, `SELECT u.id::text, d.nombre, c.nombre,
 				CASE WHEN k.usos > 0 THEN 'premio_usado'
-					WHEN t.estado IN ('pendiente_pago', 'pendiente', 'confirmado') THEN 'turno'
+					WHEN u.premiado_en IS NULL OR t.estado IN ('pendiente_pago', 'pendiente', 'confirmado') THEN 'turno'
 					ELSE 'premio_disponible' END,
 				t.inicio
 			FROM referido_usos u
@@ -268,7 +269,8 @@ func (s *Servicio) usosReferidos(w http.ResponseWriter, r *http.Request) error {
 			JOIN clientes d ON d.id = r.cliente_id
 			JOIN clientes c ON c.id = u.cliente_id
 			LEFT JOIN turnos t ON t.id = u.turno_id
-			LEFT JOIN LATERAL (SELECT x.usos FROM cupones x WHERE x.referido_id = u.referido_id AND x.creado_en = u.creado_en LIMIT 1) k ON true
+			LEFT JOIN LATERAL (SELECT x.usos FROM cupones x WHERE x.id = u.cupon_id
+				OR (u.cupon_id IS NULL AND x.referido_id = u.referido_id AND x.creado_en = u.creado_en) LIMIT 1) k ON true
 			ORDER BY u.creado_en DESC LIMIT 100`)
 		if err != nil {
 			return err
@@ -353,6 +355,9 @@ type Validacion struct {
 
 func (s *Servicio) validarCupon(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
+	if err := s.permitirValidar(r); err != nil {
+		return err
+	}
 	id, err := s.negocioPublico(ctx, r.PathValue("slug"))
 	if err != nil {
 		return err
@@ -379,6 +384,9 @@ func (s *Servicio) validarCupon(w http.ResponseWriter, r *http.Request) error {
 				return problema.NoEncontrado("Ese servicio no existe.")
 			}
 			precio = &srv.Precio
+		}
+		if err := liberarVencidos(ctx, tx, in.Codigo, "", s.ahora()); err != nil {
+			return err
 		}
 		c, motivo, err := vigente(ctx, tx, in.Codigo, precio, s.ahora())
 		if err != nil {
@@ -411,6 +419,9 @@ func (s *Servicio) validarCupon(w http.ResponseWriter, r *http.Request) error {
 
 func (s *Servicio) validarReferido(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
+	if err := s.permitirValidar(r); err != nil {
+		return err
+	}
 	id, err := s.negocioPublico(ctx, r.PathValue("slug"))
 	if err != nil {
 		return err
@@ -436,8 +447,10 @@ func (s *Servicio) validarReferido(w http.ResponseWriter, r *http.Request) error
 	return nil
 }
 
-// delTurno corre fn con el negocio y el cliente del link del turno.
-func (s *Servicio) delTurno(ctx context.Context, cod string, fn func(tx pgx.Tx, cliente string) error) error {
+// delTurno corre fn con el negocio y el cliente del link del turno. ajeno: la reserva dio el teléfono
+// de un cliente que ya tenía otro email de confianza (turnos.cliente_ajeno): quien tiene el link no
+// probó ser ese cliente.
+func (s *Servicio) delTurno(ctx context.Context, cod string, fn func(tx pgx.Tx, cliente string, ajeno bool) error) error {
 	var negocio *string
 	if err := s.Pool.EnTx(ctx, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, "SELECT app.negocio_del_turno($1)::text", cod).Scan(&negocio)
@@ -449,10 +462,11 @@ func (s *Servicio) delTurno(ctx context.Context, cod string, fn func(tx pgx.Tx, 
 	}
 	return s.Pool.EnNegocio(ctx, *negocio, func(tx pgx.Tx) error {
 		var cliente string
-		if err := tx.QueryRow(ctx, "SELECT cliente_id::text FROM turnos WHERE codigo = $1", cod).Scan(&cliente); err != nil {
+		var ajeno bool
+		if err := tx.QueryRow(ctx, "SELECT cliente_id::text, cliente_ajeno FROM turnos WHERE codigo = $1", cod).Scan(&cliente, &ajeno); err != nil {
 			return err
 		}
-		return fn(tx, cliente)
+		return fn(tx, cliente, ajeno)
 	})
 }
 
@@ -462,6 +476,9 @@ type MiReferido struct {
 	Referidos      int     `json:"referidos"`
 	Recompensas    []Cupon `json:"recompensas"`
 	ProgramaActivo bool    `json:"programaActivo"`
+	// Oculto: este link no muestra el código ni los premios del cliente (la reserva usó el teléfono de
+	// un cliente con otro email). El código se pide desde un turno propio o en el local.
+	Oculto bool `json:"oculto"`
 }
 
 func leerMiReferido(ctx context.Context, tx pgx.Tx, cliente string) (MiReferido, error) {
@@ -497,7 +514,12 @@ func leerMiReferido(ctx context.Context, tx pgx.Tx, cliente string) (MiReferido,
 
 func (s *Servicio) miReferido(w http.ResponseWriter, r *http.Request) error {
 	var out MiReferido
-	err := s.delTurno(r.Context(), r.PathValue("codigo"), func(tx pgx.Tx, cliente string) (err error) {
+	err := s.delTurno(r.Context(), r.PathValue("codigo"), func(tx pgx.Tx, cliente string, ajeno bool) (err error) {
+		if ajeno {
+			a, err := leerReferidos(r.Context(), tx)
+			out = MiReferido{Recompensas: []Cupon{}, ProgramaActivo: a.Activo, Oculto: true}
+			return err
+		}
 		out, err = leerMiReferido(r.Context(), tx, cliente)
 		return err
 	})
@@ -512,10 +534,13 @@ func (s *Servicio) miReferido(w http.ResponseWriter, r *http.Request) error {
 func (s *Servicio) crearReferido(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	var out MiReferido
-	err := s.delTurno(ctx, r.PathValue("codigo"), func(tx pgx.Tx, cliente string) error {
+	err := s.delTurno(ctx, r.PathValue("codigo"), func(tx pgx.Tx, cliente string, ajeno bool) error {
 		a, err := leerReferidos(ctx, tx)
 		if err != nil {
 			return err
+		}
+		if ajeno {
+			return problema.Conflicto("referido_oculto", "Desde este turno no podemos darte el código. Pedíselo al negocio.")
 		}
 		if !a.Activo {
 			return problema.Conflicto("sin_referidos", "Este negocio no tiene programa de referidos.")

@@ -10,7 +10,7 @@ const escapar = (s: string) => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').re
 
 export const GET: RequestHandler = async ({ params, fetch, url }) => {
 	if (!codigoValido(params.codigo)) error(404, 'No encontramos ese turno.');
-	const t = await o404(apiPublica(fetch).get<TurnoCliente>(`/v1/t/${params.codigo}`), 'No encontramos ese turno.');
+	const t = await o404(apiPublica(fetch).get<TurnoCliente>(`/v1/t/${encodeURIComponent(params.codigo)}`), 'No encontramos ese turno.');
 	const n = t.negocio;
 	const lugar = [n.direccion, n.ciudad].filter(Boolean).join(', ');
 	const ics = [

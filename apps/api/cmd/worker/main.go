@@ -107,7 +107,7 @@ func correr() error {
 	if play, err := googleplay.Desde(cfg.PlayCuenta); err != nil {
 		slog.Error("google play: la cuenta de servicio no sirve, no se sondean las suscripciones", "error", err)
 	} else if play != nil {
-		lista = append(lista, (&suscripcion.Servicio{Pool: app, Google: play}).TrabajoGoogle())
+		lista = append(lista, (&suscripcion.Servicio{Pool: app, Google: play, PruebasGoogle: cfg.GooglePruebas}).TrabajoGoogle())
 	}
 	p := &trabajos.Planificador{Pool: app, Trabajos: append(lista, wa.Lista()...)}
 	slog.Info("worker andando", "entorno", cfg.Entorno, "smtp", cfg.SMTP != "", "purga_negocios", cfg.PurgaNegocios)
