@@ -1,5 +1,16 @@
 # Estado
 
+## 16/11/2026: QA de punta a punta — desplegado (API y web 94e6cb7, migración 00029; iOS 86fba08, Android 3b2ab92)
+
+Revisión de API, web e iPhone/Android, con negocios QA en producción (ya borrados, igual que sus usuarios de Clerk).
+- Compras de prueba de Apple/Google ya no activan planes: para la revisión de Apple, `TENGOLIBRE_APPLE_SANDBOX=1` en api.conf (y `up -d`) mientras dure; `TENGOLIBRE_GOOGLE_PRUEBAS` igual para Play.
+- Reserva pública y link del turno: sólo lo tipeado o enmascarado (antes, con el teléfono de un cliente se veía su email confiable). La lista de espera no pisa el email de un socio.
+- Referidos: códigos de 8, premio al confirmar y se devuelve al cancelar (00029); topes por IP en reservas, espera y cupones (en memoria: un solo proceso de API).
+- Rol profesional sólo con sus turnos; claves MCP revocadas al bajar de rol; pago tardío revisa disponibilidad.
+- Web: Enter en «Tus datos» reserva; sin 500 en empezar ni en horarios; el socio en un dominio propio ingresa en tengolibre.com.ar.
+- Apps: «Confirmar que voy», días libres y reporte mensual fallaban siempre; push tras volver a entrar; sin conexión al abrir; compras atadas a su negocio.
+Pendiente: `clienteId` en el turno suelto del panel (la API lo ignora: `json:"-"`).
+
 ## 12/11/2026: datos personales (AAIP) — desplegado (migraciones hasta la 00028)
 
 Lo de `~/Trabajo/vimo/legales/aaip/pendientes.md` (1.4 y 3.4). Migraciones nuevas, ya aplicadas en producción (visto el 15/11):
