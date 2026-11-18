@@ -239,26 +239,4 @@ final class Recorridos: XCTestCase {
         esperar(contiene("Copiar"))
         foto("compartir")
     }
-
-    func testModoClienta() {
-        abrir(["-modoCliente"])
-        esperar(contiene("TU PRÓXIMO TURNO"))
-        foto("turnos")
-        pestana("Lugares")
-        let lumi = contiene("Lumi Estética")
-        esperar(lumi)
-        foto("lugares")
-        lumi.tap()
-        esperar(contiene("1 · SERVICIO"))
-        contiene("Manicura").tap()
-        foto("reservar")
-        let hora = boton("16:00")
-        esperar(hora)
-        hora.tap()
-        foto("datos")
-        let tel = app.textFields.matching(NSPredicate(format: "placeholderValue == '' OR value == ''")).element(boundBy: 1)
-        if tel.exists { tel.tap(); tel.typeText("1144712290") }
-        app.swipeUp()
-        foto("listo-para-reservar")
-    }
 }

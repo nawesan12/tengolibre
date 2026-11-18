@@ -150,7 +150,7 @@ struct Principal: View {
         case .agenda: nav.pestana = .agenda
         case .clientes: nav.pestana = pestanas.contains(.clientes) ? .clientes : .hoy
         case .mas(let d): nav.pestana = .mas; nav.pilaMas.append(d)
-        case .turnoCliente, .invitacion, .web: break // los abre Raiz (valen en cualquier modo)
+        case .invitacion, .web: break // los abre Raiz (valen en cualquier fase)
         }
     }
 }

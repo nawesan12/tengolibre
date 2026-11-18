@@ -17,8 +17,6 @@ enum Ruta: Hashable {
     case caja
     case buscar
     case agenda
-    /// El turno de una clienta, por su código (link del mail o aviso al iPhone de la clienta).
-    case turnoCliente(String)
     /// Una invitación al equipo de un negocio.
     case invitacion(String)
     case clientes
@@ -50,7 +48,6 @@ enum Ruta: Hashable {
         case "caja": self = .caja
         case "buscar": self = .buscar
         case "agenda": self = .agenda
-        case "turno-cliente": guard partes.count > 1 else { return nil }; self = .turnoCliente(partes[1])
         case "invitacion": guard partes.count > 1 else { return nil }; self = .invitacion(partes[1])
         default: return nil
         }
@@ -65,14 +62,11 @@ final class Estado {
     enum Fase: Equatable {
         case arrancando
         case afuera
-        /// Elegir cómo la usa: atiende un negocio o reserva turnos (39).
-        case eligiendoModo
         case eligiendoNegocio
         case permisos
         /// Sin negocios: a crear uno (alta).
         case alta
         case adentro
-        case cliente
     }
 
     var fase: Fase = .arrancando
@@ -84,9 +78,7 @@ final class Estado {
     var sinLeer = 0
     var toast: Toast?
     var rutaPendiente: Ruta?
-    /// El turno de una clienta para abrir (link o aviso), y una invitación al equipo para aceptar: los
-    /// abre Raiz, en cualquier modo y fase (la invitación espera al ingreso si hace falta).
-    var turnoClienteAbierto: String?
+    /// Una invitación al equipo para aceptar: la abre Raiz, en cualquier fase (espera al ingreso si hace falta).
     var invitacionPendiente: String?
     /// Un link de tengolibre.com.ar que la app no tiene: lo muestra Raiz en el navegador de adentro.
     var webAbierta: URL?
@@ -117,11 +109,6 @@ final class Estado {
         get { UserDefaults.standard.bool(forKey: "permisosVistos") }
         set { UserDefaults.standard.set(newValue, forKey: "permisosVistos") }
     }
-    /// Cómo la usa: «negocio» o «cliente» (se cambia desde Cuenta / Más).
-    var modo: String {
-        get { UserDefaults.standard.string(forKey: "modo") ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: "modo") }
-    }
     private var negocioGuardado: String? {
         get { UserDefaults.standard.string(forKey: "negocio") }
         set { UserDefaults.standard.set(newValue, forKey: "negocio") }
@@ -133,6 +120,7 @@ final class Estado {
         let api = api ?? (ModoPrueba.activo ? ModoPrueba.api() : nil)
         #endif
         self.api = api ?? Api(base: Api.urlConfigurada(), token: Llavero.leer("token"))
+        Self.olvidarModoCliente()
         self.api.negocio = UserDefaults.standard.string(forKey: "negocio")
         self.api.alPerderSesion = { [weak self] in self?.sesionPerdida() }
         self.api.alNegarAcceso = { [weak self] in
@@ -172,7 +160,7 @@ final class Estado {
         persona = Guardado.leer(Persona.self, clave: "persona")?.0
         negocios = Guardado.leer([NegocioDeLaPersona].self, clave: "negocios")?.0 ?? []
         negocio = negocios.first { $0.id == negocioGuardado } ?? negocios.first
-        fase = persona == nil ? .afuera : (modo == "cliente" ? .cliente : .adentro)
+        fase = persona == nil ? .afuera : (negocios.isEmpty ? .alta : .adentro)
     }
 
     func cargarSesion() async throws {
@@ -189,8 +177,6 @@ final class Estado {
 
     /// Después de entrar o de arrancar con sesión: adónde va.
     private func despuesDeEntrar() async {
-        if modo.isEmpty { fase = .eligiendoModo; return }
-        if modo == "cliente" { fase = .cliente; return }
         if negocios.isEmpty { fase = .alta; return }
         if negocios.count > 1 && negocioGuardado == nil { fase = .eligiendoNegocio; return }
         if !permisosVistos { fase = .permisos; return }
@@ -199,9 +185,10 @@ final class Estado {
         await pedirTokenPushSiCorresponde()
     }
 
-    func elegirModo(_ m: String) async {
-        modo = m
-        await despuesDeEntrar()
+    /// La app es sólo para quien atiende un negocio: las versiones viejas tenían un modo clienta («modo»,
+    /// «misTurnos»). Se borra al abrir, y quien lo tenía va a su negocio o al alta.
+    private static func olvidarModoCliente() {
+        for clave in ["modo", "misTurnos", "avisosClientaPedidos"] { UserDefaults.standard.removeObject(forKey: clave) }
     }
 
     /// Trabajar con otro negocio (o sucursal): lo guardado del anterior se borra (la persona y sus
@@ -259,7 +246,7 @@ final class Estado {
                 } else if let n = negocios.first {
                     // Ya no es parte de ese negocio: se trabaja con otro de los suyos.
                     usar(n)
-                } else if modo != "cliente" {
+                } else {
                     negocio = nil
                     fase = .alta
                     return
@@ -318,7 +305,7 @@ final class Estado {
     }
 
     /// Todo lo de la sesión: también el token de avisos (si no, al volver a entrar no se registra de
-    /// nuevo), el negocio elegido, el modo y los permisos vistos.
+    /// nuevo), el negocio elegido y los permisos vistos.
     private func olvidarSesion() {
         api.token = nil
         api.negocio = nil
@@ -330,7 +317,6 @@ final class Estado {
         acceso = nil
         tokenPush = nil
         negocioGuardado = nil
-        modo = ""
         permisosVistos = false
         accesoRevisadoEn = nil
     }
@@ -341,11 +327,9 @@ final class Estado {
         avisar(Toast(simbolo: "lock", titulo: "Tu sesión venció", texto: "Entrá de nuevo para seguir."))
     }
 
-    /// Abre una ruta: las del panel quedan pendientes para Principal; el turno de una clienta y las
-    /// invitaciones las abre Raiz.
+    /// Abre una ruta: las del panel quedan pendientes para Principal; las invitaciones y la web las abre Raiz.
     func abrir(_ r: Ruta) {
         switch r {
-        case .turnoCliente(let c): turnoClienteAbierto = c
         case .invitacion(let t): invitacionPendiente = t
         case .web(let u): webAbierta = u
         default: rutaPendiente = r
@@ -394,22 +378,6 @@ final class Estado {
         }
     }
 
-    /// Modo clienta: el permiso de avisos se pide una vez (para los recordatorios de sus turnos); si ya
-    /// estaba dado, sólo se registra el teléfono.
-    func pedirAvisosClienta() async {
-        let ajustes = await UNUserNotificationCenter.current().notificationSettings()
-        switch ajustes.authorizationStatus {
-        case .authorized, .provisional, .ephemeral:
-            UIApplication.shared.registerForRemoteNotifications()
-        case .notDetermined:
-            guard !UserDefaults.standard.bool(forKey: "avisosClientaPedidos") else { return }
-            UserDefaults.standard.set(true, forKey: "avisosClientaPedidos")
-            _ = await pedirPermisoPush()
-        default:
-            break
-        }
-    }
-
     static var entornoPush: String {
         #if DEBUG
         "sandbox"
@@ -418,26 +386,9 @@ final class Estado {
         #endif
     }
 
-    /// Anota este iPhone en cada turno (por su código) para que le lleguen sus avisos: confirmación,
-    /// recordatorio, cambios. Una vez por turno y por token.
-    func seguirTurnos(_ codigos: [String]) async {
-        guard let token = tokenPush else { return }
-        let clave = "seguidos-\(token.prefix(16))"
-        var hechos = Set(UserDefaults.standard.stringArray(forKey: clave) ?? [])
-        for c in codigos where !hechos.contains(c) {
-            if (try? await api.hacer("POST", "/v1/t/\(c)/dispositivo", ["token": token, "entorno": Self.entornoPush])) != nil { hechos.insert(c) }
-        }
-        UserDefaults.standard.set(Array(hechos), forKey: clave)
-    }
-
-    /// Deja de mandarle a este iPhone los avisos de un turno (lo sacó de su lista).
-    func dejarDeSeguir(_ codigo: String) async {
-        guard let token = tokenPush else { return }
-        try? await api.hacer("DELETE", "/v1/t/\(codigo)/dispositivo", ["token": token])
-    }
-
-    /// Al salir: este iPhone deja de recibir los avisos de todos los turnos que seguía (como al sacarlos
-    /// de la lista). Si falla la red, igual se olvida la lista: al volver a entrar se anotan de nuevo.
+    /// Los turnos que este iPhone seguía como clienta (versiones viejas, con modo clienta): deja de recibir
+    /// sus avisos. Se hace al registrar el token, al salir y al borrar la cuenta; si falla la red, igual se
+    /// olvida la lista.
     private func dejarDeSeguirTodos() async {
         guard let token = tokenPush else { return }
         let clave = "seguidos-\(token.prefix(16))"
@@ -461,5 +412,6 @@ final class Estado {
         let entorno = Self.entornoPush
         let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
         try? await api.hacer("POST", "/v1/yo/dispositivos", Cuerpo(token: hex, entorno: entorno, modelo: UIDevice.current.model, version: v))
+        await dejarDeSeguirTodos()
     }
 }

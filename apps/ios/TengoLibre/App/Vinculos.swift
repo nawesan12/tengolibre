@@ -12,7 +12,6 @@ enum Vinculos {
             return .web(u)
         }
         switch (p.first, p.count) {
-        case ("turno", 2...): return .turnoCliente(p[1])
         case ("invitacion", 2...): return .invitacion(p[1])
         case ("panel", _): return panel(Array(p.dropFirst()), u)
         default: return .web(u)
@@ -70,7 +69,6 @@ extension Ruta {
         case .caja: "caja"
         case .buscar: "buscar"
         case .agenda: "agenda"
-        case .turnoCliente(let c): "turnoCliente:\(c)"
         case .invitacion(let t): "invitacion:\(t)"
         case .clientes: "clientes"
         case .web: "web-en-app"

@@ -34,8 +34,7 @@ struct TengoLibreApp: App {
     }
 }
 
-/// Qué se ve según la sesión: arranque, ingreso, cómo la usás, elegir negocio, permiso de avisos,
-/// alta, el panel o el modo cliente.
+/// Qué se ve según la sesión: arranque, ingreso, elegir negocio, permiso de avisos, alta o el panel.
 struct Raiz: View {
     @Environment(Estado.self) private var estado
 
@@ -44,12 +43,10 @@ struct Raiz: View {
             switch estado.fase {
             case .arrancando: PantallaArranque()
             case .afuera: Ingreso().transition(.opacity)
-            case .eligiendoModo: ElegirModo().transition(.opacity)
             case .eligiendoNegocio: ElegirNegocio().transition(.opacity)
             case .permisos: PermisoAvisos().transition(.opacity)
             case .alta: Alta().transition(.opacity)
             case .adentro: Principal().transition(.opacity)
-            case .cliente: PrincipalCliente().transition(.opacity)
             }
             if let t = estado.toast {
                 VistaToast(t: t) { estado.tocarToast() }
@@ -65,10 +62,7 @@ struct Raiz: View {
         .overlay(alignment: .top) {
             C.cabecera.frame(height: 0).ignoresSafeArea(edges: .top).allowsHitTesting(false)
         }
-        // Un turno de clienta (link o aviso) y una invitación al equipo: en cualquier modo.
-        .sheet(item: Binding(get: { estado.turnoClienteAbierto.map { IdTexto(id: $0) } }, set: { estado.turnoClienteAbierto = $0?.id })) { c in
-            TurnoClienteCargar(codigo: c.id).environment(estado)
-        }
+        // Una invitación al equipo: en cualquier fase.
         .sheet(item: Binding(get: { estado.persona == nil || estado.fase == .arrancando ? nil : estado.invitacionPendiente.map { IdTexto(id: $0) } },
                              set: { estado.invitacionPendiente = $0?.id })) { i in
             InvitacionVista(token: i.id).environment(estado)

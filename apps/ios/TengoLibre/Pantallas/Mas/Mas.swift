@@ -517,12 +517,6 @@ struct Cuenta: View {
                 NavigationLink { PreferenciasPush() } label: { Renglon(titulo: "Qué te avisamos", simbolo: "slider.horizontal.3") { Image(systemName: "chevron.right").foregroundStyle(C.sub) } }
                     .buttonStyle(.plain)
             }
-            Bloque(titulo: "Modo") {
-                Button { Task { await estado.elegirModo("cliente") } } label: {
-                    Renglon(titulo: "Usar como clienta", detalle: "Ver tus turnos y los lugares donde reservás", simbolo: "person.2.wave.2")
-                }
-                .buttonStyle(.plain)
-            }
             Bloque(titulo: "Ayuda") {
                 Link(destination: URL(string: "mailto:hola@tengolibre.com.ar")!) { Renglon(titulo: "Escribinos", detalle: "hola@tengolibre.com.ar", simbolo: "questionmark.bubble") }.buttonStyle(.plain)
             }

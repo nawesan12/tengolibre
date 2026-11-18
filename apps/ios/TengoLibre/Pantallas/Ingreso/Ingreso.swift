@@ -96,41 +96,6 @@ struct Ingreso: View {
     }
 }
 
-/// 02 Modo: «¿Cómo vas a usar Tengo Libre?» — atiendo un negocio / reservo turnos.
-struct ElegirModo: View {
-    @Environment(Estado.self) private var estado
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("¿Cómo vas a usar Tengo Libre?").font(Tipo.lato(30, .black)).tracking(-0.8).foregroundStyle(C.tinta).padding(.top, 40)
-            Text("Lo podés cambiar cuando quieras desde tu cuenta.").font(Tipo.lato(16)).foregroundStyle(C.sub)
-            Button { Task { await estado.elegirModo("negocio") } } label: {
-                VStack(alignment: .leading, spacing: 10) {
-                    Image(systemName: "storefront").font(.system(size: 28, weight: .semibold)).foregroundStyle(C.menta)
-                    Text("Atiendo un negocio").font(Tipo.lato(22, .black))
-                    Text("Tu agenda, tu equipo y tus clientas. Cargás turnos y te enterás de cada reserva.").font(Tipo.lato(15)).foregroundStyle(.white.opacity(0.8)).multilineTextAlignment(.leading)
-                }
-                .foregroundStyle(.white).padding(20).frame(maxWidth: .infinity, alignment: .leading)
-                .background(C.bloquePetroleo, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            Button { Task { await estado.elegirModo("cliente") } } label: {
-                VStack(alignment: .leading, spacing: 10) {
-                    Image(systemName: "calendar.badge.checkmark").font(.system(size: 28, weight: .semibold)).foregroundStyle(C.mentaTexto)
-                    Text("Reservo turnos").font(Tipo.lato(22, .black))
-                    Text("Tus turnos en un solo lugar, recordatorios y lugares cerca tuyo con horario libre.").font(Tipo.lato(15)).foregroundStyle(C.sub).multilineTextAlignment(.leading)
-                }
-                .foregroundStyle(C.tinta).padding(20).frame(maxWidth: .infinity, alignment: .leading)
-                .tarjeta(24)
-            }
-            .buttonStyle(.plain)
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .background(C.fondo.ignoresSafeArea())
-    }
-}
-
 /// 03 Elegir negocio: «¿Dónde trabajás hoy?».
 struct ElegirNegocio: View {
     @Environment(Estado.self) private var estado
@@ -224,7 +189,7 @@ struct PermisoAvisos: View {
     }
 }
 
-/// Alta: quien entra sin negocio abre el suyo (nombre y link), o pasa a reservar.
+/// Alta: quien entra sin negocio abre el suyo (nombre y link).
 struct Alta: View {
     @Environment(Estado.self) private var estado
     @State private var nombre = ""
@@ -256,8 +221,11 @@ struct Alta: View {
                 if !error.isEmpty { Text(error).font(Tipo.lato(14, .bold)).foregroundStyle(C.error) }
                 Button(creando ? "Creando…" : "Crear mi negocio") { Task { await crear() } }
                     .buttonStyle(BotonMenta()).disabled(creando || nombre.count < 2 || slug.count < 3)
-                Button("En realidad, quiero reservar turnos") { Task { await estado.elegirModo("cliente") } }
-                    .buttonStyle(BotonTexto(color: C.tinta)).frame(maxWidth: .infinity)
+                // La app es para quien atiende un negocio: las reservas se hacen en la página de cada uno.
+                Link(destination: URL(string: "https://tengolibre.com.ar/explorar")!) {
+                    Text("¿Querés reservar un turno?\nHacelo desde la página del negocio.").font(Tipo.lato(14)).foregroundStyle(C.sub)
+                        .multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                }
                 Button("Salir") { Task { await estado.salir() } }.buttonStyle(BotonTexto(color: C.sub)).frame(maxWidth: .infinity)
             }
             .foregroundStyle(C.tinta).padding(.horizontal, 20)

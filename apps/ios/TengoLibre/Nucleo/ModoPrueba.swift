@@ -2,22 +2,19 @@
 import Foundation
 
 /// Modo prueba (sólo Debug): con `-modoPrueba` la app arranca con sesión y una API simulada, para los
-/// recorridos de XCUITest en GitHub Actions (TengoLibreUITests). `-modoCliente` entra como clienta y
-/// `-conRecorrido` muestra el recorrido de la primera vez. Nunca llega a TestFlight (Release).
+/// recorridos de XCUITest en GitHub Actions (TengoLibreUITests). `-conRecorrido` muestra el recorrido de
+/// la primera vez. Nunca llega a TestFlight (Release).
 enum ModoPrueba {
     static var activo: Bool { ProcessInfo.processInfo.arguments.contains("-modoPrueba") }
-    static var cliente: Bool { ProcessInfo.processInfo.arguments.contains("-modoCliente") }
 
-    /// Deja la app como recién entrada: modo, permisos y recorrido.
+    /// Deja la app como recién entrada: permisos y recorrido.
     static func preparar() {
         guard activo else { return }
         let d = UserDefaults.standard
         if let b = Bundle.main.bundleIdentifier { d.removePersistentDomain(forName: b) }
-        d.set(cliente ? "cliente" : "negocio", forKey: "modo")
         d.set(true, forKey: "permisosVistos")
         d.set(!ProcessInfo.processInfo.arguments.contains("-conRecorrido"), forKey: "recorridoVisto")
         d.set("n1", forKey: "negocio")
-        if cliente { d.set(["ABC123"], forKey: "misTurnos") }
     }
 
     static func api() -> Api {
@@ -165,28 +162,6 @@ final class ApiDePrueba: URLProtocol {
                  "catalogo": [{"clave": "inicial", "nombre": "Inicial", "precio": 7000}, {"clave": "completo", "nombre": "Completo", "precio": 15000}], "suscripcion": null}
                 """,
                 "/v1/panel/buscar": "{\"clientes\": [{\"id\": \"c1\", \"nombre\": \"Sofía Méndez\", \"telefono\": \"1144712290\", \"email\": \"\"}], \"turnos\": [], \"servicios\": []}",
-                // Modo clienta: su turno, el lugar y el directorio.
-                "/v1/t/ABC123": """
-                {"id": "t7", "codigo": "ABC123", "servicioId": "s1", "servicio": "Corte y brushing", "profesionalId": "p1", "profesional": "Carla",
-                 "inicio": "\(iso(1500))", "fin": "\(iso(1545))", "precio": 18000, "estado": "confirmado", "venceEn": null,
-                 "negocio": \(negocio), "puedeCancelar": true, "cancelarHastaHoras": 24}
-                """,
-                "/v1/p/lumi": """
-                {"negocio": \(negocio), "servicios": [{"id": "s1", "categoriaId": null, "nombre": "Corte y brushing", "descripcion": "", "duracion": 45, "precio": 18000,
-                 "foto": null, "orden": 1, "activo": true}, {"id": "s2", "categoriaId": null, "nombre": "Manicura", "descripcion": "", "duracion": 45, "precio": 12000,
-                 "foto": null, "orden": 2, "activo": true}], "profesionales": [{"id": "p1", "nombre": "Carla", "especialidad": "", "foto": null, "servicios": []}],
-                 "diasVista": 30, "politicaCancelacion": "Si no podés venir, avisá 24 h antes.", "web": {"portada": null, "colorPrimario": "#183c44", "acerca": "", "rubro": "Estética"},
-                 "resenas": {"promedio": 4.8, "cantidad": 12}}
-                """,
-                "/v1/p/lumi/dias": "{\"dias\": [" + (0..<7).map { "{\"fecha\": \"\(dia($0))\", \"libres\": \($0 == 0 ? 0 : 4)}" }.joined(separator: ", ") + "]}",
-                "/v1/p/lumi/libres": "{\"horarios\": [\(libres)]}",
-                "POST /v1/p/lumi/turnos": "{\"codigo\": \"NUEVO1\", \"inicio\": \"\(iso(1800))\"}",
-                "/v1/t/NUEVO1": """
-                {"id": "t8", "codigo": "NUEVO1", "servicioId": "s1", "servicio": "Corte y brushing", "profesionalId": "p1", "profesional": "Carla",
-                 "inicio": "\(iso(1800))", "fin": "\(iso(1845))", "precio": 18000, "estado": "confirmado", "venceEn": null, "negocio": \(negocio), "puedeCancelar": true}
-                """,
-                "/v1/explorar": "{\"negocios\": [{\"slug\": \"lumi\", \"nombre\": \"Lumi Estética\", \"descripcion\": \"\", \"logo\": null, \"portada\": null, \"ciudad\": \"CABA\", \"provincia\": \"\", \"rubro\": \"Estética\", \"servicios\": [], \"desde\": 12000}]}",
-                "/v1/explorar/rubros": "{\"rubros\": [\"Estética\", \"Peluquería\", \"Uñas\"]}"
             ]
         }
     }

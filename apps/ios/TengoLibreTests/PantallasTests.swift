@@ -160,18 +160,11 @@ final class PantallasTests: XCTestCase {
     func testIngresoMail() { montar(IngresoMail(), segundos: 1) }
     func testRecuperarAcceso() { montar(RecuperarAcceso(email: "laura@lumi.test"), segundos: 1) }
     func testBorrarCuenta() { montar(HojaBorrarCuenta(), segundos: 1) }
-    func testElegirModo() { montar(ElegirModo(), segundos: 1) }
     func testElegirNegocio() { montar(ElegirNegocio(), segundos: 1) }
     func testPermisos() { montar(PermisoAvisos(), segundos: 1) }
     func testAlta() { montar(Alta(), segundos: 1) }
     func testPrincipal() { montar(Principal()) }
     func testPrincipalProfesional() { montar(Principal(), rol: "profesional") }
-    func testCliente() {
-        MisTurnos.codigos = []
-        montar(PrincipalCliente())
-    }
-    func testReservar() { montar(Reservar(slug: "lumi") { _ in }) }
-    func testLugares() { montar(Lugares { _ in }) }
 }
 
 /// Abre una sección de «Más» como si se la hubiese tocado.
