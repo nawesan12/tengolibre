@@ -6,12 +6,26 @@ import type { Acceso } from '#lib/cuenta/contratos.ts';
 import { colorValido } from '#lib/cuenta/presentacion.ts';
 import type { PageServerLoad } from './$types';
 
+type TurnoDeLaPersona = {
+	codigo: string;
+	inicio: string;
+	fin: string;
+	estado: string;
+	servicio: string;
+	profesional: string;
+	negocio: string;
+	slug: string;
+	zonaHoraria: string;
+};
+
 /** La cuenta de la persona: quién es y sus negocios. Entrar a uno usa la acción de /panel/negocio. */
 export const load: PageServerLoad = (event) =>
 	conSesion(event, async (api) => {
-		const [persona, { negocios }] = await Promise.all([
+		const [persona, { negocios }, { turnos }] = await Promise.all([
 			api.get<Persona>('/v1/auth/persona'),
-			api.get<{ negocios: NegocioDeLaPersona[] }>('/v1/yo')
+			api.get<{ negocios: NegocioDeLaPersona[] }>('/v1/yo'),
+			// Los turnos que reservó con su mail, en cualquier negocio. Si falla, la cuenta se ve igual.
+			opcional(api.get<{ turnos: TurnoDeLaPersona[] }>('/v1/yo/turnos'), { turnos: [] })
 		]);
 		// Cada tarjeta, con su estado (prueba, plan, sólo lectura) y el color de su página. Si algo
 		// falla, la tarjeta sigue sin eso.
@@ -24,5 +38,5 @@ export const load: PageServerLoad = (event) =>
 				return { ...n, acceso, color: colorValido(p?.web?.colorPrimario), logo: p?.negocio.logo ?? null };
 			})
 		);
-		return { persona, negocios: conEstado, elegido: event.locals.negocio };
+		return { persona, negocios: conEstado, turnos, elegido: event.locals.negocio };
 	});

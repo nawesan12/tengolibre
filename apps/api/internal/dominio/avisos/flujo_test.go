@@ -581,3 +581,24 @@ func TestReservaConSesionAvisaAlNegocio(t *testing.T) {
 		t.Fatalf("el turno del panel sumó a la campanita: %+v", c)
 	}
 }
+
+// Quien reservó con su mail ve el turno en «Mi cuenta», en cualquier negocio; los cancelados no.
+func TestMisTurnos(t *testing.T) {
+	e := armar(t)
+	quien := "user_rociopaz001"
+	mail := "rociopaz001@prueba.tengolibre.com.ar"
+	e.Esperar(201, P{Metodo: "POST", Ruta: "/v1/p/el-corte/turnos", Cuerpo: map[string]any{
+		"servicioId": e.servicio, "profesionalId": e.ana, "inicio": en("2026-11-30 10:00").Format(time.RFC3339),
+		"cliente": map[string]string{"nombre": "Rocío Paz", "telefono": "3333", "email": mail}}}, nil)
+	var r struct {
+		Turnos []struct{ Negocio, Slug, Servicio, Codigo string } `json:"turnos"`
+	}
+	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/yo/turnos", Quien: quien}, &r)
+	if len(r.Turnos) != 1 || r.Turnos[0].Slug != "el-corte" || r.Turnos[0].Codigo == "" {
+		t.Fatalf("mis turnos: %+v", r)
+	}
+	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/yo/turnos", Quien: "user_otrapersona01"}, &r)
+	if len(r.Turnos) != 0 {
+		t.Fatalf("otra persona ve turnos ajenos: %+v", r)
+	}
+}

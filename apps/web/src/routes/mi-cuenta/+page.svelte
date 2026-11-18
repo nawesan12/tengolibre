@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ROLES } from '#lib/formato.ts';
+	import { ESTADOS, ROLES, fecha, hora } from '#lib/formato.ts';
 	import Icono from '#lib/ui/Icono.svelte';
 	import Logo from '#lib/ui/Logo.svelte';
 	import EstadoPastilla from '#lib/cuenta/EstadoPastilla.svelte';
@@ -29,6 +29,26 @@
 			</span>
 			<form method="POST" action="/salir"><button class="salir">Salir</button></form>
 		</header>
+
+		{#if data.turnos.length}
+			<section aria-labelledby="tus-turnos" class="seccion">
+				<h2 id="tus-turnos" class="tl-rotulo rotulo">Tus turnos</h2>
+				<ul class="turnos">
+					{#each data.turnos as t (t.codigo)}
+						<li>
+							<a class="turno" href={`/turno/${t.codigo}`}>
+								<span class="cuando tl-num"><b>{hora(t.inicio, t.zonaHoraria)}</b><small>{fecha(t.inicio, t.zonaHoraria)}</small></span>
+								<span class="que">
+									<b>{t.negocio}</b>
+									<small>{[t.servicio, t.profesional].filter(Boolean).join(' · ')}{t.estado !== 'confirmado' ? ` · ${ESTADOS[t.estado] ?? t.estado}` : ''}</small>
+								</span>
+								<Icono nombre="chevron_right" tam={22} />
+							</a>
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
 
 		<section aria-labelledby="tus-negocios" class="seccion">
 			<h2 id="tus-negocios" class="tl-rotulo rotulo">Tus negocios</h2>
@@ -321,6 +341,49 @@
 		font-weight: 700;
 		text-decoration: none;
 		box-shadow: var(--tl-luz-arriba-osc);
+	}
+	.turnos {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.turno {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		min-height: 64px;
+		padding: 12px 16px;
+		border-radius: var(--tl-r-m);
+		background: var(--tl-papel);
+		box-shadow: 0 14px 28px -24px rgba(15, 35, 40, 0.5);
+		color: var(--tl-tinta);
+		text-decoration: none;
+	}
+	.turno .cuando {
+		display: flex;
+		flex-direction: column;
+		min-width: 64px;
+	}
+	.turno .cuando b {
+		font-size: 20px;
+	}
+	.turno .que {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.turno small {
+		font-size: 13px;
+		color: var(--tl-sub);
+	}
+	.turno:hover .que b {
+		text-decoration: underline;
+		text-underline-offset: 3px;
 	}
 	.fila-borrar {
 		display: flex;

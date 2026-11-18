@@ -64,6 +64,7 @@ type Miembro struct {
 func (s *Servicio) Rutas(mux *http.ServeMux) {
 	ses := s.Sesion
 	mux.HandleFunc("GET /v1/yo", ses.Persona(web.Envolver(s.yo)))
+	mux.HandleFunc("GET /v1/yo/turnos", ses.Persona(web.Envolver(s.misTurnos)))
 	mux.HandleFunc("POST /v1/negocios", ses.Persona(web.Envolver(s.crear)))
 	mux.HandleFunc("GET /v1/panel/negocio", ses.Panel(sesion.Agenda, web.Envolver(s.leer)))
 	mux.HandleFunc("PATCH /v1/panel/negocio", ses.Panel(sesion.Gestion, web.Envolver(s.editar)))
@@ -80,6 +81,55 @@ func (s *Servicio) yo(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	web.JSON(w, http.StatusOK, map[string]any{"negocios": ns})
+	return nil
+}
+
+// TurnoDeLaPersona es un turno que la persona reservó en cualquier negocio, para «Mi cuenta».
+type TurnoDeLaPersona struct {
+	Codigo      string    `json:"codigo"`
+	Inicio      time.Time `json:"inicio"`
+	Fin         time.Time `json:"fin"`
+	Estado      string    `json:"estado"`
+	Servicio    string    `json:"servicio"`
+	Profesional string    `json:"profesional"`
+	Negocio     string    `json:"negocio"`
+	Slug        string    `json:"slug"`
+	Zona        string    `json:"zonaHoraria"`
+}
+
+// misTurnos: los próximos turnos reservados con el mail de la cuenta (que Clerk ya verificó), en
+// todos los negocios. Antes sólo quedaba el link del mail.
+func (s *Servicio) misTurnos(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	ses := sesion.De(ctx)
+	email := ses.Persona.Email
+	// Con un token de Clerk suelto (no la sesión propia) el mail lo da Clerk, ya verificado.
+	if email == "" && s.Sesion.Verificador != nil {
+		if u, err := s.Sesion.Verificador.Usuario(ctx, ses.ClerkID); err == nil {
+			email = u.Email
+		}
+	}
+	out := []TurnoDeLaPersona{}
+	err := s.Pool.EnTx(ctx, func(tx pgx.Tx) error {
+		filas, err := tx.Query(ctx, `SELECT codigo, inicio, fin, estado, servicio, profesional, negocio, slug, zona
+			FROM app.turnos_de_persona($1, now()) ORDER BY inicio LIMIT 50`, email)
+		if err != nil {
+			return err
+		}
+		defer filas.Close()
+		for filas.Next() {
+			var t TurnoDeLaPersona
+			if err := filas.Scan(&t.Codigo, &t.Inicio, &t.Fin, &t.Estado, &t.Servicio, &t.Profesional, &t.Negocio, &t.Slug, &t.Zona); err != nil {
+				return err
+			}
+			out = append(out, t)
+		}
+		return filas.Err()
+	})
+	if err != nil {
+		return err
+	}
+	web.JSON(w, http.StatusOK, map[string]any{"turnos": out})
 	return nil
 }
 
