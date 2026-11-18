@@ -1,5 +1,15 @@
 # Estado
 
+## 18/11/2026: el link, protagonista (rama link-protagonista, migración 00032; sin desplegar)
+
+El link se puede cambiar sin romper los viejos: `PATCH /v1/panel/negocio/link` (dueño/encargado), el anterior queda en
+`slugs_anteriores` y `app.negocio_publico` lo sigue resolviendo (toda la API pública anda con el viejo; la web redirige
+con 301 en `/[slug]` y `/[slug]/reservar`). Retenido 90 días para otros negocios; 5 cambios cada 30 días; auditoría
+`negocio.link_cambiado`. `GET /v1/slugs/{slug}` reemplaza el chequeo por 404 del alta. Web: TuLink con Copiar,
+WhatsApp, Instagram, QR y «Cambiar link»; primero en Inicio con menos de 20 turnos en 30 días; «Tu link» en la barra;
+primera sección de Mi web; grande y editable en «El nombre» y primero en «¡Listo!». iPhone y Android: TarjetaLink en
+Hoy (misma regla), Mi web y el alta; CambiarLink. Falta compilar las apps.
+
 ## 18/11/2026: la app es sólo para negocios (rama app-solo-negocios; sin compilar ni desplegar)
 
 Decisión de Nahuel: el socio eligió «Reservo turnos», nunca creó su negocio y reservó en la página de otro. Fuera, en
