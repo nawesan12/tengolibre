@@ -4,6 +4,7 @@ import { intentar } from '#lib/server/acciones.ts';
 import { enc, siExiste, siSePuede } from '#lib/operacion/servidor.ts';
 import type { ParaLlamar, PedidoDias } from '#lib/operacion/contrato.ts';
 import type { Anotado, Resena, Turno } from '#lib/operacion/tipos.ts';
+import type { EstadoAsistente } from '#lib/panel/asistente.ts';
 import { dia } from '#lib/formato.ts';
 import { sumarDias } from '#lib/operacion/fechas.ts';
 import { POCOS_TURNOS, ventanaMovimiento } from '#lib/panel/link.ts';
@@ -29,7 +30,7 @@ export const load: PageServerLoad = async (event) => {
 	const nada = <T>(p: Promise<T>) => siExiste(p).catch(() => null);
 	const manana = sumarDias(dia(), 1);
 	const mov = ventanaMovimiento(dia());
-	const [arranque, resenas, espera, mp, llamar, pedidos, push, proximos, movimiento] = await Promise.all([
+	const [arranque, resenas, espera, mp, llamar, pedidos, push, proximos, movimiento, asistente] = await Promise.all([
 		api.get<{ completo: boolean; reservable: boolean; pasos: Paso[] }>('/v1/panel/arranque'),
 		negocio.rol === 'recepcion' ? null : siSePuede(api.get<{ resenas: Resena[] }>('/v1/panel/resenas')).catch(() => null),
 		negocio.rol === 'profesional' ? null : siSePuede(api.get<{ espera: Anotado[] }>('/v1/panel/espera')).catch(() => null),
@@ -47,7 +48,9 @@ export const load: PageServerLoad = async (event) => {
 			api.get<{ turnos: Turno[] }>(
 				`/v1/panel/turnos?${new URLSearchParams({ ...mov, estado: 'pendiente_pago,pendiente,confirmado,atendido,ausente', limite: String(POCOS_TURNOS) })}`
 			)
-		)
+		),
+		// El asistente: las sugerencias y el cupo de IA del mes (si falla, igual se puede preguntar).
+		nada(api.get<EstadoAsistente>('/v1/panel/asistente'))
 	]);
 	const sinResponder = (resenas?.resenas ?? []).filter((r) => !r.respondidaEn && !r.respuesta);
 	return {
@@ -62,6 +65,7 @@ export const load: PageServerLoad = async (event) => {
 		push: push && push.clave && !push.suscripta ? { clave: push.clave } : null,
 		proximos: proximos?.turnos ?? [],
 		linkPrimero: (movimiento?.turnos.length ?? 0) < POCOS_TURNOS,
+		asistente,
 		gestiona
 	};
 };

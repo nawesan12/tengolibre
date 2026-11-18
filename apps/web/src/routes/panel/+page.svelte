@@ -18,6 +18,7 @@
 	import { activarAvisos } from '#lib/panel/push.ts';
 	import TuLink from '#lib/panel/TuLink.svelte';
 	import { abrirLink } from '#lib/panel/panelLink.svelte.ts';
+	import Asistente from '#lib/panel/Asistente.svelte';
 
 	let { data, form } = $props();
 
@@ -259,6 +260,8 @@
 		{/each}
 	</div>
 {/if}
+
+<Asistente estado={data.asistente} />
 
 {#each data.pedidos as p (p.id)}
 	<section class="pedido" aria-label={`${p.profesional} pide días libres`}>

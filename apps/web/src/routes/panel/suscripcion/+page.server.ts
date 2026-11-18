@@ -28,6 +28,8 @@ export type Estado = {
 	nombrePlan: string;
 	catalogo: PlanVenta[];
 	suscripcion: Suscripcion | null;
+	/** Respuestas con IA del asistente por mes, iguales en los dos planes (0 o ausente: sin IA). */
+	cupoIA?: number;
 };
 
 export const load: PageServerLoad = async (event) => {

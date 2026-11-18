@@ -30,7 +30,7 @@
 	const PRUEBA = 7;
 
 	// Qué incluye cada plan, fila por fila (ícono + palabra en cada celda).
-	const FILAS: [string, string, string][] = [
+	const FILAS = $derived<[string, string, string][]>([
 		['Turnos online y agenda', 'Sí', 'Sí'],
 		['Recordatorios por mail', 'Sí', 'Sí'],
 		['Profesionales', 'Hasta 2', 'Sin límite'],
@@ -39,8 +39,10 @@
 		['Reportes y descargas', 'Básicos', 'Completos'],
 		['Dominio propio y plantillas', 'No', 'Sí'],
 		['Integraciones con IA', 'No', 'Sí'],
+		// El asistente de Inicio: el intérprete sin límite y un cupo de respuestas con IA por mes.
+		...(e.cupoIA ? [['Asistente con IA', `${e.cupoIA} respuestas por\u00a0mes`, `${e.cupoIA} respuestas por\u00a0mes`] as [string, string, string]] : []),
 		['Sucursales', 'No', 'Sí']
-	];
+	]);
 	const COLUMNA: Record<string, 1 | 2> = { inicial: 1, completo: 2 };
 	const valor = (fila: [string, string, string], clave: string) => (COLUMNA[clave] ? fila[COLUMNA[clave]] : '—');
 
