@@ -82,7 +82,8 @@ final class Api: @unchecked Sendable {
     func pedir(_ metodo: String, _ ruta: String, query: [URLQueryItem] = [], cuerpo: Data? = nil, tipo: String = "application/json", negocio otro: String? = nil) async throws -> Data {
         var c = URLComponents(url: base.appendingPathComponent(ruta), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { c.queryItems = query }
-        var r = URLRequest(url: c.url!, timeoutInterval: 20)
+        // El asistente puede ir a la IA con varias vueltas (la API corta a los 27 s): más margen.
+        var r = URLRequest(url: c.url!, timeoutInterval: ruta.hasPrefix("/v1/panel/asistente") ? 35 : 20)
         r.httpMethod = metodo
         r.setValue("application/json", forHTTPHeaderField: "Accept")
         if let token { r.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }

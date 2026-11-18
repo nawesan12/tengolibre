@@ -112,6 +112,8 @@ struct Hoy: View {
 
     @ViewBuilder private var contenido: some View {
         ForEach(banners, id: \.titulo) { b in Banner(b: b) }
+        // El asistente necesita la API: sin conexión no se ofrece. En sólo lectura sí (preguntar anda).
+        if !estado.sinConexion { EntradaAsistente() }
         switch datos.carga {
         case .cargando where datos.turnos.isEmpty:
             ForEach([80, 72, 80, 80], id: \.self) { h in Esqueleto(alto: CGFloat(h)) }

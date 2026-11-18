@@ -81,7 +81,9 @@ class Api(val base: String, var token: String? = null, val http: OkHttpClient = 
         r.method(metodo, cuerpoHttp)
         val (codigo, texto, reintentar) = try {
             withContext(Dispatchers.IO) {
-                http.newCall(r.build()).esperar().use { Triple(it.code, it.body?.string().orEmpty(), it.header("Retry-After")) }
+                // El asistente puede ir a la IA con varias vueltas (la API corta a los 27 s): más margen.
+                val cliente = if (ruta.startsWith("/v1/panel/asistente")) http.newBuilder().readTimeout(35, TimeUnit.SECONDS).build() else http
+                cliente.newCall(r.build()).esperar().use { Triple(it.code, it.body?.string().orEmpty(), it.header("Retry-After")) }
             }
         } catch (e: CancellationException) {
             throw e

@@ -45,6 +45,7 @@ import ar.com.tengolibre.app.app.AccionesTurno
 import ar.com.tengolibre.app.app.Estado
 import ar.com.tengolibre.app.app.LocalEstado
 import ar.com.tengolibre.app.nucleo.*
+import ar.com.tengolibre.app.pantallas.asistente.EntradaAsistente
 import ar.com.tengolibre.app.pantallas.buscar.CampoBuscar
 import ar.com.tengolibre.app.pantallas.mas.BarraAvance
 import ar.com.tengolibre.app.pantallas.mas.DestinoMas
@@ -147,6 +148,8 @@ fun Hoy() {
         }
         Cuerpo {
             banners(estado, nav).forEach { Banner(it) }
+            // El asistente necesita la API: sin conexión no se ofrece. En sólo lectura sí (preguntar anda).
+            if (!estado.sinConexion) EntradaAsistente()
             when (val c = datos.carga) {
                 is DatosDia.Carga.cargando -> if (datos.turnos.isEmpty()) {
                     listOf(80, 72, 80, 80).forEach { Esqueleto(it.dp) }

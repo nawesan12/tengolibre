@@ -638,7 +638,9 @@ fun SuscripcionVista() {
     @Serializable data class Sus(val id: String, val plan: String = "", val estado: String = "", val monto: Int = 0, val proximoCobro: FechaApi? = null, val ultimoCobro: FechaApi? = null,
         val graciaHasta: FechaApi? = null, val canceladaEn: FechaApi? = null, val origen: String? = null)
     @Serializable data class EstadoS(val bloqueado: Boolean = false, val pruebaHasta: FechaApi? = null, val diasDePrueba: Int = 0, val conSuscripcion: Boolean = false, val plan: String = "",
-        val nombrePlan: String = "", val catalogo: List<PlanVenta> = emptyList(), val suscripcion: Sus? = null)
+        val nombrePlan: String = "", val catalogo: List<PlanVenta> = emptyList(), val suscripcion: Sus? = null,
+        /** Respuestas con IA por mes del asistente (las mismas en todos los planes). */
+        val cupoIA: Int = 0)
     val estado = LocalEstado.current
     val contexto = LocalContext.current
     val alcance = rememberCoroutineScope()
@@ -702,6 +704,13 @@ fun SuscripcionVista() {
         }
     }
 
+    /** El asistente con IA: cuántas respuestas trae por mes (0 o sin dato, no se muestra). */
+    fun filaIA(x: EstadoS): (@Composable () -> Unit)? {
+        if (x.cupoIA <= 0) return null
+        val fila: @Composable () -> Unit = { Renglon("Asistente con IA", "${x.cupoIA} respuestas por mes", "sparkles") }
+        return fila
+    }
+
     val subtitulo = s?.let { x -> if (vigente != null) "Plan ${x.nombrePlan} · ${origenTexto(vigente.origen)}" else if (x.bloqueado) "La prueba terminó" else "Prueba gratis · quedan ${x.diasDePrueba} días" } ?: ""
     PantallaMas("Suscripción", subtitulo, cargando = s == null && error.isEmpty(), error = error, recargar = { cargar() }) {
         val x = s ?: return@PantallaMas
@@ -712,6 +721,7 @@ fun SuscripcionVista() {
                     add { Renglon("Plan ${x.nombrePlan}", if (v.estado == "pausada") "Google Play no pudo cobrar" else "Se paga con Google Play", "creditcard") }
                     v.proximoCobro?.let { p -> add { Renglon(if (v.canceladaEn == null) "Se renueva" else "Termina", Formato.fechaLarga(p), "calendar") } }
                     if (v.estado == "pausada") v.graciaHasta?.let { g -> add { Renglon("Revisá tu medio de pago en Google Play", "Todo sigue andando hasta el ${Formato.dia(g)}", "exclamationmark.triangle") } }
+                    filaIA(x)?.let { add(it) }
                 }.toTypedArray())
                 if (estado.esDuena) { BotonContorno("Cambiar o cancelar en Google Play", { administrar() }, alto = 52.dp, tam = 16f, simbolo = "gearshape"); botonRestaurar() }
                 Texto("Se renueva sola cada mes. Para cambiar de plan o cancelar: Play Store › tu perfil › Pagos y suscripciones › Suscripciones › Tengo Libre, o el botón de arriba.", Tipo.lato(13f), C.sub)
@@ -720,6 +730,7 @@ fun SuscripcionVista() {
                 Bloque("Tu plan", "", *buildList<@Composable () -> Unit> {
                     add { Renglon("Plan ${x.nombrePlan}", if (v.estado == "pausada") "Apple no pudo cobrar" else "Se paga con Apple, desde otro teléfono", "creditcard") }
                     v.proximoCobro?.let { p -> add { Renglon(if (v.canceladaEn == null) "Se renueva" else "Termina", Formato.fechaLarga(p), "calendar") } }
+                    filaIA(x)?.let { add(it) }
                 }.toTypedArray())
                 // Acá no se compra ni se administra: se maneja donde se contrató.
                 Texto("La contrataste en otro teléfono: el plan y la cancelación se administran donde la contrataste, con esa cuenta de Apple.", Tipo.lato(14f), C.sub)
@@ -729,6 +740,7 @@ fun SuscripcionVista() {
                     add { Renglon("Plan ${x.nombrePlan}", "Se paga con Mercado Pago, desde la web", "creditcard") }
                     if (v.estado == "autorizada") v.proximoCobro?.let { p -> add { Renglon("Próximo cobro", "${Formato.fechaLarga(p)} · ${Formato.pesos(v.monto)}", "calendar") } }
                     if (v.estado == "pausada") add { Renglon(if (v.canceladaEn == null) "Mercado Pago no pudo cobrar" else "Cancelada", v.graciaHasta?.let { "Todo sigue andando hasta el ${Formato.dia(it)}" } ?: "", "exclamationmark.triangle") }
+                    filaIA(x)?.let { add(it) }
                 }.toTypedArray())
                 Texto("La contrataste desde la web: el plan, la tarjeta y la cancelación se manejan desde el panel en la compu, en Suscripción.", Tipo.lato(14f), C.sub)
             }
@@ -739,6 +751,8 @@ fun SuscripcionVista() {
                     else "Hasta el ${x.pruebaHasta?.let { Formato.fechaLarga(it) }.orEmpty()} tenés todo el plan Completo.", Tipo.lato(15f), C.sub)
                 if (x.suscripcion?.estado == "cancelada" && x.suscripcion.origen == "google") Texto("Tu suscripción de Google Play venció o se canceló.", Tipo.lato(14f, Peso.Bold), C.ausenteTinta)
             }
+            // En la prueba también anda el asistente (con el cupo del plan Completo).
+            if (!x.bloqueado) filaIA(x)?.let { Bloque("", "", it) }
             if (!estado.esDuena) Texto("La suscripción la elige la dueña o el dueño del negocio.", Tipo.lato(14f), C.sub)
             else if (!cargoTienda) { repeat(2) { Esqueleto(96.dp, 18.dp) }; Esqueleto(260.dp, 20.dp) }
             else if (productos.isEmpty()) VacioQueEnsena("Pronto", "Los planes no cargaron", "Google Play no respondió. Probá de nuevo en un rato.") {

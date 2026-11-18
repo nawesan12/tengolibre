@@ -730,7 +730,9 @@ struct EditarEtiqueta: View {
 struct SuscripcionVista: View {
     struct PlanVenta: Codable, Hashable { var clave: String; var nombre: String; var precio: Int }
     struct Sus: Codable { var id: String; var plan: String; var estado: String; var monto: Int; var proximoCobro: Date?; var ultimoCobro: Date?; var graciaHasta: Date?; var canceladaEn: Date?; var origen: String? }
-    struct EstadoS: Codable { var bloqueado: Bool; var pruebaHasta: Date?; var diasDePrueba: Int; var conSuscripcion: Bool; var plan: String; var nombrePlan: String; var catalogo: [PlanVenta]; var suscripcion: Sus? }
+    struct EstadoS: Codable { var bloqueado: Bool; var pruebaHasta: Date?; var diasDePrueba: Int; var conSuscripcion: Bool; var plan: String; var nombrePlan: String; var catalogo: [PlanVenta]; var suscripcion: Sus?
+        /// Respuestas con IA por mes del asistente (las mismas en todos los planes).
+        var cupoIA: Int? }
     @Environment(Estado.self) private var estado
     @State private var s: EstadoS?
     @State private var error = ""
@@ -792,6 +794,7 @@ struct SuscripcionVista: View {
             if v.estado == "pausada", let g = v.graciaHasta {
                 Renglon(titulo: "Revisá tu medio de pago en Apple", detalle: "Todo sigue andando hasta el \(Formato.dia(g))", simbolo: "exclamationmark.triangle")
             }
+            filaIA(s)
         }
         if estado.esDuena {
             Button { administrar = true } label: { Label("Cambiar o cancelar en la App Store", systemImage: "gearshape") }
@@ -811,6 +814,7 @@ struct SuscripcionVista: View {
             if let p = v.proximoCobro {
                 Renglon(titulo: v.canceladaEn == nil ? "Se renueva" : "Termina", detalle: Formato.fechaLarga(p), simbolo: "calendar")
             }
+            filaIA(s)
         }
         Text("La contrataste en un teléfono Android: el plan y la cancelación se administran donde la contrataste, en Google Play.")
             .font(Tipo.lato(14)).foregroundStyle(C.sub)
@@ -827,6 +831,7 @@ struct SuscripcionVista: View {
             if v.estado == "pausada" {
                 Renglon(titulo: v.canceladaEn == nil ? "Mercado Pago no pudo cobrar" : "Cancelada", detalle: v.graciaHasta.map { "Todo sigue andando hasta el \(Formato.dia($0))" } ?? "", simbolo: "exclamationmark.triangle")
             }
+            filaIA(s)
         }
         Text("La contrataste desde la web: el plan, la tarjeta y la cancelación se manejan desde el panel en la compu, en Suscripción.")
             .font(Tipo.lato(14)).foregroundStyle(C.sub)
@@ -845,6 +850,17 @@ struct SuscripcionVista: View {
             }
         }
         .foregroundStyle(C.tinta).padding(16).frame(maxWidth: .infinity, alignment: .leading).tarjeta()
+        // En la prueba también anda el asistente (con el cupo del plan Completo).
+        if !s.bloqueado, (s.cupoIA ?? 0) > 0 {
+            Bloque { filaIA(s) }
+        }
+    }
+
+    /// El asistente con IA: cuántas respuestas trae por mes (0 o sin dato, no se muestra).
+    @ViewBuilder private func filaIA(_ s: EstadoS) -> some View {
+        if let n = s.cupoIA, n > 0 {
+            Renglon(titulo: "Asistente con IA", detalle: "\(n) respuestas por mes", simbolo: "sparkles")
+        }
     }
 
     @ViewBuilder private var planesTienda: some View {
