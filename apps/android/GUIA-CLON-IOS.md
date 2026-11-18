@@ -63,7 +63,7 @@ de Tengo Libre y cambiar el paquete y el prefijo de `local.properties`.
 ## 4. Orden de trabajo
 1. Base: Gradle, CI, tema, íconos, núcleo (Api, Formato, Dia, Modelos, EnVivo, Clerk, Estado). Compilar esta base
    sola (es lo único que conviene compilar antes).
-2. Pantallas en el orden de iOS: ingreso → principal → la pestaña de inicio → el resto → «Más» → modo cliente →
+2. Pantallas en el orden de iOS: ingreso → principal → la pestaña de inicio → el resto → «Más» →
    enlaces → `Registro.kt`.
 3. Plataforma: push, actividad, widgets, atajos, compras, `MainActivity`.
 4. Tests: `PantallasTest` con **la misma lista que el `PantallasTests.swift`** (mismos nombres de captura) y

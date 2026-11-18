@@ -1,5 +1,18 @@
 # Estado
 
+## 18/11/2026: la app es sólo para negocios (rama app-solo-negocios; sin compilar ni desplegar)
+
+Decisión de Nahuel: el socio eligió «Reservo turnos», nunca creó su negocio y reservó en la página de otro. Fuera, en
+iPhone y Android: «¿Cómo vas a usar Tengo Libre?» (`ElegirModo`, fase `eligiendoModo`), el modo clienta
+(`Pantallas/Cliente`, `PrincipalCliente`, fase `cliente`, `turnoClienteAbierto`, ruta `turno-cliente`, «Usar como
+clienta» en Más, canal «Tus turnos» de Android). Sin negocio se va directo al alta, con «¿Querés reservar un turno?
+Hacelo desde la página del negocio.» (abre tengolibre.com.ar/explorar en el navegador). El `modo`/`misTurnos`
+guardado se borra al abrir y los turnos que seguía el teléfono se dejan de seguir al registrar el token.
+`/turno/*` sale de `enlaces.json` y del intent-filter: el AASA/assetlinks cambia recién al desplegar la web.
+Pendiente: compilar en GitHub; desplegar la web (AASA); fichas de tienda en `~/Trabajo/vimo/tiendas`
+(«Y también para tus clientas…» en `asc/fichas.py`, `play/fichas.py`, `play/tengolibre.json`); la API sigue con
+`/v1/t/{codigo}/dispositivo` y los push `tipo=cliente` (ya no los usa ninguna app).
+
 ## 18/11/2026: revisión integral (API y web desplegadas, 8bd33bf; sin migraciones)
 
 Cuatro revisores (API, web, iPhone, Android) y verificación de cada hallazgo. Arreglado: ver el commit 8bd33bf.
