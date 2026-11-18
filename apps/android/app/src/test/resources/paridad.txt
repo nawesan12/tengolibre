@@ -1,4 +1,5 @@
 Agenda/Agenda.swift
+Asistente/Asistente.swift
 Avisos/Avisos.swift
 Buscar/Buscar.swift
 Clientes/Clientes.swift
