@@ -21,6 +21,9 @@
         <package android:name="com.whatsapp" />
     </queries>
 
+    <!-- La app va en vertical, pero eso no tiene que dejar afuera a tablets y Chromebooks en Play. -->
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
