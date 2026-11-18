@@ -1,5 +1,15 @@
 # Estado
 
+## 18/11/2026: asistente con IA (rama asistente-claude, sin desplegar; migración 00031)
+
+Asistente en Inicio (web) y en Hoy (iPhone y Android). Primero un intérprete propio (agenda de un día, quién viene,
+horarios libres, mover / cancelar / confirmar); lo demás va a Claude Haiku 5.5 con las herramientas del MCP y el rol de
+quien pregunta. Las acciones vuelven como propuesta con «Confirmar». Contrato y costos: `docs/api/asistente.md`.
+Para prender la IA: `ANTHROPIC_API_KEY` en `/opt/tengolibre/api.conf` (sin clave, sólo el intérprete). Topes:
+`TENGOLIBRE_IA_CUPO_MENSUAL` (150), `TENGOLIBRE_IA_TOPE_DIARIO` (30), `TENGOLIBRE_IA_PRESUPUESTO_USD` (20).
+Falta: probar con la clave real (dos preguntas seguidas → `cache_leido` > 0 en el log `ia: respuesta`), compilar las
+apps en GitHub, modificar el registro en la AAIP (Anthropic como proveedor) y el comando `tengolibrectl ia-uso`.
+
 ## 18/11/2026: el link, protagonista (rama link-protagonista, migración 00032; sin desplegar)
 
 El link se puede cambiar sin romper los viejos: `PATCH /v1/panel/negocio/link` (dueño/encargado), el anterior queda en
