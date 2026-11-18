@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -65,6 +66,13 @@ type Config struct {
 	// cobran. Prendidas por defecto sólo en desarrollo (=0 las apaga); en producción, apagadas. La
 	// revisión de Apple compra en sandbox: para eso se prende un rato y se apaga cuando aprueban.
 	AppleSandbox, GooglePruebas bool
+	// Asistente con IA (Claude Haiku): la clave de Anthropic (ANTHROPIC_API_KEY; sin clave, el asistente
+	// contesta sólo con su intérprete), las respuestas con IA por negocio y mes (los planes no dicen
+	// nada: un cupo conservador) y por día, y la parte de Tengo Libre del presupuesto mensual de IA
+	// de Grupo Vimo, en dólares (pasado eso, la IA se apaga hasta el mes que viene).
+	AnthropicClave              string
+	IACupoMensual, IATopeDiario int
+	IAPresupuestoUSD            float64
 }
 
 // Desarrollo dice si se está corriendo en local.
@@ -118,6 +126,17 @@ func Leer() (Config, error) {
 		VAPIDSujeto:  valor("TENGOLIBRE_VAPID_SUJETO", "mailto:hola@tengolibre.com.ar"),
 
 		PurgaNegocios: os.Getenv("TENGOLIBRE_PURGA_NEGOCIOS") == "1",
+	}
+	c.AnthropicClave = os.Getenv("ANTHROPIC_API_KEY")
+	var err error
+	if c.IACupoMensual, err = entero("TENGOLIBRE_IA_CUPO_MENSUAL", 150); err != nil {
+		return c, err
+	}
+	if c.IATopeDiario, err = entero("TENGOLIBRE_IA_TOPE_DIARIO", 30); err != nil {
+		return c, err
+	}
+	if c.IAPresupuestoUSD, err = strconv.ParseFloat(valor("TENGOLIBRE_IA_PRESUPUESTO_USD", "20"), 64); err != nil || c.IAPresupuestoUSD < 0 {
+		return c, fmt.Errorf("TENGOLIBRE_IA_PRESUPUESTO_USD: tiene que ser un número de dólares")
 	}
 	c.AppleSandbox = prendida("TENGOLIBRE_APPLE_SANDBOX", c.Entorno == "desarrollo")
 	c.GooglePruebas = prendida("TENGOLIBRE_GOOGLE_PRUEBAS", c.Entorno == "desarrollo")
@@ -189,6 +208,19 @@ func prendida(k string, def bool) bool {
 		return false
 	}
 	return def
+}
+
+// entero de una variable (vacía: def). 0 apaga ese tope.
+func entero(k string, def int) (int, error) {
+	v := os.Getenv(k)
+	if v == "" {
+		return def, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		return 0, fmt.Errorf("%s=%q: tiene que ser un número entero", k, v)
+	}
+	return n, nil
 }
 
 func valor(k, def string) string { return conDefecto(os.Getenv(k), def) }

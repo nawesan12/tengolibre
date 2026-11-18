@@ -58,6 +58,8 @@ type Servicio struct {
 	TokenPlataforma string
 	// Sitio del panel, para la vuelta de Mercado Pago.
 	Sitio string
+	// CupoIA: respuestas con IA por mes que trae cada plan (el asistente del panel). Se muestra con el plan.
+	CupoIA int
 	// Apple verifica lo que firma la App Store (nil: con la raíz de Apple).
 	Apple *appstore.Verificador
 	// Google consulta las compras de Google Play (nil: la suscripción por Play queda apagada) y

@@ -8,11 +8,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"syscall"
 	"time"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/admin"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/arranque"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/asistente"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/avisos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/caja"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/calendario"
@@ -46,6 +48,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/config"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/googleplay"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/ia"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/servidor"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/tiemporeal"
@@ -94,7 +97,9 @@ func correr() error {
 		sus.Google = play
 	}
 	ses.Escritura = sus.Escritura
-	ses.SinChequeoDeEscritura = suscripcion.SinChequeo
+	// Preguntarle al asistente no cambia nada: anda con el panel en sólo lectura (confirmar una
+	// propuesta sí pasa por el chequeo).
+	ses.SinChequeoDeEscritura = append(slices.Clone(suscripcion.SinChequeo), asistente.SinChequeo)
 	// Sin clave de cifrado, los negocios no pueden conectar Mercado Pago (el resto anda).
 	cifra, err := cifrado.Nuevo(cfg.ClaveCifrado)
 	if err != nil {
@@ -123,6 +128,18 @@ func correr() error {
 	conf := &confirmaciones.Servicio{Pool: app, Sesion: ses, Sitio: cfg.Sitio,
 		Disponible: cfg.WhatsAppToken != "" && cfg.WhatsAppTelefonoID != "", TelefonoID: cfg.WhatsAppTelefonoID,
 		SecretoApp: cfg.WhatsAppSecretoApp, Verificacion: cfg.WhatsAppVerificacion}
+	// El asistente del panel: el MCP del negocio por dentro, la lista de espera para ofrecer huecos y
+	// Claude Haiku para lo que el intérprete no entiende (sin clave, sólo el intérprete).
+	mcpS := &mcp.Servicio{Pool: app, Sesion: ses, Turnos: tur, Origenes: cfg.Origenes, URL: cfg.MCPURL, Sitio: cfg.Sitio}
+	esp := &espera.Servicio{Pool: app, Sesion: ses, Turnos: tur}
+	asis := &asistente.Servicio{Pool: app, Sesion: ses, MCP: mcpS, Espera: esp, IA: ia.NuevoCliente(cfg.AnthropicClave),
+		Medidor: &ia.Medidor{Pool: app, Topes: ia.Topes{CupoMensual: cfg.IACupoMensual, TopeDiario: cfg.IATopeDiario,
+			PresupuestoMicro: int64(cfg.IAPresupuestoUSD * 1e6)}},
+		Cache: &ia.Cache{}}
+	if asis.IA == nil {
+		slog.Warn("asistente: sin ANTHROPIC_API_KEY, contesta sólo con el intérprete")
+	}
+	sus.CupoIA = cfg.IACupoMensual
 	srv := &http.Server{
 		Addr: cfg.Direccion,
 		Handler: servidor.Nuevo(servidor.Dependencias{App: app, Version: version, Origenes: cfg.Origenes,
@@ -142,7 +159,7 @@ func correr() error {
 				cob, pro, mem, sus,
 				&resenas.Servicio{Pool: app, Sesion: ses},
 				// La lista de espera reserva con turnos cuando alguien toma el lugar ofrecido.
-				&espera.Servicio{Pool: app, Sesion: ses, Turnos: tur},
+				esp,
 				&diaslibres.Servicio{Pool: app, Sesion: ses},
 				&invitaciones.Servicio{Pool: app, Sesion: ses},
 				&auditoria.Servicio{Pool: app, Sesion: ses},
@@ -156,7 +173,8 @@ func correr() error {
 				&push.Servicio{Pool: app, Sesion: ses, ClaveVAPID: vapid.ClavePublica()},
 				conf,
 				// El asistente de IA del negocio (MCP): opera la agenda con los mismos turnos.
-				&mcp.Servicio{Pool: app, Sesion: ses, Turnos: tur, Origenes: cfg.Origenes, URL: cfg.MCPURL, Sitio: cfg.Sitio},
+				mcpS,
+				asis,
 				&admin.Servicio{Pool: app, Sesion: ses, Admins: cfg.Admins, AdminsEmails: cfg.AdminsEmails},
 			}}),
 		ReadHeaderTimeout: 5 * time.Second,

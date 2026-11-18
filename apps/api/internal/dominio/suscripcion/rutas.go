@@ -41,6 +41,7 @@ func (s *Servicio) leer(w http.ResponseWriter, r *http.Request) error {
 		Acceso
 		NombrePlan  string       `json:"nombrePlan"`
 		Catalogo    []Plan       `json:"catalogo"`
+		CupoIA      int          `json:"cupoIA"`
 		Suscripcion *Suscripcion `json:"suscripcion"`
 	}
 	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error {
@@ -62,6 +63,7 @@ func (s *Servicio) leer(w http.ResponseWriter, r *http.Request) error {
 		out.NombrePlan = p.Nombre
 	}
 	out.Catalogo = Planes
+	out.CupoIA = s.CupoIA
 	web.JSON(w, http.StatusOK, out)
 	return nil
 }
