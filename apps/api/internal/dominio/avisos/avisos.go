@@ -171,7 +171,10 @@ func (s *Servicio) avisar(ctx context.Context, tx pgx.Tx, turnoID, evento string
 				Texto:  t.ClienteNombre + " lo tomó desde la lista de espera: " + t.Servicio + " con " + t.Profesional + ", el " + cuando + "."}); err != nil {
 				return err
 			}
-		} else if quien == "" {
+		} else if quien == "" || t.Origen != "panel" {
+			// No se avisa sólo lo que cargó el equipo desde el panel. Antes se miraba sólo si había sesión, y
+			// la página pública reenvía la de quien reserva (las membresías): si la clienta tenía cuenta en
+			// Tengo Libre (o la dueña probaba su página), la reserva no avisaba nada al negocio.
 			if err := Notificar(ctx, tx, Notificacion{Tipo: NotiReserva, TurnoID: t.ID, Titulo: "Nueva reserva de " + t.ClienteNombre,
 				Texto: t.Servicio + " con " + t.Profesional + ", el " + cuando + "."}); err != nil {
 				return err

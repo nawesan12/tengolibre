@@ -560,3 +560,24 @@ func TestInvitaciones(t *testing.T) {
 		t.Fatalf("campanita: %+v", c.Notificaciones)
 	}
 }
+
+// Quien reserva con su cuenta de Tengo Libre abierta (la página reenvía la sesión) también le avisa al negocio:
+// antes sólo avisaban las reservas sin sesión y al socio no le llegaba nada.
+func TestReservaConSesionAvisaAlNegocio(t *testing.T) {
+	e := armar(t)
+	var c campanita
+	e.Esperar(201, P{Metodo: "POST", Ruta: "/v1/p/el-corte/turnos", Quien: "user_clienta00001", Cuerpo: map[string]any{
+		"servicioId": e.servicio, "profesionalId": e.ana, "inicio": en("2026-11-02 10:00").Format(time.RFC3339),
+		"cliente": map[string]string{"nombre": "Rocío Paz", "telefono": "3333", "email": "rocio@ejemplo.com"}}}, nil)
+	e.panel(200, "GET", "/v1/panel/campanita", nil, &c)
+	if c.SinLeer != 1 || !strings.Contains(c.Notificaciones[0].Titulo, "Nueva reserva de Rocío") {
+		t.Fatalf("campanita: %+v", c)
+	}
+	// Lo que carga la dueña desde el panel no se le avisa a ella misma.
+	e.panel(201, "POST", "/v1/panel/turnos", map[string]any{"servicioId": e.servicio, "profesionalId": e.ana,
+		"inicio": en("2026-11-02 09:00").Format(time.RFC3339), "cliente": map[string]string{"nombre": "Juana", "telefono": "4444"}}, nil)
+	e.panel(200, "GET", "/v1/panel/campanita", nil, &c)
+	if c.SinLeer != 1 {
+		t.Fatalf("el turno del panel sumó a la campanita: %+v", c)
+	}
+}
