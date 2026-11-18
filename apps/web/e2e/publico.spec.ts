@@ -1,5 +1,5 @@
 import { expect, hidratada, test, type Page } from './base.ts';
-import { unico } from './ayuda.ts';
+import { entrar, unico } from './ayuda.ts';
 import { hoy, idPersona, invitar, negocioConAgenda, publica, reservarConAna, socio, sql } from './publico-ayuda.ts';
 
 /** Elige en el calendario el primer día con lugar que no sea hoy (así hay plazo para cancelar). */
@@ -273,4 +273,16 @@ test('turno atendido: repetir en un toque', async ({ page }) => {
 	await expect(page).toHaveURL(/\/turno\/[\w-]+\?nuevo=1/);
 	await expect(page.getByText('¡Listo! Guardá este link')).toBeVisible();
 	await expect(page.getByText('Con Ana')).toBeVisible();
+});
+
+test('un turno reservado para otro día se ve en el Inicio, en «Próximos días»', async ({ page }) => {
+	const a = await negocioConAgenda();
+	const t = await reservarConAna(a, 'Lucía Próxima');
+	await entrar(page, a.duenia);
+	const lista = page.getByRole('list', { name: 'Próximos días' });
+	await expect(lista.getByRole('link')).toHaveCount(1);
+	await expect(lista.getByRole('link')).toContainText('Lucía Próxima');
+	await page.getByRole('link', { name: /^Ir al / }).click();
+	await expect(page).toHaveURL(new RegExp(`/panel/turnos\\?fecha=${t.fecha}`));
+	await expect(page.getByText('Lucía Próxima').first()).toBeVisible();
 });

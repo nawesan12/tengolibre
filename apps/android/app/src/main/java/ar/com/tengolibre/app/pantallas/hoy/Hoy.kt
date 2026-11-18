@@ -72,6 +72,8 @@ fun Hoy() {
     var ofrecer by remember { mutableStateOf<Dia.Hueco?>(null) }
     var ahora by remember { mutableStateOf(Instant.now()) }
     var avisados by remember { mutableStateOf(setOf<String>()) }
+    /** Los próximos turnos de los días que vienen: sin esto, uno reservado para dentro de dos semanas no se veía en ningún lado. */
+    var proximos by remember { mutableStateOf<List<Turno>>(emptyList()) }
     val contexto = LocalContext.current
 
     val hoy = Formato.enArgentina(ahora).toLocalDate().atStartOfDay(Formato.zona).toInstant()
@@ -80,8 +82,18 @@ fun Hoy() {
     val dias = Dia.armar(profesionales, datos.turnos, hoy, Dia.minutosAhora(ahora))
     val lectura = estado.soloLectura || estado.sinConexion
 
+    @Serializable data class Turnos(val turnos: List<Turno>)
+    /** De mañana a 60 días, sólo los que siguen en pie; los primeros cinco. */
+    suspend fun cargarProximos() {
+        val manana = hoy.plus(1, ChronoUnit.DAYS)
+        val q = listOf("desde" to Formato.diaISO(manana), "hasta" to Formato.diaISO(manana.plus(59, ChronoUnit.DAYS)),
+            "estado" to "pendiente_pago,pendiente,confirmado")
+        runCatching { estado.api.get<Turnos>("/v1/panel/turnos", q) }.getOrNull()?.let { proximos = it.turnos.take(5) }
+    }
+
     suspend fun cargar() {
         datos.cargar(estado, hoy, hoy)
+        cargarProximos()
         ActividadTurno.sincronizar(datos.turnos.filter { Formato.diaISO(it.inicio) == Formato.diaISO(hoy) }, estado)
         estado.vivo.cargar(estado)
     }
@@ -128,6 +140,7 @@ fun Hoy() {
                 else -> {
                     if (delDia.none { it.ocupa }) {
                         Vacio(dias, estado, nav)
+                        ProximosDias(proximos, estado, ahora) { nav.turno = it }
                         BarraAvance()
                         PlataHoy()
                         AtajosHoy()
@@ -138,6 +151,7 @@ fun Hoy() {
                         AtajosHoy()
                         Pila(estado, nav, datos, delDia, dias, ahora, hoy, lectura, verTemprano, { verTemprano = !verTemprano }, avisados,
                             alTocarHueco = { cargarEn(it) }, alAccionHueco = { h, n -> if (!lectura) { if (n > 0) ofrecer = h else cargarEn(h) } }, alDeslizar = alDeslizar)
+                        ProximosDias(proximos, estado, ahora) { nav.turno = it }
                         BarraAvance()
                         DescubrirHoy()
                         VistaConsejo(Consejos.widget)
@@ -222,6 +236,18 @@ private fun ParaAtender(lista: List<Atender>) {
                 BotonContorno(a.accion, a.hacer, alto = 44.dp, tam = 15f, lleno = false)
             }
         }
+    }
+}
+
+// MARK: Próximos días
+
+@Composable
+private fun ProximosDias(proximos: List<Turno>, estado: Estado, ahora: Instant, alTocar: (Turno) -> Unit) {
+    if (proximos.isEmpty()) return
+    Rotulo("PRÓXIMOS DÍAS")
+    proximos.groupBy { Formato.diaISO(it.inicio) }.toSortedMap().forEach { (_, ts) ->
+        Texto(Formato.seccion(ts[0].inicio), Tipo.lato(14f, Peso.Bold), C.tinta, Modifier.fillMaxWidth().padding(horizontal = 4.dp))
+        ts.forEach { t -> VistaTalon(t, !estado.esProfesional, ahora, { alTocar(t) }, null) }
     }
 }
 

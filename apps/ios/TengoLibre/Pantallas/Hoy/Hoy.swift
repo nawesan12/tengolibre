@@ -12,6 +12,8 @@ struct Hoy: View {
     @State private var ofrecer: Dia.Hueco?
     @State private var ahora = Date()
     @State private var avisados: Set<String> = []
+    /// Los próximos turnos de los días que vienen: sin esto, uno reservado para dentro de dos semanas no se veía en ningún lado.
+    @State private var proximos: [Turno] = []
 
     private var hoy: Date { Formato.calendario.startOfDay(for: ahora) }
     private var delDia: [Turno] { datos.turnos.filter { Formato.diaISO($0.inicio) == Formato.diaISO(hoy) } }
@@ -61,8 +63,34 @@ struct Hoy: View {
 
     private func cargar() async {
         await datos.cargar(estado, desde: hoy, hasta: hoy)
+        await cargarProximos()
         ActividadTurno.sincronizar(delDia, estado: estado)
         await estado.vivo.cargar(estado)
+    }
+
+    private struct Turnos: Decodable { var turnos: [Turno] }
+
+    /// De mañana a 60 días, sólo los que siguen en pie; los primeros cinco.
+    private func cargarProximos() async {
+        let cal = Calendar.current
+        guard let manana = cal.date(byAdding: .day, value: 1, to: hoy), let hasta = cal.date(byAdding: .day, value: 59, to: manana) else { return }
+        let q = [URLQueryItem(name: "desde", value: Formato.diaISO(manana)), URLQueryItem(name: "hasta", value: Formato.diaISO(hasta)),
+                 URLQueryItem(name: "estado", value: "pendiente_pago,pendiente,confirmado")]
+        if let t: Turnos = try? await estado.api.get("/v1/panel/turnos", query: q) { proximos = Array(t.turnos.prefix(5)) }
+    }
+
+    @ViewBuilder private var proximosDias: some View {
+        if !proximos.isEmpty {
+            Rotulo("PRÓXIMOS DÍAS")
+            ForEach(Array(Dictionary(grouping: proximos) { Formato.diaISO($0.inicio) }.sorted { $0.key < $1.key }), id: \.key) { par in
+                let ts = par.value
+                Text(Formato.seccion(ts[0].inicio)).font(Tipo.lato(14, .bold)).foregroundStyle(C.tinta)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 4)
+                ForEach(ts) { t in
+                    VistaTalon(turno: t, mostrarProfesional: !estado.esProfesional, ahora: ahora, alTocar: { nav.turno = t }, alDeslizar: nil)
+                }
+            }
+        }
     }
 
     @ViewBuilder private var contenido: some View {
@@ -76,6 +104,7 @@ struct Hoy: View {
         default:
             if delDia.filter(\.ocupa).isEmpty {
                 vacio
+                proximosDias
                 BarraAvance()
                 PlataHoy()
                 AtajosHoy()
@@ -85,6 +114,7 @@ struct Hoy: View {
                 PlataHoy()
                 AtajosHoy()
                 pila
+                proximosDias
                 BarraAvance()
                 DescubrirHoy()
                 TipView(ConsejoWidget()).tipBackground(C.tarjeta).tint(C.mentaTexto)

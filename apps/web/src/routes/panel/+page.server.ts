@@ -3,15 +3,22 @@ import { apiDe } from '#lib/server/api.ts';
 import { intentar } from '#lib/server/acciones.ts';
 import { enc, siExiste, siSePuede } from '#lib/operacion/servidor.ts';
 import type { ParaLlamar, PedidoDias } from '#lib/operacion/contrato.ts';
-import type { Anotado, Resena } from '#lib/operacion/tipos.ts';
+import type { Anotado, Resena, Turno } from '#lib/operacion/tipos.ts';
+import { dia } from '#lib/formato.ts';
+import { sumarDias } from '#lib/operacion/fechas.ts';
 import type { Actions, PageServerLoad } from './$types';
+
+/** Cuántos días para adelante se buscan los próximos turnos (la API acepta hasta 92). */
+const PROXIMOS_DIAS = 60;
 
 type Paso = { clave: string; titulo: string; listo: boolean; obligatorio: boolean };
 
 /**
  * Inicio: los turnos y profesionales de hoy ya vienen del layout («El día»); acá se suma lo que
  * necesita atención (reseñas sin responder, la lista de espera, a quién llamar, pedidos de días
- * libres), los primeros pasos mientras falten y si este navegador ya recibe los avisos.
+ * libres), los primeros pasos mientras falten y si este navegador ya recibe los avisos. También los
+ * próximos turnos de los días que vienen: sin eso, uno reservado para dentro de dos semanas no se veía
+ * en ninguna pantalla de entrada (Turnos y Calendario abren en hoy y esta semana).
  */
 export const load: PageServerLoad = async (event) => {
 	event.depends('panel:turnos', 'panel:espera', 'panel:resenas', 'panel:pagos', 'panel:dias_libres');
@@ -19,14 +26,20 @@ export const load: PageServerLoad = async (event) => {
 	const api = apiDe(event);
 	const gestiona = ['duenio', 'encargado'].includes(negocio.rol);
 	const nada = <T>(p: Promise<T>) => siExiste(p).catch(() => null);
-	const [arranque, resenas, espera, mp, llamar, pedidos, push] = await Promise.all([
+	const manana = sumarDias(dia(), 1);
+	const [arranque, resenas, espera, mp, llamar, pedidos, push, proximos] = await Promise.all([
 		api.get<{ completo: boolean; reservable: boolean; pasos: Paso[] }>('/v1/panel/arranque'),
 		negocio.rol === 'recepcion' ? null : siSePuede(api.get<{ resenas: Resena[] }>('/v1/panel/resenas')).catch(() => null),
 		negocio.rol === 'profesional' ? null : siSePuede(api.get<{ espera: Anotado[] }>('/v1/panel/espera')).catch(() => null),
 		gestiona ? nada(api.get<{ disponible: boolean; conectada: boolean }>('/v1/panel/mercadopago')) : null,
 		nada(api.get<{ turnos: ParaLlamar[] }>('/v1/panel/para-llamar')),
 		gestiona ? nada(api.get<{ pedidos: PedidoDias[] }>('/v1/panel/dias-libres?estado=pendiente')) : null,
-		nada(api.get<{ clave: string; suscripta: boolean }>('/v1/yo/suscripciones-web'))
+		nada(api.get<{ clave: string; suscripta: boolean }>('/v1/yo/suscripciones-web')),
+		nada(
+			api.get<{ turnos: Turno[] }>(
+				`/v1/panel/turnos?${new URLSearchParams({ desde: manana, hasta: sumarDias(manana, PROXIMOS_DIAS - 1), estado: 'pendiente_pago,pendiente,confirmado' })}`
+			)
+		)
 	]);
 	const sinResponder = (resenas?.resenas ?? []).filter((r) => !r.respondidaEn && !r.respuesta);
 	return {
@@ -39,6 +52,7 @@ export const load: PageServerLoad = async (event) => {
 		pedidos: pedidos?.pedidos ?? [],
 		// La tarjeta «Enterate en el momento» sólo si el push web está prendido y este navegador no está.
 		push: push && push.clave && !push.suscripta ? { clave: push.clave } : null,
+		proximos: (proximos?.turnos ?? []).slice(0, 5),
 		gestiona
 	};
 };

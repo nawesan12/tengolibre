@@ -8,7 +8,7 @@
 	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
 	import Icono from '#lib/ui/Icono.svelte';
-	import { hora } from '#lib/formato.ts';
+	import { dia, fecha, hora } from '#lib/formato.ts';
 	import EstadoTurno from '#lib/operacion/EstadoTurno.svelte';
 	import LineaAhora from '#lib/operacion/LineaAhora.svelte';
 	import { estadoVisible } from '#lib/operacion/estados.ts';
@@ -306,10 +306,31 @@
 			<div class="vacio">
 				<Icono nombre="event_available" tam={28} />
 				<b>{vivos.length ? 'Ya no quedan turnos por hoy' : 'Todavía no hay turnos hoy'}</b>
-				<span>{vivos.length ? 'Mirá mañana en Turnos o cargá uno nuevo.' : 'Tu página ya está tomando reservas. Compartí el link o cargá uno vos.'}</span>
-				{#if !vivos.length}<button class="copiar-vacio" onclick={copiarLink}>{copiado ? 'Copiado' : 'Copiar el link'}</button>{/if}
+				{#if data.proximos.length}
+					<span>El próximo es el {fecha(data.proximos[0].inicio)} a las&nbsp;{hora(data.proximos[0].inicio)}.</span>
+				{:else}
+					<span>{vivos.length ? 'Mirá mañana en Turnos o cargá uno nuevo.' : 'Tu página ya está tomando reservas. Compartí el link o cargá uno vos.'}</span>
+					{#if !vivos.length}<button class="copiar-vacio" onclick={copiarLink}>{copiado ? 'Copiado' : 'Copiar el link'}</button>{/if}
+				{/if}
 			</div>
 		{/each}
+		{#if data.proximos.length}
+			<div class="cabeza proximos">
+				<h3 id="t-proximos">Próximos días</h3>
+				<a href={`/panel/turnos?fecha=${dia(data.proximos[0].inicio)}`}>Ir al {fecha(data.proximos[0].inicio)} →</a>
+			</div>
+			<ul class="lista-proximos" aria-labelledby="t-proximos">
+				{#each data.proximos as t (t.id)}
+					<li>
+						<a class="talon-chico" href={`/panel/turnos/${t.id}`}>
+							<span class="stub tl-num"><b>{fecha(t.inicio)}</b><span>{hora(t.inicio)}</span></span>
+							<span class="medio"><b>{t.cliente.nombre}</b><span>{t.servicio}{t.profesional ? ` · ${primerNombre(t.profesional)}` : ''}</span></span>
+							<span class="est"><EstadoTurno estado={estadoVisible(t.estado, t.inicio, t.fin, ahoraMs)} /></span>
+						</a>
+					</li>
+				{/each}
+			</ul>
+		{/if}
 	</section>
 
 	<div class="lado">
@@ -549,6 +570,26 @@
 		font-size: 14px;
 		font-weight: 700;
 		text-decoration: none;
+	}
+	.proximos {
+		margin-top: 18px;
+	}
+	.proximos h3 {
+		margin: 0;
+		font-size: 15px;
+		font-weight: 700;
+	}
+	.lista-proximos {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.lista-proximos .stub b {
+		font-size: 13px;
+		white-space: nowrap;
 	}
 	.talon-chico {
 		display: grid;
