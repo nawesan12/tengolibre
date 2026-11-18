@@ -32,6 +32,7 @@ import ar.com.tengolibre.app.tema.Haptico
 import ar.com.tengolibre.app.widgets.Widgets
 import ar.com.tengolibre.app.tema.TemaTL
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.lang.ref.WeakReference
 
@@ -133,10 +134,17 @@ class MainActivity : ComponentActivity() {
             estado.vueltaClerk(u.getQueryParameter("rotating_token_nonce"), applicationContext)
             return
         }
-        // Un aviso de otro negocio de la persona: se trabaja con ese.
-        i.getStringExtra("negocio")?.let { id -> if (estado.negocio?.id != id) estado.negocios.firstOrNull { it.id == id }?.let { estado.usar(it) } }
-        if (i.getStringExtra("tipo") == "resena") { estado.abrir(Ruta.resenas); return }
-        Ruta.de(u.toString())?.let { estado.abrir(it) }
+        val negocio = i.getStringExtra("negocio")
+        val resena = i.getStringExtra("tipo") == "resena"
+        // Con la app cerrada, el aviso llega antes de que termine de arrancar (sin negocios todavía): se
+        // espera, si no abría el turno con el negocio equivocado (404).
+        lifecycleScope.launch {
+            var vueltas = 0
+            while (vueltas++ < 50 && !(estado.fase == Estado.Fase.adentro && estado.negocios.isNotEmpty())) delay(200)
+            // Un aviso de otro negocio de la persona: se trabaja con ese.
+            negocio?.let { id -> if (estado.negocio?.id != id) estado.negocios.firstOrNull { it.id == id }?.let { estado.usar(it) } }
+            if (resena) estado.abrir(Ruta.resenas) else Ruta.de(u.toString())?.let { estado.abrir(it) }
+        }
     }
 
     private suspend fun pedirPermisoAvisos(): Boolean {

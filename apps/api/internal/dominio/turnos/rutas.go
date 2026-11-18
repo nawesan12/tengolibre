@@ -20,6 +20,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/resenas"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/tope"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/web"
 )
 
@@ -181,6 +182,11 @@ func (s *Servicio) diasPublico(w http.ResponseWriter, r *http.Request) error {
 		return problema.Invalido("Falta el servicio.")
 	}
 	ahora := s.ahora()
+	// Es la consulta pública más cara (hasta 62 días del motor): un tope holgado por IP, para que un
+	// script no cargue la base. Una persona que mira el calendario no llega ni cerca.
+	if !s.limite.Permitir("dias:"+tope.IP(r), 120, time.Minute, ahora) {
+		return tope.Demasiados("demasiados_pedidos", "Esperá un minuto y probá de nuevo.")
+	}
 	out := []Dia{}
 	err = s.Pool.EnNegocio(ctx, id, func(tx pgx.Tx) error {
 		c, err := cargarContexto(ctx, tx)

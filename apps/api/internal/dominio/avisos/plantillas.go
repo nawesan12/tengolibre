@@ -47,7 +47,7 @@ var diseno = template.Must(template.New("mail").Parse(`<!doctype html>
 {{range .Notas}}<tr><td style="font-size:13px;line-height:1.5;color:#6b665e;padding-bottom:8px">{{.}}</td></tr>{{end}}
 </table>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px"><tr><td style="font-size:12px;color:#8a857c;padding:16px 8px;text-align:center">
-Turnos online por TengoLibre{{if .Baja}} · <a href="{{.Baja}}" style="color:#8a857c">Elegir qué mails recibir</a>{{end}}
+Turnos online por Tengo Libre{{if .Baja}} · <a href="{{.Baja}}" style="color:#8a857c">Elegir qué mails recibir</a>{{end}}
 </td></tr></table>
 </td></tr></table></body></html>`))
 
@@ -86,7 +86,7 @@ func (c Carta) Texto() string {
 	for _, n := range c.Notas {
 		b.WriteString(n + "\n\n")
 	}
-	b.WriteString("—\nTurnos online por TengoLibre\n")
+	b.WriteString("—\nTurnos online por Tengo Libre\n")
 	if c.Baja != "" {
 		b.WriteString("Elegir qué mails recibir: " + c.Baja + "\n")
 	}

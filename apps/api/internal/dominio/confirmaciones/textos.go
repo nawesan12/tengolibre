@@ -78,7 +78,7 @@ type datosTurno struct {
 func PlantillaDeConfirmacion(para, token string, d datosTurno) whatsapp.Plantilla {
 	l := d.Inicio.In(d.Zona)
 	return whatsapp.Plantilla{Para: para, Nombre: PlantillaConfirmacion, Idioma: Idioma,
-		Cuerpo: []string{noVacio(primerNombre(d.Cliente), "cliente"), Dia(l), avisos.Hora(l), noVacio(d.Negocio, "TengoLibre"),
+		Cuerpo: []string{noVacio(primerNombre(d.Cliente), "cliente"), Dia(l), avisos.Hora(l), noVacio(d.Negocio, "Tengo Libre"),
 			noVacio(enMinuscula(d.Servicio), "turno"), noVacio(d.Profesional, "el equipo")},
 		Botones: []whatsapp.Boton{{Payload: Confirmo + ":" + token}, {Payload: Cambiar + ":" + token}}}
 }
@@ -87,7 +87,7 @@ func PlantillaDeConfirmacion(para, token string, d datosTurno) whatsapp.Plantill
 func PlantillaDeRecordatorio(para string, d datosTurno) whatsapp.Plantilla {
 	l := d.Inicio.In(d.Zona)
 	return whatsapp.Plantilla{Para: para, Nombre: PlantillaRecordatorio, Idioma: Idioma,
-		Cuerpo: []string{noVacio(primerNombre(d.Cliente), "cliente"), noVacio(d.Negocio, "TengoLibre"),
+		Cuerpo: []string{noVacio(primerNombre(d.Cliente), "cliente"), noVacio(d.Negocio, "Tengo Libre"),
 			noVacio(d.Servicio, "tu turno"), avisos.Fecha(l), avisos.Hora(l)},
 		Botones: []whatsapp.Boton{{Sufijo: d.Codigo}}}
 }

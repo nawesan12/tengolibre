@@ -283,7 +283,7 @@
 	<section class="sigue" aria-labelledby="t-sigue">
 		<div class="cabeza">
 			<h2 id="t-sigue">Lo que sigue</h2>
-			<a href="/panel/turnos">Ver {vivos.length === 1 ? 'el turno' : `los ${vivos.length}`} →</a>
+			{#if vivos.length}<a href="/panel/turnos">Ver {vivos.length === 1 ? 'el turno' : `los ${vivos.length}`} →</a>{/if}
 		</div>
 		<LineaAhora hora={hhmm(ahora)} />
 		{#each sigue as f (f.tipo === 'turno' ? f.t.id : `h${f.h.profesionalId}${f.h.desde}`)}

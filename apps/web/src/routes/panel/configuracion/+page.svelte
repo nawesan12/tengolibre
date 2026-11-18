@@ -79,7 +79,7 @@
 					/>
 					<Ajuste
 						etiqueta="Se puede cancelar hasta"
-						ayuda="Después, sólo escribiéndote"
+						ayuda="Después, sólo por&nbsp;mensaje"
 						nombre="cancelarHastaHoras"
 						valor={a.cancelarHastaHoras}
 						opciones={op([0, 1, 2, 3, 6, 12, 24, 48, 72, 168], (n) => (n === 0 ? 'Hasta el turno' : `${n} h antes`))}

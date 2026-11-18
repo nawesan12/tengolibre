@@ -62,10 +62,48 @@
 	onMount(() => {
 		const parar = escucharPanel();
 		const reloj = setInterval(() => (ahoraMs = Date.now()), 30_000);
+		// El negocio sale de una cookie compartida por las pestañas: cada formulario lleva el de esta
+		// página (el hook lo usa para esa acción) y, si se cambia de negocio en otra pestaña, esta se
+		// recarga. Antes una pestaña vieja guardaba en el negocio que se había elegido en la otra.
+		const conNegocio = (ev: SubmitEvent) => {
+			const f = ev.target;
+			if (!(f instanceof HTMLFormElement) || f.method.toLowerCase() !== 'post') return;
+			let campo = f.querySelector<HTMLInputElement>('input[name="__negocio"]');
+			if (!campo) {
+				campo = document.createElement('input');
+				campo.type = 'hidden';
+				campo.name = '__negocio';
+				f.append(campo);
+			}
+			campo.value = data.negocio.id;
+		};
+		document.addEventListener('submit', conNegocio, true);
+		const clave = 'tl-negocio';
+		try {
+			localStorage.setItem(clave, data.negocio.id);
+		} catch {
+			/* sin almacenamiento: sólo queda lo del formulario */
+		}
+		const otraPestana = (ev: StorageEvent) => {
+			if (ev.key === clave && ev.newValue && ev.newValue !== data.negocio.id) location.reload();
+		};
+		addEventListener('storage', otraPestana);
 		return () => {
 			parar();
 			clearInterval(reloj);
+			document.removeEventListener('submit', conNegocio, true);
+			removeEventListener('storage', otraPestana);
 		};
+	});
+
+	// Si el negocio cambia en esta pestaña (el selector), las otras se enteran.
+	$effect(() => {
+		const id = data.negocio.id;
+		try {
+			localStorage.setItem('tl-negocio', id);
+		} catch {
+			/* nada */
+		}
 	});
 
 	// Al navegar se cierran las capas del teléfono.

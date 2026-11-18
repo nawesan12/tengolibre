@@ -99,7 +99,7 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 func (s *Servicio) sinFlujo(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Allow", "POST")
 	problema.Escribir(w, &problema.Problema{Estado: http.StatusMethodNotAllowed, Codigo: "metodo",
-		Titulo: "Método no permitido", Detalle: "El servidor MCP de TengoLibre responde sólo por POST."})
+		Titulo: "Método no permitido", Detalle: "El servidor MCP de Tengo Libre responde sólo por POST."})
 }
 
 // ---- JSON-RPC

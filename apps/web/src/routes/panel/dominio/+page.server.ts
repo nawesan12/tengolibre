@@ -35,5 +35,5 @@ export const actions: Actions = {
 		return r;
 	},
 	quitar: async (event) =>
-		accion('dominio', 'Sacamos el dominio: tu página sigue en la dirección de TengoLibre.', () => apiDe(event).borrar('/v1/panel/dominio'))
+		accion('dominio', 'Sacamos el dominio: tu página sigue en la dirección de Tengo Libre.', () => apiDe(event).borrar('/v1/panel/dominio'))
 };

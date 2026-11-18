@@ -86,7 +86,7 @@ func Leer() (Config, error) {
 		SMTP:            os.Getenv("TENGOLIBRE_SMTP"),
 		SMTPUsuario:     os.Getenv("TENGOLIBRE_SMTP_USUARIO"),
 		SMTPClave:       os.Getenv("TENGOLIBRE_SMTP_CLAVE"),
-		CorreoDe:        valor("TENGOLIBRE_CORREO_DE", "TengoLibre <hola@tengolibre.com.ar>"),
+		CorreoDe:        valor("TENGOLIBRE_CORREO_DE", "Tengo Libre <hola@tengolibre.com.ar>"),
 		Archivos:        valor("TENGOLIBRE_ARCHIVOS", "/datos/archivos"),
 		ArchivosURL:     strings.TrimSuffix(valor("TENGOLIBRE_ARCHIVOS_URL", "https://api.tengolibre.com.ar/archivos"), "/"),
 		Admins:          lista(os.Getenv("TENGOLIBRE_ADMINS")),

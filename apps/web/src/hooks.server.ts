@@ -18,6 +18,20 @@ export const handle: Handle = async ({ event, resolve }) => {
 			event.locals.negocio = primero.id;
 		}
 	}
+	// Las acciones del panel guardan en el negocio que muestra la página (el campo __negocio que suma
+	// el layout), no en el de la cookie: si se cambió de negocio en otra pestaña, la vieja no escribe en
+	// el nuevo. La API igual verifica que la persona sea del negocio.
+	if (event.request.method === 'POST' && (ruta0 === '/panel' || ruta0.startsWith('/panel/'))) {
+		const tipo = event.request.headers.get('content-type') ?? '';
+		if (tipo.startsWith('application/x-www-form-urlencoded') || tipo.startsWith('multipart/form-data')) {
+			const pagina = await event.request
+				.clone()
+				.formData()
+				.then((f) => String(f.get('__negocio') ?? ''))
+				.catch(() => '');
+			if (/^[0-9a-f-]{36}$/.test(pagina)) event.locals.negocio = pagina;
+		}
+	}
 	const res = await resolve(event);
 	res.headers.set('x-content-type-options', 'nosniff');
 	res.headers.set('referrer-policy', 'strict-origin-when-cross-origin');

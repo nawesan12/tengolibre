@@ -95,7 +95,7 @@ func Normalizar(entrada, propio string) (string, error) {
 			problema.Campo{Ruta: "dominio", Mensaje: "formato inválido"})
 	}
 	if d == propio || strings.HasSuffix(d, "."+propio) {
-		return "", problema.Invalido("Ese dominio no se puede usar.", problema.Campo{Ruta: "dominio", Mensaje: "es de TengoLibre"})
+		return "", problema.Invalido("Ese dominio no se puede usar.", problema.Campo{Ruta: "dominio", Mensaje: "es de Tengo Libre"})
 	}
 	return d, nil
 }

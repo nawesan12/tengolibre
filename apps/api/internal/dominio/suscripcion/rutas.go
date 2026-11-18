@@ -153,7 +153,7 @@ func (s *Servicio) suscribir(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	p, err := s.cliente().CrearPreaprobacion(ctx, s.TokenPlataforma, mercadopago.NuevaPreaprobacion{
-		Motivo: "TengoLibre " + plan.Nombre + " — suscripción mensual", Referencia: ref, Email: email, Monto: plan.Precio,
+		Motivo: "Tengo Libre " + plan.Nombre + " — suscripción mensual", Referencia: ref, Email: email, Monto: plan.Precio,
 		DiasGratis: diasGratis, Vuelta: s.Sitio + "/panel/suscripcion?resultado=vuelta",
 	})
 	if err != nil {
@@ -375,9 +375,16 @@ func (s *Servicio) ConciliarCobro(ctx context.Context, id string) error {
 		}
 		switch c.Payment.Status {
 		case "approved":
-			if _, err := tx.Exec(ctx, `UPDATE suscripciones SET estado = 'autorizada', ultimo_cobro = $2, proximo_cobro = coalesce($3, proximo_cobro),
-				gracia_hasta = NULL, actualizado_en = now() WHERE id = $1`, subID, ahora, p.NextPaymentDate); err != nil {
+			// Una cancelada o vencida no revive con un cobro suyo que llegó tarde (por ejemplo, la vieja
+			// después de cambiar de plan, si su baja en Mercado Pago falló): pisaba el plan nuevo.
+			tag, err := tx.Exec(ctx, `UPDATE suscripciones SET estado = 'autorizada', ultimo_cobro = $2, proximo_cobro = coalesce($3, proximo_cobro),
+				gracia_hasta = NULL, actualizado_en = now() WHERE id = $1 AND estado IN ('pendiente', 'autorizada', 'pausada')`, subID, ahora, p.NextPaymentDate)
+			if err != nil {
 				return err
+			}
+			if tag.RowsAffected() == 0 {
+				s.log().Error("suscripcion: cobro aprobado de una suscripción cancelada o vencida; revisar y devolver", "negocio", negocio, "cobro", id)
+				return nil
 			}
 			_, err = tx.Exec(ctx, "UPDATE negocios SET plan = $1 WHERE id = app.negocio_actual()", plan)
 			return err

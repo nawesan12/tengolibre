@@ -99,24 +99,32 @@ final class Delegado: NSObject, UIApplicationDelegate, UNUserNotificationCenterD
     /// tocan datos (confirmar, avisar a la lista, responder) piden desbloquear el iPhone.
     static let categorias: Set<UNNotificationCategory> = [
         UNNotificationCategory(identifier: "TL_RESERVA", actions: [
-            UNNotificationAction(identifier: "CONFIRMAR", title: "Confirmar", options: [.authenticationRequired], icon: UNNotificationActionIcon(systemImageName: "checkmark.circle")),
+            UNNotificationAction(identifier: "CONFIRMAR", title: "Confirmar", options: [.authenticationRequired, .foreground], icon: UNNotificationActionIcon(systemImageName: "checkmark.circle")),
             UNNotificationAction(identifier: "VER", title: "Ver turno", options: [.foreground], icon: UNNotificationActionIcon(systemImageName: "calendar"))
         ], intentIdentifiers: []),
         UNNotificationCategory(identifier: "TL_CANCELO", actions: [
-            UNNotificationAction(identifier: "AVISAR", title: "Avisar a la lista", options: [.authenticationRequired], icon: UNNotificationActionIcon(systemImageName: "megaphone")),
+            UNNotificationAction(identifier: "AVISAR", title: "Avisar a la lista", options: [.authenticationRequired, .foreground], icon: UNNotificationActionIcon(systemImageName: "megaphone")),
             UNNotificationAction(identifier: "CARGAR", title: "Cargar un turno", options: [.foreground], icon: UNNotificationActionIcon(systemImageName: "plus"))
         ], intentIdentifiers: []),
         UNNotificationCategory(identifier: "TL_HUECO", actions: [
-            UNNotificationAction(identifier: "AVISAR", title: "Avisar a la lista", options: [.authenticationRequired], icon: UNNotificationActionIcon(systemImageName: "megaphone"))
+            UNNotificationAction(identifier: "AVISAR", title: "Avisar a la lista", options: [.authenticationRequired, .foreground], icon: UNNotificationActionIcon(systemImageName: "megaphone"))
         ], intentIdentifiers: []),
         UNNotificationCategory(identifier: "TL_RESENA", actions: [
-            UNTextInputNotificationAction(identifier: "RESPONDER", title: "Responder", options: [.authenticationRequired], icon: UNNotificationActionIcon(systemImageName: "arrowshape.turn.up.left"),
+            UNTextInputNotificationAction(identifier: "RESPONDER", title: "Responder", options: [.authenticationRequired, .foreground], icon: UNNotificationActionIcon(systemImageName: "arrowshape.turn.up.left"),
                                           textInputButtonTitle: "Mandar", textInputPlaceholder: "Gracias por…")
         ], intentIdentifiers: [])
     ]
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Task { @MainActor in await estado?.registrarTokenPush(deviceToken) }
+    }
+
+    @MainActor private func esperarListo() async -> Estado? {
+        for _ in 0..<50 {
+            if let e = estado, e.fase == .adentro, !e.negocios.isEmpty { return e }
+            try? await Task.sleep(for: .milliseconds(200))
+        }
+        return estado
     }
 
     // Con la app abierta: el aviso arriba y la campanita al día.
@@ -133,7 +141,10 @@ final class Delegado: NSObject, UIApplicationDelegate, UNUserNotificationCenterD
         let ruta = info["ruta"] as? String ?? ""
         let negocio = info["negocio"] as? String
         let turnoId = ruta.hasPrefix("turnos/") ? String(ruta.dropFirst(7)) : nil
-        guard let estado = await MainActor.run(body: { self.estado }) else { return }
+        // Con la app cerrada, el aviso la abre (.foreground) y la acción espera a que termine de
+        // arrancar (sesión y negocios): antes `estado` era nil o sin negocios y la acción se perdía, o
+        // salía con el negocio equivocado.
+        guard let estado = await esperarListo() else { return }
         await MainActor.run {
             // El aviso es de otro negocio de la persona: se trabaja con ese.
             if let negocio, estado.negocio?.id != negocio, let n = estado.negocios.first(where: { $0.id == negocio }) { estado.usar(n) }

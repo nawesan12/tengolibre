@@ -347,6 +347,12 @@ func TestSuscripcionDesdeElIPhone(t *testing.T) {
 	if s := leer(e); s.Bloqueado || s.Suscripcion.ProximoCobro == nil || !s.Suscripcion.ProximoCobro.After(vence) {
 		t.Fatalf("renovada: %+v", s)
 	}
+	// Un aviso viejo que la App Store reintenta después de la renovación (con la transacción de antes) no
+	// la pausa ni la pisa.
+	webhook(e.Apple.Notificacion("DID_FAIL_TO_RENEW", "", compra, ""))
+	if s := leer(e); s.Bloqueado || s.Suscripcion.Estado != "autorizada" || !s.Suscripcion.ProximoCobro.After(vence) {
+		t.Fatalf("un aviso viejo no tendría que pisar la renovación: %+v", s.Suscripcion)
+	}
 	// Una notificación firmada por otro no hace nada (400).
 	e.Esperar(400, P{Metodo: "POST", Ruta: "/v1/webhooks/appstore", Cuerpo: map[string]string{"signedPayload": "a.b.c"}}, nil)
 	// Venció: el panel vuelve a sólo lectura.

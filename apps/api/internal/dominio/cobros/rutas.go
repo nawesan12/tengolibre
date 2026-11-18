@@ -278,9 +278,15 @@ func (s *Servicio) devolver(w http.ResponseWriter, r *http.Request) error {
 	cancelado := false
 	var t Pago
 	err = s.Pool.EnNegocio(context.WithoutCancel(ctx), negocio, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `UPDATE pagos SET devuelto = least(monto, devuelto + $2), estado = CASE WHEN $3 THEN 'devuelto' ELSE estado END,
-			actualizado_en = now() WHERE id = $1`, r.PathValue("id"), in.Monto, total); err != nil {
+		// Sólo si nadie lo cambió desde que se leyó: un doble clic manda dos pedidos con la misma clave de
+		// idempotencia (Mercado Pago devuelve una vez) y el segundo no tiene que sumar otra vez.
+		tag, err := tx.Exec(ctx, `UPDATE pagos SET devuelto = least(monto, devuelto + $2), estado = CASE WHEN $3 THEN 'devuelto' ELSE estado END,
+			actualizado_en = now() WHERE id = $1 AND devuelto = $4`, r.PathValue("id"), in.Monto, total, devuelto)
+		if err != nil {
 			return err
+		}
+		if tag.RowsAffected() == 0 {
+			total = false // ya lo aplicó el otro pedido (y canceló el turno si correspondía)
 		}
 		if total {
 			tag, err := tx.Exec(ctx, `UPDATE turnos SET estado = 'cancelado', vence_en = NULL, actualizado_en = now()

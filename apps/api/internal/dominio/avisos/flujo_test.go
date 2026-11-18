@@ -518,7 +518,7 @@ func TestInvitaciones(t *testing.T) {
 	e.panel(201, "POST", "/v1/panel/invitaciones", map[string]string{"email": mailNueva, "rol": "recepcion"}, &inv)
 	e.enviar()
 	m := e.ultimo(mailNueva)
-	if m.Asunto != "Te invitaron a El Corte — TengoLibre" || !strings.Contains(m.Texto, "con el rol de recepción") {
+	if m.Asunto != "Te invitaron a El Corte — Tengo Libre" || !strings.Contains(m.Texto, "con el rol de recepción") {
 		t.Fatalf("invitación: %s\n%s", m.Asunto, m.Texto)
 	}
 	token := link(t, m.Texto, "/invitacion/")

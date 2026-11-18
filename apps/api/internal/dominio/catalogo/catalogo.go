@@ -339,8 +339,8 @@ func (s *Servicio) crearServicio(w http.ResponseWriter, r *http.Request) error {
 func (s *Servicio) editarServicio(w http.ResponseWriter, r *http.Request) error {
 	var p Prestacion
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
-		var err error
-		if p, err = LeerServicio(ctx, tx, r.PathValue("id")); err != nil {
+		// FOR UPDATE: dos ediciones a la vez (sumar y sacar fotos) no se pisan la lista.
+		if err := escanearServicio(tx.QueryRow(ctx, "SELECT "+columnasServicio+" FROM servicios WHERE id = $1 FOR UPDATE", r.PathValue("id")), &p); err != nil {
 			return err
 		}
 		id, antes := p.ID, p.Precio

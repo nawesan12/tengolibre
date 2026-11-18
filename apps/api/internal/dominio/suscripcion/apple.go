@@ -168,7 +168,17 @@ func conciliarApple(ctx context.Context, tx pgx.Tx, negocio string, t appstore.T
 		evento += " (próximo: " + ren.AutoRenewProductID + ")"
 	}
 	var id string
-	err := tx.QueryRow(ctx, "SELECT id::text FROM suscripciones WHERE apple_original = $1 FOR UPDATE", t.OriginalTransactionID).Scan(&id)
+	var guardadoVence *time.Time
+	err := tx.QueryRow(ctx, "SELECT id::text, proximo_cobro FROM suscripciones WHERE apple_original = $1 FOR UPDATE", t.OriginalTransactionID).Scan(&id, &guardadoVence)
+	// Las notificaciones pueden llegar desordenadas (la App Store reintenta): una con una transacción
+	// que vence antes de lo que ya sabemos es vieja y no pisa (un DID_FAIL_TO_RENEW reintentado después
+	// de un DID_RENEW pausaba una suscripción vigente). Lo que termina la suscripción (vencida,
+	// reembolsada, revocada) y lo que viene de la app ("") sí valen siempre.
+	final := t.RevocationDate != 0 || evento == "" || strings.HasPrefix(evento, "REFUND") || strings.HasPrefix(evento, "REVOKE") ||
+		strings.HasPrefix(evento, "EXPIRED") || strings.HasPrefix(evento, "GRACE_PERIOD_EXPIRED")
+	if err == nil && !final && guardadoVence != nil && !vence.IsZero() && vence.Before(*guardadoVence) {
+		return nil
+	}
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		if estado == "cancelada" {

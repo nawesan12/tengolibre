@@ -430,7 +430,7 @@ func (e *Enviador) armarInvitacion(ctx context.Context, tx pgx.Tx, f fila, n neg
 		quien = "Alguien de " + n.Nombre
 	}
 	link := LinkInvitacion(e.Sitio, token)
-	c := Carta{Encabezado: "TengoLibre", Asunto: "Te invitaron a " + n.Nombre + " — TengoLibre",
+	c := Carta{Encabezado: "Tengo Libre", Asunto: "Te invitaron a " + n.Nombre + " — Tengo Libre",
 		Titulo: "Te sumaron al equipo de " + n.Nombre,
 		Parrafos: []string{quien + " te invitó a manejar la agenda con ellos, con el rol de " + nombresRol[rol] + ". " +
 			"Aceptá la invitación: si todavía no tenés cuenta, la creás en el mismo paso."},

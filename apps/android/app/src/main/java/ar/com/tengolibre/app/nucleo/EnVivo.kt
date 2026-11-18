@@ -33,12 +33,14 @@ class EnVivo(private val alcance: CoroutineScope = CoroutineScope(SupervisorJob(
         tarea = alcance.launch {
             var espera = 1L
             while (isActive) {
+                var sinSesion = false
                 val (pedido, http) = estado.api.flujo("/v1/panel/eventos")
                 runCatching {
                     withContext(Dispatchers.IO) {
                         // Al parar (o cambiar de negocio) se corta la conexión en vez de esperar la próxima línea.
                         val llamada = http.newCall(pedido).also { this@EnVivo.llamada = it }
                         llamada.execute().use { r ->
+                            if (r.code == 401) { sinSesion = true; return@use }
                             if (r.code != 200) error("estado ${r.code}")
                             withContext(Dispatchers.Main) { espera = 1; estado.sinConexion = false }
                             val fuente = r.body!!.source()
@@ -56,6 +58,8 @@ class EnVivo(private val alcance: CoroutineScope = CoroutineScope(SupervisorJob(
                     }
                 }
                 if (!isActive) return@launch
+                // Sesión vencida: se cierra como con cualquier otro 401 (antes reintentaba para siempre).
+                if (sinSesion && estado.api.token != null) { estado.api.alPerderSesion?.invoke(); return@launch }
                 // Se cortó: vuelve a los 1, 2, 4… hasta 30 s.
                 delay(espera * 1000)
                 espera = minOf(30, espera * 2)

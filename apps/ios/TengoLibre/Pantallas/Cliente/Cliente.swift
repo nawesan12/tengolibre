@@ -116,10 +116,11 @@ struct PrincipalCliente: View {
     }
 
     private func cargar() async {
+        // De a uno: las tareas hijas leían `estado` (un @Environment del main actor) desde afuera, el
+        // mismo tipo de concurrencia que ya cerró la app en Release. Son pocos turnos.
         var out: [TurnoCli] = []
-        await withTaskGroup(of: TurnoCli?.self) { g in
-            for c in MisTurnos.codigos { g.addTask { try? await estado.api.get("/v1/t/\(c)") } }
-            for await t in g { if let t { out.append(t) } }
+        for c in MisTurnos.codigos {
+            if let t: TurnoCli = try? await estado.api.get("/v1/t/\(c)") { out.append(t) }
         }
         turnos = out.sorted { $0.inicio < $1.inicio }
         cargando = false

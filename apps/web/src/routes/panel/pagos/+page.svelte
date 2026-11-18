@@ -100,7 +100,7 @@
 	{#if !c.disponible}
 		<p class="g-aviso ambar">
 			<span class="icono" aria-hidden="true">info</span>
-			<span>Los cobros con Mercado Pago todavía no están habilitados en TengoLibre. Mientras tanto, los turnos se reservan sin cobro por&nbsp;adelantado.</span>
+			<span>Los cobros con Mercado Pago todavía no están habilitados en Tengo Libre. Mientras tanto, los turnos se reservan sin cobro por&nbsp;adelantado.</span>
 		</p>
 	{:else if c.conectada}
 		{#if c.reautorizar}

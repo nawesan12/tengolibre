@@ -289,3 +289,22 @@ test('un turno reservado para otro día se ve en el Inicio, en «Próximos días
 	await expect(page).toHaveURL(new RegExp(`/panel/turnos\\?fecha=${t.fecha}`));
 	await expect(page.getByText('Lucía Próxima').first()).toBeVisible();
 });
+
+test('dos pestañas: cambiar de negocio en una recarga la otra (no guarda en el negocio equivocado)', async ({ page, context }) => {
+	const a = await negocioConAgenda();
+	const u = unico();
+	const api = `http://127.0.0.1:${process.env.E2E_API_PUERTO ?? '4290'}`;
+	const res = await fetch(`${api}/v1/negocios`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json', authorization: `Bearer ${a.tk}` },
+		body: JSON.stringify({ slug: `segundo-${u}`, nombre: `Segundo ${u}` })
+	});
+	const otro = (await res.json()) as { id: string };
+	await entrar(page, a.duenia, `/panel/negocio?ir=${a.negocio}`);
+	await expect(page.locator('[data-negocio-actual]:visible')).toHaveText(a.nombre);
+	const segunda = await context.newPage();
+	await segunda.goto(`/panel/negocio?ir=${otro.id}`);
+	await expect(segunda.locator('[data-negocio-actual]:visible')).toHaveText(`Segundo ${u}`);
+	// La primera se entera por el almacenamiento compartido y se recarga con el negocio nuevo.
+	await expect(page.locator('[data-negocio-actual]:visible')).toHaveText(`Segundo ${u}`);
+});

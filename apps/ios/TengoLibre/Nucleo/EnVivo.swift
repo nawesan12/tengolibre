@@ -26,6 +26,11 @@ final class EnVivo {
                 let (pedido, http) = estado.api.flujo("/v1/panel/eventos")
                 do {
                     let (bytes, resp) = try await http.bytes(for: pedido)
+                    // Sesión vencida: se cierra como con cualquier otro 401 (antes reintentaba para siempre).
+                    if (resp as? HTTPURLResponse)?.statusCode == 401, estado.api.token != nil, let perder = estado.api.alPerderSesion {
+                        await perder()
+                        return
+                    }
                     guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
                     espera = 1
                     estado.sinConexion = false

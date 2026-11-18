@@ -71,7 +71,7 @@ func (s *Servicio) alta(ctx context.Context, plan Plan, diasGratis int, reemplaz
 		return "", err
 	}
 	p, err := s.cliente().CrearPreaprobacion(ctx, s.TokenPlataforma, mercadopago.NuevaPreaprobacion{
-		Motivo: "TengoLibre " + plan.Nombre + " — suscripción mensual", Referencia: ref, Email: email, Monto: plan.Precio,
+		Motivo: "Tengo Libre " + plan.Nombre + " — suscripción mensual", Referencia: ref, Email: email, Monto: plan.Precio,
 		DiasGratis: diasGratis, Vuelta: s.Sitio + "/panel/suscripcion?resultado=vuelta",
 	})
 	if err != nil {
