@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import { apiPublica, ErrorApi } from '#lib/server/api.ts';
 import type { Cobro, Dia, Horario, Pagina } from './tipos.ts';
 
@@ -23,9 +23,23 @@ export async function opcional<T>(p: Promise<T>, si: T): Promise<T> {
 
 const slugValido = (s: string) => /^[a-z0-9]([a-z0-9-]{0,46}[a-z0-9])?$/.test(s);
 
-export async function pagina(f: typeof fetch, slug: string) {
+export async function pagina(f: typeof fetch, slug: string, url?: URL) {
 	if (!slugValido(slug)) error(404, 'No encontramos ese negocio.');
-	return o404(apiPublica(f).get<Pagina>(`/v1/p/${slug}`), 'No encontramos ese negocio.');
+	const p = await o404(apiPublica(f).get<Pagina>(`/v1/p/${slug}`), 'No encontramos ese negocio.');
+	if (url) canonica(url, slug, p.negocio.slug);
+	return p;
+}
+
+/**
+ * Un link viejo (el negocio cambió su dirección): la API lo sigue resolviendo y acá se manda al nuevo
+ * con un 301, con la misma ruta y la query. Así los QR y carteles impresos siguen andando. En un
+ * dominio propio la ruta no lleva el slug, y no hay nada que corregir.
+ */
+export function canonica(url: URL, pedido: string, actual: string) {
+	if (pedido === actual) return;
+	const pre = `/${pedido}`;
+	if (url.pathname !== pre && !url.pathname.startsWith(`${pre}/`)) return;
+	redirect(301, `/${actual}${url.pathname.slice(pre.length)}${url.search}`);
 }
 
 export const cobro = (f: typeof fetch, slug: string) => opcional(apiPublica(f).get<Cobro>(`/v1/p/${slug}/cobro`), null);

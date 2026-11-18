@@ -15,6 +15,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/tope"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/web"
 )
 
@@ -22,6 +23,7 @@ import (
 type Servicio struct {
 	Pool   *db.Pool
 	Sesion *sesion.Servicio
+	limite tope.Contador
 }
 
 // Negocio son los datos del negocio que ve el panel y, salvo el id, la página pública.
@@ -73,6 +75,7 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/panel/equipo", ses.Panel(sesion.Gestion, web.Envolver(s.equipo)))
 	mux.HandleFunc("POST /v1/panel/equipo", ses.Panel([]string{sesion.Duenio}, web.Envolver(s.sumar)))
 	mux.HandleFunc("PATCH /v1/panel/equipo/{id}", ses.Panel([]string{sesion.Duenio}, web.Envolver(s.cambiarMiembro)))
+	s.rutasLink(mux)
 }
 
 func (s *Servicio) yo(w http.ResponseWriter, r *http.Request) error {
@@ -188,11 +191,12 @@ func (s *Servicio) crear(w http.ResponseWriter, r *http.Request) error {
 	persona := strings.TrimSpace(u.Nombre + " " + u.Apellido)
 	var n Negocio
 	err = s.Pool.EnTx(ctx, func(tx pgx.Tx) error {
-		var ocupado bool
-		if err := tx.QueryRow(ctx, "SELECT app.negocio_publico($1) IS NOT NULL", in.Slug).Scan(&ocupado); err != nil {
+		// Tomada también si es el link anterior de otro negocio (retenido 90 días: sus QR siguen andando).
+		e, err := estadoDe(ctx, tx, in.Slug, nil)
+		if err != nil {
 			return err
 		}
-		if ocupado {
+		if e != "libre" {
 			return problema.Conflicto("slug_ocupado", "Esa dirección ya la usa otro negocio.")
 		}
 		if err := tx.QueryRow(ctx, "SELECT app.crear_negocio($1, $2, $3, $4, $5)", in.Slug, in.Nombre, clerkID, u.Email, persona).Scan(&n.ID); err != nil {

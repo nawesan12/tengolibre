@@ -18,7 +18,7 @@ export const load: PageServerLoad = async ({ params, fetch, url, setHeaders }) =
 			'x-frame-options': 'SAMEORIGIN',
 			'content-security-policy': "frame-ancestors 'self'"
 		});
-	const p = await pagina(fetch, params.slug);
+	const p = await pagina(fetch, params.slug, url);
 	// El primer lugar libre (barra del teléfono y cabecera de la reserva): el del primer servicio.
 	const primero = p.servicios.find((s) => s.activo !== false);
 	const [resenas, planes, c, lugar, delHost] = await Promise.all([

@@ -14,7 +14,7 @@ export const load: PageServerLoad = async (event) => {
 	const { params, url, fetch, locals } = event;
 	const api = apiPublica(fetch);
 	const slug = params.slug;
-	const p = await pagina(fetch, slug);
+	const p = await pagina(fetch, slug, url);
 	const q = url.searchParams;
 
 	const servicio = p.servicios.find((s) => s.id === q.get('servicio')) ?? null;

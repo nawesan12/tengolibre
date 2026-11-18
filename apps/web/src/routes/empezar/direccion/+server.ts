@@ -1,11 +1,11 @@
 import { json } from '@sveltejs/kit';
-import { apiPublica, ErrorApi } from '#lib/server/api.ts';
+import { apiPublica } from '#lib/server/api.ts';
 import { alternativas, formatoValido, RESERVADOS, type Disponibilidad } from '#lib/alta/slug.ts';
 import type { RequestHandler } from './$types';
 
 /**
- * ¿Está libre esta dirección? La API no tiene un chequeo propio: la página pública de un slug que no
- * existe da 404 (la misma función, app.negocio_publico, que usa el alta para decir «ocupado»).
+ * ¿Está libre esta dirección? Le pregunta a la API (/v1/slugs/{slug}), que también da por tomada la
+ * dirección anterior de otro negocio (sus QR impresos siguen andando 90 días como mínimo).
  * Si está tomada, devuelve alternativas que sí están libres.
  */
 // El alta pregunta sin sesión (se elige la dirección antes de entrar con Google o Apple), así que no
@@ -18,14 +18,8 @@ async function libre(f: typeof fetch, slug: string): Promise<boolean> {
 	if (!formatoValido(slug) || RESERVADOS.has(slug)) return false;
 	const ya = vistos.get(slug);
 	if (ya && ya.vence > Date.now()) return ya.libre;
-	let es: boolean;
-	try {
-		await apiPublica(f).get(`/v1/p/${slug}/web`);
-		es = false;
-	} catch (e) {
-		if (!(e instanceof ErrorApi && e.estado === 404)) throw e;
-		es = true;
-	}
+	const { estado } = await apiPublica(f).get<{ estado: string }>(`/v1/slugs/${slug}`);
+	const es = estado === 'libre';
 	if (vistos.size > 2000) vistos.clear();
 	vistos.set(slug, { libre: es, vence: Date.now() + TTL });
 	return es;
