@@ -91,7 +91,10 @@ test('onboarding: los ocho pasos crean un negocio que se puede reservar', async 
 
 	// 8. ¡Listo!
 	await expect(page.getByRole('heading', { name: new RegExp(`Barbería ${u} ya toma`) })).toBeVisible();
-	await expect(page.getByRole('img', { name: 'Código QR de tu página' })).toBeVisible();
+	// El link primero: Copiar, WhatsApp, Instagram y el QR.
+	await expect(page.locator('[data-link]')).toHaveText(new RegExp(`/barberia-${u}$`));
+	await page.getByRole('button', { name: 'QR', exact: true }).click();
+	await expect(page.getByRole('img', { name: 'Código QR de tu página' }).last()).toBeVisible();
 	await expect(page.getByText('Plantilla Vidriera')).toBeVisible();
 	await expect(page.getByText('Sin seña')).toBeVisible();
 

@@ -222,8 +222,20 @@
 		.url input {
 			font-size: 19px;
 		}
-		.pre {
-			font-size: 16px;
+		/* En el teléfono el host va arriba, chico, y el link entero abajo: no se corta. */
+		.url.editable {
+			flex-wrap: wrap;
+			padding: 8px 12px 4px;
+		}
+		.url.editable .pre {
+			flex-basis: 100%;
+			font-size: 13px;
+			letter-spacing: 0;
+		}
+		.url input {
+			height: 44px;
+			/* Con ancho 0 de base entraría en el renglón del host: que arranque abajo. */
+			min-width: 70%;
 		}
 	}
 	.alts {

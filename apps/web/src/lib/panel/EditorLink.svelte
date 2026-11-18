@@ -162,6 +162,17 @@
 		color: #17805a;
 		font-weight: 900;
 	}
+	/* En el teléfono el host va arriba y chico, como en TuLink: el slug entero y sin cortes raros. */
+	@media (max-width: 899px) {
+		.previa .host {
+			display: block;
+			font-size: 15px;
+			letter-spacing: 0;
+		}
+		.pre {
+			font-size: 14px;
+		}
+	}
 	.caja {
 		--borde: #ddd1b9;
 		display: flex;

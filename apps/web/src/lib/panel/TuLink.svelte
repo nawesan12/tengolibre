@@ -66,7 +66,7 @@
 <div class="link" class:compacto>
 	<div class="link-c">
 		<span class="tl-rotulo rot"><Icono nombre="link" tam={16} />{titulo}</span>
-		<b class="link-url" data-link>{host}/<span>{slug}</span></b>
+		<b class="link-url" data-link><span class="host">{host}/</span><span class="slug">{slug}</span></b>
 		{#if !compacto && bajada}<span class="bajada">{@html bajada}</span>{/if}
 		<div class="acciones">
 			<button type="button" class="acc principal" class:copiado onclick={copiar}>
@@ -103,8 +103,8 @@
 		{/if}
 	</div>
 	{#if !compacto}
-		<div class="link-qr" aria-hidden="true">
-			<span class="qr"><Qr texto={link} etiqueta="" /></span>
+		<div class="link-qr">
+			<span class="qr"><Qr texto={link} etiqueta="Código QR de tu página" /></span>
 			<span class="tl-rotulo">Escaneá y reservá</span>
 		</div>
 	{/if}
@@ -130,6 +130,7 @@
 		min-width: 0;
 	}
 	.rot {
+		align-self: flex-start;
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
@@ -142,7 +143,7 @@
 		letter-spacing: -0.03em;
 		overflow-wrap: anywhere;
 	}
-	.link-url span {
+	.link-url .slug {
 		color: #17805a;
 	}
 	.bajada {
@@ -335,14 +336,24 @@
 		.link-c {
 			padding: 18px 16px;
 		}
+		/* En el teléfono el host va arriba y chico: el slug entero, grande y sin cortes raros. */
 		.link-url {
 			font-size: 26px;
+		}
+		.link-url .host {
+			display: block;
+			font-size: 15px;
+			font-weight: 700;
+			letter-spacing: 0;
+			color: var(--tl-sub);
 		}
 		.acc {
 			font-size: 13px;
 		}
 		.compacto .link-c {
 			display: flex;
+			align-items: stretch;
+			gap: 12px;
 		}
 		.compacto .link-url {
 			font-size: 20px;

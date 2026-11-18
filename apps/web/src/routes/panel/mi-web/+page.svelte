@@ -84,9 +84,9 @@
 			</span>
 		</div>
 
-		<section class="g-bloque link" id="tu-link" aria-labelledby="t-link">
-			<h2 class="g-bloque-titulo" id="t-link">Tu link</h2>
-			<TuLink nombre={n.nombre} slug={n.slug} origen={page.url.origin} titulo="Así te encuentran" compacto ver alCambiar={() => (cambiando = !cambiando)} />
+		<!-- Lo primero de Mi web: el link, sin otra tarjeta alrededor (en el teléfono no entra). -->
+		<section class="tu-link" id="tu-link" aria-label="Tu link">
+			<TuLink nombre={n.nombre} slug={n.slug} origen={page.url.origin} compacto ver alCambiar={() => (cambiando = !cambiando)} />
 			{#if cambiando}
 				<div class="cambiar-link" id="cambiar-link"><EditorLink slug={n.slug} host={page.url.host} /></div>
 			{/if}
@@ -282,10 +282,15 @@
 </div>
 
 <style>
+	.tu-link {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
 	.cambiar-link {
 		padding: 16px;
-		border-radius: 18px;
-		background: #f8f2e6;
+		border-radius: 24px;
+		background: var(--tl-papel);
 	}
 	.mi-web {
 		display: grid;
