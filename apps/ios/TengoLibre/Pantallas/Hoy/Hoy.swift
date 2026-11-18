@@ -51,7 +51,11 @@ struct Hoy: View {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(30))
                 ahora = Date()
-                if Int(ahora.timeIntervalSince1970) % 120 < 30 { await datos.cargar(estado, desde: hoy, hasta: hoy) }
+                if Int(ahora.timeIntervalSince1970) % 120 < 30 {
+                    await datos.cargar(estado, desde: hoy, hasta: hoy)
+                    // Pasada la medianoche, los de «mañana» ya son de hoy.
+                    if let p = proximos.first, Formato.calendario.isDate(p.inicio, inSameDayAs: hoy) { await cargarProximos() }
+                }
             }
         }
         .sheet(item: $ofrecer) { h in
@@ -64,7 +68,8 @@ struct Hoy: View {
     private func cargar() async {
         await datos.cargar(estado, desde: hoy, hasta: hoy)
         await cargarProximos()
-        ActividadTurno.sincronizar(delDia, estado: estado)
+        // Sólo con el día bien traído: sin conexión y sin caché delDia viene vacío y apagaba la Live Activity en curso.
+        if case .listo = datos.carga { ActividadTurno.sincronizar(delDia, estado: estado) }
         await estado.vivo.cargar(estado)
     }
 
@@ -72,11 +77,19 @@ struct Hoy: View {
 
     /// De mañana a 60 días, sólo los que siguen en pie; los primeros cinco.
     private func cargarProximos() async {
-        let cal = Calendar.current
+        let cal = Formato.calendario
         guard let manana = cal.date(byAdding: .day, value: 1, to: hoy), let hasta = cal.date(byAdding: .day, value: 59, to: manana) else { return }
         let q = [URLQueryItem(name: "desde", value: Formato.diaISO(manana)), URLQueryItem(name: "hasta", value: Formato.diaISO(hasta)),
-                 URLQueryItem(name: "estado", value: "pendiente_pago,pendiente,confirmado")]
-        if let t: Turnos = try? await estado.api.get("/v1/panel/turnos", query: q) { proximos = Array(t.turnos.prefix(5)) }
+                 URLQueryItem(name: "estado", value: "pendiente_pago,pendiente,confirmado"), URLQueryItem(name: "limite", value: "5")]
+        do {
+            let t: Turnos = try await estado.api.get("/v1/panel/turnos", query: q)
+            proximos = t.turnos
+        } catch is CancellationError {
+            // La reemplazó otra carga: quedan los que había.
+        } catch {
+            // Si falla, vacío: no quedan los de otro negocio (al cambiar de negocio sin conexión).
+            proximos = []
+        }
     }
 
     @ViewBuilder private var proximosDias: some View {

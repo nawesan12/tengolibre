@@ -455,3 +455,31 @@ func TestAislamientoYPermisos(t *testing.T) {
 	}
 	m.como(recep, 403, "POST", "/v1/panel/ausencias/marcar", nil, nil)
 }
+
+// La ficha de un cliente le muestra a un profesional sólo los turnos de su agenda: cada uno trae el
+// código del link, y con el de otro podía cancelarlo o moverlo por /v1/t/{codigo}.
+func TestFichaDelProfesionalSoloSuAgenda(t *testing.T) {
+	m := armar(t)
+	var eq struct {
+		Miembros []negocios.Miembro `json:"miembros"`
+	}
+	m.panel(200, "GET", "/v1/panel/equipo", nil, &eq)
+	for _, x := range eq.Miembros {
+		if x.Rol == "profesional" {
+			m.panel(200, "PATCH", "/v1/panel/profesionales/"+m.ana, map[string]any{"miembroId": x.ID}, nil)
+		}
+	}
+	deAna := m.reservar(201, m.ana, "2026-11-02 09:00", "Juana Pérez", "1111111111")
+	m.reservar(201, m.beto, "2026-11-02 10:00", "Juana Pérez", "1111111111")
+	var cliente string
+	m.Fila("SELECT cliente_id::text FROM turnos WHERE id = $1", []any{deAna.ID}, &cliente)
+	var f clientes.Ficha
+	m.panel(200, "GET", "/v1/panel/clientes/"+cliente, nil, &f)
+	if len(f.Turnos) != 2 {
+		t.Fatalf("la dueña ve todos: %d", len(f.Turnos))
+	}
+	m.como(profe, 200, "GET", "/v1/panel/clientes/"+cliente, nil, &f)
+	if len(f.Turnos) != 1 || f.Turnos[0].ID != deAna.ID {
+		t.Fatalf("el profesional ve sólo los de su agenda: %+v", f.Turnos)
+	}
+}

@@ -115,9 +115,9 @@ func TestQueTurnosOcupan(t *testing.T) {
 	}
 	c.Profesional.Turnos = []Ocupado{
 		t0("09:00", "cancelado", nil), t0("09:30", "pendiente_pago", &vencio), t0("10:00", "pendiente_pago", &vigente),
-		t0("10:30", "pendiente", nil), t0("11:00", "ausente", nil),
+		t0("10:30", "pendiente", nil), t0("11:00", "ausente", nil), t0("11:30", "atendido", nil),
 	}
-	igual(t, libres(Dia(c)), "09:00", "09:30", "11:00", "11:30")
+	igual(t, libres(Dia(c)), "09:00", "09:30", "11:00")
 }
 
 func TestHorarioCortadoYOtroIntervalo(t *testing.T) {

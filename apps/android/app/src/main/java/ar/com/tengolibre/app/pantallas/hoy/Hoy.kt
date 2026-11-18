@@ -54,6 +54,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import kotlinx.coroutines.CancellationException
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -87,14 +88,21 @@ fun Hoy() {
     suspend fun cargarProximos() {
         val manana = hoy.plus(1, ChronoUnit.DAYS)
         val q = listOf("desde" to Formato.diaISO(manana), "hasta" to Formato.diaISO(manana.plus(59, ChronoUnit.DAYS)),
-            "estado" to "pendiente_pago,pendiente,confirmado")
-        runCatching { estado.api.get<Turnos>("/v1/panel/turnos", q) }.getOrNull()?.let { proximos = it.turnos.take(5) }
+            "estado" to "pendiente_pago,pendiente,confirmado", "limite" to "5")
+        proximos = try {
+            estado.api.get<Turnos>("/v1/panel/turnos", q).turnos
+        } catch (e: CancellationException) {
+            throw e // la reemplazó otra carga: quedan los que había
+        } catch (e: Exception) {
+            emptyList() // si falla, vacío: no quedan los de otro negocio (al cambiar de negocio sin conexión)
+        }
     }
 
     suspend fun cargar() {
         datos.cargar(estado, hoy, hoy)
         cargarProximos()
-        ActividadTurno.sincronizar(datos.turnos.filter { Formato.diaISO(it.inicio) == Formato.diaISO(hoy) }, estado)
+        // Sólo con el día bien traído: sin conexión y sin caché quedaba vacío y apagaba la notificación en curso.
+        if (datos.carga == DatosDia.Carga.listo) ActividadTurno.sincronizar(datos.turnos.filter { Formato.diaISO(it.inicio) == Formato.diaISO(hoy) }, estado)
         estado.vivo.cargar(estado)
     }
 
@@ -105,7 +113,11 @@ fun Hoy() {
         while (true) {
             delay(30_000)
             ahora = Instant.now()
-            if (ahora.epochSecond % 120 < 30) datos.cargar(estado, hoy, hoy)
+            if (ahora.epochSecond % 120 < 30) {
+                datos.cargar(estado, hoy, hoy)
+                // Pasada la medianoche, los de «mañana» ya son de hoy.
+                if (proximos.firstOrNull()?.let { Formato.diaISO(it.inicio) == Formato.diaISO(hoy) } == true) cargarProximos()
+            }
         }
     }
 

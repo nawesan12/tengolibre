@@ -16,7 +16,8 @@ export const load: PageServerLoad = async (event) => {
 	try {
 		turno = await api.get<Turno>(`/v1/panel/turnos/${id}`);
 	} catch (e) {
-		if (e instanceof ErrorApi && (e.estado === 404 || e.estado === 400)) error(404, 'No encontramos ese turno.');
+		// 403: un profesional con el link de un turno que no es de su agenda.
+		if (e instanceof ErrorApi && (e.estado === 404 || e.estado === 400 || e.estado === 403)) error(404, 'No encontramos ese turno.');
 		throw e;
 	}
 	const [cat, avisos, productos, caja] = await Promise.all([

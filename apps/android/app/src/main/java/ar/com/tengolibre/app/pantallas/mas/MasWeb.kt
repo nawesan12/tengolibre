@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
@@ -243,15 +245,40 @@ internal fun Imagen(url: String?, alto: Dp, ancho: Dp?, radio: Dp) {
 
 /** La achica (lado largo 2000 px), la sube como JPEG y devuelve la URL; si falla, avisa y da null. */
 suspend fun subirAchicada(ctx: Context, estado: Estado, uri: Uri): String? =
-    try { jpegDe(ctx, uri)?.let { estado.api.subirImagen(it) } } catch (e: Exception) { estado.avisar(e); null }
+    try {
+        val jpg = jpegDe(ctx, uri) ?: throw IllegalStateException("No pudimos abrir esa foto. Probá con otra.")
+        estado.api.subirImagen(jpg)
+    } catch (e: Exception) { estado.avisar(e); null }
 
-/** Achica la foto (lado largo 2000 px) y la deja en JPEG. */
+/**
+ * Achica la foto (lado largo 2000 px) y la deja en JPEG, derecha: BitmapFactory ignora la orientación del
+ * EXIF (la que guardan la mayoría de las cámaras) y una foto vertical subía acostada. Se decodifica ya
+ * achicada (inSampleSize): una de 50 MP entera no entra en memoria.
+ */
 private suspend fun jpegDe(ctx: Context, uri: Uri): ByteArray? = withContext(Dispatchers.IO) {
     runCatching {
-        val img = ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } ?: return@runCatching null
+        val r = ctx.contentResolver
+        val limites = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        r.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, limites) } ?: return@runCatching null
+        if (limites.outWidth <= 0 || limites.outHeight <= 0) return@runCatching null
+        var muestra = 1
+        while (maxOf(limites.outWidth, limites.outHeight) / (muestra * 2) >= 2000) muestra *= 2
+        val img = r.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = muestra }) }
+            ?: return@runCatching null
+        val giro = Matrix()
+        when (r.openInputStream(uri)?.use { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> giro.postRotate(90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> giro.postRotate(180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> giro.postRotate(270f)
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> giro.postScale(-1f, 1f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> giro.postScale(1f, -1f)
+            ExifInterface.ORIENTATION_TRANSPOSE -> { giro.postRotate(90f); giro.postScale(-1f, 1f) }
+            ExifInterface.ORIENTATION_TRANSVERSE -> { giro.postRotate(270f); giro.postScale(-1f, 1f) }
+        }
         val f = minOf(1f, 2000f / maxOf(img.width, img.height))
-        val chica = if (f < 1f) Bitmap.createScaledBitmap(img, (img.width * f).toInt(), (img.height * f).toInt(), true) else img
-        ByteArrayOutputStream().also { chica.compress(Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
+        giro.postScale(f, f)
+        val lista = if (giro.isIdentity) img else Bitmap.createBitmap(img, 0, 0, img.width, img.height, giro, true)
+        ByteArrayOutputStream().also { lista.compress(Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
     }.getOrNull()
 }
 
@@ -294,10 +321,21 @@ fun MiWeb() {
     var menuFoto by remember { mutableStateOf<FotoGaleria?>(null) }
 
     @Serializable data class Fotos(val fotos: List<FotoGaleria> = emptyList())
-    suspend fun cargar() {
+    /** soloImagenes: después de subir o mover una imagen, sólo el logo, la portada y las fotos; lo demás
+     *  queda como está en pantalla (si no, se perdía lo escrito y todavía sin guardar). */
+    suspend fun cargar(soloImagenes: Boolean = false) {
         try {
-            n = estado.api.get("/v1/panel/negocio")
-            w = estado.api.get("/v1/panel/mi-web")
+            val nn: NegocioDatos = estado.api.get("/v1/panel/negocio")
+            val ww: WebDatos = estado.api.get("/v1/panel/mi-web")
+            val n0 = n
+            val w0 = w
+            if (soloImagenes && n0 != null && w0 != null) {
+                n = n0.copy(logo = nn.logo)
+                w = w0.copy(portada = ww.portada)
+            } else {
+                n = nn
+                w = ww
+            }
             fotos = estado.api.opcional<Fotos>("/v1/panel/mi-web/galeria")?.fotos ?: emptyList()
             error = ""
         } catch (e: ErrorApi) { error = e.detalle } catch (e: Exception) { error = "Probá de nuevo." }
@@ -308,13 +346,13 @@ fun MiWeb() {
         subiendo = true
         try { return subirAchicada(contexto, estado, uri) } finally { subiendo = false }
     }
-    suspend fun patchNegocio(c: Map<String, String>) { estado.intentar { estado.api.hacer("PATCH", "/v1/panel/negocio", c) }; cargar() }
-    suspend fun patchWeb(c: Map<String, JsonElement>) { estado.intentar { estado.api.hacer("PATCH", "/v1/panel/mi-web", c) }; cargar() }
+    suspend fun patchNegocio(c: Map<String, String>) { estado.intentar { estado.api.hacer("PATCH", "/v1/panel/negocio", c) }; cargar(soloImagenes = true) }
+    suspend fun patchWeb(c: Map<String, JsonElement>) { estado.intentar { estado.api.hacer("PATCH", "/v1/panel/mi-web", c) }; cargar(soloImagenes = true) }
     val pedirLogo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { u -> alcance.launch { subir(u)?.let { patchNegocio(mapOf("logo" to it)) } } }
     val pedirPortada = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { u -> alcance.launch { subir(u)?.let { patchWeb(mapOf("portada" to JsonPrimitive(it))) } } }
     @Serializable data class FotoNueva(val url: String, val epigrafe: String = "")
     val pedirFoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { u ->
-        alcance.launch { subir(u)?.let { url -> estado.intentar("Sumamos la foto") { estado.api.hacer("POST", "/v1/panel/mi-web/galeria", FotoNueva(url)) }; cargar() } }
+        alcance.launch { subir(u)?.let { url -> estado.intentar("Sumamos la foto") { estado.api.hacer("POST", "/v1/panel/mi-web/galeria", FotoNueva(url)) }; cargar(soloImagenes = true) } }
     }
     val soloImagenes = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
     @Serializable data class Ids(val ids: List<String>)
@@ -322,7 +360,7 @@ fun MiWeb() {
         val ids = fotos.sortedBy { it.orden }.map { it.id }.filter { it != f.id }.toMutableList()
         if (primero) ids.add(0, f.id) else ids.add(f.id)
         estado.intentar { estado.api.hacer("PUT", "/v1/panel/mi-web/galeria/orden", Ids(ids)) }
-        cargar()
+        cargar(soloImagenes = true)
     }
     @Serializable data class CuerpoNegocio(val nombre: String, val descripcion: String, val direccion: String, val ciudad: String, val telefono: String, val whatsapp: String, val instagram: String)
     @Serializable data class CuerpoWeb(val rubro: String, val provincia: String, val acerca: String, val colorPrimario: String, val colorAcento: String, val email: String, val sitioWeb: String, val facebook: String, val tiktok: String)
@@ -407,7 +445,7 @@ fun MiWeb() {
     Confirmacion(mf != null, "Foto", "", listOf(
         OpcionConfirmacion("Primera") { mf?.let { ordenar(it, true) } },
         OpcionConfirmacion("Última") { mf?.let { ordenar(it, false) } },
-        OpcionConfirmacion("Sacar", destructiva = true) { mf?.let { f -> alcance.launch { estado.intentar { estado.api.hacer("DELETE", "/v1/panel/mi-web/galeria/${f.id}") }; cargar() } } },
+        OpcionConfirmacion("Sacar", destructiva = true) { mf?.let { f -> alcance.launch { estado.intentar { estado.api.hacer("DELETE", "/v1/panel/mi-web/galeria/${f.id}") }; cargar(soloImagenes = true) } } },
     ), { menuFoto = null })
 }
 

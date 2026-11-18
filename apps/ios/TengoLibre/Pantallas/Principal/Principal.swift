@@ -133,7 +133,9 @@ struct Principal: View {
         switch r {
         case .turno(let id):
             nav.pestana = .hoy
-            if let t: Turno = try? await estado.api.get("/v1/panel/turnos/\(id)") { nav.turno = t }
+            // En una tarea propia: poner rutaPendiente en nil cambia el id del .task, que se cancela y
+            // con él el pedido (el turno del push nunca se abría).
+            Task { if let t: Turno = try? await estado.api.get("/v1/panel/turnos/\(id)") { nav.turno = t } }
         case .hoy: nav.pestana = .hoy
         case .espera: nav.pestana = estado.esProfesional ? .hoy : .espera
         case .avisos: nav.avisos = true

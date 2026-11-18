@@ -239,9 +239,13 @@ func (s *Servicio) paraLlamar(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	out := []ParaLlamar{}
 	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error {
+		q, args := "t.llamar_desde IS NOT NULL", []any{}
+		if ses := sesion.De(ctx); ses.Rol == sesion.Profesional {
+			q, args = q+" AND "+sesion.DeSuAgenda("t.profesional_id", "$1"), append(args, ses.ClerkID)
+		}
 		filas, err := tx.Query(ctx, `SELECT t.id::text, c.nombre, c.telefono, t.servicio, t.profesional, t.inicio, t.estado,
 			t.llamar_motivo, t.llamar_desde FROM turnos t JOIN clientes c ON c.id = t.cliente_id
-			WHERE t.llamar_desde IS NOT NULL ORDER BY t.inicio LIMIT 100`)
+			WHERE `+q+` ORDER BY t.inicio LIMIT 100`, args...)
 		if err != nil {
 			return err
 		}
@@ -259,6 +263,9 @@ func (s *Servicio) paraLlamar(w http.ResponseWriter, r *http.Request) error {
 func (s *Servicio) llamado(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error {
+		if err := sesion.TurnoPropio(ctx, tx, r.PathValue("id")); err != nil {
+			return err
+		}
 		var motivo *string
 		if err := tx.QueryRow(ctx, "SELECT llamar_motivo FROM turnos WHERE id = $1 FOR UPDATE", r.PathValue("id")).Scan(&motivo); err != nil {
 			return err

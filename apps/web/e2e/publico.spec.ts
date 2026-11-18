@@ -214,6 +214,9 @@ test('invitación: sin sesión pide ingresar y al volver la acepta', async ({ pa
 	await expect(page).toHaveURL(/\/ingresar\?volver=/);
 	await page.getByLabel('Id de la persona').fill(persona);
 	await page.getByRole('button', { name: 'Entrar' }).click();
+	// Vuelve a la invitación con el botón listo: aceptar es sólo por POST (un GET de una vista previa no suma a nadie).
+	await expect(page).toHaveURL(/\/invitacion\/.+\?aceptar=1/);
+	await page.getByRole('button', { name: 'Aceptar la invitación' }).click();
 	await expect(page).toHaveURL(/\/panel/);
 	// En el teléfono el nombre del negocio va en la barra de arriba, no en el menú lateral.
 	await expect(page.locator('[data-negocio-actual]:visible')).toHaveText(a.nombre);

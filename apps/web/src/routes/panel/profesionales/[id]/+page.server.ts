@@ -1,5 +1,5 @@
 import { error, redirect } from '@sveltejs/kit';
-import { apiDe, type Api } from '#lib/server/api.ts';
+import { apiDe, ErrorApi, type Api } from '#lib/server/api.ts';
 import { numero } from '#lib/server/acciones.ts';
 import { accion, siPuede } from '#lib/configuracion/acciones.server.ts';
 import { horarioDeForm, sacarSemanal, sumarSemanal, type Semanal } from '#lib/configuracion/horario.ts';
@@ -19,8 +19,13 @@ const semanalesDe = async (api: Api, id: string) =>
 
 export const load: PageServerLoad = async (event) => {
 	const api = apiDe(event);
-	const id = event.params.id;
+	const id = encodeURIComponent(event.params.id);
 	const hoy = dia();
+	// Un id que no existe (o un profesional borrado, o de otra agenda para el rol profesional) es 404, no 500.
+	const no404 = (e: unknown): never => {
+		if (e instanceof ErrorApi && [400, 403, 404].includes(e.estado)) error(404, 'No encontramos ese profesional.');
+		throw e;
+	};
 	const [{ profesionales }, { servicios }, { bloqueos }, semanales, { excepciones }, equipo, turnos, pedidos] = await Promise.all([
 		api.get<{ profesionales: Profesional[] }>('/v1/panel/profesionales'),
 		api.get<{ servicios: { id: string; nombre: string; activo: boolean }[] }>('/v1/panel/servicios'),
@@ -34,7 +39,7 @@ export const load: PageServerLoad = async (event) => {
 			.then((r) => r.turnos.filter((t) => t.estado !== 'cancelado'))
 			.catch(() => [] as Turno[]),
 		pedidosLibres(api, id)
-	]);
+	]).catch(no404);
 	const profesional = profesionales.find((p) => p.id === id);
 	if (!profesional) error(404, 'No encontramos ese profesional.');
 	const proximos = turnos.map((t) => ({ id: t.id, inicio: t.inicio, cliente: t.cliente.nombre, servicio: t.servicio }));

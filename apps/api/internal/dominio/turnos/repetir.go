@@ -189,6 +189,10 @@ func (s *Servicio) reservarRepetir(w http.ResponseWriter, r *http.Request) error
 	if err != nil {
 		return err
 	}
+	// El mismo tope que reservar en la página: con un solo link se podía llenar la agenda.
+	if err := s.limite.PermitirPublico(r, "reservar", negocio, s.TopePublico, s.ahora()); err != nil {
+		return err
+	}
 	var t Turno
 	err = s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, "SELECT set_config('app.origen', 'web', true)"); err != nil {

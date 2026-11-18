@@ -301,13 +301,13 @@
 															<input type="hidden" name="url" value={url} />
 															{#each s.fotos as u (u)}<input type="hidden" name="fotos" value={u} />{/each}
 															{#if j > 0}
-																<button class="mini" formaction="?/portada" title="Usar de portada" aria-label="Usar la foto {j + 1} de portada">
+																<button class="mini" formaction="?/portada" disabled={guardando > 0} title="Usar de portada" aria-label="Usar la foto {j + 1} de portada">
 																	<span class="icono" aria-hidden="true">star</span>
 																</button>
 															{:else}
 																<span class="mini portada" title="Portada"><span class="icono" aria-hidden="true">star</span></span>
 															{/if}
-															<button class="mini" formaction="?/sacarFoto" title="Sacar" aria-label="Sacar la foto {j + 1}">
+															<button class="mini" formaction="?/sacarFoto" disabled={guardando > 0} title="Sacar" aria-label="Sacar la foto {j + 1}">
 																<span class="icono" aria-hidden="true">close</span>
 															</button>
 														</form>
@@ -321,12 +321,12 @@
 											{#if s.fotos.length < MAX_FOTOS}
 												<label class="g-chip">
 													<span class="icono" aria-hidden="true">add_photo_alternate</span>{s.fotos.length ? 'Sumar fotos' : 'Subir fotos'}
-													<input type="file" name="archivo" accept="image/jpeg,image/png,image/webp" multiple onchange={enviar} />
+													<input type="file" name="archivo" accept="image/jpeg,image/png,image/webp" multiple disabled={guardando > 0} onchange={enviar} />
 												</label>
 											{/if}
 											{#if s.fotos.length === 1}
 												<input type="hidden" name="url" value={s.fotos[0]} />
-												<button class="g-accion peligro" formaction="?/sacarFoto" formenctype="application/x-www-form-urlencoded">Sacar foto</button>
+												<button class="g-accion peligro" formaction="?/sacarFoto" formenctype="application/x-www-form-urlencoded" disabled={guardando > 0}>Sacar foto</button>
 											{/if}
 										</form>
 										<p class="g-nota">Hasta {MAX_FOTOS} fotos. La primera es la que se ve en tu página y al&nbsp;reservar.</p>
@@ -655,6 +655,10 @@
 		background: rgb(0 0 0 / 0.55);
 		color: #fff;
 		cursor: pointer;
+	}
+	.mini:disabled {
+		opacity: 0.5;
+		cursor: progress;
 	}
 	.mini .icono {
 		font-size: 14px;

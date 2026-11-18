@@ -179,10 +179,12 @@ test('suscripción en prueba y Mercado Pago sin configurar', async ({ page }) =>
 	await negocioNuevo(page);
 
 	await abrir(page, '/panel/suscripcion');
-	await expect(page.getByText('Prueba gratis')).toBeVisible();
+	// El estado arriba y, en el ticket del plan, cuándo termina la prueba.
+	await expect(page.getByText('Prueba gratis').first()).toBeVisible();
 	await expect(page.getByText(/Te quedan? \d+ días?/)).toBeVisible();
 	// En local no hay token de la plataforma: lo dice sin romperse.
-	await page.getByRole('button', { name: 'Elegir Inicial' }).click();
+	await page.locator('label.opcion', { hasText: 'Inicial' }).click();
+	await page.getByRole('button', { name: /Suscribirme/ }).click();
 	await expect(page.getByRole('alert')).toContainText('todavía no están habilitadas');
 
 	await abrir(page, '/panel/pagos');

@@ -5,6 +5,6 @@ PORT=3400
 # Detrás de Caddy: el origen real (tengolibre.com.ar o un dominio propio) sale de estos encabezados.
 PROTOCOL_HEADER=x-forwarded-proto
 HOST_HEADER=x-forwarded-host
-BODY_SIZE_LIMIT=12M
+BODY_SIZE_LIMIT=30M
 TENGOLIBRE_API=http://api:4200
 PUBLIC_CLERK_PUBLICABLE=pk_live_...

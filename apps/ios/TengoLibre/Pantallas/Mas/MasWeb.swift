@@ -231,7 +231,7 @@ struct MiWeb: View {
                                     Button("Primera", systemImage: "arrow.up.to.line") { Task { await ordenar(f, primero: true) } }
                                     Button("Última", systemImage: "arrow.down.to.line") { Task { await ordenar(f, primero: false) } }
                                     Button("Sacar", systemImage: "trash", role: .destructive) {
-                                        Task { await estado.intentar { try await estado.api.hacer("DELETE", "/v1/panel/mi-web/galeria/\(f.id)") }; await cargar() }
+                                        Task { await estado.intentar { try await estado.api.hacer("DELETE", "/v1/panel/mi-web/galeria/\(f.id)") }; await cargar(soloImagenes: true) }
                                     }
                                 }
                         }
@@ -254,7 +254,7 @@ struct MiWeb: View {
             Task {
                 if let u = await subir(i) {
                     await estado.intentar("Sumamos la foto") { try await estado.api.hacer("POST", "/v1/panel/mi-web/galeria", ["url": u, "epigrafe": ""]) }
-                    await cargar()
+                    await cargar(soloImagenes: true)
                 }
                 foto = nil
             }
@@ -292,12 +292,12 @@ struct MiWeb: View {
 
     private func patchNegocio(_ c: [String: String]) async {
         await estado.intentar { try await estado.api.hacer("PATCH", "/v1/panel/negocio", c) }
-        await cargar()
+        await cargar(soloImagenes: true)
     }
 
     private func patchWeb(_ c: [String: ValorJSON]) async {
         await estado.intentar { try await estado.api.hacer("PATCH", "/v1/panel/mi-web", c) }
-        await cargar()
+        await cargar(soloImagenes: true)
     }
 
     private struct CuerpoNegocio: Encodable { var nombre: String; var descripcion: String; var direccion: String; var ciudad: String; var telefono: String; var whatsapp: String; var instagram: String }
@@ -316,15 +316,24 @@ struct MiWeb: View {
         var ids = fotos.sorted { $0.orden < $1.orden }.map(\.id).filter { $0 != f.id }
         if primero { ids.insert(f.id, at: 0) } else { ids.append(f.id) }
         await estado.intentar { try await estado.api.hacer("PUT", "/v1/panel/mi-web/galeria/orden", ["ids": ids]) }
-        await cargar()
+        await cargar(soloImagenes: true)
     }
 
     private struct Fotos: Decodable { var fotos: [FotoGaleria] }
 
-    private func cargar() async {
+    /// soloImagenes: después de subir o mover una imagen, sólo el logo, la portada y las fotos; lo demás
+    /// queda como está en pantalla (si no, se perdía lo escrito y todavía sin guardar).
+    private func cargar(soloImagenes: Bool = false) async {
         do {
-            n = try await estado.api.get("/v1/panel/negocio")
-            w = try await estado.api.get("/v1/panel/mi-web")
+            let nn: NegocioDatos = try await estado.api.get("/v1/panel/negocio")
+            let ww: WebDatos = try await estado.api.get("/v1/panel/mi-web")
+            if soloImagenes, n != nil, w != nil {
+                n?.logo = nn.logo
+                w?.portada = ww.portada
+            } else {
+                n = nn
+                w = ww
+            }
             fotos = (try? await estado.api.get("/v1/panel/mi-web/galeria") as Fotos)?.fotos ?? []
             error = ""
         } catch let e as ErrorApi { error = e.detalle } catch { self.error = "Probá de nuevo." }
@@ -925,7 +934,10 @@ extension PhotosPickerItem {
         let lado: CGFloat = 2000
         let f = min(1, lado / max(img.size.width, img.size.height))
         let tam = CGSize(width: img.size.width * f, height: img.size.height * f)
-        let chica = UIGraphicsImageRenderer(size: tam).image { _ in img.draw(in: CGRect(origin: .zero, size: tam)) }
+        // Escala 1: con la de la pantalla (3x) «2000 px» salían 6000 y la API la rechazaba por pasar los 5 MB.
+        let formato = UIGraphicsImageRendererFormat.default()
+        formato.scale = 1
+        let chica = UIGraphicsImageRenderer(size: tam, format: formato).image { _ in img.draw(in: CGRect(origin: .zero, size: tam)) }
         guard let jpg = chica.jpegData(compressionQuality: 0.85) else { return nil }
         do { return try await estado.api.subirImagen(jpg) } catch { estado.avisar(error); return nil }
     }

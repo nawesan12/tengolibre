@@ -190,6 +190,16 @@ func (s *Servicio) avisar(ctx context.Context, tx pgx.Tx, turnoID, evento string
 		if err := s.liberar(ctx, tx, t, t.Inicio, n, ahora); err != nil {
 			return err
 		}
+	case "pago_sin_lugar":
+		// Pagó la seña después de que venciera y el horario ya era de otra persona: el turno quedó
+		// cancelado con la plata aprobada. Antes no se enteraba nadie (sólo quedaba en el log).
+		if _, err := Encolar(ctx, tx, Aviso{Tipo: Cancelado, TurnoID: t.ID, Clave: "cancelado:" + t.ID, Datos: inicio}, ahora); err != nil {
+			return err
+		}
+		if err := Notificar(ctx, tx, Notificacion{Tipo: NotiCancelacion, TurnoID: t.ID, Titulo: t.ClienteNombre + " pagó la seña tarde",
+			Texto: "El horario del " + cuando + " ya lo había tomado otra persona y el turno se canceló. Devolvele la seña desde Pagos o ofrecele otro horario."}); err != nil {
+			return err
+		}
 	case "reprogramado":
 		// El horario que tenía: el del último aviso del turno (turnos ya guardó el nuevo).
 		anterior, err := ultimoInicio(ctx, tx, t.ID)

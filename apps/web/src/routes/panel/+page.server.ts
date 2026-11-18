@@ -37,7 +37,7 @@ export const load: PageServerLoad = async (event) => {
 		nada(api.get<{ clave: string; suscripta: boolean }>('/v1/yo/suscripciones-web')),
 		nada(
 			api.get<{ turnos: Turno[] }>(
-				`/v1/panel/turnos?${new URLSearchParams({ desde: manana, hasta: sumarDias(manana, PROXIMOS_DIAS - 1), estado: 'pendiente_pago,pendiente,confirmado' })}`
+				`/v1/panel/turnos?${new URLSearchParams({ desde: manana, hasta: sumarDias(manana, PROXIMOS_DIAS - 1), estado: 'pendiente_pago,pendiente,confirmado', limite: '5' })}`
 			)
 		)
 	]);
@@ -52,7 +52,7 @@ export const load: PageServerLoad = async (event) => {
 		pedidos: pedidos?.pedidos ?? [],
 		// La tarjeta «Enterate en el momento» sólo si el push web está prendido y este navegador no está.
 		push: push && push.clave && !push.suscripta ? { clave: push.clave } : null,
-		proximos: (proximos?.turnos ?? []).slice(0, 5),
+		proximos: proximos?.turnos ?? [],
 		gestiona
 	};
 };

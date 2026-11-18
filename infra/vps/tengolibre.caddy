@@ -22,7 +22,7 @@ tengolibre.com.ar, www.tengolibre.com.ar {
 	redir @www https://tengolibre.com.ar{uri} permanent
 	encode zstd gzip
 	request_body {
-		max_size 12MB
+		max_size 30MB
 	}
 	reverse_proxy 127.0.0.1:3400 {
 		# El SSE del panel (/panel/eventos) va sin buffer.

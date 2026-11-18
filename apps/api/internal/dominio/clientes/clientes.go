@@ -448,8 +448,15 @@ func (s *Servicio) ficha(w http.ResponseWriter, r *http.Request) error {
 		if f.Cliente, err = LeerCliente(ctx, tx, r.PathValue("id"), ahora); err != nil {
 			return err
 		}
-		filas, err := tx.Query(ctx, `SELECT id::text, codigo, servicio_id::text, servicio, profesional_id::text, profesional,
-			inicio, fin, precio, estado, origen, nota FROM turnos WHERE cliente_id = $1 ORDER BY inicio DESC LIMIT 500`, f.ID)
+		// Un profesional ve sólo los turnos de su agenda (como en /v1/panel/turnos): cada uno trae el
+		// código del link, y con el de otro podría cancelarlo o moverlo por /v1/t/{codigo}.
+		q, args := `SELECT id::text, codigo, servicio_id::text, servicio, profesional_id::text, profesional,
+			inicio, fin, precio, estado, origen, nota FROM turnos WHERE cliente_id = $1`, []any{f.ID}
+		if ses := sesion.De(ctx); ses.Rol == sesion.Profesional {
+			q += ` AND profesional_id IN (SELECT p.id FROM profesionales p JOIN miembros m ON m.id = p.miembro_id WHERE m.clerk_id = $2)`
+			args = append(args, ses.ClerkID)
+		}
+		filas, err := tx.Query(ctx, q+" ORDER BY inicio DESC LIMIT 500", args...)
 		if err != nil {
 			return err
 		}

@@ -4,8 +4,12 @@ import { ZONA, fecha } from '#lib/formato.ts';
  * Cuentas con días (AAAA-MM-DD) y horas del negocio. Los días se suman en UTC, así un cambio de
  * horario no corre la fecha; las horas se pasan a instantes con la zona del negocio.
  */
-export const esDia = (s: string | null | undefined): s is string =>
-	!!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
+/** Un día que existe: «2026-02-31» tiene la forma pero no existe (V8 lo pasa al 3 de marzo y la API lo rechaza). */
+export const esDia = (s: string | null | undefined): s is string => {
+	if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+	const d = new Date(`${s}T00:00:00Z`);
+	return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+};
 
 export const esHora = (s: string | null | undefined): s is string => !!s && /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
 

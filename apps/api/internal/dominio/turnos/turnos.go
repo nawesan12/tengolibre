@@ -338,8 +338,10 @@ func limpiarTelefono(t string) string {
 
 // clienteDe busca al cliente por teléfono (o crea uno) en el negocio fijado.
 // La fecha de nacimiento sólo se completa si faltaba (nunca pisa la que cargó el negocio).
-// ajeno: el teléfono es de un cliente que ya existía con un email de confianza distinto del que vino
-// (con app.origen = 'web' el trigger cuidar_email no lo pisa): quien reserva puede no ser él.
+// ajeno: el teléfono es de un cliente que ya existía con otro email que el que vino: quien reserva
+// puede no ser él. Desde la web (app.origen = 'web') el email de un cliente que ya existía nunca se
+// pisa, sólo se completa si faltaba: si no, con el teléfono de alguien se le cambiaba el mail y sus
+// recordatorios (con el link para cancelar o mover cada turno) le llegaban a otro.
 func clienteDe(ctx context.Context, tx pgx.Tx, c Cliente) (id string, ajeno bool, err error) {
 	nacimiento := &c.Nacimiento
 	if c.Nacimiento == "" {
@@ -349,10 +351,11 @@ func clienteDe(ctx context.Context, tx pgx.Tx, c Cliente) (id string, ajeno bool
 		var existia, confiable bool
 		var email string
 		err = tx.QueryRow(ctx, `INSERT INTO clientes (negocio_id, nombre, telefono, email, nacimiento) VALUES (app.negocio_actual(), $1, $2, $3, $4::date)
-			ON CONFLICT (negocio_id, telefono) WHERE telefono <> '' DO UPDATE SET email = CASE WHEN excluded.email <> '' THEN excluded.email ELSE clientes.email END,
+			ON CONFLICT (negocio_id, telefono) WHERE telefono <> '' DO UPDATE SET email = CASE WHEN excluded.email <> ''
+					AND (clientes.email = '' OR coalesce(current_setting('app.origen', true), '') <> 'web') THEN excluded.email ELSE clientes.email END,
 				nacimiento = coalesce(clientes.nacimiento, excluded.nacimiento)
 			RETURNING id::text, xmax <> 0, email_confiable, email`, c.Nombre, c.Telefono, c.Email, nacimiento).Scan(&id, &existia, &confiable, &email)
-		return id, existia && confiable && !strings.EqualFold(email, c.Email), err
+		return id, existia && email != "" && c.Email != "" && !strings.EqualFold(email, c.Email), err
 	}
 	err = tx.QueryRow(ctx, "SELECT id::text FROM clientes WHERE telefono = '' AND email = $1 AND suprimido_en IS NULL ORDER BY creado_en LIMIT 1", c.Email).Scan(&id)
 	if err == pgx.ErrNoRows {

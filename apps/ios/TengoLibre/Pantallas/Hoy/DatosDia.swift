@@ -149,6 +149,8 @@ final class DatosDia {
             carga = .listo
             estado.sinConexion = false
             Guardado.guardar(Todo(turnos: turnos, profesionales: profesionales, servicios: servicios, espera: espera), clave: clave)
+        } catch is CancellationError {
+            // Otra carga la reemplazó (subió estado.version): no es un error; la siguiente trae el día.
         } catch let x as ErrorApi {
             if x.sinConexion { estado.sinConexion = true }
             carga = turnos.isEmpty ? .error(x.detalle) : .listo

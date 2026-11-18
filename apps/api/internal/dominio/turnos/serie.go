@@ -316,6 +316,10 @@ func (s *Servicio) reservarSerie(w http.ResponseWriter, r *http.Request) error {
 		if _, _, err := servicioYProfesional(ctx, tx, in.ServicioID, in.ProfesionalID); err != nil {
 			return err
 		}
+		// Un profesional carga turnos fijos sólo en su agenda (como un turno suelto).
+		if err := propio(ctx, tx, &in.ProfesionalID); err != nil {
+			return problema.Invalido("Sólo podés reservar en tu agenda.", problema.Campo{Ruta: "profesionalId", Mensaje: "ajeno"})
+		}
 		clienteID := in.ClienteID
 		if clienteID != "" {
 			err := tx.QueryRow(ctx, "SELECT id::text FROM clientes WHERE id::text = $1 AND suprimido_en IS NULL", clienteID).Scan(&clienteID)
@@ -402,6 +406,17 @@ func (s *Servicio) verSerie(w http.ResponseWriter, r *http.Request) error {
 		}
 		if err != nil {
 			return err
+		}
+		// Un profesional ve sólo los turnos fijos de su agenda (cada turno trae el código de su link).
+		if ses := sesion.De(ctx); ses.Rol == sesion.Profesional {
+			var suya bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM turnos t WHERE t.serie_id = $1::uuid AND `+sesion.DeSuAgenda("t.profesional_id", "$2")+`)`,
+				serie.ID, ses.ClerkID).Scan(&suya); err != nil {
+				return err
+			}
+			if !suya {
+				return problema.NoEncontrado("No encontramos ese turno fijo.")
+			}
 		}
 		serie.Turnos, err = turnosDeSerie(ctx, tx, serie.ID)
 		return err

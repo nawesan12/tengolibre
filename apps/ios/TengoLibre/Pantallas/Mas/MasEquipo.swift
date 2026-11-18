@@ -193,7 +193,7 @@ struct EditarServicio: View {
     }
 
     var body: some View {
-        HojaEdicion(titulo: servicio.id.isEmpty ? "Servicio nuevo" : "Editar servicio", habilitado: servicio.nombre.trimmingCharacters(in: .whitespaces).count >= 2,
+        HojaEdicion(titulo: servicio.id.isEmpty ? "Servicio nuevo" : "Editar servicio", habilitado: servicio.nombre.trimmingCharacters(in: .whitespaces).count >= 2 && !subiendo,
                     borrar: servicio.id.isEmpty ? nil : {
                         await estado.intentar("Sacamos el servicio") { try await estado.api.hacer("DELETE", "/v1/panel/servicios/\(servicio.id)") }
                         estado.version += 1

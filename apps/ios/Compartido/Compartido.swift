@@ -94,8 +94,10 @@ struct DiaChico: Codable, Hashable {
             if let x = iso.date(from: s) { return x }
             throw DecodingError.dataCorrupted(.init(codingPath: dec.codingPath, debugDescription: s))
         }
-        guard let (datos, resp) = try? await URLSession.shared.data(for: r), (resp as? HTTPURLResponse)?.statusCode == 200,
-              let l = try? d.decode(Lista.self, from: datos) else { return .vacio }
+        guard let (datos, resp) = try? await URLSession.shared.data(for: r) else { return .vacio }
+        // Sesión vencida: «Entrá a Tengo Libre», no «No te quedan turnos».
+        if (resp as? HTTPURLResponse)?.statusCode == 401 { return DiaChico(negocio: "", turnos: [], hechos: 0, conSesion: false) }
+        guard (resp as? HTTPURLResponse)?.statusCode == 200, let l = try? d.decode(Lista.self, from: datos) else { return .vacio }
         let ahora = Date()
         let activos = l.turnos.filter { ["pendiente_pago", "pendiente", "confirmado"].contains($0.estado) }
         return DiaChico(negocio: SesionCompartida.leer("negocioNombre") ?? "",
@@ -130,9 +132,11 @@ struct MarcarAtendido: LiveActivityIntent {
     init(turnoId: String) { self.turnoId = turnoId }
 
     func perform() async throws -> some IntentResult {
-        if let r = SesionCompartida.pedido("PATCH", "/v1/panel/turnos/\(turnoId)", cuerpo: Data(#"{"estado":"atendido"}"#.utf8)) {
-            _ = try? await URLSession.shared.data(for: r)
-        }
+        // Sólo se cierra si el turno quedó marcado: sin señal o con la sesión vencida, la actividad sigue
+        // (antes se cerraba igual y el turno quedaba «confirmado» sin avisar).
+        guard let r = SesionCompartida.pedido("PATCH", "/v1/panel/turnos/\(turnoId)", cuerpo: Data(#"{"estado":"atendido"}"#.utf8)),
+              let (_, resp) = try? await URLSession.shared.data(for: r),
+              let codigo = (resp as? HTTPURLResponse)?.statusCode, (200..<300).contains(codigo) else { return .result() }
         for a in Activity<AtributosTurno>.activities where a.attributes.turnoId == turnoId {
             await a.end(nil, dismissalPolicy: .immediate)
         }

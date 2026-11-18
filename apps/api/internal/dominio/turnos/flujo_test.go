@@ -442,3 +442,27 @@ func TestFotosDelServicio(t *testing.T) {
 		t.Fatalf("sin fotos: %+v", s)
 	}
 }
+
+// Desde la web, el email de un cliente que ya existía no se pisa (sólo se completa si faltaba): si
+// no, con el teléfono de alguien se le cambiaba el mail y sus avisos, con el link de cada turno, le
+// llegaban a otro. Quien reserva con otro email queda «ajeno».
+func TestEmailNoSePisaDesdeLaWeb(t *testing.T) {
+	a, _, servicio, ana, _ := armar(t)
+	reservar := func(inicio, email string) turnos.Turno {
+		var x turnos.Turno
+		a.Esperar(201, P{Metodo: "POST", Ruta: "/v1/p/el-corte/turnos", Cuerpo: map[string]any{
+			"servicioId": servicio, "profesionalId": ana, "inicio": en(inicio).Format(time.RFC3339),
+			"cliente": map[string]string{"nombre": "Juana", "telefono": "11 5555 0101", "email": email}}}, &x)
+		return x
+	}
+	primero := reservar("2026-11-02 09:00", "juana@prueba.com")
+	segundo := reservar("2026-11-02 10:00", "otra@prueba.com")
+	var email string
+	var ajeno1, ajeno2 bool
+	a.Fila("SELECT c.email FROM turnos t JOIN clientes c ON c.id = t.cliente_id WHERE t.id = $1", []any{segundo.ID}, &email)
+	a.Fila("SELECT cliente_ajeno FROM turnos WHERE id = $1", []any{primero.ID}, &ajeno1)
+	a.Fila("SELECT cliente_ajeno FROM turnos WHERE id = $1", []any{segundo.ID}, &ajeno2)
+	if email != "juana@prueba.com" || ajeno1 || !ajeno2 {
+		t.Fatalf("email %q, ajeno %v/%v", email, ajeno1, ajeno2)
+	}
+}

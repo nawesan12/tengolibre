@@ -57,11 +57,12 @@ type Ocupado struct {
 	VenceEn *time.Time `json:"venceEn"`
 }
 
-// Ocupa: pendiente y confirmado sí; pendiente de pago sólo mientras no venció (así no hace falta un
-// cron que lo libere); cancelado, atendido y ausente no.
+// Ocupa: pendiente, confirmado y atendido sí (atendido se marca cuando la clienta llega: sigue
+// ocupando hasta el fin); pendiente de pago sólo mientras no venció (así no hace falta un cron que
+// lo libere); cancelado y ausente no (no vino: el lugar queda libre).
 func (o Ocupado) Ocupa(ahora time.Time) bool {
 	switch o.Estado {
-	case "pendiente", "confirmado":
+	case "pendiente", "confirmado", "atendido":
 		return true
 	case "pendiente_pago":
 		return o.VenceEn == nil || o.VenceEn.After(ahora)

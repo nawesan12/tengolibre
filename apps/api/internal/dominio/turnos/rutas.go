@@ -560,7 +560,16 @@ func (s *Servicio) agenda(w http.ResponseWriter, r *http.Request) error {
 			cond = append(cond, `t.profesional_id IN (SELECT p.id FROM profesionales p JOIN miembros m ON m.id = p.miembro_id
 				WHERE m.clerk_id = $`+strconv.Itoa(len(args))+")")
 		}
-		filas, err := tx.Query(ctx, "SELECT "+columnasTurno+desdeTurnos+" WHERE "+strings.Join(cond, " AND ")+" ORDER BY t.inicio", args...)
+		// limite (opcional, 1–200): los primeros n (los «próximos días» de Inicio y Hoy piden 5).
+		limite := ""
+		if v := q.Get("limite"); v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 1 || n > 200 {
+				return problema.Invalido("limite va de 1 a 200.")
+			}
+			limite = " LIMIT " + strconv.Itoa(n)
+		}
+		filas, err := tx.Query(ctx, "SELECT "+columnasTurno+desdeTurnos+" WHERE "+strings.Join(cond, " AND ")+" ORDER BY t.inicio"+limite, args...)
 		if err != nil {
 			return err
 		}

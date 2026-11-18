@@ -196,6 +196,9 @@ func cuenta(ctx context.Context, tx pgx.Tx, turnoID string) (Cuenta, error) {
 func (s *Servicio) verCaja(w http.ResponseWriter, r *http.Request) error {
 	var c Cuenta
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) (err error) {
+		if err := sesion.TurnoPropio(ctx, tx, r.PathValue("id")); err != nil {
+			return err
+		}
 		c, err = cuenta(ctx, tx, r.PathValue("id"))
 		return err
 	})
@@ -246,6 +249,9 @@ func (s *Servicio) cobrar(w http.ResponseWriter, r *http.Request) error {
 	ahora := s.ahora()
 	var c Cuenta
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
+		if err := sesion.TurnoPropio(ctx, tx, turnoID); err != nil {
+			return err
+		}
 		b, err := leerBase(ctx, tx, turnoID, true)
 		if err != nil {
 			return err
@@ -341,6 +347,9 @@ func (s *Servicio) saldar(w http.ResponseWriter, r *http.Request) error {
 	turnoID := r.PathValue("id")
 	var c Cuenta
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) error {
+		if err := sesion.TurnoPropio(ctx, tx, turnoID); err != nil {
+			return err
+		}
 		var estado string
 		var total int64
 		err := tx.QueryRow(ctx, "SELECT estado, total FROM caja_cobros WHERE turno_id::text = $1 FOR UPDATE", turnoID).Scan(&estado, &total)

@@ -65,6 +65,7 @@ import ar.com.tengolibre.app.tema.*
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.util.UUID
+import kotlinx.coroutines.CoroutineScope
 
 // Clon de Pantallas/Principal/Principal.swift.
 
@@ -189,17 +190,20 @@ fun Principal() {
             if (!recorridoVisto) Destinos.recorrido { recorridoVisto = true; Preferencias.ponerBool("recorridoVisto", true) }
         }
     }
-    LaunchedEffect(estado.rutaPendiente) { abrirRuta(estado, nav) }
+    val alcanceRuta = rememberCoroutineScope()
+    LaunchedEffect(estado.rutaPendiente) { abrirRuta(estado, nav, alcanceRuta) }
 }
 
 /** Un push, un widget o un link abren su pantalla. */
-private suspend fun abrirRuta(estado: ar.com.tengolibre.app.app.Estado, nav: Navegacion) {
+private fun abrirRuta(estado: ar.com.tengolibre.app.app.Estado, nav: Navegacion, alcance: CoroutineScope) {
     val r = estado.rutaPendiente ?: return
     estado.rutaPendiente = null
     when (r) {
         is Ruta.turno -> {
             nav.pestana = Pestana.hoy
-            runCatching { estado.api.get<Turno>("/v1/panel/turnos/${r.id}") }.getOrNull()?.let { nav.turno = it }
+            // En otro alcance: poner rutaPendiente en null reinicia el LaunchedEffect, que se cancela y
+            // con él el pedido (el turno del push nunca se abría).
+            alcance.launch { runCatching { estado.api.get<Turno>("/v1/panel/turnos/${r.id}") }.getOrNull()?.let { nav.turno = it } }
         }
         Ruta.hoy -> nav.pestana = Pestana.hoy
         Ruta.espera -> nav.pestana = if (estado.esProfesional) Pestana.hoy else Pestana.espera

@@ -172,12 +172,14 @@ fun ColumnScope.EditarServicio(inicial: Servicio, categorias: List<Categoria>, l
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
         alcance.launch {
             subiendo = true
-            for (u in uris) if (fotos.size < MAX_FOTOS_SERVICIO) subirAchicada(contexto, estado, u)?.let { fotos = fotos + it }
+            val entran = uris.take(MAX_FOTOS_SERVICIO - fotos.size)
+            for (u in entran) subirAchicada(contexto, estado, u)?.let { fotos = fotos + it }
             subiendo = false
+            if (uris.size > entran.size) estado.avisar("Sumamos ${entran.size} de ${uris.size}", "Cada servicio lleva hasta $MAX_FOTOS_SERVICIO fotos.", ok = false)
         }
     }
     @Serializable data class Cuerpo(val nombre: String, val descripcion: String, val duracion: Int, val precio: Int, val categoriaId: String?, val activo: Boolean, val fotos: List<String>)
-    HojaEdicion(if (s.id.isEmpty()) "Servicio nuevo" else "Editar servicio", cerrar, habilitado = s.nombre.trim().length >= 2,
+    HojaEdicion(if (s.id.isEmpty()) "Servicio nuevo" else "Editar servicio", cerrar, habilitado = s.nombre.trim().length >= 2 && !subiendo,
         borrar = if (s.id.isEmpty()) null else ({ estado.intentar("Sacamos el servicio") { estado.api.hacer("DELETE", "/v1/panel/servicios/${s.id}") }; estado.version += 1 }),
         accion = {
             val c = Cuerpo(s.nombre, descripcion, s.duracion, s.precio, s.categoriaId, s.activo, fotos)
