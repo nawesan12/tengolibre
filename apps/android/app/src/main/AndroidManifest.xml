@@ -72,7 +72,6 @@
                 <data android:scheme="https" android:host="tengolibre.com.ar" />
                 <data android:path="/panel" />
                 <data android:pathPrefix="/panel/" />
-                <data android:pathPrefix="/turno/" />
                 <data android:pathPrefix="/invitacion/" />
                 <uri-relative-filter-group android:allow="false"><data android:queryPattern=".*web=1.*" /></uri-relative-filter-group>
                 <uri-relative-filter-group android:allow="false"><data android:pathPrefix="/panel/reportes/csv/" /></uri-relative-filter-group>

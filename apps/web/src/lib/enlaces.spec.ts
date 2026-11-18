@@ -20,8 +20,8 @@ describe('enlaces', () => {
 			expect(abreLaApp(url), url).toBe(destino !== 'web');
 		}
 	});
-	it('la landing y las páginas públicas nunca abren la app', () => {
-		for (const url of ['/', '/terminos', '/privacidad', '/explorar', '/un-negocio', '/un-negocio/reservar']) {
+	it('la landing, las páginas públicas y el turno de una clienta nunca abren la app', () => {
+		for (const url of ['/', '/terminos', '/privacidad', '/explorar', '/un-negocio', '/un-negocio/reservar', '/turno/ABC123']) {
 			expect(abreLaApp(url), url).toBe(false);
 		}
 	});

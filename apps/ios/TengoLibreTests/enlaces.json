@@ -20,7 +20,6 @@
   "app": [
     "/panel",
     "/panel/*",
-    "/turno/*",
     "/invitacion/*"
   ],
   "ejemplos": {
@@ -33,6 +32,7 @@
     "/peluqueria-ana/reservar": "web",
     "/espera/abc123": "web",
     "/resena/abc123": "web",
+    "/turno/ABC123": "web",
     "/mi-cuenta": "web",
     "/ingresar": "web",
     "/panel/reportes/csv/turnos": "web",
@@ -75,7 +75,6 @@
     "/panel/auditoria": "mas:auditoria",
     "/panel/sucursales": "mas:sucursales",
     "/panel/algo-nuevo": "web-en-app",
-    "/turno/ABC123": "turnoCliente:ABC123",
     "/invitacion/tok1": "invitacion:tok1"
   }
 }
