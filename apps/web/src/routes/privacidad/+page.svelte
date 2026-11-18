@@ -2,7 +2,7 @@
 	import Legal from '#lib/legal/Legal.svelte';
 </script>
 
-<Legal titulo="Política de privacidad" actualizado="12 de noviembre de 2026">
+<Legal titulo="Política de privacidad" actualizado="18 de noviembre de 2026">
 	<p>
 		Tengo Libre es un sistema de turnos online para negocios de servicios. Acá contamos qué datos guardamos, para qué, dónde están y qué
 		podés hacer con&nbsp;ellos.
@@ -40,6 +40,10 @@
 		<li><b>Del equipo</b>: los días libres que pide cada profesional (fechas y un motivo general, sin datos de salud).</li>
 		<li><b>Pagos</b>: las señas y suscripciones se cobran con Mercado Pago, la App Store o Google Play. No vemos ni guardamos los datos de tarjetas.</li>
 		<li><b>Avisos</b>: si los activás, el identificador para mandar notificaciones a tu teléfono o navegador.</li>
+		<li>
+			<b>El asistente del panel</b>: lo que el equipo le pregunta y las acciones que confirma (por ejemplo, mover un turno), con un
+			registro de cuánto se usó la IA en cada negocio.
+		</li>
 	</ul>
 
 	<h2>Para qué los usamos</h2>
@@ -81,6 +85,14 @@
 		<li>
 			<b>Asistentes de IA</b>: si el negocio conecta su asistente (Claude, ChatGPT u otro) por MCP, ese asistente ve la agenda y los
 			clientes según los permisos que el negocio le da a cada clave. Lo elige y lo revoca el negocio.
+		</li>
+		<li>
+			<b>Anthropic</b> (Claude, Estados Unidos): el asistente del panel y de la app usa Claude para entender lo que no entiende solo. Le
+			mandamos la pregunta, la conversación de ese momento y lo que hace falta para contestarla del negocio que pregunta: los servicios, el
+			equipo y los horarios, y los turnos y los nombres de los clientes que la consulta necesita (el teléfono y el email, sólo si quien
+			pregunta los puede ver). Nunca datos de salud, documentos ni datos de pago. Anthropic no usa estos datos para entrenar sus modelos y
+			los borra después de un plazo corto. Las preguntas que el asistente entiende solo (la agenda del día, mover o cancelar un turno) no
+			salen de nuestro&nbsp;servidor.
 		</li>
 		<li><b>GitHub</b> (Estados Unidos): las copias de seguridad diarias, cifradas.</li>
 	</ul>
