@@ -17,6 +17,7 @@
 	import { armarDia, cargarEn, duracion, hhmm, iniciales, libresTexto, minutosAhora, primerNombre, profesionalesDelDia, rangoDelDia } from '#lib/panel/dia.ts';
 	import { activarAvisos } from '#lib/panel/push.ts';
 	import TuLink from '#lib/panel/TuLink.svelte';
+	import { abrirLink } from '#lib/panel/panelLink.svelte.ts';
 
 	let { data, form } = $props();
 
@@ -211,6 +212,13 @@
 
 {#if form?.error}<p class="aviso error" role="alert">{form.error}</p>{/if}
 
+<!-- Con pocos turnos, el link va primero y en grande: compartirlo es lo que trae reservas. -->
+{#if data.linkPrimero}
+	<section class="tu-link" aria-label="El link de tu página">
+		<TuLink nombre={data.negocio.nombre} slug={data.negocio.slug} origen={page.url.origin} ver alCambiar={data.gestiona ? () => abrirLink(true) : undefined} />
+	</section>
+{/if}
+
 {#if conHorario.length}
 	<div class="anillo-tel tl-petroleo">
 		<span class="anillos" aria-hidden="true">
@@ -275,9 +283,11 @@
 	</section>
 {/if}
 
-<section class="tu-link" aria-label="El link de tu página">
-	<TuLink nombre={data.negocio.nombre} slug={data.negocio.slug} origen={page.url.origin} titulo="Tu página de reservas" ver />
-</section>
+{#if !data.linkPrimero}
+	<section class="tu-link" aria-label="El link de tu página">
+		<TuLink nombre={data.negocio.nombre} slug={data.negocio.slug} origen={page.url.origin} compacto ver alCambiar={data.gestiona ? () => abrirLink(true) : undefined} />
+	</section>
+{/if}
 
 <div class="dos">
 	<section class="sigue" aria-labelledby="t-sigue">

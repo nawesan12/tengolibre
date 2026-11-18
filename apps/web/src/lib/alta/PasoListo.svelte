@@ -1,4 +1,7 @@
-<!-- Paso 8: ¡Listo! La página publicada, el link para compartir con su QR, lo hecho y lo que sigue. -->
+<!--
+	Paso 8: ¡Listo! El link es el protagonista: grande, con Copiar/WhatsApp/Instagram/QR primero (es lo
+	que trae el primer turno). Después lo hecho y lo que sigue.
+-->
 <script lang="ts">
 	import Icono from '#lib/ui/Icono.svelte';
 	import TuLink from '#lib/panel/TuLink.svelte';
@@ -44,7 +47,6 @@
 		<div class="hero-t">
 			<span class="publicada"><span class="punto"></span>Publicada recién</span>
 			<h1>{cargado.negocio.nombre} ya toma <span>turnos.</span></h1>
-			<p>Tenés 7 días con todo. Compartí tu link: el primer turno puede entrar&nbsp;hoy.</p>
 		</div>
 		<span class="anillo" aria-hidden="true">
 			<span class="marcas"></span>
@@ -55,7 +57,8 @@
 		</span>
 	</div>
 
-	<TuLink nombre={cargado.negocio.nombre} {slug} {origen} />
+	<TuLink nombre={cargado.negocio.nombre} {slug} {origen} ver bajada="Compartilo ahora: el primer turno puede entrar&nbsp;hoy." />
+	<p class="prueba">Tenés 7 días gratis con&nbsp;todo.</p>
 
 	<div class="hecho">
 		{#each hecho as x, i (x.t)}
@@ -159,14 +162,6 @@
 	h1 span {
 		color: #3ccc90;
 		white-space: nowrap;
-	}
-	.hero-t p {
-		margin: 0;
-		font-size: 16px;
-		line-height: 1.5;
-		color: rgba(255, 255, 255, 0.8);
-		max-width: 28em;
-		text-wrap: pretty;
 	}
 	.anillo {
 		--r: 210px;
@@ -382,16 +377,23 @@
 		background: #183c44;
 		color: #fff;
 	}
+	.prueba {
+		margin: -4px 0 0;
+		font-size: 13px;
+		color: var(--tl-sub);
+		text-align: center;
+	}
 	@media (max-width: 899px) {
 		.hero {
 			grid-template-columns: minmax(0, 1fr);
-			padding: 26px 20px;
+			padding: 22px 20px;
 		}
 		h1 {
-			font-size: 40px;
+			font-size: 34px;
 		}
+		/* En el teléfono el anillo se va: el link tiene que entrar en la primera pantalla. */
 		.anillo {
-			--r: 180px;
+			display: none;
 		}
 		.fila-b {
 			min-height: 44px;

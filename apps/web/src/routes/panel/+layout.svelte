@@ -17,6 +17,8 @@
 	import SelectorNegocio from '#lib/panel/SelectorNegocio.svelte';
 	import Campanita from '#lib/panel/Campanita.svelte';
 	import Buscador from '#lib/panel/Buscador.svelte';
+	import PanelLink from '#lib/panel/PanelLink.svelte';
+	import { abrirLink, panelLink } from '#lib/panel/panelLink.svelte.ts';
 
 	let { data, children } = $props();
 
@@ -112,24 +114,6 @@
 		mas = false;
 		buscando = false;
 	});
-
-	// El link de la página desde la barra del teléfono: el menú de compartir del sistema o, si no hay, copiarlo.
-	async function compartirPagina() {
-		const url = `${location.origin}/${data.negocio.slug}`;
-		if (typeof navigator.share === 'function') {
-			try {
-				await navigator.share({ title: data.negocio.nombre, text: `Reservá tu turno en ${data.negocio.nombre}`, url });
-			} catch {
-				// Cerró el menú sin elegir.
-			}
-			return;
-		}
-		try {
-			await navigator.clipboard.writeText(url);
-		} catch {
-			window.open(`/${data.negocio.slug}`, '_blank', 'noopener');
-		}
-	}
 </script>
 
 <div class="panel">
@@ -177,12 +161,13 @@
 			<Buscador />
 			<span class="crece"></span>
 			<Campanita avisos={data.avisos} sinLeer={data.sinLeer} {verEnvios} />
+			<button class="tu-link" onclick={() => abrirLink()}><Icono nombre="link" tam={20} />Tu link</button>
 			<a class="ver-pagina" href={`/${data.negocio.slug}`} target="_blank" rel="noopener">Ver mi página<Icono nombre="north_east" tam={18} /></a>
 		</header>
 
 		<header class="barra-tel tl-petroleo">
 			<SelectorNegocio negocio={data.negocio} negocios={data.negocios} persona={data.persona} compacto sub={`${fechaCorta} · ${ahoraTexto}`} />
-			<button class="icono-tel" aria-label="Compartir tu página" onclick={compartirPagina}><Icono nombre="ios_share" tam={24} /></button>
+			<button class="tu-link tel" onclick={() => abrirLink()}><Icono nombre="link" tam={20} />Tu link</button>
 			<button class="icono-tel" aria-label="Buscar" onclick={() => (buscando = true)}><Icono nombre="search" tam={24} /></button>
 			<Campanita avisos={data.avisos} sinLeer={data.sinLeer} {verEnvios} compacto />
 		</header>
@@ -224,6 +209,14 @@
 			<span class="pill"><Icono nombre={esProfesional ? 'person' : 'menu'} lleno={mas} tam={22} /></span>{esProfesional ? 'Yo' : 'Más'}
 		</button>
 	</nav>
+	<PanelLink
+		bind:abierto={panelLink.abierto}
+		bind:cambiar={panelLink.cambiar}
+		nombre={data.negocio.nombre}
+		slug={data.negocio.slug}
+		origen={page.url.origin}
+		gestiona={['duenio', 'encargado'].includes(rol)}
+	/>
 	{#if mas}
 		<button class="velo" aria-label="Cerrar el menú" onclick={() => (mas = false)}></button>
 		<div id="hoja-mas" class="hoja" role="dialog" aria-label="Más secciones">
@@ -460,6 +453,27 @@
 		text-decoration: none;
 		white-space: nowrap;
 		flex: none;
+	}
+	/* «Tu link» siempre a mano: es lo que trae las reservas. */
+	.tu-link {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		height: 44px;
+		padding: 0 16px;
+		border: 0;
+		border-radius: 999px;
+		background: #3ccc90;
+		color: #102b31;
+		font: 700 14px var(--tl-font);
+		white-space: nowrap;
+		flex: none;
+		cursor: pointer;
+	}
+	.tu-link.tel {
+		height: 40px;
+		padding: 0 12px;
+		margin-right: 4px;
 	}
 	.ver-pagina:hover {
 		background: #fff;

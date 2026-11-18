@@ -9,6 +9,8 @@
 	import Copiar from '#lib/gestion/Copiar.svelte';
 	import Galeria from '#lib/gestion/miweb/Galeria.svelte';
 	import VistaEnVivo from '#lib/gestion/miweb/VistaEnVivo.svelte';
+	import TuLink from '#lib/panel/TuLink.svelte';
+	import EditorLink from '#lib/panel/EditorLink.svelte';
 	import { contraste, ratioTexto, textoSobre } from '#lib/gestion/miweb/color.ts';
 
 	let { data, form } = $props();
@@ -62,7 +64,8 @@
 	const cargados = $derived(extras.filter((x) => x && String(x).trim()).length);
 	let abrirExtras = $state(false);
 
-	const direccion = $derived(`${page.url.host}/`);
+	// «Cambiar link» abre el editor ahí mismo (o ya abierto si se llega con #cambiar-link).
+	let cambiando = $state(page.url.hash === '#cambiar-link');
 	const pasoDominio = $derived(d ? (d.estado === 'verificado' ? 3 : 2) : 1);
 </script>
 
@@ -80,6 +83,14 @@
 				{#if guardando}Guardando…{:else if guardadoEn}<span class="icono" aria-hidden="true">check</span>Guardado {guardadoEn}{:else}Se guarda solo{/if}
 			</span>
 		</div>
+
+		<section class="g-bloque link" id="tu-link" aria-labelledby="t-link">
+			<h2 class="g-bloque-titulo" id="t-link">Tu link</h2>
+			<TuLink nombre={n.nombre} slug={n.slug} origen={page.url.origin} titulo="Así te encuentran" compacto ver alCambiar={() => (cambiando = !cambiando)} />
+			{#if cambiando}
+				<div class="cambiar-link" id="cambiar-link"><EditorLink slug={n.slug} host={page.url.host} /></div>
+			{/if}
+		</section>
 
 		<section class="g-bloque" aria-label="Tu página">
 			<Mensaje {form} que="negocio" />
@@ -231,8 +242,7 @@
 
 		<section class="g-bloque" aria-labelledby="t-direccion">
 			<div class="g-bloque-cabeza">
-				<h2 class="g-bloque-titulo" id="t-direccion">Tu dirección web</h2>
-				<a class="direccion" href={`/${n.slug}`} target="_blank" rel="noopener">{direccion}<span class="verde">{n.slug}</span></a>
+				<h2 class="g-bloque-titulo" id="t-direccion">Dominio propio</h2>
 			</div>
 			{#if d}
 				<div class="estado-dominio" class:ok={d.estado === 'verificado'} class:mal={d.estado === 'error'}>
@@ -272,6 +282,11 @@
 </div>
 
 <style>
+	.cambiar-link {
+		padding: 16px;
+		border-radius: 18px;
+		background: #f8f2e6;
+	}
 	.mi-web {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) 340px;
@@ -454,16 +469,6 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 8px;
-	}
-	.direccion {
-		font: 700 14px var(--tl-font);
-		font-variant-numeric: tabular-nums;
-		color: var(--tl-tinta);
-		text-decoration: none;
-		overflow-wrap: anywhere;
-	}
-	.verde {
-		color: var(--tl-menta-texto);
 	}
 	.estado-dominio,
 	.sin-dominio {

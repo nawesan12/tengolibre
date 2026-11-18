@@ -1,6 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import { apiPublica, ErrorApi } from '#lib/server/api.ts';
 import type { Cobro, Dia, Horario, Pagina } from './tipos.ts';
+import { rutaCanonica } from './dominio.ts';
 
 /** Un pedido público: un 404 de la API es la página de "no encontramos". */
 export async function o404<T>(p: Promise<T>, mensaje = 'No encontramos esta página.'): Promise<T> {
@@ -36,10 +37,8 @@ export async function pagina(f: typeof fetch, slug: string, url?: URL) {
  * dominio propio la ruta no lleva el slug, y no hay nada que corregir.
  */
 export function canonica(url: URL, pedido: string, actual: string) {
-	if (pedido === actual) return;
-	const pre = `/${pedido}`;
-	if (url.pathname !== pre && !url.pathname.startsWith(`${pre}/`)) return;
-	redirect(301, `/${actual}${url.pathname.slice(pre.length)}${url.search}`);
+	const a = rutaCanonica(url, pedido, actual);
+	if (a) redirect(301, a);
 }
 
 export const cobro = (f: typeof fetch, slug: string) => opcional(apiPublica(f).get<Cobro>(`/v1/p/${slug}/cobro`), null);

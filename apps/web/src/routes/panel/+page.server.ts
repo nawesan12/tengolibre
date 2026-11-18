@@ -6,6 +6,7 @@ import type { ParaLlamar, PedidoDias } from '#lib/operacion/contrato.ts';
 import type { Anotado, Resena, Turno } from '#lib/operacion/tipos.ts';
 import { dia } from '#lib/formato.ts';
 import { sumarDias } from '#lib/operacion/fechas.ts';
+import { POCOS_TURNOS, ventanaMovimiento } from '#lib/panel/link.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 /** Cuántos días para adelante se buscan los próximos turnos (la API acepta hasta 92). */
@@ -27,7 +28,8 @@ export const load: PageServerLoad = async (event) => {
 	const gestiona = ['duenio', 'encargado'].includes(negocio.rol);
 	const nada = <T>(p: Promise<T>) => siExiste(p).catch(() => null);
 	const manana = sumarDias(dia(), 1);
-	const [arranque, resenas, espera, mp, llamar, pedidos, push, proximos] = await Promise.all([
+	const mov = ventanaMovimiento(dia());
+	const [arranque, resenas, espera, mp, llamar, pedidos, push, proximos, movimiento] = await Promise.all([
 		api.get<{ completo: boolean; reservable: boolean; pasos: Paso[] }>('/v1/panel/arranque'),
 		negocio.rol === 'recepcion' ? null : siSePuede(api.get<{ resenas: Resena[] }>('/v1/panel/resenas')).catch(() => null),
 		negocio.rol === 'profesional' ? null : siSePuede(api.get<{ espera: Anotado[] }>('/v1/panel/espera')).catch(() => null),
@@ -38,6 +40,12 @@ export const load: PageServerLoad = async (event) => {
 		nada(
 			api.get<{ turnos: Turno[] }>(
 				`/v1/panel/turnos?${new URLSearchParams({ desde: manana, hasta: sumarDias(manana, PROXIMOS_DIAS - 1), estado: 'pendiente_pago,pendiente,confirmado', limite: '5' })}`
+			)
+		),
+		// Para saber si el link va primero: con pocos turnos, compartirlo es lo que más importa.
+		nada(
+			api.get<{ turnos: Turno[] }>(
+				`/v1/panel/turnos?${new URLSearchParams({ ...mov, estado: 'pendiente_pago,pendiente,confirmado,atendido,ausente', limite: String(POCOS_TURNOS) })}`
 			)
 		)
 	]);
@@ -53,6 +61,7 @@ export const load: PageServerLoad = async (event) => {
 		// La tarjeta «Enterate en el momento» sólo si el push web está prendido y este navegador no está.
 		push: push && push.clave && !push.suscripta ? { clave: push.clave } : null,
 		proximos: proximos?.turnos ?? [],
+		linkPrimero: (movimiento?.turnos.length ?? 0) < POCOS_TURNOS,
 		gestiona
 	};
 };

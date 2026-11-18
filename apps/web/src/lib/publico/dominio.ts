@@ -46,3 +46,11 @@ export const SITIO = 'https://tengolibre.com.ar';
 
 /** El origen para los links absolutos: TengoLibre en producción; en local, el de la URL. */
 export const sitioDe = (url: URL) => (/^(localhost|127\.0\.0\.1|\[::1\]|::1)$/.test(url.hostname) ? url.origin : SITIO);
+
+/** Adónde va un link viejo (`/<pedido>/…` → `/<actual>/…`, con la query); null si no hay que moverse. */
+export function rutaCanonica(url: URL, pedido: string, actual: string): string | null {
+	if (pedido === actual) return null;
+	const pre = `/${pedido}`;
+	if (url.pathname !== pre && !url.pathname.startsWith(`${pre}/`)) return null;
+	return `/${actual}${url.pathname.slice(pre.length)}${url.search}`;
+}
