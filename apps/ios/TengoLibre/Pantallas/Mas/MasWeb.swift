@@ -290,8 +290,7 @@ struct MiWeb: View {
         return await item.subirAchicada(estado)
     }
 
-    // Fuera del body: dentro, el compilador no llegaba a chequear los tipos de la vista a tiempo.
-    private func recargarImagenes() async { await cargar(soloImagenes: true) }
+    private func recargarImagenes() async { await traer(soloImagenes: true) }
 
     private func sacarFoto(_ f: FotoGaleria) async {
         await estado.intentar { try await estado.api.hacer("DELETE", "/v1/panel/mi-web/galeria/\(f.id)") }
@@ -300,12 +299,12 @@ struct MiWeb: View {
 
     private func patchNegocio(_ c: [String: String]) async {
         await estado.intentar { try await estado.api.hacer("PATCH", "/v1/panel/negocio", c) }
-        await cargar(soloImagenes: true)
+        await traer(soloImagenes: true)
     }
 
     private func patchWeb(_ c: [String: ValorJSON]) async {
         await estado.intentar { try await estado.api.hacer("PATCH", "/v1/panel/mi-web", c) }
-        await cargar(soloImagenes: true)
+        await traer(soloImagenes: true)
     }
 
     private struct CuerpoNegocio: Encodable { var nombre: String; var descripcion: String; var direccion: String; var ciudad: String; var telefono: String; var whatsapp: String; var instagram: String }
@@ -324,14 +323,16 @@ struct MiWeb: View {
         var ids = fotos.sorted { $0.orden < $1.orden }.map(\.id).filter { $0 != f.id }
         if primero { ids.insert(f.id, at: 0) } else { ids.append(f.id) }
         await estado.intentar { try await estado.api.hacer("PUT", "/v1/panel/mi-web/galeria/orden", ["ids": ids]) }
-        await cargar(soloImagenes: true)
+        await traer(soloImagenes: true)
     }
 
     private struct Fotos: Decodable { var fotos: [FotoGaleria] }
 
     /// soloImagenes: después de subir o mover una imagen, sólo el logo, la portada y las fotos; lo demás
     /// queda como está en pantalla (si no, se perdía lo escrito y todavía sin guardar).
-    private func cargar(soloImagenes: Bool = false) async {
+    private func cargar() async { await traer(soloImagenes: false) }
+
+    private func traer(soloImagenes: Bool) async {
         do {
             let nn: NegocioDatos = try await estado.api.get("/v1/panel/negocio")
             let ww: WebDatos = try await estado.api.get("/v1/panel/mi-web")
