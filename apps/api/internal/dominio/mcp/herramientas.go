@@ -357,7 +357,8 @@ func recortar(s string, n int) string {
 
 func (s *Servicio) registrar(ctx context.Context, c *conexion, nombre string, args json.RawMessage, ok bool, resumen, msj string, escribe bool) {
 	nombre = recortar(strings.TrimSpace(nombre), 60)
-	if nombre == "" {
+	// El registro es de las claves; el asistente del panel deja lo que cambia en la auditoría.
+	if nombre == "" || c.tokenID == "" {
 		return
 	}
 	a, _ := json.Marshal(resumirArgs(args))
@@ -378,7 +379,7 @@ func (s *Servicio) anotarCambio(ctx context.Context, c *conexion, tipo, titulo, 
 			TurnoID: turnoID}); err != nil {
 			return err
 		}
-		return auditoria.Anotar(ctx, tx, auditoria.Registro{Quien: Quien(c.tokenID), Accion: "asistente." + accion, Entidad: "turno",
+		return auditoria.Anotar(ctx, tx, auditoria.Registro{Quien: c.autor(), Accion: "asistente." + accion, Entidad: "turno",
 			EntidadID: turnoID, Detalle: map[string]any{"clave": c.nombre, "resumen": texto}})
 	})
 	if err != nil {

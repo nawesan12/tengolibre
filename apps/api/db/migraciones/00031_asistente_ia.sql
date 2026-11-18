@@ -25,12 +25,22 @@ SELECT app.aplicar_rls('ia_uso');
 GRANT SELECT, INSERT ON ia_uso TO tengolibre_app;
 GRANT UPDATE (respuestas, pedidos, tokens_entrada, cache_leido, cache_escrito, tokens_salida, costo_micro) ON ia_uso TO tengolibre_app;
 
+-- Lo gastado por toda la plataforma desde un día (el tope global). Cruza negocios: la función es
+-- SECURITY DEFINER, abre la política sólo mientras suma y devuelve sólo el total.
+CREATE POLICY gasto_total ON ia_uso FOR SELECT TO tengolibre_migrador
+	USING (current_setting('app.ia_gasto_total', true) = '1');
+
 -- +goose StatementBegin
--- Lo gastado por toda la plataforma desde un día (el tope global). Cruza negocios, por eso es
--- SECURITY DEFINER y devuelve sólo la suma.
 CREATE FUNCTION app.ia_gasto_desde(p_desde date) RETURNS bigint
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, app AS $$
-	SELECT coalesce(sum(costo_micro), 0)::bigint FROM ia_uso WHERE dia >= p_desde
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, app AS $$
+DECLARE
+	total bigint;
+BEGIN
+	PERFORM set_config('app.ia_gasto_total', '1', true);
+	SELECT coalesce(sum(costo_micro), 0)::bigint INTO total FROM ia_uso WHERE dia >= p_desde;
+	PERFORM set_config('app.ia_gasto_total', '', true);
+	RETURN total;
+END
 $$;
 -- +goose StatementEnd
 REVOKE ALL ON FUNCTION app.ia_gasto_desde(date) FROM PUBLIC;

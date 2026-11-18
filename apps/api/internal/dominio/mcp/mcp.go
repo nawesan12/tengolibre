@@ -141,6 +141,32 @@ type conexion struct {
 	nombre   string
 	permisos []string
 	zona     *time.Location
+	// Desde el asistente del panel (asistente.go): quien es la persona (su clerk_id) y no hay clave.
+	quien string
+	// limitado: un profesional (rol) sólo ve y toca su agenda, la de los profesionales en propios.
+	limitado bool
+	propios  []string
+}
+
+// permitido: el profesional (id) es de la agenda de quien pide. Vacío: sin profesional (sólo vale
+// para quien no está limitado).
+func (c *conexion) permitido(profesional string) bool {
+	return !c.limitado || (profesional != "" && slices.Contains(c.propios, profesional))
+}
+
+func (c *conexion) permitidoP(profesional *string) bool {
+	if profesional == nil {
+		return c.permitido("")
+	}
+	return c.permitido(*profesional)
+}
+
+// autor: cómo figura en la auditoría quien hizo el cambio.
+func (c *conexion) autor() string {
+	if c.quien != "" {
+		return c.quien
+	}
+	return Quien(c.tokenID)
 }
 
 func (c *conexion) puede(p string) bool { return slices.Contains(c.permisos, p) }

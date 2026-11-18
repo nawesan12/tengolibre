@@ -822,3 +822,33 @@ func (s *Servicio) Avanzar(ctx context.Context, ahora time.Time) (any, error) {
 	})
 	return map[string]int{"avanzadas": avanzadas}, err
 }
+
+// ---- Para el asistente del panel (lo mismo que «Ofrecer a la lista»)
+
+// Candidatos: cuántos de la lista de espera buscan ese horario.
+func (s *Servicio) Candidatos(ctx context.Context, negocioID, servicioID, profesionalID string, inicio time.Time) (int, error) {
+	var n int
+	err := s.Pool.EnNegocio(ctx, negocioID, func(tx pgx.Tx) error {
+		cs, err := candidatos(ctx, tx, servicioID, profesionalID, inicio, zona(ctx, tx), maxCola)
+		n = len(cs)
+		return err
+	})
+	return n, err
+}
+
+// Ofrecer un hueco a la lista de espera (una persona por vez), como recepción desde el panel.
+func (s *Servicio) Ofrecer(ctx context.Context, negocioID, servicioID, profesionalID string, inicio time.Time) (Oferta, error) {
+	var o Oferta
+	err := s.Pool.EnNegocio(ctx, negocioID, func(tx pgx.Tx) error {
+		id, err := crearOferta(ctx, tx, servicioID, profesionalID, inicio, "panel", s.ahora())
+		if err != nil {
+			return err
+		}
+		if o, err = leerOferta(ctx, tx, id); err != nil {
+			return err
+		}
+		return auditoria.Anotar(ctx, tx, auditoria.Registro{Accion: "oferta.creada", Entidad: "oferta", EntidadID: id,
+			Detalle: map[string]any{"inicio": inicio, "profesional": o.Profesional, "cola": len(o.Cola), "desde": "asistente"}})
+	})
+	return o, err
+}

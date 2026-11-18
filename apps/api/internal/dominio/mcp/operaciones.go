@@ -135,12 +135,15 @@ func verAgenda(ctx context.Context, s *Servicio, c *conexion, raw json.RawMessag
 		if err != nil {
 			return err
 		}
+		if prof != "" && !c.permitido(prof) {
+			return problema.NoEncontrado("Sólo podés ver tu agenda.")
+		}
 		ts, err := turnos.Agenda(ctx, tx, desde, hasta.AddDate(0, 0, 1), prof, "", 300)
 		if err != nil {
 			return err
 		}
 		for _, t := range ts {
-			if t.Estado == "cancelado" && !in.IncluirCancelados {
+			if (t.Estado == "cancelado" && !in.IncluirCancelados) || !c.permitidoP(t.ProfesionalID) {
 				continue
 			}
 			out = append(out, c.turno(t))
@@ -193,6 +196,9 @@ func buscarLibres(ctx context.Context, s *Servicio, c *conexion, raw json.RawMes
 	if err != nil {
 		return nil, "", err
 	}
+	if prof != "" && !c.permitido(prof) {
+		return nil, "", problema.NoEncontrado("Sólo podés ver tu agenda.")
+	}
 	nombres := map[string]string{}
 	var servicio string
 	if err := s.Pool.EnNegocio(ctx, c.negocio, func(tx pgx.Tx) error {
@@ -223,9 +229,13 @@ func buscarLibres(ctx context.Context, s *Servicio, c *conexion, raw json.RawMes
 		for _, h := range hs {
 			l := LibreMCP{Hora: h.Hora, Inicio: h.Inicio.In(c.zona).Format(time.RFC3339)}
 			for _, p := range h.Profesionales {
-				l.Profesionales = append(l.Profesionales, Nombrado{p, nombres[p]})
+				if c.permitido(p) {
+					l.Profesionales = append(l.Profesionales, Nombrado{p, nombres[p]})
+				}
 			}
-			d.Horarios = append(d.Horarios, l)
+			if len(l.Profesionales) > 0 {
+				d.Horarios = append(d.Horarios, l)
+			}
 		}
 		out = append(out, d)
 	}
@@ -346,6 +356,9 @@ func crearTurno(ctx context.Context, s *Servicio, c *conexion, raw json.RawMessa
 	if err != nil {
 		return nil, "", err
 	}
+	if prof, err = c.profesionalPropio(prof); err != nil {
+		return nil, "", err
+	}
 	p := turnos.Pedido{ServicioID: srv, ProfesionalID: prof, Inicio: inicio, Nota: in.Nota}
 	switch {
 	case in.ClienteID != "":
@@ -371,6 +384,35 @@ func crearTurno(ctx context.Context, s *Servicio, c *conexion, raw json.RawMessa
 	return map[string]any{"turno": c.turno(t)}, "cargó " + frase, nil
 }
 
+// turnoPropio: con el rol profesional, un turno ajeno es «no existe» (como en el panel).
+func (s *Servicio) turnoPropio(ctx context.Context, c *conexion, id string) error {
+	if !c.limitado {
+		return nil
+	}
+	t, err := s.Turnos.Ver(ctx, c.negocio, id)
+	if err != nil {
+		return err
+	}
+	if !c.permitidoP(t.ProfesionalID) {
+		return problema.NoEncontrado("No encontramos ese turno.")
+	}
+	return nil
+}
+
+// profesionalPropio: un profesional carga turnos sólo en su agenda (sin elegir, en la suya).
+func (c *conexion) profesionalPropio(prof string) (string, error) {
+	if !c.limitado {
+		return prof, nil
+	}
+	if prof == "" && len(c.propios) > 0 {
+		return c.propios[0], nil
+	}
+	if !c.permitido(prof) {
+		return "", problema.Invalido("Sólo podés cargar turnos en tu agenda.")
+	}
+	return prof, nil
+}
+
 func turnoID(raw json.RawMessage) (string, error) {
 	var in struct{ TurnoID string }
 	if err := leerArgs(raw, &in); err != nil {
@@ -393,6 +435,9 @@ func cancelarTurno(ctx context.Context, s *Servicio, c *conexion, raw json.RawMe
 func cambiarEstado(ctx context.Context, s *Servicio, c *conexion, raw json.RawMessage, estado string) (any, string, error) {
 	id, err := turnoID(raw)
 	if err != nil {
+		return nil, "", err
+	}
+	if err := s.turnoPropio(ctx, c, id); err != nil {
 		return nil, "", err
 	}
 	t, antes, err := s.Turnos.CambiarEstado(ctx, c.negocio, id, estado)
@@ -431,6 +476,12 @@ func reprogramarTurno(ctx context.Context, s *Servicio, c *conexion, raw json.Ra
 	antes, err := s.Turnos.Ver(ctx, c.negocio, strings.TrimSpace(in.TurnoID))
 	if err != nil {
 		return nil, "", err
+	}
+	if !c.permitidoP(antes.ProfesionalID) {
+		return nil, "", problema.NoEncontrado("No encontramos ese turno.")
+	}
+	if prof != "" && !c.permitido(prof) {
+		return nil, "", problema.Invalido("Sólo podés mover el turno dentro de tu agenda.")
 	}
 	t, err := s.Turnos.Reprogramar(ctx, c.negocio, antes.ID, inicio, prof)
 	if err != nil {
