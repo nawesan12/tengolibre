@@ -1,5 +1,20 @@
 # Estado
 
+## 18/11/2026: revisión integral (API y web desplegadas, 8bd33bf; sin migraciones)
+
+Cuatro revisores (API, web, iPhone, Android) y verificación de cada hallazgo. Arreglado: ver el commit 8bd33bf.
+Límite de cuerpo: 30 MB en web.conf y en Caddy (copias `web.conf.antes-30m` y `/root/tengolibre.caddy.antes-30m`).
+
+Pendiente (verificado o probable, sin arreglar todavía):
+- Web: una pestaña vieja guarda en el negocio elegido en otra pestaña (el negocio sale de la cookie, no del formulario).
+- API: devolver una seña con doble clic descuadra `devuelto` (leer el pago con FOR UPDATE dentro de la transacción);
+  un cobro aprobado de MP reactiva una suscripción cancelada o reemplazada (`ConciliarCobro`); notificaciones de
+  Apple fuera de orden pisan el estado (comparar signedDate); el premio de un referido sobrevive si se cancela el
+  turno referido; `/v1/p/{slug}/dias` sin tope; PATCH de servicio sin FOR UPDATE; fotos aceptan http:// y cualquier dominio.
+- iPhone: acciones del push con la app cerrada (sin `.foreground`, `estado` nil) y arranque en frío con otro negocio
+  (igual en Android, MainActivity.atender); `withTaskGroup` en Cliente.swift (pasar a secuencial); SSE no detecta el 401;
+  subidas de fotos sueltas si se cierra la hoja (archivos huérfanos).
+
 ## 17/11/2026: fotos de los servicios — API y web desplegadas (14b2ef5, migración 00030)
 
 Hasta 5 fotos por servicio (`servicios.fotos`); la primera es la portada y queda también en `foto` (los clientes que
