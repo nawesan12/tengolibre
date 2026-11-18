@@ -25,9 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ar.com.tengolibre.app.nucleo.Turno
 import ar.com.tengolibre.app.nucleo.Resena
-import ar.com.tengolibre.app.pantallas.cliente.PrincipalCliente
 import ar.com.tengolibre.app.pantallas.ingreso.InvitacionVista
-import ar.com.tengolibre.app.pantallas.ingreso.TurnoClienteCargar
 import ar.com.tengolibre.app.tema.Hoja
 import ar.com.tengolibre.app.pantallas.ingreso.*
 import ar.com.tengolibre.app.pantallas.principal.Principal
@@ -43,8 +41,7 @@ import java.time.Instant
 
 val LocalEstado = staticCompositionLocalOf<Estado> { error("Falta el Estado") }
 
-/** Qué se ve según la sesión: arranque, ingreso, cómo la usás, elegir negocio, permiso de avisos, alta, el panel
- *  o el modo cliente. */
+/** Qué se ve según la sesión: arranque, ingreso, elegir negocio, permiso de avisos, alta o el panel. */
 @Composable
 fun Raiz() {
     val estado = LocalEstado.current
@@ -53,12 +50,10 @@ fun Raiz() {
             when (fase) {
                 Estado.Fase.arrancando -> PantallaArranque()
                 Estado.Fase.afuera -> Ingreso()
-                Estado.Fase.eligiendoModo -> ElegirModo()
                 Estado.Fase.eligiendoNegocio -> ElegirNegocio()
                 Estado.Fase.permisos -> PermisoAvisos()
                 Estado.Fase.alta -> Alta()
                 Estado.Fase.adentro -> Principal()
-                Estado.Fase.cliente -> PrincipalCliente()
             }
         }
         // La barra de estado, petróleo como la cabecera (la hora en blanco): el contenido que sube con el scroll pasa
@@ -71,10 +66,7 @@ fun Raiz() {
             estado.toast?.let { t -> VistaToast(t) { estado.tocarToast() } }
         }
     }
-    // El turno de una clienta y las invitaciones valen en cualquier modo: se abren arriba de todo.
-    Hoja(estado.turnoClienteAbierto != null, { estado.turnoClienteAbierto = null }) {
-        estado.turnoClienteAbierto?.let { c -> TurnoClienteCargar(c) { estado.turnoClienteAbierto = null } }
-    }
+    // Las invitaciones valen en cualquier fase: se abren arriba de todo.
     val invitacion = if (estado.persona == null || estado.fase == Estado.Fase.arrancando) null else estado.invitacionPendiente
     Hoja(invitacion != null, { estado.invitacionPendiente = null }) {
         invitacion?.let { t -> InvitacionVista(t) { estado.invitacionPendiente = null } }

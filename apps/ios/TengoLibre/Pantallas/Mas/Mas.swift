@@ -536,7 +536,7 @@ struct Cuenta: View {
 
 // MARK: - Borrar la cuenta
 
-/// «Borrar mi cuenta» (para cualquier rol y también en modo clienta): pide escribir el mail de la
+/// «Borrar mi cuenta» (para cualquier rol): pide escribir el mail de la
 /// cuenta, la desactiva con DELETE /v1/auth/cuenta y vuelve al ingreso. Los datos personales se borran
 /// a los 30 días; hasta entonces se recupera escribiendo a hola@.
 struct BorrarCuenta: View {

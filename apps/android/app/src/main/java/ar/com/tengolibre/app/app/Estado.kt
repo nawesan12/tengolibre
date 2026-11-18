@@ -34,8 +34,6 @@ sealed class Ruta {
     data object caja : Ruta()
     data object buscar : Ruta()
     data object agenda : Ruta()
-    /** El turno de una clienta, por su código (link del mail o aviso al teléfono de la clienta). */
-    data class turnoCliente(val codigo: String) : Ruta()
     /** Una invitación al equipo de un negocio. */
     data class invitacion(val token: String) : Ruta()
     data object clientes : Ruta()
@@ -73,7 +71,6 @@ sealed class Ruta {
                 "caja" -> caja
                 "buscar" -> buscar
                 "agenda" -> agenda
-                "turno-cliente" -> if (partes.size > 1) turnoCliente(partes[1]) else null
                 "invitacion" -> if (partes.size > 1) invitacion(partes[1]) else null
                 else -> null
             }
@@ -86,10 +83,9 @@ sealed class Ruta {
 class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)) {
     enum class Fase {
         arrancando, afuera,
-        /** Elegir cómo la usa: atiende un negocio o reserva turnos (39). */
-        eligiendoModo, eligiendoNegocio, permisos,
+        eligiendoNegocio, permisos,
         /** Sin negocios: a crear uno (alta). */
-        alta, adentro, cliente,
+        alta, adentro,
     }
 
     var fase by mutableStateOf(Fase.arrancando)
@@ -101,9 +97,7 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     var sinLeer by mutableIntStateOf(0)
     var toast by mutableStateOf<Toast?>(null)
     var rutaPendiente by mutableStateOf<Ruta?>(null)
-    /** El turno de una clienta para abrir (link o aviso), y una invitación al equipo para aceptar: los abre Raiz,
-     *  en cualquier modo y fase (la invitación espera al ingreso si hace falta). */
-    var turnoClienteAbierto by mutableStateOf<String?>(null)
+    /** Una invitación al equipo para aceptar: la abre Raiz, en cualquier fase (espera al ingreso si hace falta). */
     var invitacionPendiente by mutableStateOf<String?>(null)
     /** Para que las listas se vuelvan a pedir después de un cambio. */
     var version by mutableIntStateOf(0)
@@ -144,15 +138,12 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     var permisosVistos: Boolean
         get() = Preferencias.bool("permisosVistos")
         set(v) = Preferencias.ponerBool("permisosVistos", v)
-    /** Cómo la usa: «negocio» o «cliente» (se cambia desde Cuenta / Más). */
-    var modo: String
-        get() = Preferencias.texto("modo").orEmpty()
-        set(v) = Preferencias.ponerTexto("modo", v)
     private var negocioGuardado: String?
         get() = Preferencias.texto("negocio")
         set(v) = Preferencias.ponerTexto("negocio", v)
 
     init {
+        olvidarModoCliente()
         this.api.negocio = Preferencias.texto("negocio")
         this.api.alPerderSesion = { sesionPerdida() }
         this.api.alNegarAcceso = { alcance.launch { accesoNegado() } }
@@ -191,7 +182,7 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         persona = Guardado.leer<Persona>("persona")?.first
         negocios = Guardado.leer<List<NegocioDeLaPersona>>("negocios")?.first ?: emptyList()
         negocio = negocios.firstOrNull { it.id == negocioGuardado } ?: negocios.firstOrNull()
-        fase = if (persona == null) Fase.afuera else if (modo == "cliente") Fase.cliente else Fase.adentro
+        fase = if (persona == null) Fase.afuera else if (negocios.isEmpty()) Fase.alta else Fase.adentro
     }
 
     suspend fun cargarSesion() {
@@ -207,8 +198,6 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
 
     /** Después de entrar o de arrancar con sesión: adónde va. */
     private suspend fun despuesDeEntrar() {
-        if (modo.isEmpty()) { fase = Fase.eligiendoModo; return }
-        if (modo == "cliente") { fase = Fase.cliente; return }
         if (negocios.isEmpty()) { fase = Fase.alta; return }
         if (negocios.size > 1 && negocioGuardado == null) { fase = Fase.eligiendoNegocio; return }
         if (!permisosVistos) { fase = Fase.permisos; return }
@@ -217,9 +206,12 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         pedirTokenPushSiCorresponde()
     }
 
-    suspend fun elegirModo(m: String) {
-        modo = m
-        despuesDeEntrar()
+    /** La app es sólo para quien atiende un negocio: las versiones viejas tenían un modo clienta («modo», «misTurnos»).
+     *  Se borra al abrir, y quien lo tenía va a su negocio o al alta. */
+    private fun olvidarModoCliente() {
+        Preferencias.ponerTexto("modo", null)
+        Preferencias.ponerLista("misTurnos", emptyList())
+        Preferencias.ponerBool("avisosClientaPedidos", false)
     }
 
     /** Trabajar con otro negocio (o sucursal): lo guardado del anterior se borra (la persona y sus negocios, recién
@@ -279,7 +271,7 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
                 } else if (negocios.isNotEmpty()) {
                     // Ya no es parte de ese negocio: se trabaja con otro de los suyos.
                     usar(negocios.first())
-                } else if (modo != "cliente") {
+                } else {
                     negocio = null; fase = Fase.alta; return
                 }
             }
@@ -363,7 +355,7 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     }
 
     /** Todo lo de la sesión: también el token de avisos (si no, al volver a entrar no se registra de nuevo), el negocio
-     *  elegido, el modo y los permisos vistos. */
+     *  elegido y los permisos vistos. */
     private fun olvidarSesion() {
         api.token = null
         api.negocio = null
@@ -375,7 +367,6 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         acceso = null
         tokenPush = null
         negocioGuardado = null
-        modo = ""
         permisosVistos = false
         accesoRevisadoEn = null
     }
@@ -386,11 +377,9 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         avisar(Toast("lock", "Tu sesión venció", "Entrá de nuevo para seguir."))
     }
 
-    /** Abre una ruta: las del panel quedan pendientes para Principal; el turno de una clienta y las invitaciones
-     *  las abre Raiz. */
+    /** Abre una ruta: las del panel quedan pendientes para Principal; las invitaciones las abre Raiz y la web, el navegador. */
     fun abrir(r: Ruta) {
         when (r) {
-            is Ruta.turnoCliente -> turnoClienteAbierto = r.codigo
             is Ruta.invitacion -> invitacionPendiente = r.token
             is Ruta.web -> abrirPestana(r.url)
             else -> rutaPendiente = r
@@ -433,37 +422,15 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     var alPedirTokenPush: suspend () -> Unit = {}
     suspend fun pedirTokenPushSiCorresponde() = alPedirTokenPush()
 
-    /** Modo clienta: el permiso de avisos se pide una vez (para los recordatorios de sus turnos). */
-    var alPedirAvisosClienta: suspend () -> Unit = {}
-    suspend fun pedirAvisosClienta() = alPedirAvisosClienta()
-
     /** Pide el permiso de notificaciones (Android 13+); lo resuelve MainActivity. */
     var alPedirPermisoPush: suspend () -> Boolean = { true }
     suspend fun pedirPermisoPush(): Boolean = alPedirPermisoPush()
 
-    @Serializable private data class SeguirTurno(val token: String, val plataforma: String = "android", val entorno: String = "produccion")
     /** DELETE /v1/t/{codigo}/dispositivo sólo acepta el token (turnos/rutas.go, dejarDeSeguir). */
     @Serializable private data class SoloToken(val token: String)
 
-    /** Anota este teléfono en cada turno (por su código) para que le lleguen sus avisos. Una vez por turno y token. */
-    suspend fun seguirTurnos(codigos: List<String>) {
-        val token = tokenPush ?: return
-        val clave = "seguidos-${token.take(16)}"
-        val hechos = Preferencias.lista(clave).toMutableSet()
-        for (c in codigos) if (c !in hechos) {
-            if (runCatching { api.hacer("POST", "/v1/t/$c/dispositivo", SeguirTurno(token)) }.isSuccess) hechos.add(c)
-        }
-        Preferencias.ponerLista(clave, hechos.toList())
-    }
-
-    /** Deja de mandarle a este teléfono los avisos de un turno (lo sacó de su lista). */
-    suspend fun dejarDeSeguir(codigo: String) {
-        val token = tokenPush ?: return
-        runCatching { api.hacer("DELETE", "/v1/t/$codigo/dispositivo", SoloToken(token)) }
-    }
-
-    /** Al salir: este teléfono deja de recibir los avisos de todos los turnos que seguía (como al sacarlos de la lista).
-     *  Si falla la red, igual se olvida la lista: al volver a entrar se anotan de nuevo. */
+    /** Los turnos que este teléfono seguía como clienta (versiones viejas, con modo clienta): deja de recibir sus avisos.
+     *  Se hace al registrar el token, al salir y al borrar la cuenta; si falla la red, igual se olvida la lista. */
     private suspend fun dejarDeSeguirTodos() {
         val token = tokenPush ?: return
         val clave = "seguidos-${token.take(16)}"
@@ -477,10 +444,11 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         if (token == tokenPush || api.token == null) return
         tokenPush = token
         runCatching { api.hacer("POST", "/v1/yo/dispositivos", Dispositivo(token = token, modelo = Build.MODEL ?: "Android", version = BuildConfig.VERSION_NAME)) }
+        dejarDeSeguirTodos()
     }
 
     /** FCM cambió el token (onNewToken): el viejo se da de baja en la API (DELETE /v1/yo/dispositivos borra los de esta
-     *  sesión), se registra el nuevo y los turnos que seguía la clienta pasan al nuevo. */
+     *  sesión) y se registra el nuevo. Los turnos que seguía el viejo como clienta (versiones viejas) se dejan de seguir. */
     suspend fun cambiarTokenPush(nuevo: String) {
         val viejo = tokenPush
         if (nuevo == viejo || api.token == null) return
@@ -492,7 +460,6 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
             val seguidos = Preferencias.lista(clave)
             for (c in seguidos) runCatching { api.hacer("DELETE", "/v1/t/$c/dispositivo", SoloToken(viejo)) }
             Preferencias.ponerLista(clave, emptyList())
-            seguirTurnos(seguidos)
         }
     }
 }

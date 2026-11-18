@@ -26,7 +26,7 @@ class NucleoTest {
         assertEquals(Ruta.hoy, Ruta.deTexto("turnos"))
         assertEquals(Ruta.espera, Ruta.deTexto("lista-espera"))
         assertEquals(Ruta.avisos, Ruta.deTexto("notificaciones"))
-        assertEquals(Ruta.turnoCliente("ABC"), Ruta.deTexto("turno-cliente/ABC"))
+        assertEquals(null, Ruta.deTexto("turno-cliente/ABC"))
         assertEquals(null, Ruta.deTexto("cualquiera"))
     }
 
@@ -59,10 +59,11 @@ class NucleoTest {
     @Test fun arrancaConLaApiSimulada() = runTest(principal) {
         ModoPrueba.respuestas = { javaClass.getResource("/pruebas/respuestas.json")!!.readText() }
         Preferencias.borrarTodo()
-        Preferencias.ponerTexto("modo", "negocio")
+        Preferencias.ponerTexto("modo", "cliente") // de una versión vieja: se olvida al abrir
         Preferencias.ponerBool("permisosVistos", true)
         val estado = Estado(ModoPrueba.api(), this)
         estado.arrancar()
+        assertEquals(null, Preferencias.texto("modo"))
         assertEquals(Estado.Fase.adentro, estado.fase)
         assertEquals("Lumi Estética", estado.negocio?.nombre)
         assertEquals(2, estado.sinLeer)

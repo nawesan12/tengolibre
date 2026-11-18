@@ -21,19 +21,16 @@ import java.time.temporal.ChronoUnit
 object ModoPrueba {
     /** Lo prende MainActivity con el extra «modoPrueba» (o los tests). */
     var activo = false
-    var cliente = false
     /** El texto de respuestas.json (assets/pruebas en debug, recursos en los tests). */
     var respuestas: () -> String = { "{}" }
 
-    /** Deja la app como recién entrada: modo, permisos y recorrido. */
+    /** Deja la app como recién entrada: permisos y recorrido. */
     fun preparar(conRecorrido: Boolean = false) {
         if (!activo) return
         Preferencias.borrarTodo()
-        Preferencias.ponerTexto("modo", if (cliente) "cliente" else "negocio")
         Preferencias.ponerBool("permisosVistos", true)
         Preferencias.ponerBool("recorridoVisto", !conRecorrido)
         Preferencias.ponerTexto("negocio", "n1")
-        if (cliente) Preferencias.ponerLista("misTurnos", listOf("ABC123"))
     }
 
     fun api(): Api = Api("https://api.prueba", "prueba", OkHttpClient.Builder().addInterceptor(ApiDePrueba { respuestas() }).build())

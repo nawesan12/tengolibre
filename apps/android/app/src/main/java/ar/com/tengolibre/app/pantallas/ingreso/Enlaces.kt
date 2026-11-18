@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,9 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ar.com.tengolibre.app.app.LocalEstado
 import ar.com.tengolibre.app.nucleo.*
-import ar.com.tengolibre.app.pantallas.cliente.MisTurnos
-import ar.com.tengolibre.app.pantallas.cliente.TurnoCli
-import ar.com.tengolibre.app.pantallas.cliente.TurnoClienteHoja
 import ar.com.tengolibre.app.pantallas.hoy.BarraHoja
 import ar.com.tengolibre.app.pantallas.mas.nombreRol
 import ar.com.tengolibre.app.tema.*
@@ -36,32 +32,6 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 // Clon de Pantallas/Ingreso/Enlaces.swift.
-
-/** El turno de una clienta abierto desde un link (tengolibre.com.ar/turno/<código>) o un aviso: se trae, se guarda
- *  en «Tus turnos» y se muestra. Va adentro de una Hoja. */
-@Composable
-fun ColumnScope.TurnoClienteCargar(codigo: String, cerrar: () -> Unit) {
-    val estado = LocalEstado.current
-    val alcance = rememberCoroutineScope()
-    var turno by remember { mutableStateOf<TurnoCli?>(null) }
-    var error by remember { mutableStateOf("") }
-    suspend fun cargar() {
-        try {
-            val t: TurnoCli = estado.api.get("/v1/t/$codigo")
-            MisTurnos.sumar(t.codigo)
-            estado.seguirTurnos(listOf(t.codigo))
-            turno = t
-        } catch (e: ErrorApi) { error = e.detalle } catch (e: Exception) { error = "Revisá el link." }
-    }
-    LaunchedEffect(codigo) { cargar() }
-    val t = turno
-    if (t != null) { TurnoClienteHoja(t, listo = { estado.version += 1 }, cerrar = cerrar); return }
-    BarraHoja("", cerrar, textoCancelar = "Cerrar")
-    Column(Modifier.weight(1f).fillMaxWidth().background(C.hoja).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)) {
-        if (error.isEmpty()) { Pulso(); Texto("Trayendo tu turno…", Tipo.lato(15f), C.sub) }
-        else ErrorConSalida("No encontramos ese turno", error) { alcance.launch { cargar() } }
-    }
-}
 
 /** Una invitación al equipo (tengolibre.com.ar/invitacion/<token>): quién invita, a qué negocio y con qué rol, y
  *  «Sumarme». Al aceptar, entra a ese negocio. Va adentro de una Hoja. */
@@ -83,7 +53,6 @@ fun ColumnScope.InvitacionVista(token: String, cerrar: () -> Unit) {
             Haptico.exito()
             cerrar()
             estado.negocios.firstOrNull { it.slug == i.slug }?.let { n ->
-                if (estado.modo != "negocio") estado.elegirModo("negocio")
                 estado.entrarANegocio(n)
             }
             estado.avisar("Ya sos parte de ${i.negocio}")

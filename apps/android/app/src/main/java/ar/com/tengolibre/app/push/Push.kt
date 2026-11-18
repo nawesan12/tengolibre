@@ -40,10 +40,9 @@ import kotlinx.serialization.Serializable
 /** FCM sin google-services.json (como Caigo): FirebaseApp se arma a mano con tl.firebase.* de local.properties. Sin
  *  esos datos el push queda apagado y la app anda igual. */
 object Push {
-    /** Los canales: los avisos del negocio (alta), el turno en curso (sin sonido) y los turnos de la clienta. */
+    /** Los canales: los avisos del negocio (alta) y el turno en curso (sin sonido). */
     const val CANAL_AVISOS = "avisos"
     const val CANAL_TURNO = "turno"
-    const val CANAL_CLIENTA = "clienta"
 
     val disponible: Boolean
         get() = BuildConfig.FIREBASE_APP_ID.isNotBlank() && BuildConfig.FIREBASE_API_KEY.isNotBlank() &&
@@ -58,9 +57,8 @@ object Push {
             description = "La cuenta regresiva del turno que estás atendiendo."
             setShowBadge(false)
         })
-        nm.createNotificationChannel(NotificationChannel(CANAL_CLIENTA, "Tus turnos", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "Confirmaciones, recordatorios y cambios de los turnos que reservaste."
-        })
+        // «Tus turnos» era del modo clienta (versiones viejas): la app ya es sólo para negocios.
+        nm.deleteNotificationChannel("clienta")
         if (!disponible || FirebaseApp.getApps(ctx).isNotEmpty()) return
         runCatching {
             FirebaseApp.initializeApp(ctx, FirebaseOptions.Builder()
@@ -130,17 +128,17 @@ object Push {
         val tipo = d["tipo"]
         val turnoId = if (ruta.startsWith("turnos/")) ruta.removePrefix("turnos/") else null
         val id = (d["colapso"] ?: ruta.ifEmpty { titulo + cuerpo }).hashCode()
-        val clienta = tipo == "cliente"
-        // Los avisos del negocio son de la sesión: si se salió, no se muestran (los de la clienta sí).
-        if (!clienta && api(ctx) == null) return
-        val b = NotificationCompat.Builder(ctx, if (clienta) CANAL_CLIENTA else CANAL_AVISOS)
+        // Los avisos de turnos de clienta (de cuando la app tenía modo clienta) ya no se muestran. Los del negocio son
+        // de la sesión: si se salió, tampoco.
+        if (tipo == "cliente" || api(ctx) == null) return
+        val b = NotificationCompat.Builder(ctx, CANAL_AVISOS)
             .setSmallIcon(R.drawable.ic_aviso)
             .setColor(0xFF3CCC90.toInt())
             .setContentTitle(titulo)
             .setContentText(cuerpo)
             .setStyle(NotificationCompat.BigTextStyle().bigText(cuerpo))
             .setAutoCancel(true)
-            .setGroup(if (clienta) "clienta" else "negocio-$negocio")
+            .setGroup("negocio-$negocio")
             .setContentIntent(abrir(ctx, ruta, negocio, tipo, id))
         if (turnoId != null) when (d["categoria"]) {
             "TL_RESERVA" -> {

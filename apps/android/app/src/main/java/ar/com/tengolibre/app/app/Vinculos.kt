@@ -14,7 +14,6 @@ object Vinculos {
         if ("web" in u.queryParameterNames) return Ruta.web(texto)
         val p = u.pathSegments
         return when {
-            p.firstOrNull() == "turno" && p.size > 1 -> Ruta.turnoCliente(p[1])
             p.firstOrNull() == "invitacion" && p.size > 1 -> Ruta.invitacion(p[1])
             p.firstOrNull() == "panel" -> panel(p.drop(1), texto)
             else -> Ruta.web(texto)
@@ -68,7 +67,6 @@ val Ruta.clave: String get() = when (this) {
     Ruta.caja -> "caja"
     Ruta.buscar -> "buscar"
     Ruta.agenda -> "agenda"
-    is Ruta.turnoCliente -> "turnoCliente:$codigo"
     is Ruta.invitacion -> "invitacion:$token"
     Ruta.clientes -> "clientes"
     is Ruta.web -> "web-en-app"

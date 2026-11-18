@@ -1,7 +1,6 @@
 Agenda/Agenda.swift
 Avisos/Avisos.swift
 Buscar/Buscar.swift
-Cliente/Cliente.swift
 Clientes/Clientes.swift
 Espera/ListaEspera.swift
 Hoy/DatosDia.swift

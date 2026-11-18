@@ -367,9 +367,6 @@ fun Cuenta() {
                 Renglon(if (avisosOn) "Activados" else "Apagados", "Cambialo en Ajustes", if (avisosOn) "bell.badge" else "bell.slash")
             } },
             { Box(Modifier.clickable { preferencias = true }) { Renglon("Qué te avisamos", simbolo = "slider.horizontal.3") { Icono("chevron.right", 15f, C.sub) } } })
-        Bloque("Modo", "", { Box(Modifier.clickable { alcance.launch { estado.elegirModo("cliente") } }) {
-            Renglon("Usar como clienta", "Ver tus turnos y los lugares donde reservás", "person.2.wave.2")
-        } })
         Bloque("Ayuda", "", { Box(Modifier.clickable { estado.abrirLink("mailto:hola@tengolibre.com.ar") }) { Renglon("Escribinos", "hola@tengolibre.com.ar", "questionmark.bubble") } })
         Row(
             Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(CircleShape).contorno(999.dp).clickable { salir = true },
@@ -382,7 +379,7 @@ fun Cuenta() {
 
 // MARK: - Borrar la cuenta
 
-/** «Borrar mi cuenta» (para cualquier rol y también en modo clienta): pide escribir el mail de la cuenta, la desactiva
+/** «Borrar mi cuenta» (para cualquier rol): pide escribir el mail de la cuenta, la desactiva
  *  con DELETE /v1/auth/cuenta y vuelve al ingreso. Los datos personales se borran a los 30 días; hasta entonces se
  *  recupera escribiendo a hola@. */
 @Composable

@@ -216,7 +216,7 @@ private fun abrirRuta(estado: ar.com.tengolibre.app.app.Estado, nav: Navegacion,
         Ruta.agenda -> nav.pestana = Pestana.agenda
         Ruta.clientes -> nav.pestana = if (estado.esProfesional) Pestana.hoy else Pestana.clientes
         is Ruta.mas -> { nav.pestana = Pestana.mas; nav.pilaMas.add(r.destino) }
-        is Ruta.turnoCliente, is Ruta.invitacion, is Ruta.web -> {} // los abre Raiz (valen en cualquier modo)
+        is Ruta.invitacion, is Ruta.web -> {} // los abre Raiz (valen en cualquier fase)
     }
 }
 

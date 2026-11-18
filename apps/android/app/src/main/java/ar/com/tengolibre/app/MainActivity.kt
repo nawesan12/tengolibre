@@ -52,7 +52,6 @@ class MainActivity : ComponentActivity() {
         Llavero.contexto = applicationContext
         if (BuildConfig.DEBUG && intent?.getBooleanExtra("modoPrueba", false) == true) {
             ModoPrueba.activo = true
-            ModoPrueba.cliente = intent.getBooleanExtra("modoCliente", false)
             ModoPrueba.respuestas = { assets.open("pruebas/respuestas.json").bufferedReader().readText() }
             ModoPrueba.preparar(intent.getBooleanExtra("conRecorrido", false))
         }
@@ -76,10 +75,6 @@ class MainActivity : ComponentActivity() {
         // Push (FCM), los widgets y lo que mira «Potenciá tu negocio».
         runCatching { Push.iniciar(applicationContext) }
         estado.alPedirTokenPush = { Push.registrar(applicationContext, estado) }
-        estado.alPedirAvisosClienta = {
-            if (!Preferencias.bool("avisosClientaPedidos")) { Preferencias.ponerBool("avisosClientaPedidos", true); pedirPermisoAvisos() }
-            Push.registrar(applicationContext, estado)
-        }
         EstadoNegocio.hayAvisos = { Push.hayPermiso(applicationContext) }
         EstadoNegocio.hayWidget = { Widgets.hay(applicationContext) }
         // Con la app abierta, un aviso que llega pone al día la campanita y la pantalla (willPresent en iOS).

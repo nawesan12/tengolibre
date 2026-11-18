@@ -146,33 +146,6 @@ fun Ingreso() {
     Hoja(conMail, { conMail = false }) { IngresoMail { conMail = false } }
 }
 
-/** 02 Modo: «¿Cómo vas a usar Tengo Libre?» — atiendo un negocio / reservo turnos. */
-@Composable
-fun ElegirModo() {
-    val estado = LocalEstado.current
-    val alcance = rememberCoroutineScope()
-    Column(Modifier.fillMaxSize().background(C.fondo).statusBarsPadding().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Texto("¿Cómo vas a usar Tengo Libre?", Tipo.lato(30f, Peso.Black), C.tinta, Modifier.padding(top = 40.dp), tracking = (-0.8).sp)
-        Texto("Lo podés cambiar cuando quieras desde tu cuenta.", Tipo.lato(16f), C.sub)
-        Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(C.bloquePetroleo).clickable { alcance.launch { estado.elegirModo("negocio") } }.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icono("storefront", 28f, C.menta)
-            Texto("Atiendo un negocio", Tipo.lato(22f, Peso.Black), Color.White)
-            Texto("Tu agenda, tu equipo y tus clientas. Cargás turnos y te enterás de cada reserva.", Tipo.lato(15f), Color.White.copy(alpha = 0.8f))
-        }
-        Column(
-            Modifier.fillMaxWidth().tarjeta(24.dp).clickable { alcance.launch { estado.elegirModo("cliente") } }.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icono("calendar.badge.checkmark", 28f, C.mentaTexto)
-            Texto("Reservo turnos", Tipo.lato(22f, Peso.Black), C.tinta)
-            Texto("Tus turnos en un solo lugar, recordatorios y lugares cerca tuyo con horario libre.", Tipo.lato(15f), C.sub)
-        }
-    }
-}
-
 /** 03 Elegir negocio: «¿Dónde trabajás hoy?». */
 @Composable
 fun ElegirNegocio() {
@@ -244,7 +217,7 @@ private fun Aviso(t: String, x: String, h: String) {
     }
 }
 
-/** Alta: quien entra sin negocio abre el suyo (nombre y link), o pasa a reservar. */
+/** Alta: quien entra sin negocio abre el suyo (nombre y link). */
 @Composable
 fun Alta() {
     val estado = LocalEstado.current
@@ -291,7 +264,9 @@ fun Alta() {
         Texto("tengolibre.com.ar/${slug.ifEmpty { "tu-negocio" }}", Tipo.lato(15f, Peso.Bold), C.mentaTexto)
         if (error.isNotEmpty()) Texto(error, Tipo.lato(14f, Peso.Bold), C.error)
         BotonMenta(if (creando) "Creando…" else "Crear mi negocio", { crear() }, habilitado = !creando && nombre.length >= 2 && slug.length >= 3)
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { BotonTexto("En realidad, quiero reservar turnos", { alcance.launch { estado.elegirModo("cliente") } }, color = C.tinta) }
+        // La app es para quien atiende un negocio: las reservas se hacen en la página de cada uno.
+        Texto("¿Querés reservar un turno?\nHacelo desde la página del negocio.", Tipo.lato(14f), C.sub,
+            Modifier.fillMaxWidth().clickable { estado.abrirLink("https://tengolibre.com.ar/explorar") }, alinear = TextAlign.Center)
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { BotonTexto("Salir", { alcance.launch { estado.salir() } }, color = C.sub) }
     }
 }

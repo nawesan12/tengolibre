@@ -26,10 +26,6 @@ import ar.com.tengolibre.app.pantallas.agenda.Agenda
 import ar.com.tengolibre.app.pantallas.avisos.Avisos
 import ar.com.tengolibre.app.pantallas.avisos.Compartir
 import ar.com.tengolibre.app.pantallas.buscar.Buscar
-import ar.com.tengolibre.app.pantallas.cliente.Lugares
-import ar.com.tengolibre.app.pantallas.cliente.MisTurnos
-import ar.com.tengolibre.app.pantallas.cliente.PrincipalCliente
-import ar.com.tengolibre.app.pantallas.cliente.Reservar
 import ar.com.tengolibre.app.pantallas.clientes.Clientes
 import ar.com.tengolibre.app.pantallas.clientes.FichaCliente
 import ar.com.tengolibre.app.pantallas.espera.ListaEspera
@@ -178,13 +174,9 @@ class PantallasTest {
     @Test fun ingresoMail() = montar("IngresoMail", espera = 1000) { EnHoja { IngresoMail {} } }
     @Test fun recuperarAcceso() = montar("RecuperarAcceso", espera = 1000) { EnHoja { RecuperarAcceso("laura@lumi.test") {} } }
     @Test fun borrarCuenta() = montar("BorrarCuenta", espera = 1000) { EnHoja { HojaBorrarCuenta {} } }
-    @Test fun elegirModo() = montar("ElegirModo", espera = 1000) { ElegirModo() }
     @Test fun elegirNegocio() = montar("ElegirNegocio", estado(negocios = 3), 1000) { ElegirNegocio() }
     @Test fun permisos() = montar("Permisos", espera = 1000) { PermisoAvisos() }
     @Test fun alta() = montar("Alta", espera = 1000) { Alta() }
     @Test fun principal() = montar("Principal") { Principal() }
     @Test fun principalProfesional() = montar("PrincipalProfesional", estado("profesional")) { Principal() }
-    @Test fun cliente() { val e = estado(); MisTurnos.codigos = emptyList(); montar("Cliente", e) { PrincipalCliente() } }
-    @Test fun reservar() = montar("Reservar") { EnHoja { Reservar("lumi", {}, {}) } }
-    @Test fun lugares() = montar("Lugares") { Lugares {} }
 }
