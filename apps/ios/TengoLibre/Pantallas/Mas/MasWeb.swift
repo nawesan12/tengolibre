@@ -231,7 +231,7 @@ struct MiWeb: View {
                                     Button("Primera", systemImage: "arrow.up.to.line") { Task { await ordenar(f, primero: true) } }
                                     Button("Última", systemImage: "arrow.down.to.line") { Task { await ordenar(f, primero: false) } }
                                     Button("Sacar", systemImage: "trash", role: .destructive) {
-                                        Task { await estado.intentar { try await estado.api.hacer("DELETE", "/v1/panel/mi-web/galeria/\(f.id)") }; await cargar(soloImagenes: true) }
+                                        Task { await sacarFoto(f) }
                                     }
                                 }
                         }
@@ -254,7 +254,7 @@ struct MiWeb: View {
             Task {
                 if let u = await subir(i) {
                     await estado.intentar("Sumamos la foto") { try await estado.api.hacer("POST", "/v1/panel/mi-web/galeria", ["url": u, "epigrafe": ""]) }
-                    await cargar(soloImagenes: true)
+                    await recargarImagenes()
                 }
                 foto = nil
             }
@@ -288,6 +288,14 @@ struct MiWeb: View {
         subiendo = true
         defer { subiendo = false }
         return await item.subirAchicada(estado)
+    }
+
+    // Fuera del body: dentro, el compilador no llegaba a chequear los tipos de la vista a tiempo.
+    private func recargarImagenes() async { await cargar(soloImagenes: true) }
+
+    private func sacarFoto(_ f: FotoGaleria) async {
+        await estado.intentar { try await estado.api.hacer("DELETE", "/v1/panel/mi-web/galeria/\(f.id)") }
+        await recargarImagenes()
     }
 
     private func patchNegocio(_ c: [String: String]) async {
