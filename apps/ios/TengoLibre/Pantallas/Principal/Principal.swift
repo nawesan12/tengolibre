@@ -25,6 +25,19 @@ enum Pestana: String, CaseIterable, Hashable {
         case .mas: "line.3.horizontal"
         }
     }
+
+    /// El de la pestaña elegida. Se nombra uno por uno: «calendar.fill» y «hourglass.fill» no existen
+    /// y Image(systemName:) con un nombre que no existe no dibuja nada (Agenda y Espera quedaban vacías).
+    var simboloElegido: String {
+        switch self {
+        case .hoy: "sun.max.fill"
+        case .agenda: "calendar"
+        case .espera: "hourglass.bottomhalf.filled"
+        case .clientes: "person.2.fill"
+        case .resenas: "star.bubble.fill"
+        case .mas: "line.3.horizontal"
+        }
+    }
 }
 
 /// Lo que se abre encima (hojas) y desde dónde.
@@ -178,7 +191,7 @@ struct BarraPestanas: View {
                                 Capsule().fill(C.seleccion).frame(width: 56, height: 30)
                                     .matchedGeometryEffect(id: "capsula", in: ns)
                             }
-                            Image(systemName: on ? p.simbolo + (p == .mas ? "" : ".fill") : p.simbolo)
+                            Image(systemName: on ? p.simboloElegido : p.simbolo)
                                 .font(.system(size: 20, weight: on ? .bold : .medium))
                                 .foregroundStyle(on ? C.seleccionTexto : C.sub)
                         }
