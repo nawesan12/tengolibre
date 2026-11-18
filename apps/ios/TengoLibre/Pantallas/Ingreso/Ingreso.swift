@@ -195,6 +195,8 @@ struct Alta: View {
     @State private var nombre = ""
     @State private var slug = ""
     @State private var slugTocado = false
+    /// Si el link está libre (lo pregunta a la API con 300 ms de pausa): libre, tomada o invalida.
+    @State private var libre: String?
     @State private var creando = false
     @State private var error = ""
 
@@ -215,17 +217,29 @@ struct Alta: View {
                 Text("Gratis los primeros 30 días. Después lo terminás de armar desde Más: servicios, equipo y horarios.").font(Tipo.lato(16)).foregroundStyle(C.sub)
                 Bloque {
                     RenglonCampo(titulo: "Nombre del negocio", texto: $nombre, placeholder: "Lumi Estética")
-                    RenglonCampo(titulo: "Tu link", texto: Binding(get: { slug }, set: { slug = aSlug($0); slugTocado = true }), placeholder: "lumi", teclado: .URL)
+                    RenglonCampo(titulo: "Tu link", texto: Binding(get: { slug }, set: { slug = LinkRegla.limpiar($0); slugTocado = true }), placeholder: "lumi", teclado: .URL)
                 }
-                Text("tengolibre.com.ar/\(slug.isEmpty ? "tu-negocio" : slug)").font(Tipo.lato(15, .bold)).foregroundStyle(C.mentaTexto)
+                // El link, grande: es lo que va a compartir (la gente no lee: que se vea antes de explicarlo).
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("TU LINK", systemImage: "link").font(Tipo.rotulo).tracking(12 * 0.08).foregroundStyle(C.mentaTexto)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("\(Web.base.host() ?? "tengolibre.com.ar")/").font(Tipo.lato(15, .bold)).foregroundStyle(C.sub)
+                        Text(slug.isEmpty ? "tu-negocio" : slug).font(Tipo.lato(26, .black)).tracking(-0.6).foregroundStyle(C.mentaTexto)
+                            .lineLimit(2).minimumScaleFactor(0.6)
+                    }
+                    if slug.count >= 3 {
+                        Label(libreTexto.0, systemImage: libreTexto.1).font(Tipo.lato(13, .bold)).foregroundStyle(libreTexto.2)
+                    }
+                    Label("Este es tu link: lo compartís y te reservan\u{00a0}solos.", systemImage: "megaphone.fill")
+                        .font(Tipo.lato(14, .bold)).foregroundStyle(C.tinta)
+                        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(C.mentaSuave, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .padding(16).tarjeta(Radio.bloque)
+                .overlay(RoundedRectangle(cornerRadius: Radio.bloque, style: .continuous).strokeBorder(libre == "libre" ? C.menta : C.linea, lineWidth: 2))
                 if !error.isEmpty { Text(error).font(Tipo.lato(14, .bold)).foregroundStyle(C.error) }
                 Button(creando ? "Creando…" : "Crear mi negocio") { Task { await crear() } }
-                    .buttonStyle(BotonMenta()).disabled(creando || nombre.count < 2 || slug.count < 3)
-                // La app es para quien atiende un negocio: las reservas se hacen en la página de cada uno.
-                Link(destination: URL(string: "https://tengolibre.com.ar/explorar")!) {
-                    Text("¿Querés reservar un turno?\nHacelo desde la página del negocio.").font(Tipo.lato(14)).foregroundStyle(C.sub)
-                        .multilineTextAlignment(.center).frame(maxWidth: .infinity)
-                }
+                    .buttonStyle(BotonMenta()).disabled(creando || nombre.count < 2 || slug.count < 3 || libre == "tomada" || libre == "invalida")
                 Button("Salir") { Task { await estado.salir() } }.buttonStyle(BotonTexto(color: C.sub)).frame(maxWidth: .infinity)
             }
             .foregroundStyle(C.tinta).padding(.horizontal, 20)
@@ -233,6 +247,26 @@ struct Alta: View {
         .scrollDismissesKeyboard(.interactively)
         .background(C.fondo.ignoresSafeArea())
         .onChange(of: nombre) { _, n in if !slugTocado { slug = aSlug(n) } }
+        .task(id: slug) {
+            libre = nil
+            guard slug.count >= 3 else { return }
+            guard LinkRegla.valido(slug) else { libre = "invalida"; return }
+            try? await Task.sleep(for: .milliseconds(300))
+            if Task.isCancelled { return }
+            struct D: Decodable { var estado: String }
+            let d: D? = try? await estado.api.get("/v1/slugs/\(slug)")
+            if !Task.isCancelled { libre = d?.estado }
+        }
+    }
+
+    /// Texto, ícono y color del chequeo. Nunca sólo color.
+    private var libreTexto: (String, String, Color) {
+        switch libre {
+        case "libre": ("Está libre. Es tuya.", "checkmark.circle.fill", C.mentaTexto)
+        case "tomada": ("Ya la usa otro negocio.", "xmark.circle.fill", C.error)
+        case "invalida": ("Esa dirección no se puede usar.", "xmark.circle.fill", C.error)
+        default: ("Fijándonos si está libre…", "ellipsis", C.sub)
+        }
     }
 
     private struct Creado: Decodable { var id: String }

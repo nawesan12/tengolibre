@@ -75,6 +75,9 @@ fun Hoy() {
     var avisados by remember { mutableStateOf(setOf<String>()) }
     /** Los próximos turnos de los días que vienen: sin esto, uno reservado para dentro de dos semanas no se veía en ningún lado. */
     var proximos by remember { mutableStateOf<List<Turno>>(emptyList()) }
+    /** Turnos de los últimos 30 días (hasta LinkRegla.pocosTurnos): con pocos, el link va primero. */
+    var movimiento by remember { mutableStateOf<Int?>(null) }
+    val linkPrimero = (movimiento ?: 0) < LinkRegla.pocosTurnos
     val contexto = LocalContext.current
 
     val hoy = Formato.enArgentina(ahora).toLocalDate().atStartOfDay(Formato.zona).toInstant()
@@ -101,6 +104,7 @@ fun Hoy() {
     suspend fun cargar() {
         datos.cargar(estado, hoy, hoy)
         cargarProximos()
+        movimiento = LinkRegla.movimiento(estado, hoy)
         // Sólo con el día bien traído: sin conexión y sin caché quedaba vacío y apagaba la notificación en curso.
         if (datos.carga == DatosDia.Carga.listo) ActividadTurno.sincronizar(datos.turnos.filter { Formato.diaISO(it.inicio) == Formato.diaISO(hoy) }, estado)
         estado.vivo.cargar(estado)
@@ -150,9 +154,11 @@ fun Hoy() {
                 }
                 is DatosDia.Carga.error -> ErrorConSalida("No pudimos traer tu día", "Tus turnos están a salvo. ${c.texto}") { alcance.launch { cargar() } }
                 else -> {
+                    if (linkPrimero) TarjetaLink()
                     if (delDia.none { it.ocupa }) {
                         Vacio(dias, estado, nav)
                         ProximosDias(proximos, estado, ahora) { nav.turno = it }
+                        if (!linkPrimero) TarjetaLink(compacta = true)
                         BarraAvance()
                         PlataHoy()
                         AtajosHoy()
@@ -163,6 +169,7 @@ fun Hoy() {
                         AtajosHoy()
                         Pila(estado, nav, datos, delDia, dias, ahora, hoy, lectura, verTemprano, { verTemprano = !verTemprano }, avisados,
                             alTocarHueco = { cargarEn(it) }, alAccionHueco = { h, n -> if (!lectura) { if (n > 0) ofrecer = h else cargarEn(h) } }, alDeslizar = alDeslizar)
+                        if (!linkPrimero) TarjetaLink(compacta = true)
                         ProximosDias(proximos, estado, ahora) { nav.turno = it }
                         BarraAvance()
                         DescubrirHoy()

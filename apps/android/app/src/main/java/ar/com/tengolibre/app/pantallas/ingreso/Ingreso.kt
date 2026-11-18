@@ -48,9 +48,13 @@ import ar.com.tengolibre.app.app.LocalEstado
 import ar.com.tengolibre.app.nucleo.Clerk
 import ar.com.tengolibre.app.nucleo.ErrorApi
 import ar.com.tengolibre.app.nucleo.NegocioDeLaPersona
+import ar.com.tengolibre.app.nucleo.Web
+import ar.com.tengolibre.app.nucleo.opcional
+import ar.com.tengolibre.app.pantallas.hoy.LinkRegla
 import ar.com.tengolibre.app.pantallas.mas.Bloque
 import ar.com.tengolibre.app.pantallas.mas.RenglonCampo
 import ar.com.tengolibre.app.tema.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import java.text.Normalizer
@@ -225,6 +229,8 @@ fun Alta() {
     var nombre by remember { mutableStateOf("") }
     var slug by remember { mutableStateOf("") }
     var slugTocado by remember { mutableStateOf(false) }
+    /** Si el link está libre (lo pregunta a la API con 300 ms de pausa): libre, tomada o invalida. */
+    var libre by remember { mutableStateOf<String?>(null) }
     var creando by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
 
@@ -259,14 +265,42 @@ fun Alta() {
         Bloque(
             "", "",
             { RenglonCampo("Nombre del negocio", nombre, { nombre = it; if (!slugTocado) slug = aSlug(it) }, "Lumi Estética") },
-            { RenglonCampo("Tu link", slug, { slug = aSlug(it); slugTocado = true }, "lumi", KeyboardType.Uri) },
+            { RenglonCampo("Tu link", slug, { slug = LinkRegla.limpiar(it); slugTocado = true }, "lumi", KeyboardType.Uri) },
         )
-        Texto("tengolibre.com.ar/${slug.ifEmpty { "tu-negocio" }}", Tipo.lato(15f, Peso.Bold), C.mentaTexto)
+        // El link, grande: es lo que va a compartir (la gente no lee: que se vea antes de explicarlo).
+        LaunchedEffect(slug) {
+            libre = null
+            if (slug.length < 3) return@LaunchedEffect
+            if (!LinkRegla.valido(slug)) { libre = "invalida"; return@LaunchedEffect }
+            delay(300)
+            libre = estado.api.opcional<DisponibilidadAlta>("/v1/slugs/$slug")?.estado
+        }
+        // Texto, ícono y color del chequeo. Nunca sólo color.
+        val (libreTexto, libreSimbolo, libreColor) = when (libre) {
+            "libre" -> Triple("Está libre. Es tuya.", "checkmark.circle.fill", C.mentaTexto)
+            "tomada" -> Triple("Ya la usa otro negocio.", "xmark.circle.fill", C.error)
+            "invalida" -> Triple("Esa dirección no se puede usar.", "xmark.circle.fill", C.error)
+            else -> Triple("Fijándonos si está libre…", "ellipsis", C.sub)
+        }
+        Column(
+            Modifier.fillMaxWidth().tarjeta(Radio.bloque).border(2.dp, if (libre == "libre") C.menta else C.linea, RoundedCornerShape(Radio.bloque)).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { Icono("link", 12f, C.mentaTexto); TextoRotulo("Tu link", C.mentaTexto) }
+            Column {
+                Texto("${Web.base.removePrefix("https://").removePrefix("http://")}/", Tipo.lato(15f, Peso.Bold), C.sub, lineas = 1)
+                Texto(slug.ifEmpty { "tu-negocio" }, Tipo.lato(26f, Peso.Black), C.mentaTexto, lineas = 2, tracking = (-0.6).sp)
+            }
+            if (slug.length >= 3) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icono(libreSimbolo, 14f, libreColor); Texto(libreTexto, Tipo.lato(13f, Peso.Bold), libreColor)
+            }
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(C.mentaSuave).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) { Icono("megaphone.fill", 16f, C.mentaTexto); Texto("Este es tu link: lo compartís y te reservan solos.", Tipo.lato(14f, Peso.Bold), C.tinta) }
+        }
         if (error.isNotEmpty()) Texto(error, Tipo.lato(14f, Peso.Bold), C.error)
-        BotonMenta(if (creando) "Creando…" else "Crear mi negocio", { crear() }, habilitado = !creando && nombre.length >= 2 && slug.length >= 3)
-        // La app es para quien atiende un negocio: las reservas se hacen en la página de cada uno.
-        Texto("¿Querés reservar un turno?\nHacelo desde la página del negocio.", Tipo.lato(14f), C.sub,
-            Modifier.fillMaxWidth().clickable { estado.abrirLink("https://tengolibre.com.ar/explorar") }, alinear = TextAlign.Center)
+        BotonMenta(if (creando) "Creando…" else "Crear mi negocio", { crear() }, habilitado = !creando && nombre.length >= 2 && slug.length >= 3 && libre != "tomada" && libre != "invalida")
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { BotonTexto("Salir", { alcance.launch { estado.salir() } }, color = C.sub) }
     }
 }
@@ -282,3 +316,5 @@ fun aSlug(s: String): String {
     }
     return out.toString().trim('-').take(40)
 }
+
+@Serializable private data class DisponibilidadAlta(val estado: String = "")

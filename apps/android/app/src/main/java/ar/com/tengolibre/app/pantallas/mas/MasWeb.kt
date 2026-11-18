@@ -67,6 +67,7 @@ import ar.com.tengolibre.app.app.Estado
 import ar.com.tengolibre.app.app.LocalEstado
 import ar.com.tengolibre.app.nucleo.*
 import ar.com.tengolibre.app.pantallas.hoy.BarraHoja
+import ar.com.tengolibre.app.pantallas.hoy.TarjetaLink
 import ar.com.tengolibre.app.pantallas.principal.*
 import ar.com.tengolibre.app.tema.*
 import coil3.compose.AsyncImage
@@ -370,6 +371,8 @@ fun MiWeb() {
         cargando = (n == null || w == null) && error.isEmpty(), error = error, recargar = { cargar() }) {
         val nn = n ?: return@PantallaMas
         val ww = w ?: return@PantallaMas
+        // Lo primero de Mi web: el link, para compartirlo o cambiarlo (los viejos siguen andando).
+        TarjetaLink(compacta = true)
         Box {
             Bloque("Logo y portada", "",
                 {

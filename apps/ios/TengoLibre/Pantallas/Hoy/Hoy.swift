@@ -14,6 +14,9 @@ struct Hoy: View {
     @State private var avisados: Set<String> = []
     /// Los próximos turnos de los días que vienen: sin esto, uno reservado para dentro de dos semanas no se veía en ningún lado.
     @State private var proximos: [Turno] = []
+    /// Turnos de los últimos 30 días (hasta LinkRegla.pocosTurnos): con pocos, el link va primero.
+    @State private var movimiento: Int?
+    private var linkPrimero: Bool { (movimiento ?? 0) < LinkRegla.pocosTurnos }
 
     private var hoy: Date { Formato.calendario.startOfDay(for: ahora) }
     private var delDia: [Turno] { datos.turnos.filter { Formato.diaISO($0.inicio) == Formato.diaISO(hoy) } }
@@ -68,6 +71,7 @@ struct Hoy: View {
     private func cargar() async {
         await datos.cargar(estado, desde: hoy, hasta: hoy)
         await cargarProximos()
+        movimiento = await LinkRegla.movimiento(estado, hoy: hoy)
         // Sólo con el día bien traído: sin conexión y sin caché delDia viene vacío y apagaba la Live Activity en curso.
         if case .listo = datos.carga { ActividadTurno.sincronizar(delDia, estado: estado) }
         await estado.vivo.cargar(estado)
@@ -115,9 +119,11 @@ struct Hoy: View {
         case .error(let m):
             ErrorConSalida(titulo: "No pudimos traer tu día", texto: "Tus turnos están a salvo. \(m)") { Task { await cargar() } }
         default:
+            if linkPrimero { TarjetaLink() }
             if delDia.filter(\.ocupa).isEmpty {
                 vacio
                 proximosDias
+                if !linkPrimero { TarjetaLink(compacta: true) }
                 BarraAvance()
                 PlataHoy()
                 AtajosHoy()
@@ -127,6 +133,7 @@ struct Hoy: View {
                 PlataHoy()
                 AtajosHoy()
                 pila
+                if !linkPrimero { TarjetaLink(compacta: true) }
                 proximosDias
                 BarraAvance()
                 DescubrirHoy()

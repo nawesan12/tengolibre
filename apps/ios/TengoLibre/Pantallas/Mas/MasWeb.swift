@@ -177,6 +177,8 @@ struct MiWeb: View {
             if n != nil, w != nil {
                 let nb = Binding(get: { n! }, set: { n = $0 })
                 let wb = Binding(get: { w! }, set: { w = $0 })
+                // Lo primero de Mi web: el link, para compartirlo o cambiarlo (los viejos siguen andando).
+                TarjetaLink(compacta: true)
                 Bloque(titulo: "Logo y portada") {
                     HStack(spacing: 14) {
                         imagen(n?.logo, alto: 72, ancho: 72, radio: 18)
