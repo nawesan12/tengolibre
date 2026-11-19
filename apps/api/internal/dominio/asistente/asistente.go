@@ -168,6 +168,22 @@ type Respuesta struct {
 	Origen string `json:"origen"`
 	// Tope: no hay más IA por ahora (motivo y mensaje para mostrar).
 	Tope *Tope `json:"tope,omitempty"`
+	// Encabezado e Items: una lista de turnos como datos («Mañana hay 3 turnos:» y una fila por turno,
+	// con su id para abrirlo). Respuesta trae lo mismo como texto, para quien no muestra filas.
+	Encabezado string      `json:"encabezado,omitempty"`
+	Items      []ItemTurno `json:"items,omitempty"`
+}
+
+// ItemTurno: un turno de una lista del asistente.
+type ItemTurno struct {
+	ID          string `json:"id"`
+	Dia         string `json:"dia"`
+	Hora        string `json:"hora"`
+	Cliente     string `json:"cliente"`
+	Servicio    string `json:"servicio"`
+	Profesional string `json:"profesional,omitempty"`
+	// Estado en palabras (sin confirmar, falta la seña…); vacío si está confirmado.
+	Estado string `json:"estado,omitempty"`
 }
 
 // Tope de la IA alcanzado.

@@ -50,6 +50,7 @@ const (
 	Mover     = "mover"
 	Cancelar  = "cancelar"
 	Confirmar = "confirmar"
+	Anotar    = "anotar"
 )
 
 // HoraDicha: una hora como la dijo la persona («a las 5», «17:30», «5 de la tarde»). Sufijo:
@@ -96,7 +97,13 @@ func normalizar(s string) string {
 			b.WriteByte(' ')
 		}
 	}
-	return strings.Join(strings.Fields(b.String()), " ")
+	ws := strings.Fields(b.String())
+	for i, w := range ws {
+		if a, ok := abreviaturas[w]; ok {
+			ws[i] = a
+		}
+	}
+	return strings.Join(ws, " ")
 }
 
 var (
@@ -112,6 +119,12 @@ var (
 		"reprogramale", "reprogramar", "corre", "correla", "correlo", "correle"}
 	verbosCancelar  = []string{"cancela", "cancelala", "cancelalo", "cancelale", "cancelame", "cancelar", "anula", "anulala", "anulalo", "anular"}
 	verbosConfirmar = []string{"confirma", "confirmala", "confirmalo", "confirmale", "confirmame", "confirmar"}
+	verbosAnotar    = []string{"anota", "anotala", "anotalo", "anotame", "anotale", "anotar", "agendala", "agendalo",
+		"agendame", "agendale", "agendar", "reserva", "reservala", "reservalo", "reservale", "reservame", "reservar", "carga",
+		"cargala", "cargalo", "cargale", "cargame", "cargar"}
+
+	// abreviaturas que se escriben en el teléfono.
+	abreviaturas = map[string]string{"q": "que", "x": "por", "xq": "porque", "pq": "porque", "tmb": "tambien", "mnn": "manana", "mna": "manana"}
 
 	// Palabras de relleno: pueden estar sin cambiar el pedido. Si queda alguna otra sin entender, el
 	// intérprete no está seguro y la pregunta va a la IA.
@@ -176,6 +189,9 @@ func Interpretar(texto string, c Catalogo) (Intencion, bool) {
 			in.Tipo = Cancelar
 		case slices.Contains(verbosConfirmar, e.t[i]):
 			in.Tipo = Confirmar
+		// «agenda» es también el sustantivo («agenda del jueves»): es verbo sólo con «a» (agendá a Marta).
+		case slices.Contains(verbosAnotar, e.t[i]) || e.t[i] == "agenda" && e.es(i+1, "a"):
+			in.Tipo = Anotar
 		default:
 			continue
 		}
@@ -190,6 +206,16 @@ func Interpretar(texto string, c Catalogo) (Intencion, bool) {
 	switch in.Tipo {
 	case Mover:
 		return interpretarMover(e, verbo, c, in)
+	case Anotar:
+		// «anotá a Lucía mañana a las 11 para corte»: cliente, día, hora y (si lo dijo) el servicio.
+		in.Cliente = nombreCliente(e, verbo+1)
+		in.Fecha, _ = fecha(e, 0, len(e.t), c)
+		in.Hora = hora(e, 0, len(e.t))
+		if in.Cliente == "" || in.Fecha.IsZero() || !in.Hora.Dicha {
+			return in, false
+		}
+		in.ProfesionalID = buscarNombre(e, c.Profesionales, true)
+		return in, len(e.sobrantes()) == 0
 	case Cancelar, Confirmar:
 		in.Cliente = nombreCliente(e, verbo+1)
 		f, _ := fecha(e, 0, len(e.t), c)
@@ -481,7 +507,9 @@ func hora(e *esc, desde, hasta int) HoraDicha {
 		// Después de «a las», «las», «a la» o pegada con hs / dos puntos.
 		previa := e.es(i-1, "las", "la") && !e.usado[i-1]
 		h, m, suf, ok := numeroHora(w)
-		if !ok || (!previa && suf == "" && !strings.Contains(w, ":") && !e.es(i+1, "hs", "h", "horas", "hrs")) {
+		// «el jueves 5 de la tarde»: sin «a las», la hora la marca «de la tarde».
+		conFranja := e.es(i+1, "de") && (e.es(i+2, "la") && e.es(i+3, "manana", "tarde", "noche") || e.es(i+2, "tarde", "noche"))
+		if !ok || (!previa && suf == "" && !conFranja && !strings.Contains(w, ":") && !e.es(i+1, "hs", "h", "horas", "hrs")) {
 			continue
 		}
 		usados := 1

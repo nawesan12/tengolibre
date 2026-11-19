@@ -173,3 +173,27 @@ func TestCoincideNombre(t *testing.T) {
 		t.Fatal("coincideNombre")
 	}
 }
+
+// Lo que escribe la gente en el teléfono: «q», «5 de la tarde» sin «a las», y pedidos para anotar.
+func TestInterpretarDelTelefono(t *testing.T) {
+	c := catalogoDePrueba()
+	if in, ok := Interpretar("mañana q tengo", c); !ok || in.Tipo != Agenda || !in.Fecha.Equal(dia(11, 19)) {
+		t.Fatalf("«q»: %+v %v", in, ok)
+	}
+	in, ok := Interpretar("mové a Juana al jueves 5 de la tarde", c)
+	if !ok || in.Tipo != Mover || in.Cliente != "juana" || !in.Destino.Equal(dia(11, 19)) || c.Resolver(in.DestinoHora, in.Destino).Hour() != 17 {
+		t.Fatalf("«5 de la tarde»: %+v %v", in, ok)
+	}
+	in, ok = Interpretar("anotá a Lucía mañana a las 11 para corte", c)
+	if !ok || in.Tipo != Anotar || in.Cliente != "lucia" || in.ServicioID != "s1" || !in.Fecha.Equal(dia(11, 19)) || in.Hora.H != 11 {
+		t.Fatalf("anotar: %+v %v", in, ok)
+	}
+	in, ok = Interpretar("agendame a Marta el sábado a las 10", c)
+	if !ok || in.Tipo != Anotar || in.Cliente != "marta" || !in.Fecha.Equal(dia(11, 21)) {
+		t.Fatalf("agendame: %+v %v", in, ok)
+	}
+	// Sin día u hora no adivina (va a la IA o pide más).
+	if _, ok := Interpretar("anotá a Lucía", c); ok {
+		t.Fatal("anotar sin día ni hora")
+	}
+}

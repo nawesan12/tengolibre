@@ -44,18 +44,28 @@ func (s *Servicio) motor(ctx context.Context, op *mcp.Operador, c Catalogo, in I
 		if err != nil {
 			return Respuesta{}, err
 		}
-		return Respuesta{Respuesta: textoAgenda(ts, f, hoy)}, nil
+		r := Respuesta{Respuesta: textoAgenda(ts, f, hoy)}
+		if len(ts) > 0 {
+			r.Encabezado, r.Items = encabezadoAgenda(ts, f, hoy), items(ts, 25)
+		}
+		return r, nil
 	case Quien:
 		ts, err := agendaDe(ctx, op, f, f, in.ProfesionalID)
 		if err != nil {
 			return Respuesta{}, err
 		}
 		h := c.Resolver(in.Hora, f)
-		return Respuesta{Respuesta: textoQuien(ts, h, f, hoy)}, nil
+		r := Respuesta{Respuesta: textoQuien(ts, h, f, hoy)}
+		if en := enCurso(ts, h); len(en) > 0 {
+			r.Encabezado, r.Items = mayuscula(elDia(f, hoy)+" a las "+h.Format("15:04"))+":", items(en, 25)
+		}
+		return r, nil
 	case Libres:
 		return s.libres(ctx, op, c, in, f, hoy)
 	case Mover, Cancelar, Confirmar:
 		return s.accion(ctx, op, c, in)
+	case Anotar:
+		return s.anotar(ctx, op, c, in)
 	}
 	return Respuesta{}, problema.Invalido("No entendí el pedido.")
 }
@@ -131,6 +141,42 @@ func linea(t mcp.TurnoMCP) string {
 		l += " (no vino)"
 	}
 	return l
+}
+
+// estadoDicho: el estado de un turno en palabras para una lista (confirmado: nada).
+func estadoDicho(e string) string {
+	return map[string]string{"pendiente": "sin confirmar", "pendiente_pago": "falta la seña", "atendido": "atendido", "ausente": "no vino"}[e]
+}
+
+func items(ts []mcp.TurnoMCP, n int) []ItemTurno {
+	out := []ItemTurno{}
+	for i, t := range ts {
+		if i == n {
+			break
+		}
+		out = append(out, ItemTurno{ID: t.ID, Dia: t.Dia, Hora: inicioDe(t).Format("15:04"), Cliente: t.Cliente.Nombre,
+			Servicio: t.Servicio, Profesional: t.Profesional, Estado: estadoDicho(t.Estado)})
+	}
+	return out
+}
+
+func encabezadoAgenda(ts []mcp.TurnoMCP, f, hoy time.Time) string {
+	cuando := mayuscula(elDia(f, hoy))
+	if len(ts) == 1 {
+		return cuando + " hay 1 turno:"
+	}
+	return fmt.Sprintf("%s hay %d turnos:", cuando, len(ts))
+}
+
+// enCurso: los turnos que están en curso a la hora h.
+func enCurso(ts []mcp.TurnoMCP, h time.Time) []mcp.TurnoMCP {
+	var en []mcp.TurnoMCP
+	for _, t := range ts {
+		if !h.Before(inicioDe(t)) && h.Before(finDe(t)) {
+			en = append(en, t)
+		}
+	}
+	return en
 }
 
 func textoAgenda(ts []mcp.TurnoMCP, f, hoy time.Time) string {
@@ -410,4 +456,67 @@ func contiene(xs []string, x string) bool {
 		}
 	}
 	return false
+}
+
+// anotar: «anotá a Lucía mañana a las 11 para corte». Sólo con una clienta que ya existe (por su
+// nombre, si hay una sola); una nueva necesita su teléfono y se carga en «Nuevo turno». Sin servicio,
+// pregunta cuál. Vuelve como propuesta, como las demás acciones.
+func (s *Servicio) anotar(ctx context.Context, op *mcp.Operador, c Catalogo, in Intencion) (Respuesta, error) {
+	if in.ServicioID == "" {
+		if len(c.Servicios) == 1 {
+			in.ServicioID = c.Servicios[0].ID
+		} else {
+			var ns []string
+			for i, x := range c.Servicios {
+				if i == 6 {
+					break
+				}
+				ns = append(ns, x.Nombre)
+			}
+			return Respuesta{Respuesta: "¿Para qué servicio? Decímelo así: «anotá a " + mayuscula(in.Cliente) + " … para " +
+				strings.ToLower(ns[0]) + "». Tenés " + strings.Join(ns, ", ") + "."}, nil
+		}
+	}
+	nuevo := "No encontré a " + mayuscula(in.Cliente) + " entre tus clientes. Si es la primera vez, cargá el turno desde «Nuevo turno» con su\u00a0teléfono."
+	if !op.Puede("buscar_clientes") {
+		return Respuesta{Respuesta: "Ese turno cargalo desde «Nuevo turno»: ahí van el nombre y el\u00a0teléfono."}, nil
+	}
+	var out struct {
+		Clientes []mcp.ClienteMCP `json:"clientes"`
+	}
+	if err := leerComo(ctx, op, "buscar_clientes", map[string]any{"texto": in.Cliente, "limite": 5}, &out); err != nil {
+		return Respuesta{}, err
+	}
+	var cands []mcp.ClienteMCP
+	for _, x := range out.Clientes {
+		if coincideNombre(in.Cliente, x.Nombre) {
+			cands = append(cands, x)
+		}
+	}
+	switch {
+	case len(cands) == 0:
+		return Respuesta{Respuesta: nuevo}, nil
+	case len(cands) > 1:
+		var b strings.Builder
+		b.WriteString("Hay varias personas con ese nombre. ¿Cuál? Decime el apellido:")
+		for _, x := range cands {
+			b.WriteString("\n• " + x.Nombre)
+		}
+		return Respuesta{Respuesta: b.String()}, nil
+	}
+	inicio := c.Resolver(in.Hora, in.Fecha)
+	args := map[string]any{"servicioId": in.ServicioID, "clienteId": cands[0].ID, "fecha": inicio.Format(time.DateOnly), "hora": inicio.Format("15:04")}
+	if in.ProfesionalID != "" {
+		args["profesionalId"] = in.ProfesionalID
+	}
+	raw, _ := json.Marshal(args)
+	resumen, final, err := op.Previa(ctx, "crear_turno", raw)
+	if err != nil {
+		return Respuesta{}, err
+	}
+	p, err := s.proponer(ctx, "crear_turno", resumen, final)
+	if err != nil {
+		return Respuesta{}, err
+	}
+	return Respuesta{Respuesta: "Te lo dejo listo para confirmar:", Propuestas: []Propuesta{p}}, nil
 }
