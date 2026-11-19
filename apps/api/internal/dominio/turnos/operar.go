@@ -2,6 +2,7 @@ package turnos
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -18,6 +19,13 @@ func (s *Servicio) Reservar(ctx context.Context, negocioID string, in Pedido) (T
 	in.Forzar, in.UsarMembresia = false, false
 	var t Turno
 	err := s.Pool.EnNegocio(ctx, negocioID, func(tx pgx.Tx) (err error) {
+		// Los datos de un cliente nuevo que trae un asistente de IA no son de confianza: no pisan el
+		// email de un cliente que ya existe ni lo marcan email_confiable (ver app.cuidar_email).
+		if in.DatosDeLaWeb {
+			if _, err := tx.Exec(ctx, "SELECT set_config('app.origen', 'web', true)"); err != nil {
+				return err
+			}
+		}
 		if t, err = reservar(ctx, tx, in, "panel", s.ahora()); err != nil {
 			return err
 		}
@@ -66,6 +74,25 @@ func (s *Servicio) Ver(ctx context.Context, negocioID, turnoID string) (Turno, e
 		return err
 	})
 	return t, err
+}
+
+// SePuedeConfirmar: lo mismo que chequea CambiarEstado antes de confirmar un pendiente_pago cuya seña
+// venció (que el horario siga libre), sin cambiar nada. Para la previa del asistente: así la propuesta
+// no se arma para fallar al confirmarla.
+func (s *Servicio) SePuedeConfirmar(ctx context.Context, negocioID string, t Turno) error {
+	if t.Estado != "pendiente_pago" || t.VenceEn == nil || t.VenceEn.After(s.ahora()) {
+		return nil
+	}
+	return s.Pool.EnNegocio(ctx, negocioID, func(tx pgx.Tx) error {
+		libre, err := SigueLibre(ctx, tx, t.ID, s.ahora())
+		if err != nil {
+			return err
+		}
+		if !libre {
+			return problema.Conflicto("horario_ocupado", "Se venció el plazo para pagar la seña y ese horario ya no está libre. Reprogramalo o cancelalo.")
+		}
+		return nil
+	})
 }
 
 // CambiarEstado con los mismos pasos permitidos que el panel. Devuelve también el estado que tenía.
@@ -147,20 +174,85 @@ func (s *Servicio) Libres(ctx context.Context, negocioID, servicioID, profesiona
 // Agenda: los turnos que empiezan entre desde y hasta (sin incluir hasta), opcionalmente de un
 // profesional o de un cliente, en orden. Tope: limite.
 func Agenda(ctx context.Context, tx pgx.Tx, desde, hasta time.Time, profesionalID, clienteID string, limite int) ([]Turno, error) {
+	f := Filtro{Desde: desde, Hasta: hasta, ClienteID: clienteID, Limite: limite, ConCancelados: true, ConVencidos: true}
+	if profesionalID != "" {
+		f.Profesionales = []string{profesionalID}
+	}
+	ts, _, err := AgendaFiltrada(ctx, tx, f)
+	return ts, err
+}
+
+// Filtro de AgendaFiltrada. Todo se filtra en la base, antes del tope: con el tope primero, un salón
+// con mucho movimiento dejaba afuera turnos que existían (los cancelados y los de otros profesionales
+// ocupaban las filas).
+type Filtro struct {
+	Desde, Hasta time.Time
+	// Profesionales: sólo los de estos (nil: todos). Una lista vacía no nil no trae nada.
+	Profesionales []string
+	ClienteID     string
+	// Cliente: palabras del nombre del cliente (cada una, comienzo de una palabra del nombre; sin
+	// tildes ni mayúsculas).
+	Cliente []string
+	// ConCancelados: también los cancelados. ConVencidos: también los pendiente_pago cuya seña venció
+	// (VencidosAl): el horario ya no está guardado.
+	ConCancelados, ConVencidos bool
+	VencidosAl                 time.Time
+	// DesdeAhora: sólo los que todavía no empezaron (cero: sin ese filtro).
+	DesdeAhora time.Time
+	Limite     int
+}
+
+// AgendaFiltrada: los turnos del filtro en orden y si quedaron más afuera del tope.
+func AgendaFiltrada(ctx context.Context, tx pgx.Tx, f Filtro) ([]Turno, bool, error) {
+	if f.Profesionales != nil && len(f.Profesionales) == 0 {
+		return []Turno{}, false, nil
+	}
+	if f.Limite <= 0 {
+		f.Limite = 300
+	}
+	vencidos := f.VencidosAl
+	if vencidos.IsZero() {
+		vencidos = time.Now()
+	}
+	palabras := []string{}
+	for _, w := range f.Cliente {
+		if w = strings.TrimSpace(w); w != "" {
+			palabras = append(palabras, w)
+		}
+	}
 	filas, err := tx.Query(ctx, "SELECT "+columnasTurno+desdeTurnos+` WHERE t.inicio >= $1 AND t.inicio < $2
-		AND ($3 = '' OR t.profesional_id::text = $3) AND ($4 = '' OR t.cliente_id::text = $4)
-		ORDER BY t.inicio LIMIT $5`, desde, hasta, profesionalID, clienteID, limite)
+		AND ($3::text[] IS NULL OR t.profesional_id::text = ANY ($3)) AND ($4 = '' OR t.cliente_id::text = $4)
+		AND ($5 OR t.estado <> 'cancelado')
+		AND ($6 OR NOT (t.estado = 'pendiente_pago' AND t.vence_en IS NOT NULL AND t.vence_en <= $7))
+		AND ($8::timestamptz IS NULL OR t.inicio >= $8)
+		AND NOT EXISTS (SELECT 1 FROM unnest($9::text[]) w WHERE position(' ' || w IN ' ' ||
+			translate(lower(c.nombre), 'áàäâéèëêíìïîóòöôúùüûñ', 'aaaaeeeeiiiioooouuuun')) = 0)
+		ORDER BY t.inicio LIMIT $10`, f.Desde, f.Hasta, f.Profesionales, f.ClienteID, f.ConCancelados, f.ConVencidos, vencidos,
+		nilSiCero(f.DesdeAhora), palabras, f.Limite+1)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	defer filas.Close()
 	out := []Turno{}
 	for filas.Next() {
 		var t Turno
 		if err := escanearTurno(filas, &t); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		out = append(out, t)
 	}
-	return out, filas.Err()
+	if err := filas.Err(); err != nil {
+		return nil, false, err
+	}
+	if len(out) > f.Limite {
+		return out[:f.Limite], true, nil
+	}
+	return out, false, nil
+}
+
+func nilSiCero(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
 }

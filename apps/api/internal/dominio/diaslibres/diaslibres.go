@@ -290,7 +290,8 @@ func (s *Servicio) pedir(w http.ResponseWriter, r *http.Request) error {
 		if len(ts) > 0 {
 			texto += " · " + cuantos(len(ts)) + " para mover"
 		}
-		if err := avisos.Notificar(ctx, tx, avisos.Notificacion{Tipo: avisos.NotiEquipo, Titulo: nombre + " pide días libres", Texto: texto + "."}); err != nil {
+		if err := avisos.Notificar(ctx, tx, avisos.Notificacion{Tipo: avisos.NotiEquipo, Titulo: nombre + " pide días libres", Texto: texto + ".",
+			ProfesionalID: *prof}); err != nil {
 			return err
 		}
 		return auditoria.Anotar(ctx, tx, auditoria.Registro{Accion: "dias_libres.pedidos", Entidad: "dias_libres", EntidadID: id,
@@ -461,7 +462,8 @@ func (s *Servicio) aprobar(w http.ResponseWriter, r *http.Request) error {
 		if len(lista) > 0 {
 			texto += " " + cuantos(len(lista)) + " pasan a la lista para reprogramar."
 		}
-		return avisos.Notificar(ctx, tx, avisos.Notificacion{Tipo: avisos.NotiEquipo, Titulo: "Aprobados los días libres de " + p.Profesional, Texto: texto})
+		return avisos.Notificar(ctx, tx, avisos.Notificacion{Tipo: avisos.NotiEquipo, Titulo: "Aprobados los días libres de " + p.Profesional, Texto: texto,
+			ProfesionalID: p.ProfesionalID})
 	})
 	if err != nil {
 		return err
@@ -474,7 +476,7 @@ func (s *Servicio) rechazar(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	p, err := s.responder(r, w, "rechazado", func(tx pgx.Tx, p *Pedido) error {
 		z := zona(ctx, tx)
-		return avisos.Notificar(ctx, tx, avisos.Notificacion{Tipo: avisos.NotiEquipo, Titulo: "No se aprobaron los días libres de " + p.Profesional,
+		return avisos.Notificar(ctx, tx, avisos.Notificacion{Tipo: avisos.NotiEquipo, Titulo: "No se aprobaron los días libres de " + p.Profesional, ProfesionalID: p.ProfesionalID,
 			Texto: mayuscula(rangoTexto(p.Desde, p.Hasta, z)) + "."})
 	})
 	if err != nil {

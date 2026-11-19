@@ -117,6 +117,10 @@ func correr() error {
 	go cob.RenovarCada(ctx, 6*time.Hour)
 	// Tiempo real: los cambios que avisa Postgres van por SSE a los paneles abiertos.
 	tr := &tiemporeal.Servicio{Pool: app, Sesion: ses}
+	cacheIA := &ia.Cache{}
+	// Cualquier cambio en el negocio (una reserva web, un cambio en el panel) olvida las respuestas
+	// guardadas del asistente: no se contesta con una agenda vieja.
+	tr.AlPublicar = func(e tiemporeal.Evento) { cacheIA.Olvidar(e.Negocio) }
 	go tr.Escuchar(ctx)
 	// Push web: la clave pública VAPID es la que usa el navegador para suscribirse. Sin claves (o con
 	// claves que no sirven), apagado.
@@ -135,7 +139,7 @@ func correr() error {
 	asis := &asistente.Servicio{Pool: app, Sesion: ses, MCP: mcpS, Espera: esp, IA: ia.NuevoCliente(cfg.AnthropicClave),
 		Medidor: &ia.Medidor{Pool: app, Topes: ia.Topes{CupoMensual: cfg.IACupoMensual, TopeDiario: cfg.IATopeDiario,
 			PresupuestoMicro: int64(cfg.IAPresupuestoUSD * 1e6)}},
-		Cache: &ia.Cache{}}
+		Cache: cacheIA}
 	if asis.IA == nil {
 		slog.Warn("asistente: sin ANTHROPIC_API_KEY, contesta sólo con el intérprete")
 	}

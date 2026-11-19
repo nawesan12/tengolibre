@@ -28,7 +28,7 @@ type entrada struct {
 }
 
 // TTLRespuestas por defecto.
-const TTLRespuestas = 10 * time.Minute
+const TTLRespuestas = 3 * time.Minute
 
 const maxEntradas = 2000
 

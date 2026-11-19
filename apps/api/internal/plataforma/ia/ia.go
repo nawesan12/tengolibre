@@ -9,6 +9,7 @@ package ia
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -22,12 +23,25 @@ const (
 	Esfuerzo = anthropic.OutputConfigEffortLow
 )
 
-// Tiempos: cada llamada tiene su tope y la respuesta entera otro, que entra en el WriteTimeout del
-// servidor (30 s).
+// Tiempos: cada llamada tiene su tope y la respuesta entera otro, con margen dentro del WriteTimeout
+// del servidor (30 s) para el catálogo, la reserva del cupo y la respuesta «probá de nuevo».
 const (
-	TopePorLlamada = 25 * time.Second
-	TopeRespuesta  = 27 * time.Second
+	TopePorLlamada = 15 * time.Second
+	TopeRespuesta  = 22 * time.Second
 )
+
+// Permanente: el error del modelo no se arregla reintentando (clave revocada, modelo retirado,
+// facturación, pedido mal armado). Quien llama apaga la IA un rato y avisa en el log como error.
+func Permanente(err error) (int, bool) {
+	var e *anthropic.Error
+	if errors.As(err, &e) {
+		switch e.StatusCode {
+		case 400, 401, 403, 404:
+			return e.StatusCode, true
+		}
+	}
+	return 0, false
+}
 
 // Cliente es la única puerta al modelo.
 type Cliente interface {

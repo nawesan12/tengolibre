@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
@@ -25,6 +26,14 @@ const Canal = "tengolibre_eventos"
 
 // MaxPorNegocio: paneles abiertos a la vez por negocio (tope de memoria y conexiones).
 const MaxPorNegocio = 50
+
+// MaxPorPersona: paneles abiertos a la vez por persona en un negocio (sin esto, un solo miembro podía
+// ocupar los cupos del negocio entero).
+const MaxPorPersona = 5
+
+// Revalidar: cada cuánto un stream abierto vuelve a mirar que quien lo abrió siga en el negocio (y
+// con un rol del panel): una baja o un cambio de rol lo corta.
+var Revalidar = 3 * time.Minute
 
 // Latido: cada cuánto se manda un comentario para que Cloudflare (corta a los 100 s sin datos) y
 // los proxies no cierren la conexión.
@@ -42,9 +51,12 @@ type Evento struct {
 type Servicio struct {
 	Pool   *db.Pool
 	Sesion *sesion.Servicio
+	// AlPublicar, si no es nil, recibe cada evento (por ejemplo, para olvidar respuestas guardadas del
+	// asistente cuando cambia la agenda del negocio).
+	AlPublicar func(Evento)
 
 	mu         sync.Mutex
-	suscriptos map[string]map[chan Evento]struct{}
+	suscriptos map[string]map[chan Evento]string
 }
 
 // Escuchar arranca la escucha de Postgres (bloquea hasta que se cancele ctx).
@@ -62,6 +74,9 @@ func (s *Servicio) Escuchar(ctx context.Context) {
 // Publicar manda e a los suscriptos de su negocio. A quien no da abasto (canal lleno) se le saltea
 // el evento: el panel igual se pone al día en el próximo.
 func (s *Servicio) Publicar(e Evento) {
+	if s.AlPublicar != nil {
+		s.AlPublicar(e)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for c := range s.suscriptos[e.Negocio] {
@@ -72,21 +87,48 @@ func (s *Servicio) Publicar(e Evento) {
 	}
 }
 
-func (s *Servicio) suscribir(negocio string) (chan Evento, bool) {
+func (s *Servicio) suscribir(negocio, quien string) (chan Evento, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.suscriptos == nil {
-		s.suscriptos = map[string]map[chan Evento]struct{}{}
+		s.suscriptos = map[string]map[chan Evento]string{}
 	}
 	if len(s.suscriptos[negocio]) >= MaxPorNegocio {
 		return nil, false
 	}
+	propios := 0
+	for _, q := range s.suscriptos[negocio] {
+		if q == quien {
+			propios++
+		}
+	}
+	if propios >= MaxPorPersona {
+		return nil, false
+	}
 	c := make(chan Evento, 32)
 	if s.suscriptos[negocio] == nil {
-		s.suscriptos[negocio] = map[chan Evento]struct{}{}
+		s.suscriptos[negocio] = map[chan Evento]string{}
 	}
-	s.suscriptos[negocio][c] = struct{}{}
+	s.suscriptos[negocio][c] = quien
 	return c, true
+}
+
+// sigue: quien abrió el stream sigue siendo miembro activo del negocio con un rol del panel.
+func (s *Servicio) sigue(ctx context.Context, negocio, quien string) bool {
+	if s.Sesion == nil || s.Sesion.Pool == nil {
+		return true
+	}
+	ns, err := s.Sesion.Negocios(ctx, quien)
+	if err != nil {
+		// Un error de la base no corta el stream: se vuelve a mirar en la próxima vuelta.
+		return true
+	}
+	for _, n := range ns {
+		if n.ID == negocio && slices.Contains(sesion.Agenda, n.Rol) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Servicio) desuscribir(negocio string, c chan Evento) {
@@ -111,8 +153,9 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 }
 
 func (s *Servicio) eventos(w http.ResponseWriter, r *http.Request) {
-	negocio := sesion.De(r.Context()).NegocioID
-	c, ok := s.suscribir(negocio)
+	ses := sesion.De(r.Context())
+	negocio := ses.NegocioID
+	c, ok := s.suscribir(negocio, ses.ClerkID)
 	if !ok {
 		w.Header().Set("Retry-After", "30")
 		problema.Escribir(w, &problema.Problema{Estado: http.StatusServiceUnavailable, Codigo: "demasiados_paneles",
@@ -135,10 +178,17 @@ func (s *Servicio) eventos(w http.ResponseWriter, r *http.Request) {
 	}
 	latido := time.NewTicker(Latido)
 	defer latido.Stop()
+	revisar := time.NewTicker(Revalidar)
+	defer revisar.Stop()
 	for {
 		select {
 		case <-r.Context().Done():
 			return
+		case <-revisar.C:
+			if !s.sigue(r.Context(), negocio, ses.ClerkID) {
+				return
+			}
+			continue
 		case <-latido.C:
 			fmt.Fprint(w, ": latido\n\n")
 		case e := <-c:

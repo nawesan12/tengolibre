@@ -75,6 +75,10 @@ func (s *Servicio) registrarActividad(w http.ResponseWriter, r *http.Request) er
 		if !existe {
 			return problema.NoEncontrado("No encontramos ese turno.")
 		}
+		// Un profesional sigue sólo los turnos de su agenda (uno ajeno es 404, como en turnos).
+		if err := sesion.TurnoPropio(ctx, tx, id); err != nil {
+			return err
+		}
 		if _, err := tx.Exec(ctx, "DELETE FROM turno_actividades WHERE token = $1", in.Token); err != nil {
 			return err
 		}

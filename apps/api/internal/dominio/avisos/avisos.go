@@ -80,13 +80,26 @@ const (
 // Notificacion de la campanita.
 type Notificacion struct {
 	Tipo, Titulo, Texto, TurnoID string
+	// ProfesionalID: de quién es (días libres de un profesional): un profesional ve en la campanita lo
+	// de su agenda y lo suyo, nada más.
+	ProfesionalID string
 }
 
 // Notificar agrega una notificación a la campanita del negocio fijado.
 func Notificar(ctx context.Context, tx pgx.Tx, n Notificacion) error {
-	_, err := tx.Exec(ctx, `INSERT INTO notificaciones (negocio_id, tipo, titulo, texto, turno_id)
-		VALUES (app.negocio_actual(), $1, left($2, 120), left($3, 500), nullif($4, '')::uuid)`, n.Tipo, n.Titulo, n.Texto, n.TurnoID)
+	_, err := tx.Exec(ctx, `INSERT INTO notificaciones (negocio_id, tipo, titulo, texto, turno_id, profesional_id)
+		VALUES (app.negocio_actual(), $1, left($2, 120), left($3, 500), nullif($4, '')::uuid, nullif($5, '')::uuid)`,
+		n.Tipo, n.Titulo, n.Texto, n.TurnoID, n.ProfesionalID)
 	return err
+}
+
+// VisibleParaProfesional: la condición SQL (sobre notificaciones n, con el clerk_id en $x) de lo que ve
+// un profesional: las de un turno de su agenda y las suyas del equipo. Nunca «no pudimos mandar un
+// mail a…» (trae el email de un cliente) ni lo de la lista de espera sin turno (es del mostrador).
+func VisibleParaProfesional(n, x string) string {
+	return `(` + n + `.tipo <> 'aviso_fallido' AND ((` + n + `.turno_id IS NOT NULL AND EXISTS (SELECT 1 FROM turnos vt
+		WHERE vt.id = ` + n + `.turno_id AND ` + sesion.DeSuAgenda("vt.profesional_id", x) + `))
+		OR (` + n + `.turno_id IS NULL AND ` + n + `.profesional_id IS NOT NULL AND ` + sesion.DeSuAgenda(n+".profesional_id", x) + `)))`
 }
 
 // Token para los links públicos (reseña, invitación, baja): nadie adivina el de otro.

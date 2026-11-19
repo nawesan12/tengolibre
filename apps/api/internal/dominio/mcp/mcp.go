@@ -146,6 +146,9 @@ type conexion struct {
 	// limitado: un profesional (rol) sólo ve y toca su agenda, la de los profesionales en propios.
 	limitado bool
 	propios  []string
+	// paraIA: lo que devuelvan las herramientas va a un modelo de IA (el asistente propio): sin el
+	// texto de las notas de los turnos (ver TurnoMCP.TieneNota).
+	paraIA bool
 }
 
 // permitido: el profesional (id) es de la agenda de quien pide. Vacío: sin profesional (sólo vale

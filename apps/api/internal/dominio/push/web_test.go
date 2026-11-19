@@ -117,6 +117,24 @@ func TestPushWebYPreferencias(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Un turno de la agenda de la profesional: a ella le llega lo de sus turnos, nada más.
+	var turnoProfe string
+	err = a.Bases.App.EnNegocio(ctx, n.ID, func(tx pgx.Tx) error {
+		var prof, cli string
+		if err := tx.QueryRow(ctx, `INSERT INTO profesionales (negocio_id, nombre, miembro_id)
+			VALUES (app.negocio_actual(), 'Abril', (SELECT id FROM miembros WHERE clerk_id = $1)) RETURNING id::text`, profe).Scan(&prof); err != nil {
+			return err
+		}
+		if err := tx.QueryRow(ctx, "INSERT INTO clientes (negocio_id, nombre) VALUES (app.negocio_actual(), 'Florencia') RETURNING id::text").Scan(&cli); err != nil {
+			return err
+		}
+		return tx.QueryRow(ctx, `INSERT INTO turnos (negocio_id, codigo, servicio, profesional_id, profesional, cliente_id, inicio, fin, precio, estado, origen)
+			VALUES (app.negocio_actual(), 'COD1234567890ABCD', 'Lifting', $1, 'Abril', $2, now() + interval '1 day', now() + interval '25 hours', 0, 'confirmado', 'panel')
+			RETURNING id::text`, prof, cli).Scan(&turnoProfe)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// La clave pública es pública; la tarjeta de Inicio pregunta si este navegador ya está suscripto.
 	var v struct {
@@ -173,8 +191,8 @@ func TestPushWebYPreferencias(t *testing.T) {
 	// Llegan cuatro notificaciones; el worker manda a cada uno lo suyo.
 	err = a.Bases.App.EnNegocio(ctx, n.ID, func(tx pgx.Tx) error {
 		for _, x := range []avisos.Notificacion{
-			{Tipo: "reserva", Titulo: "Nueva reserva de Florencia", Texto: "Lifting hoy 16:30 con Abril"},
-			{Tipo: "resena", Titulo: "Nueva reseña", Texto: "5 estrellas"},
+			{Tipo: "reserva", Titulo: "Nueva reserva de Florencia", Texto: "Lifting hoy 16:30 con Abril", TurnoID: turnoProfe},
+			{Tipo: "resena", Titulo: "Nueva reseña", Texto: "5 estrellas", TurnoID: turnoProfe},
 			{Tipo: "equipo", Titulo: "Abril aceptó la invitación"},
 			{Tipo: "confirmacion", Titulo: "Sofía confirmó por WhatsApp"},
 		} {
@@ -200,7 +218,7 @@ func TestPushWebYPreferencias(t *testing.T) {
 			if e.Endpoint == ep {
 				var p struct{ Title, URL, Negocio, Tipo string }
 				_ = json.Unmarshal(e.Payload, &p)
-				if p.URL != "/panel/notificaciones" || p.Negocio != n.ID {
+				if !strings.HasPrefix(p.URL, "/panel/") || p.Negocio != n.ID {
 					t.Errorf("payload: %s", e.Payload)
 				}
 				out = append(out, p.Title)

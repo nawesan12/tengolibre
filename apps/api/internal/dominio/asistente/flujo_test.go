@@ -72,6 +72,10 @@ func nuevo(t *testing.T, conIA bool, topes ia.Topes) *entorno {
 	var n negocios.Negocio
 	e.Esperar(201, P{Metodo: "POST", Ruta: "/v1/negocios", Quien: duenia, Cuerpo: map[string]string{"slug": "el-corte", "nombre": "El Corte"}}, &n)
 	e.negocio = n.ID
+	if conIA {
+		// La IA la prende la dueña (ajustes.ia_activa).
+		e.como(duenia, 200, "PATCH", "/v1/panel/asistente/ia", map[string]bool{"activa": true}, nil)
+	}
 	e.como(duenia, 201, "POST", "/v1/panel/servicios", map[string]any{"nombre": "Corte", "duracion": 30, "precio": 8000}, &e.servicio)
 	var semana []disponibilidad.Franja
 	for d := 1; d <= 6; d++ {
@@ -301,10 +305,34 @@ func TestTopes(t *testing.T) {
 	e2.Fila("INSERT INTO ia_uso (negocio_id, dia, ruta, costo_micro) VALUES ($1, '2026-11-02', 'asistente', 6000)", []any{e2.negocio})
 	var otro negocios.Negocio
 	e2.Esperar(201, P{Metodo: "POST", Ruta: "/v1/negocios", Quien: "user_otra000001", Cuerpo: map[string]string{"slug": "otro", "nombre": "Otro"}}, &otro)
+	e2.Esperar(200, P{Metodo: "PATCH", Ruta: "/v1/panel/asistente/ia", Quien: "user_otra000001", Negocio: otro.ID,
+		Cuerpo: map[string]bool{"activa": true}}, nil)
 	var rr asistente.Respuesta
 	e2.Esperar(200, P{Metodo: "POST", Ruta: "/v1/panel/asistente", Quien: "user_otra000001", Negocio: otro.ID,
 		Cuerpo: map[string]string{"pregunta": "contame algo"}}, &rr)
 	if rr.Tope == nil || rr.Tope.Motivo != "plataforma" || e2.falso.Llamadas() != 0 {
 		t.Fatalf("presupuesto global: %+v", rr)
+	}
+}
+
+// La IA la prende la dueña: sin eso, no se le manda nada a Anthropic (contesta el intérprete) y sólo
+// la dueña ve cómo prenderla.
+func TestIAOptIn(t *testing.T) {
+	e := nuevo(t, true, ia.Topes{CupoMensual: 100, TopeDiario: 100})
+	e.como(duenia, 200, "PATCH", "/v1/panel/asistente/ia", map[string]bool{"activa": false}, nil)
+	e.falso.Respuestas = []string{ia.RespuestaTexto("hola")}
+	if r := e.preguntar(duenia, "contame algo del negocio"); r.Origen != "motor" || e.falso.Llamadas() != 0 {
+		t.Fatalf("sin prender, fue a la IA: %+v", r)
+	}
+	var estado struct {
+		IA, IANegocio, PuedePrender bool
+	}
+	e.como(duenia, 200, "GET", "/v1/panel/asistente", nil, &estado)
+	if estado.IA || estado.IANegocio || !estado.PuedePrender {
+		t.Fatalf("estado: %+v", estado)
+	}
+	e.como(duenia, 200, "PATCH", "/v1/panel/asistente/ia", map[string]bool{"activa": true}, nil)
+	if r := e.preguntar(duenia, "contame algo del negocio"); r.Origen != "ia" {
+		t.Fatalf("prendida: %+v", r)
 	}
 }

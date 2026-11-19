@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -12,6 +13,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/apns"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/fcm"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/trabajos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/webpush"
 )
@@ -95,6 +97,9 @@ type Aviso struct {
 	Negocio string
 	// Colapso: un id por notificación (los reintentos se ven como uno).
 	Colapso string
+	// De quién es (el profesional del turno, o el de una notificación del equipo): a un profesional le
+	// llega sólo lo suyo, como en la campanita.
+	profTurno, profNoti string
 }
 
 // PayloadAPNs arma el JSON de APNs: aps.alert con título y cuerpo, sonido, thread-id por negocio y,
@@ -141,6 +146,18 @@ type destino struct {
 	p256dh, auth               string
 	rol                        string
 	apagados                   []string
+	propios                    []string
+}
+
+// paraProfesional: lo que un profesional ve (la misma regla que avisos.VisibleParaProfesional).
+func paraProfesional(a Aviso, propios []string) bool {
+	if a.Tipo == "aviso_fallido" {
+		return false
+	}
+	if a.profTurno != "" {
+		return slices.Contains(propios, a.profTurno)
+	}
+	return a.Ruta == "notificaciones" && a.profNoti != "" && slices.Contains(propios, a.profNoti)
 }
 
 type pendiente struct {
@@ -159,15 +176,17 @@ func (e *Envios) Correr(ctx context.Context, ahora time.Time) (any, error) {
 	err := trabajos.PorNegocio(ctx, e.Pool, func(negocio string, tx pgx.Tx) error {
 		filas, err := tx.Query(ctx, `UPDATE notificaciones SET push = false WHERE id IN (
 				SELECT id FROM notificaciones WHERE push ORDER BY creado_en LIMIT 100 FOR UPDATE SKIP LOCKED)
-			RETURNING id::text, tipo, titulo, texto, coalesce(turno_id::text, ''), creado_en`)
+			RETURNING id::text, tipo, titulo, texto, coalesce(turno_id::text, ''), creado_en,
+				coalesce((SELECT t.profesional_id::text FROM turnos t WHERE t.id = notificaciones.turno_id), ''),
+				coalesce(profesional_id::text, '')`)
 		if err != nil {
 			return err
 		}
 		var avisos []Aviso
 		for filas.Next() {
-			var id, tipo, titulo, texto, turno string
+			var id, tipo, titulo, texto, turno, profTurno, profNoti string
 			var creado time.Time
-			if err := filas.Scan(&id, &tipo, &titulo, &texto, &turno, &creado); err != nil {
+			if err := filas.Scan(&id, &tipo, &titulo, &texto, &turno, &creado, &profTurno, &profNoti); err != nil {
 				filas.Close()
 				return err
 			}
@@ -178,21 +197,24 @@ func (e *Envios) Correr(ctx context.Context, ahora time.Time) (any, error) {
 			if turno != "" {
 				ruta = "turnos/" + turno
 			}
-			avisos = append(avisos, Aviso{Tipo: tipo, Titulo: titulo, Cuerpo: texto, Ruta: ruta, Negocio: negocio, Colapso: "noti-" + id})
+			avisos = append(avisos, Aviso{Tipo: tipo, Titulo: titulo, Cuerpo: texto, Ruta: ruta, Negocio: negocio, Colapso: "noti-" + id,
+				profTurno: profTurno, profNoti: profNoti})
 		}
 		filas.Close()
 		if err := filas.Err(); err != nil || len(avisos) == 0 {
 			return err
 		}
 		// push_preferencias tiene RLS: el LEFT JOIN trae sólo lo elegido en este negocio.
-		filas, err = tx.Query(ctx, `SELECT d.plataforma, d.token, d.entorno, '', '', m.rol, p.apagados
+		filas, err = tx.Query(ctx, `SELECT d.plataforma, d.token, d.entorno, '', '', m.rol, p.apagados,
+				coalesce((SELECT array_agg(x.id::text) FROM profesionales x WHERE x.miembro_id = m.id), '{}')
 			FROM miembros m
 			JOIN auth.dispositivos d ON d.clerk_id = m.clerk_id
 			JOIN auth.sesiones s ON s.hash = d.sesion_hash
 			LEFT JOIN push_preferencias p ON p.clerk_id = m.clerk_id
 			WHERE m.activo AND s.vence_en > $1
 			UNION ALL
-			SELECT 'web', w.endpoint, '', w.p256dh, w.auth, m.rol, p.apagados
+			SELECT 'web', w.endpoint, '', w.p256dh, w.auth, m.rol, p.apagados,
+				coalesce((SELECT array_agg(x.id::text) FROM profesionales x WHERE x.miembro_id = m.id), '{}')
 			FROM miembros m
 			JOIN auth.suscripciones_web w ON w.clerk_id = m.clerk_id
 			JOIN auth.sesiones s ON s.hash = w.sesion_hash
@@ -203,7 +225,7 @@ func (e *Envios) Correr(ctx context.Context, ahora time.Time) (any, error) {
 		}
 		ds, err := pgx.CollectRows(filas, func(f pgx.CollectableRow) (destino, error) {
 			var d destino
-			err := f.Scan(&d.plataforma, &d.token, &d.entorno, &d.p256dh, &d.auth, &d.rol, &d.apagados)
+			err := f.Scan(&d.plataforma, &d.token, &d.entorno, &d.p256dh, &d.auth, &d.rol, &d.apagados, &d.propios)
 			return d, err
 		})
 		if err != nil {
@@ -211,6 +233,9 @@ func (e *Envios) Correr(ctx context.Context, ahora time.Time) (any, error) {
 		}
 		for _, a := range avisos {
 			for _, d := range ds {
+				if d.rol == sesion.Profesional && !paraProfesional(a, d.propios) {
+					continue
+				}
 				if !Apagado(a.Tipo, d.rol, d.apagados) {
 					cola = append(cola, pendiente{a, d})
 				}

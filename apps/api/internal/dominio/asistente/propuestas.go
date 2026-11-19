@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -27,14 +29,23 @@ type Propuesta struct {
 	Accion  string    `json:"accion"`
 	Resumen string    `json:"resumen"`
 	VenceEn time.Time `json:"venceEn"`
+	// Boton: lo que dice el botón de confirmar («Sí, cancelarlo»). Un «Confirmar» / «Cancelar» al
+	// lado de «Cancelar el turno de Rosa» se leía como cancelar el turno.
+	Boton string `json:"boton"`
 }
+
+// botones por acción. El descarte, en las tres plataformas: «No, dejalo así».
+var botones = map[string]string{"crear_turno": "Sí, cargarlo", "confirmar_turno": "Sí, confirmarlo",
+	"reprogramar_turno": "Sí, moverlo", "cancelar_turno": "Sí, cancelarlo", OfrecerALaLista: "Sí, ofrecerlo"}
+
+var reUUID = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 // OfrecerALaLista: la acción propia del asistente (no está en el MCP).
 const OfrecerALaLista = "ofrecer_a_la_lista"
 
 func (s *Servicio) proponer(ctx context.Context, accion, resumen string, args json.RawMessage) (Propuesta, error) {
 	ses := sesion.De(ctx)
-	p := Propuesta{Accion: accion, Resumen: recortar(resumen, 300), VenceEn: s.ahora().Add(VidaPropuesta)}
+	p := Propuesta{Accion: accion, Resumen: recortar(resumen, 300), VenceEn: s.ahora().Add(VidaPropuesta), Boton: botones[accion]}
 	err := s.Pool.EnNegocio(ctx, ses.NegocioID, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `INSERT INTO asistente_propuestas (negocio_id, clerk_id, accion, argumentos, resumen, creada_en, vence_en)
 			VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6) RETURNING id::text`,
@@ -63,10 +74,17 @@ func (s *Servicio) tomar(ctx context.Context, id, estado string) (accion string,
 	if id == "" {
 		return "", nil, "", problema.Invalido("Falta propuestaId.")
 	}
+	if !reUUID.MatchString(id) {
+		return "", nil, "", problema.NoEncontrado("No encontramos esa propuesta.")
+	}
 	ahora := s.ahora()
 	err = s.Pool.EnNegocio(ctx, ses.NegocioID, func(tx pgx.Tx) error {
-		err := tx.QueryRow(ctx, `UPDATE asistente_propuestas SET estado = $3, resuelta_en = $4
-			WHERE id::text = $1 AND clerk_id = $2 AND estado IS NULL AND vence_en > $4 RETURNING accion, argumentos, resumen`,
+		// Al resolverla se vacían los argumentos (traen los datos del cliente de crear_turno): lo que
+		// había que hacer vuelve de la fila de antes.
+		err := tx.QueryRow(ctx, `UPDATE asistente_propuestas p SET estado = $3, resuelta_en = $4, argumentos = '{}'
+			FROM (SELECT id, argumentos FROM asistente_propuestas WHERE id = $1::uuid AND clerk_id = $2 AND estado IS NULL
+				AND vence_en > $4 FOR UPDATE) v
+			WHERE p.id = v.id RETURNING p.accion, v.argumentos, p.resumen`,
 			id, ses.ClerkID, estado, ahora).Scan(&accion, &args, &resumen)
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
@@ -74,7 +92,7 @@ func (s *Servicio) tomar(ctx context.Context, id, estado string) (accion string,
 		// ¿Por qué no? Para decirlo bien.
 		var actual *string
 		var vence time.Time
-		if e := tx.QueryRow(ctx, "SELECT estado, vence_en FROM asistente_propuestas WHERE id::text = $1 AND clerk_id = $2", id, ses.ClerkID).
+		if e := tx.QueryRow(ctx, "SELECT estado, vence_en FROM asistente_propuestas WHERE id = $1::uuid AND clerk_id = $2", id, ses.ClerkID).
 			Scan(&actual, &vence); e != nil {
 			return problema.NoEncontrado("No encontramos esa propuesta.")
 		}
@@ -114,11 +132,14 @@ func (s *Servicio) confirmar(w http.ResponseWriter, r *http.Request) error {
 		res, _, err = op.Hacer(ctx, accion, args)
 	}
 	if err != nil {
-		if e := s.Pool.EnNegocio(context.WithoutCancel(ctx), ses.NegocioID, func(tx pgx.Tx) error {
-			_, err := tx.Exec(ctx, "UPDATE asistente_propuestas SET estado = 'fallida' WHERE id::text = $1", in.PropuestaID)
+		// Con el contexto del pedido, si la persona cerraba la pantalla la propuesta quedaba «confirmada»
+		// sin haberse hecho. Si esta escritura falla, se anota y vale el error de la acción.
+		bg := context.WithoutCancel(ctx)
+		if e := s.Pool.EnNegocio(bg, ses.NegocioID, func(tx pgx.Tx) error {
+			_, err := tx.Exec(bg, "UPDATE asistente_propuestas SET estado = 'fallida' WHERE id = $1::uuid", strings.TrimSpace(in.PropuestaID))
 			return err
 		}); e != nil {
-			return e
+			slog.Error("asistente: no se pudo marcar la propuesta como fallida", "error", e)
 		}
 		var p *problema.Problema
 		if errors.As(err, &p) {

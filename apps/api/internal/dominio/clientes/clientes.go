@@ -169,13 +169,22 @@ func ponerEtiquetas(ctx context.Context, tx pgx.Tx, cs []*Cliente) error {
 // existe devuelve 404 si el cliente no es del negocio fijado.
 func existe(ctx context.Context, tx pgx.Tx, id string) error {
 	var ok bool
-	if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM clientes WHERE id = $1)", id).Scan(&ok); err != nil {
+	if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM clientes c WHERE c.id = $1 AND "+DeSuCartera("c", "$2")+")",
+		id, sesion.De(ctx).ClerkID).Scan(&ok); err != nil {
 		return err
 	}
 	if !ok {
 		return problema.NoEncontrado("Ese cliente no existe o no es de este negocio.")
 	}
 	return nil
+}
+
+// DeSuCartera: la condición SQL (sobre el cliente alias c, con el clerk_id en $n) de los clientes que
+// ve quien pide. Un profesional, sólo los que tienen algún turno en su agenda (antes veía y anotaba en
+// toda la base: un profesional que se iba se la podía llevar); los demás, todos.
+func DeSuCartera(c, n string) string {
+	return `(coalesce(` + n + `, '') = '' OR NOT EXISTS (SELECT 1 FROM miembros mx WHERE mx.clerk_id = ` + n + ` AND mx.activo AND mx.rol = 'profesional')
+		OR EXISTS (SELECT 1 FROM turnos tc WHERE tc.cliente_id = ` + c + `.id AND ` + sesion.DeSuAgenda("tc.profesional_id", n) + `))`
 }
 
 // Penalizado dice si el cliente tiene una penalidad vigente en el negocio fijado. Lo usa la reserva
@@ -264,6 +273,14 @@ func (s *Servicio) listar(w http.ResponseWriter, r *http.Request) error {
 	arg := func(v any) string {
 		args = append(args, v)
 		return "$" + strconv.Itoa(len(args))
+	}
+	ses := sesion.De(r.Context())
+	if ses.Rol == sesion.Profesional {
+		// Un profesional ve sólo su cartera, y sin lo gastado (son números del negocio).
+		if q.Get("orden") == "gastado" {
+			orden = ordenes["nombre"]
+		}
+		cond = append(cond, DeSuCartera("c", arg(ses.ClerkID)))
 	}
 	if b := strings.TrimSpace(q.Get("q")); b != "" {
 		p := arg(patron(b))

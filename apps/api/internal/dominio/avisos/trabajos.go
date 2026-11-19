@@ -146,27 +146,38 @@ const (
 	tandaPurga         = 5000
 )
 
-// Purgar borra, por tandas, lo que ya nadie va a leer.
+// Purgar borra, por tandas, lo que ya nadie va a leer. Cada tanda va en su transacción y se repite
+// mientras alguna tabla llene la tanda (con una sola por día, más de 5000 por día dejaban de cumplir la
+// retención), con un tope de 5 minutos.
 func (s *Trabajos) Purgar(ctx context.Context, ahora time.Time) (any, error) {
 	out := map[string]int64{}
-	err := s.Pool.EnTx(ctx, func(tx pgx.Tx) error {
-		filas, err := tx.Query(ctx, "SELECT tabla, borradas FROM app.purgar($1, $2, $3, $4)",
-			ahora.Add(-retencionAvisos), ahora.Add(-retencionAuditoria), ahora.Add(-retencionVencidos), tandaPurga)
-		if err != nil {
-			return err
-		}
-		defer filas.Close()
-		for filas.Next() {
-			var tabla string
-			var n int64
-			if err := filas.Scan(&tabla, &n); err != nil {
+	limite := time.Now().Add(5 * time.Minute)
+	for {
+		llena := false
+		err := s.Pool.EnTx(ctx, func(tx pgx.Tx) error {
+			filas, err := tx.Query(ctx, "SELECT tabla, borradas FROM app.purgar($1, $2, $3, $4)",
+				ahora.Add(-retencionAvisos), ahora.Add(-retencionAuditoria), ahora.Add(-retencionVencidos), tandaPurga)
+			if err != nil {
 				return err
 			}
-			out[tabla] = n
+			defer filas.Close()
+			for filas.Next() {
+				var tabla string
+				var n int64
+				if err := filas.Scan(&tabla, &n); err != nil {
+					return err
+				}
+				out[tabla] += n
+				if n >= tandaPurga {
+					llena = true
+				}
+			}
+			return filas.Err()
+		})
+		if err != nil || !llena || time.Now().After(limite) || ctx.Err() != nil {
+			return out, err
 		}
-		return filas.Err()
-	})
-	return out, err
+	}
 }
 
 // Lista arma los trabajos del worker de este paquete más el envío de la cola (con los nombres que

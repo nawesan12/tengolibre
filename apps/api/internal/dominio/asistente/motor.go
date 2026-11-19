@@ -61,13 +61,29 @@ func (s *Servicio) motor(ctx context.Context, op *mcp.Operador, c Catalogo, in I
 }
 
 func agendaDe(ctx context.Context, op *mcp.Operador, desde, hasta time.Time, profesional string) ([]mcp.TurnoMCP, error) {
+	ts, _, err := agendaCon(ctx, op, desde, hasta, profesional, "", false)
+	return ts, err
+}
+
+// agendaCon: la agenda con los filtros que van a la base (cliente y sólo los que no empezaron), y si
+// quedaron turnos afuera del tope.
+func agendaCon(ctx context.Context, op *mcp.Operador, desde, hasta time.Time, profesional, cliente string, proximos bool) ([]mcp.TurnoMCP, bool, error) {
 	args := map[string]any{"desde": desde.Format(time.DateOnly), "hasta": hasta.Format(time.DateOnly)}
 	if profesional != "" {
 		args["profesionalId"] = profesional
 	}
-	var out struct{ Turnos []mcp.TurnoMCP }
+	if cliente != "" {
+		args["cliente"] = cliente
+	}
+	if proximos {
+		args["soloProximos"] = true
+	}
+	var out struct {
+		Turnos   []mcp.TurnoMCP
+		Truncado bool
+	}
 	err := leerComo(ctx, op, "ver_agenda", args, &out)
-	return out.Turnos, err
+	return out.Turnos, out.Truncado, err
 }
 
 // elDia: «hoy», «mañana» o «el jueves 20 de noviembre».
@@ -241,7 +257,7 @@ func (s *Servicio) accion(ctx context.Context, op *mcp.Operador, c Catalogo, in 
 		// «Cancelá el de las 3»: el de hoy.
 		hasta = hoy
 	}
-	ts, err := agendaDe(ctx, op, desde, hasta, "")
+	ts, truncado, err := agendaCon(ctx, op, desde, hasta, "", in.Cliente, true)
 	if err != nil {
 		return Respuesta{}, err
 	}
@@ -267,6 +283,9 @@ func (s *Servicio) accion(ctx context.Context, op *mcp.Operador, c Catalogo, in 
 		cands = append(cands, t)
 	}
 	verbo := map[string]string{Mover: "mover", Cancelar: "cancelar", Confirmar: "confirmar"}[in.Tipo]
+	if len(cands) == 0 && truncado {
+		return Respuesta{Respuesta: "Hay demasiados turnos para buscar así. Decime también el día o el apellido."}, nil
+	}
 	if len(cands) == 0 {
 		x := "No encontré un turno"
 		if in.Cliente != "" {

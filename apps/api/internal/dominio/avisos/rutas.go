@@ -176,21 +176,33 @@ func (s *Servicio) campanita(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return err
 		}
-		filas, err := tx.Query(ctx, `SELECT id::text, tipo, titulo, texto, turno_id::text, creado_en, creado_en > $2 FROM notificaciones
-			WHERE creado_en >= now() - make_interval(secs => $1) ORDER BY creado_en DESC LIMIT 30`, ventanaCampanita.Seconds(), vista)
+		filtro, quien := filtroDeRol(ses, "$3")
+		filas, err := tx.Query(ctx, `SELECT n.id::text, n.tipo, n.titulo, n.texto, n.turno_id::text, n.creado_en, n.creado_en > $2 FROM notificaciones n
+			WHERE n.creado_en >= now() - make_interval(secs => $1) AND `+filtro+` ORDER BY n.creado_en DESC LIMIT 30`,
+			ventanaCampanita.Seconds(), vista, quien)
 		if err != nil {
 			return err
 		}
 		if out, err = pgx.CollectRows(filas, pgx.RowToStructByPos[NotificacionPanel]); err != nil {
 			return err
 		}
-		return tx.QueryRow(ctx, "SELECT count(*) FROM notificaciones WHERE creado_en > $1", vista).Scan(&sinLeer)
+		cuenta, _ := filtroDeRol(ses, "$2")
+		return tx.QueryRow(ctx, "SELECT count(*) FROM notificaciones n WHERE n.creado_en > $1 AND "+cuenta, vista, quien).Scan(&sinLeer)
 	})
 	if err != nil {
 		return err
 	}
 	web.JSON(w, http.StatusOK, map[string]any{"notificaciones": out, "sinLeer": sinLeer})
 	return nil
+}
+
+// filtroDeRol: la condición sobre notificaciones n (con el clerk_id como segundo argumento, $2 en la
+// campanita y en el conteo) de lo que ve quien pide. Un profesional, lo suyo; los demás, todo.
+func filtroDeRol(ses sesion.Sesion, x string) (string, string) {
+	if ses.Rol == sesion.Profesional {
+		return VisibleParaProfesional("n", x), ses.ClerkID
+	}
+	return "(" + x + "::text IS NOT NULL OR true)", ""
 }
 
 func (s *Servicio) sinLeer(w http.ResponseWriter, r *http.Request) error {
@@ -202,7 +214,8 @@ func (s *Servicio) sinLeer(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return err
 		}
-		return tx.QueryRow(ctx, "SELECT count(*) FROM notificaciones WHERE creado_en > $1", vista).Scan(&n)
+		filtro, quien := filtroDeRol(ses, "$2")
+		return tx.QueryRow(ctx, "SELECT count(*) FROM notificaciones n WHERE n.creado_en > $1 AND "+filtro, vista, quien).Scan(&n)
 	})
 	if err != nil {
 		return err

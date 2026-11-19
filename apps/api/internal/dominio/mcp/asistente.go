@@ -46,7 +46,7 @@ func (s *Servicio) Operador(ctx context.Context) (*Operador, error) {
 		nombre += " con el asistente"
 	}
 	c := &conexion{negocio: ses.NegocioID, nombre: nombre, quien: ses.ClerkID, permisos: permisosDeRol(ses.Rol),
-		limitado: ses.Rol == sesion.Profesional}
+		limitado: ses.Rol == sesion.Profesional, paraIA: true}
 	err := s.Pool.EnNegocio(ctx, ses.NegocioID, func(tx pgx.Tx) error {
 		var zona string
 		if err := tx.QueryRow(ctx, "SELECT zona_horaria FROM negocios WHERE id = app.negocio_actual()").Scan(&zona); err != nil {
@@ -178,6 +178,11 @@ func (o *Operador) Previa(ctx context.Context, nombre string, raw json.RawMessag
 		if !turnos.PuedePasar(t.Estado, estado) {
 			return "", nil, problema.Conflicto("estado", "Un turno "+t.Estado+" no se puede pasar a "+estado+".")
 		}
+		if estado == "confirmado" {
+			if err := s.Turnos.SePuedeConfirmar(ctx, c.negocio, t); err != nil {
+				return "", nil, err
+			}
+		}
 		frase := "Confirmar el turno de " + t.Cliente.Nombre + " (" + t.Servicio + " con " + t.Profesional + "), el " + c.cuando(t.Inicio) + "."
 		if estado == "cancelado" {
 			frase = "Cancelar el turno de " + t.Cliente.Nombre + " (" + t.Servicio + " con " + t.Profesional + "), el " + c.cuando(t.Inicio) +
@@ -273,7 +278,21 @@ func (o *Operador) Previa(ctx context.Context, nombre string, raw json.RawMessag
 				}
 				args["clienteId"] = id
 			case in.Cliente != nil && strings.TrimSpace(in.Cliente.Nombre) != "":
+				// Cliente nuevo: el resumen muestra también el teléfono y el email, así quien confirma ve
+				// exactamente qué datos se van a cargar (pueden venir de un texto de un tercero).
 				cliente = strings.TrimSpace(in.Cliente.Nombre)
+				var datos []string
+				if tel := strings.TrimSpace(in.Cliente.Telefono); tel != "" {
+					datos = append(datos, "tel. "+tel)
+				}
+				if mail := strings.TrimSpace(in.Cliente.Email); mail != "" {
+					datos = append(datos, mail)
+				}
+				if len(datos) > 0 {
+					cliente += " (" + strings.Join(datos, ", ") + ")"
+				} else {
+					cliente += " (sin teléfono ni email)"
+				}
 				args["cliente"] = in.Cliente
 			default:
 				return problema.Invalido("Falta el cliente: un clienteId o los datos de uno nuevo.")

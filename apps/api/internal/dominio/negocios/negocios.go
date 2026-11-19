@@ -146,7 +146,16 @@ var Reservados = map[string]bool{
 	"review": true, "resena": true, "sin-conexion": true, "turno": true, "ingresar": true, "precios": true,
 	"ayuda": true, "legal": true, "terminos": true, "privacidad": true, "www": true, "cal": true,
 	"espera": true, "conectar": true, "empezar": true, "salir": true, "fotos": true, "logos": true, "marca": true, "og": true,
+	// Marca y pagos: nadie se hace pasar por el soporte o por la plataforma.
+	"soporte": true, "tengolibre": true, "tengo-libre": true, "oficial": true, "grupovimo": true, "grupo-vimo": true,
+	"mercadopago": true, "mercado-pago": true, "pagos": true, "pago": true, "seguridad": true, "contacto": true,
 }
+
+// Topes del alta: por IP (un script no llena la plataforma de slugs) y por cuenta.
+const (
+	AltasPorIPPorHora = 10
+	NegociosPorCuenta = 10
+)
 
 // ValidarSlug devuelve el problema si el slug no sirve.
 func ValidarSlug(slug string) error {
@@ -154,7 +163,7 @@ func ValidarSlug(slug string) error {
 		return problema.Invalido("La dirección va en minúsculas, números y guiones (hasta 48).",
 			problema.Campo{Ruta: "slug", Mensaje: "formato inválido"})
 	}
-	if Reservados[slug] {
+	if Reservados[slug] || strings.Contains(strings.ReplaceAll(slug, "-", ""), "tengolibre") {
 		return problema.Conflicto("slug_reservado", "Esa dirección no está disponible.")
 	}
 	return nil
@@ -184,6 +193,9 @@ func (s *Servicio) crear(w http.ResponseWriter, r *http.Request) error {
 	}
 	ctx := r.Context()
 	clerkID := sesion.De(ctx).ClerkID
+	if !s.limite.Permitir("alta:"+tope.IP(r), AltasPorIPPorHora, time.Hour, time.Now()) {
+		return tope.Demasiados("demasiadas_altas", "Creaste varios negocios seguidos. Esperá un rato y probá de nuevo.")
+	}
 	u, err := s.Sesion.Verificador.Usuario(ctx, clerkID)
 	if err != nil {
 		return err
@@ -191,9 +203,20 @@ func (s *Servicio) crear(w http.ResponseWriter, r *http.Request) error {
 	persona := strings.TrimSpace(u.Nombre + " " + u.Apellido)
 	var n Negocio
 	err = s.Pool.EnTx(ctx, func(tx pgx.Tx) error {
-		// Tomada también si es el link anterior de otro negocio (retenido 90 días: sus QR siguen andando).
-		e, err := estadoDe(ctx, tx, in.Slug, nil)
-		if err != nil {
+		var propios int
+		if err := tx.QueryRow(ctx, "SELECT count(*) FROM app.negocios_de($1) WHERE rol = 'duenio'", clerkID).Scan(&propios); err != nil {
+			return err
+		}
+		if propios >= NegociosPorCuenta {
+			return problema.Conflicto("tope_negocios", "Llegaste al máximo de negocios por cuenta. Escribinos si necesitás más.")
+		}
+		// Tomada también si es el link anterior de un negocio activo (sus QR siguen andando). Si fue de
+		// otro y ya se liberó, la fila vieja se borra en la misma transacción (con el slug en fila).
+		if ValidarSlug(in.Slug) != nil {
+			return problema.Conflicto("slug_ocupado", "Esa dirección ya la usa otro negocio.")
+		}
+		var e string
+		if err := tx.QueryRow(ctx, "SELECT app.tomar_slug_para_alta($1)", in.Slug).Scan(&e); err != nil {
 			return err
 		}
 		if e != "libre" {

@@ -93,6 +93,8 @@ func init() {
 				"hasta":             fecha("Último día (inclusive), AAAA-MM-DD. Por defecto, el mismo que desde."),
 				"profesionalId":     texto("Sólo los de este profesional (id o nombre)."),
 				"incluirCancelados": map[string]any{"type": "boolean", "description": "Mostrar también los cancelados. Por defecto, no."},
+				"cliente":           texto("Sólo los turnos de clientes con este nombre (o el comienzo de cada palabra)."),
+				"soloProximos":      map[string]any{"type": "boolean", "description": "Sólo los que todavía no empezaron. Por defecto, no."},
 			})},
 		{nombre: "buscar_horarios_libres", titulo: "Buscar horarios libres", permiso: VerAgenda, correr: buscarLibres,
 			descripcion: "Busca los horarios libres para un servicio, con cualquier profesional o con uno en particular, " +

@@ -32,6 +32,11 @@ type TurnoMCP struct {
 	Estado      string        `json:"estado"`
 	Precio      int64         `json:"precio"`
 	Nota        string        `json:"nota,omitempty"`
+	// TieneNota: para el asistente propio (que manda todo a un modelo de IA), el texto de la nota no
+	// sale: la escribe la clienta al reservar y puede traer datos de salud. Se avisa que hay una.
+	TieneNota bool `json:"tieneNota,omitempty"`
+	// VenceEn: hasta cuándo se guarda el lugar de un pendiente_pago (la seña).
+	VenceEn string `json:"venceEn,omitempty"`
 }
 
 // ClienteDeTurn: el cliente de un turno.
@@ -46,6 +51,12 @@ func (c *conexion) turno(t turnos.Turno) TurnoMCP {
 	out := TurnoMCP{ID: t.ID, Dia: avisos.Fecha(t.Inicio.In(c.zona)), Inicio: t.Inicio.In(c.zona).Format(time.RFC3339),
 		Fin: t.Fin.In(c.zona).Format(time.RFC3339), Servicio: t.Servicio, Profesional: t.Profesional, Estado: t.Estado,
 		Precio: t.Precio, Nota: t.Nota, Cliente: ClienteDeTurn{ID: t.Cliente.ID, Nombre: t.Cliente.Nombre}}
+	if c.paraIA && t.Nota != "" {
+		out.Nota, out.TieneNota = "", true
+	}
+	if t.Estado == "pendiente_pago" && t.VenceEn != nil {
+		out.VenceEn = t.VenceEn.In(c.zona).Format(time.RFC3339)
+	}
 	if c.puede(VerClientes) {
 		out.Cliente.Telefono, out.Cliente.Email = t.Cliente.Telefono, t.Cliente.Email
 	}
@@ -107,8 +118,8 @@ func (s *Servicio) resolverAmbos(ctx context.Context, c *conexion, servicio, pro
 
 func verAgenda(ctx context.Context, s *Servicio, c *conexion, raw json.RawMessage) (any, string, error) {
 	var in struct {
-		Desde, Hasta, ProfesionalID string
-		IncluirCancelados           bool
+		Desde, Hasta, ProfesionalID, Cliente string
+		IncluirCancelados, SoloProximos      bool
 	}
 	if err := leerArgs(raw, &in); err != nil {
 		return nil, "", err
@@ -130,6 +141,7 @@ func verAgenda(ctx context.Context, s *Servicio, c *conexion, raw json.RawMessag
 		return nil, "", problema.Invalido("hasta va después de desde, con hasta 31 días entre medio.")
 	}
 	out := []TurnoMCP{}
+	truncado := false
 	err = s.Pool.EnNegocio(ctx, c.negocio, func(tx pgx.Tx) error {
 		prof, _, err := resolver(ctx, tx, "profesionales", in.ProfesionalID, "un profesional")
 		if err != nil {
@@ -138,12 +150,26 @@ func verAgenda(ctx context.Context, s *Servicio, c *conexion, raw json.RawMessag
 		if prof != "" && !c.permitido(prof) {
 			return problema.NoEncontrado("Sólo podés ver tu agenda.")
 		}
-		ts, err := turnos.Agenda(ctx, tx, desde, hasta.AddDate(0, 0, 1), prof, "", 300)
+		// Los filtros van a la base antes del tope (los cancelados, los de otros profesionales y los
+		// pendiente_pago vencidos ya no ocupan filas).
+		f := turnos.Filtro{Desde: desde, Hasta: hasta.AddDate(0, 0, 1), ConCancelados: in.IncluirCancelados,
+			VencidosAl: s.ahora(), Cliente: palabrasDe(in.Cliente), Limite: 300}
+		switch {
+		case prof != "":
+			f.Profesionales = []string{prof}
+		case c.limitado:
+			f.Profesionales = append([]string{}, c.propios...)
+		}
+		if in.SoloProximos {
+			f.DesdeAhora = s.ahora()
+		}
+		ts, mas, err := turnos.AgendaFiltrada(ctx, tx, f)
 		if err != nil {
 			return err
 		}
+		truncado = mas
 		for _, t := range ts {
-			if (t.Estado == "cancelado" && !in.IncluirCancelados) || !c.permitidoP(t.ProfesionalID) {
+			if !c.permitidoP(t.ProfesionalID) {
 				continue
 			}
 			out = append(out, c.turno(t))
@@ -157,8 +183,19 @@ func verAgenda(ctx context.Context, s *Servicio, c *conexion, raw json.RawMessag
 	if !hasta.Equal(desde) {
 		rango += " al " + hasta.Format(time.DateOnly)
 	}
-	return map[string]any{"desde": desde.Format(time.DateOnly), "hasta": hasta.Format(time.DateOnly), "turnos": out},
-		"miró la agenda del " + rango, nil
+	res := map[string]any{"desde": desde.Format(time.DateOnly), "hasta": hasta.Format(time.DateOnly), "turnos": out}
+	if truncado {
+		res["truncado"] = true
+		res["aviso"] = "Hay más turnos que los que se muestran: pedí un rango más corto o filtrá por cliente o profesional."
+	}
+	return res, "miró la agenda del " + rango, nil
+}
+
+// palabrasDe: las palabras de un nombre en minúsculas y sin tildes (para Filtro.Cliente).
+func palabrasDe(nombre string) []string {
+	r := strings.NewReplacer("á", "a", "à", "a", "ä", "a", "â", "a", "é", "e", "è", "e", "ë", "e", "ê", "e", "í", "i", "ì", "i",
+		"ï", "i", "î", "i", "ó", "o", "ò", "o", "ö", "o", "ô", "o", "ú", "u", "ù", "u", "ü", "u", "û", "u", "ñ", "n")
+	return strings.Fields(r.Replace(strings.ToLower(nombre)))
 }
 
 // ---- Horarios libres
@@ -371,7 +408,9 @@ func crearTurno(ctx context.Context, s *Servicio, c *conexion, raw json.RawMessa
 			return nil, "", err
 		}
 	case in.Cliente != nil:
-		p.Cliente = *in.Cliente
+		// Lo que trae un asistente de IA no es de confianza (puede venir de un texto de un tercero):
+		// como en la web, no pisa el email de un cliente que ya tiene ese teléfono.
+		p.Cliente, p.DatosDeLaWeb = *in.Cliente, true
 	default:
 		return nil, "", problema.Invalido("Falta el cliente: un clienteId o los datos de uno nuevo (cliente).")
 	}

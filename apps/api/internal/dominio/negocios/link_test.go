@@ -103,11 +103,24 @@ func TestCambiarLink(t *testing.T) {
 		}
 	}
 
-	// Pasados 90 días, otro lo puede tomar y gana el actual.
+	// Mientras uno siga activo, su link anterior no se libera aunque pasen 90 días (los QR impresos
+	// duran más); de un negocio inactivo, sí.
 	a.Fila("UPDATE slugs_anteriores SET dejado_en = now() - interval '91 days' WHERE slug = 'uno-3'", nil)
+	cambiar(409, beto, dos.ID, "uno-3")
+	a.Fila("UPDATE negocios SET activo = false WHERE id = $1", []any{uno.ID})
 	cambiar(200, beto, dos.ID, "uno-3")
 	if publico("uno-3") != dos.ID || publico("dos") != dos.ID {
 		t.Fatal("uno-3 ahora es de dos (y dos sigue andando)")
+	}
+
+	// El alta con un link anterior ya liberado borra la fila vieja: no vuelve a resolver al negocio viejo.
+	a.Fila("UPDATE slugs_anteriores SET dejado_en = now() - interval '91 days' WHERE slug = 'uno-4'", nil)
+	var tres negocios.Negocio
+	a.Esperar(201, P{Metodo: "POST", Ruta: "/v1/negocios", Quien: beto, Cuerpo: map[string]string{"slug": "uno-4", "nombre": "Tres"}}, &tres)
+	var quedan int
+	a.Fila("SELECT count(*) FROM slugs_anteriores WHERE slug = 'uno-4'", nil, &quedan)
+	if quedan != 0 || publico("uno-4") != tres.ID {
+		t.Fatalf("la fila vieja quedó: %d", quedan)
 	}
 
 	// Recepción no cambia el link; sólo dueño o encargado.

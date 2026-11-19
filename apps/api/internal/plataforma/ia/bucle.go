@@ -55,6 +55,8 @@ type Resultado struct {
 	Herramientas []string
 	// Rechazo: el modelo no quiso contestar (stop_reason refusal).
 	Rechazo bool
+	// Cortada: la respuesta llegó al tope de tokens (stop_reason max_tokens).
+	Cortada bool
 }
 
 // Frases fijas para lo que no sale del modelo.
@@ -107,6 +109,11 @@ func Conversar(ctx context.Context, cli Cliente, p Pedido, correr Ejecutor) (Res
 				res, esError := correr(ctx, v.Name, entrada)
 				resultados = append(resultados, anthropic.NewToolResultBlock(v.ID, res, esError))
 			}
+		}
+		if resp.StopReason == anthropic.StopReasonMaxTokens {
+			// Se cortó por largo: se mide y, si no quedó texto, se dice en simple.
+			slog.Warn("ia: cortada", "vuelta", vuelta, "salida", resp.Usage.OutputTokens)
+			r.Cortada = true
 		}
 		if resp.StopReason != anthropic.StopReasonToolUse || len(resultados) == 0 {
 			r.Texto = strings.Join(textos, "\n\n")

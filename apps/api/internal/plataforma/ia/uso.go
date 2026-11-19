@@ -74,12 +74,19 @@ func (m *Medidor) Leer(ctx context.Context, negocio string) (Estado, error) {
 	return e, err
 }
 
-// Chequear antes de llamar al modelo. Devuelve *Agotado si no se puede.
-func (m *Medidor) Chequear(ctx context.Context, negocio string) error {
-	e, err := m.Leer(ctx, negocio)
-	if err != nil {
-		return err
-	}
+// EstimadoMicro: lo que se reserva del presupuesto de la plataforma por respuesta, antes de llamar
+// al modelo (unas 4 llamadas de Haiku con el caché frío). Al anotar se ajusta a lo real.
+const EstimadoMicro int64 = 6000
+
+// Reserva: una respuesta ya contada en ia_uso antes de llamar al modelo. Se cierra con Anotar (lo
+// real) o con Devolver (no llegó al modelo).
+type Reserva struct {
+	negocio, ruta string
+	dia           time.Time
+	estimado      int64
+}
+
+func (m *Medidor) agotado(e Estado, gasto int64) error {
 	if m.Topes.CupoMensual > 0 && e.UsadasMes >= m.Topes.CupoMensual {
 		return &Agotado{Motivo: "mes", Mensaje: fmt.Sprintf("Ya usaste las %d respuestas con IA de este mes. Sigo contestando lo "+
 			"básico (agenda, horarios libres, mover y cancelar turnos); el mes que viene vuelve todo.", m.Topes.CupoMensual)}
@@ -88,20 +95,91 @@ func (m *Medidor) Chequear(ctx context.Context, negocio string) error {
 		return &Agotado{Motivo: "dia", Mensaje: "Por hoy llegaste al tope de respuestas con IA. Sigo contestando lo básico " +
 			"(agenda, horarios libres, mover y cancelar turnos); mañana vuelve todo."}
 	}
+	if m.Topes.PresupuestoMicro > 0 && gasto >= m.Topes.PresupuestoMicro {
+		return &Agotado{Motivo: "plataforma", Mensaje: "La IA está en pausa por el resto del mes. Sigo contestando lo " +
+			"básico (agenda, horarios libres, mover y cancelar turnos)."}
+	}
+	return nil
+}
+
+// Reservar una respuesta antes de llamar al modelo: chequea los topes y la cuenta en la misma
+// transacción, en fila (un advisory lock por negocio y otro para el presupuesto común). Antes se
+// chequeaba y se anotaba al terminar: N pedidos en paralelo pasaban todos el tope. Devuelve *Agotado
+// si no se puede.
+func (m *Medidor) Reservar(ctx context.Context, negocio, ruta string) (*Reserva, error) {
+	dia, mes := m.hoy()
+	r := &Reserva{negocio: negocio, ruta: ruta, dia: dia}
+	err := m.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext('ia:' || $1))", negocio); err != nil {
+			return err
+		}
+		e := Estado{CupoMensual: m.Topes.CupoMensual, TopeDiario: m.Topes.TopeDiario}
+		if err := tx.QueryRow(ctx, `SELECT coalesce(sum(respuestas), 0)::int, coalesce(sum(respuestas) FILTER (WHERE dia = $2), 0)::int
+			FROM ia_uso WHERE dia >= $1`, mes, dia).Scan(&e.UsadasMes, &e.UsadasHoy); err != nil {
+			return err
+		}
+		var gasto int64
+		if m.Topes.PresupuestoMicro > 0 {
+			r.estimado = EstimadoMicro
+			if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext('ia:plataforma'))"); err != nil {
+				return err
+			}
+			if err := tx.QueryRow(ctx, "SELECT app.ia_gasto_desde($1)", mes).Scan(&gasto); err != nil {
+				return err
+			}
+		}
+		if err := m.agotado(e, gasto); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO ia_uso AS u (negocio_id, dia, ruta, respuestas, costo_micro)
+			VALUES (app.negocio_actual(), $1, $2, 1, $3)
+			ON CONFLICT (negocio_id, dia, ruta) DO UPDATE SET respuestas = u.respuestas + 1, costo_micro = u.costo_micro + EXCLUDED.costo_micro`,
+			dia, ruta, r.estimado)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// Cerrar una reserva con lo que usó de verdad. Sin pedidos al modelo, la respuesta no cuenta (se
+// devuelve la reserva).
+func (m *Medidor) Cerrar(ctx context.Context, r *Reserva, u Uso) error {
+	if r == nil {
+		return nil
+	}
+	respuestas := 0
+	if u.Pedidos == 0 {
+		respuestas = -1
+	}
+	costo := u.CostoMicro() - r.estimado
+	return m.Pool.EnNegocio(context.WithoutCancel(ctx), r.negocio, func(tx pgx.Tx) error {
+		_, err := tx.Exec(context.WithoutCancel(ctx), `UPDATE ia_uso SET respuestas = greatest(respuestas + $3, 0), pedidos = pedidos + $4,
+				tokens_entrada = tokens_entrada + $5, cache_leido = cache_leido + $6, cache_escrito = cache_escrito + $7,
+				tokens_salida = tokens_salida + $8, costo_micro = greatest(costo_micro + $9, 0)
+			WHERE negocio_id = app.negocio_actual() AND dia = $1 AND ruta = $2`,
+			r.dia, r.ruta, respuestas, u.Pedidos, u.Entrada, u.CacheLeido, u.CacheEscrito, u.Salida, costo)
+		return err
+	})
+}
+
+// Chequear sin reservar (para mostrar el estado). Para llamar al modelo, Reservar.
+func (m *Medidor) Chequear(ctx context.Context, negocio string) error {
+	e, err := m.Leer(ctx, negocio)
+	if err != nil {
+		return err
+	}
+	var gasto int64
 	if m.Topes.PresupuestoMicro > 0 {
 		_, mes := m.hoy()
-		var gasto int64
 		if err := m.Pool.EnTx(ctx, func(tx pgx.Tx) error {
 			return tx.QueryRow(ctx, "SELECT app.ia_gasto_desde($1)", mes).Scan(&gasto)
 		}); err != nil {
 			return err
 		}
-		if gasto >= m.Topes.PresupuestoMicro {
-			return &Agotado{Motivo: "plataforma", Mensaje: "La IA está en pausa por el resto del mes. Sigo contestando lo " +
-				"básico (agenda, horarios libres, mover y cancelar turnos)."}
-		}
 	}
-	return nil
+	return m.agotado(e, gasto)
 }
 
 // Anotar lo que usó una respuesta (respuestas: 1 si llegó al modelo, aunque haya fallado a medias).
