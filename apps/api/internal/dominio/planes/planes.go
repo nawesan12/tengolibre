@@ -98,18 +98,18 @@ var Planes = []Plan{
 	{Clave: "inicial", Nombre: "Inicial", Precio: 6900, PrecioAnual: 6900 * MesesAnual, Bajada: "Para un negocio chico.",
 		Profesionales: 5, Sucursales: 1, CupoIA: 100, TopeDiarioIA: 5, Funciones: []Funcion{},
 		Incluye: []string{"Hasta 5 profesionales", "Link propio y reservas por la web", "Recordatorios por mail y en el celular, sin límite",
-			"Ficha de cada cliente y caja", "Asistente: 100 respuestas al mes", "1 sucursal"}},
+			"Ficha de cada cliente y caja", "Asistente: 100 respuestas al mes (hasta 5 por día)", "1 sucursal"}},
 	{Clave: "equipo", Nombre: "Equipo", Precio: 14900, PrecioAnual: 14900 * MesesAnual, Destacado: true,
 		Bajada: "Cuando suma gente y le empiezan a faltar a los turnos.", Profesionales: 12, Sucursales: 1, CupoIA: 400, TopeDiarioIA: 20, Funciones: equipo,
 		Incluye: []string{"Hasta 12 profesionales", "Todo lo de Inicial", "Seña con Mercado Pago al reservar",
 			"Lista de espera que ofrece el hueco sola", "Membresías, cupones y referidos", "Penalidades por ausencias",
-			"Reportes completos", "Asistente: 400 respuestas al mes"}},
+			"Reportes completos", "Asistente: 400 respuestas al mes (hasta 20 por día)"}},
 	{Clave: "centro", Nombre: "Centro", Precio: 29900, PrecioAnual: 29900 * MesesAnual,
 		Bajada: "Para equipos grandes o con más de un local.", Profesionales: 25, Sucursales: 3, WhatsAppIncluidos: 150, CupoIA: 1500, TopeDiarioIA: 75,
 		Funciones: append(append([]Funcion{}, equipo...), Sucursales, Dominio, Plantillas, CSV),
 		Incluye: []string{"Hasta 25 profesionales (cada uno extra, $1.900 por mes)", "Todo lo de Equipo", "Hasta 3 sucursales juntas, cada una con su plan",
 			"Dominio propio y plantillas de página", "150 recordatorios por WhatsApp incluidos por mes", "Reportes con exportación CSV",
-			"Asistente: 1.500 respuestas al mes"}},
+			"Asistente: 1.500 respuestas al mes (hasta 75 por día)"}},
 }
 
 func init() {

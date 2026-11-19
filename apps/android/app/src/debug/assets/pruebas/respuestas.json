@@ -830,7 +830,7 @@
      "Link propio y reservas por la web",
      "Recordatorios por mail y en el celular, sin límite",
      "Ficha de cada cliente y caja",
-     "Asistente: 100 respuestas al mes",
+     "Asistente: 100 respuestas al mes (hasta 5 por día)",
      "1 sucursal"
     ],
     "profesionales": 5,
@@ -843,7 +843,7 @@
      "Link propio y reservas por la web",
      "Recordatorios por mail y en el celular, sin límite",
      "Ficha de cada cliente y caja",
-     "Asistente: 100 respuestas al mes",
+     "Asistente: 100 respuestas al mes (hasta 5 por día)",
      "1 sucursal"
     ]
    },
@@ -862,7 +862,7 @@
      "Membresías, cupones y referidos",
      "Penalidades por ausencias",
      "Reportes completos",
-     "Asistente: 400 respuestas al mes"
+     "Asistente: 400 respuestas al mes (hasta 20 por día)"
     ],
     "profesionales": 12,
     "sucursales": 1,
@@ -885,7 +885,7 @@
      "Membresías, cupones y referidos",
      "Penalidades por ausencias",
      "Reportes completos",
-     "Asistente: 400 respuestas al mes"
+     "Asistente: 400 respuestas al mes (hasta 20 por día)"
     ]
    },
    {
@@ -902,7 +902,7 @@
      "Dominio propio y plantillas de página",
      "150 recordatorios por WhatsApp incluidos por mes",
      "Reportes con exportación CSV",
-     "Asistente: 1.500 respuestas al mes"
+     "Asistente: 1.500 respuestas al mes (hasta 75 por día)"
     ],
     "profesionales": 25,
     "sucursales": 3,
@@ -928,7 +928,7 @@
      "Dominio propio y plantillas de página",
      "150 recordatorios por WhatsApp incluidos por mes",
      "Reportes con exportación CSV",
-     "Asistente: 1.500 respuestas al mes"
+     "Asistente: 1.500 respuestas al mes (hasta 75 por día)"
     ]
    }
   ],
