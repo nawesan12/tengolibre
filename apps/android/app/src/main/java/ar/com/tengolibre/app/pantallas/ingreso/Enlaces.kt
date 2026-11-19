@@ -64,7 +64,7 @@ fun ColumnScope.InvitacionVista(token: String, cerrar: () -> Unit) {
     Column(Modifier.weight(1f).fillMaxSize().background(C.fondo).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         val i = inv
         if (i != null) {
-            Box(Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(C.menta), contentAlignment = Alignment.Center) { Icono("person.2.badge.plus", 30f, C.petroleoHondo) }
+            Box(Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(C.menta), contentAlignment = Alignment.Center) { Icono("person.badge.plus", 30f, C.petroleoHondo) }
             Texto("Te invitaron a ${i.negocio}", Tipo.lato(28f, Peso.Black), C.tinta, tracking = (-0.6).sp)
             Texto("${i.invitadoPor?.let { "$it te sumó" } ?: "Te sumaron"} como ${nombreRol(i.rol).lowercase()}. Vas a ver la agenda y los avisos de ese negocio en esta app.", Tipo.lato(16f), C.sub)
             val mio = estado.persona?.email

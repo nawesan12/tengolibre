@@ -169,8 +169,9 @@ struct VistaTalon: View {
             if EstadoTurno.puedePasar(turno.estado, "confirmado"), turno.estado != "confirmado" {
                 Button("Confirmar", systemImage: "checkmark") { alDeslizar("confirmado") }
             }
-            if EstadoTurno.puedePasar(turno.estado, "atendido") { Button("Atendido", systemImage: "checkmark.circle") { alDeslizar("atendido") } }
-            if EstadoTurno.puedePasar(turno.estado, "ausente") { Button("No vino", systemImage: "person.slash") { alDeslizar("ausente") } }
+            // «Atendido» y «No vino» desde que empieza (antes, sobre un turno futuro, sumaba una ausencia con un toque equivocado).
+            if EstadoTurno.puedePasar(turno.estado, "atendido"), turno.inicio <= Date() { Button("Atendido", systemImage: "checkmark.circle") { alDeslizar("atendido") } }
+            if EstadoTurno.puedePasar(turno.estado, "ausente"), turno.inicio <= Date() { Button("No vino", systemImage: "person.slash") { alDeslizar("ausente") } }
             if EstadoTurno.puedePasar(turno.estado, "cancelado") { Button("Cancelar", systemImage: "calendar.badge.minus", role: .destructive) { alDeslizar("cancelado") } }
         }
         if !turno.cliente.telefono.isEmpty, let u = URL(string: "tel:\(turno.cliente.telefono.filter { "+0123456789".contains($0) })") {

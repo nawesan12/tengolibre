@@ -154,6 +154,9 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     // MARK: Arranque
 
     suspend fun arrancar() {
+        // Turnos que este teléfono seguía como clienta (versiones viejas): se dejan de seguir aunque la persona no
+        // llegue a Principal (el token se pide en cualquier fase, si ya hay permiso). Como iOS.
+        if (Preferencias.hayListaConPrefijo("seguidos-")) runCatching { pedirTokenPushSiCorresponde() }
         if (api.token == null) { fase = Fase.afuera; return }
         try {
             cargarSesion()
@@ -441,8 +444,10 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     @Serializable private data class Dispositivo(val plataforma: String = "android", val token: String, val entorno: String = "produccion", val modelo: String, val version: String)
 
     suspend fun registrarTokenPush(token: String) {
-        if (token == tokenPush || api.token == null) return
+        if (token == tokenPush) return
         tokenPush = token
+        // Sin sesión (en el alta o afuera) igual se dejan de seguir los turnos viejos: no pide sesión.
+        if (api.token == null) { dejarDeSeguirTodos(); return }
         runCatching { api.hacer("POST", "/v1/yo/dispositivos", Dispositivo(token = token, modelo = Build.MODEL ?: "Android", version = BuildConfig.VERSION_NAME)) }
         dejarDeSeguirTodos()
     }

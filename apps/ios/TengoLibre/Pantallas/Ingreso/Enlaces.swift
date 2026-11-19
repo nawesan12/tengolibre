@@ -24,7 +24,7 @@ struct InvitacionVista: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 if let inv {
-                    Image(systemName: "person.2.badge.plus").font(.system(size: 30, weight: .semibold)).foregroundStyle(C.petroleoHondo)
+                    Image(systemName: "person.badge.plus").font(.system(size: 30, weight: .semibold)).foregroundStyle(C.petroleoHondo)
                         .frame(width: 64, height: 64).background(C.menta, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     Text("Te invitaron a \(inv.negocio)").font(Tipo.lato(28, .black)).tracking(-0.6)
                     Text("\(inv.invitadoPor.map { "\($0) te sumó" } ?? "Te sumaron") como \(nombreRol(inv.rol).lowercased()). Vas a ver la agenda y los avisos de ese negocio en esta app.")

@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
@@ -52,12 +53,16 @@ import ar.com.tengolibre.app.nucleo.Web
 import ar.com.tengolibre.app.nucleo.opcional
 import ar.com.tengolibre.app.pantallas.hoy.LinkRegla
 import ar.com.tengolibre.app.pantallas.mas.Bloque
+import ar.com.tengolibre.app.pantallas.mas.BorrarCuenta
 import ar.com.tengolibre.app.pantallas.mas.RenglonCampo
 import ar.com.tengolibre.app.tema.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import java.text.Normalizer
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 
 // Clon de Pantallas/Ingreso/Ingreso.swift.
 
@@ -261,7 +266,8 @@ fun Alta() {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Texto("Abrí tu negocio en Tengo Libre", Tipo.lato(30f, Peso.Black), C.tinta, Modifier.padding(top = 40.dp), tracking = (-0.8).sp)
-        Texto("Gratis los primeros 30 días. Después lo terminás de armar desde Más: servicios, equipo y horarios.", Tipo.lato(16f), C.sub)
+        // La prueba es de 7 días (cobros: now() + 7 days), como dice la web.
+        Texto("7 días gratis. Después lo terminás de armar desde Más: servicios, equipo y horarios.", Tipo.lato(16f), C.sub)
         Bloque(
             "", "",
             { RenglonCampo("Nombre del negocio", nombre, { nombre = it; if (!slugTocado) slug = aSlug(it) }, "Lumi Estética") },
@@ -271,6 +277,7 @@ fun Alta() {
         LaunchedEffect(slug) {
             libre = null
             if (slug.length < 3) return@LaunchedEffect
+            if (LinkRegla.aMedias(slug)) { libre = "escribiendo"; return@LaunchedEffect }
             if (!LinkRegla.valido(slug)) { libre = "invalida"; return@LaunchedEffect }
             delay(300)
             libre = estado.api.opcional<DisponibilidadAlta>("/v1/slugs/$slug")?.estado
@@ -280,6 +287,7 @@ fun Alta() {
             "libre" -> Triple("Está libre. Es tuya.", "checkmark.circle.fill", C.mentaTexto)
             "tomada" -> Triple("Ya la usa otro negocio.", "xmark.circle.fill", C.error)
             "invalida" -> Triple("Esa dirección no se puede usar.", "xmark.circle.fill", C.error)
+            "escribiendo" -> Triple("Seguí escribiendo…", "ellipsis", C.sub)
             else -> Triple("Fijándonos si está libre…", "ellipsis", C.sub)
         }
         Column(
@@ -300,9 +308,25 @@ fun Alta() {
             ) { Icono("megaphone.fill", 16f, C.mentaTexto); Texto("Este es tu link: lo compartís y te reservan solos.", Tipo.lato(14f, Peso.Bold), C.tinta) }
         }
         if (error.isNotEmpty()) Texto(error, Tipo.lato(14f, Peso.Bold), C.error)
-        BotonMenta(if (creando) "Creando…" else "Crear mi negocio", { crear() }, habilitado = !creando && nombre.length >= 2 && slug.length >= 3 && libre != "tomada" && libre != "invalida")
+        BotonMenta(if (creando) "Creando…" else "Crear mi negocio", { crear() }, habilitado = !creando && nombre.length >= 2 && slug.length >= 3 && libre != "tomada" && libre != "invalida" && libre != "escribiendo")
+        // La app es para negocios: quien la bajó para reservar sigue por la web (y ve sus turnos en Mi cuenta).
+        val contexto = LocalContext.current
+        Column(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Texto("¿Querés reservar un turno? Hacelo desde la página del negocio.", Tipo.lato(14f, Peso.Bold), C.sub,
+                Modifier.clickable(role = Role.Button) { abrirWeb(contexto, "${Web.base}/explorar") }, alinear = TextAlign.Center)
+            Texto("Tus turnos están en Mi cuenta", Tipo.lato(14f, Peso.Bold), C.mentaTexto,
+                Modifier.clickable(role = Role.Button) { abrirWeb(contexto, "${Web.base}/mi-cuenta") }, alinear = TextAlign.Center)
+        }
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { BotonTexto("Salir", { alcance.launch { estado.salir() } }, color = C.sub) }
+        // La cuenta ya existe (el ingreso la crea): se tiene que poder borrar sin abrir un negocio (como iOS).
+        BorrarCuenta()
+        Spacer(Modifier.height(24.dp))
     }
+}
+
+/** Abre una página de la web en el navegador. */
+private fun abrirWeb(contexto: Context, url: String) {
+    runCatching { contexto.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
 }
 
 /** «Lumi Estética» → «lumi-estetica» (como aSlug en iOS). */

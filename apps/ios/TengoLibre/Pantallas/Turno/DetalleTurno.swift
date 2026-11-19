@@ -304,7 +304,7 @@ struct DetalleTurno: View {
             }
             if turno.estado != "cancelado" {
                 HStack(spacing: 8) {
-                    if EstadoTurno.puedePasar(turno.estado, "ausente") && turno.estado != "ausente" {
+                    if EstadoTurno.puedePasar(turno.estado, "ausente") && turno.estado != "ausente" && turno.inicio <= Date() {
                         Button { Task { await cambiar("ausente") } } label: { Label("Ausente", systemImage: "person.slash") }
                     }
                     Button { mover = true } label: { Label("Mover", systemImage: "calendar.badge.clock") }

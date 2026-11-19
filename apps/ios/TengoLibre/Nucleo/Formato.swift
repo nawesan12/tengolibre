@@ -3,6 +3,14 @@ import Foundation
 /// Montos, porcentajes y fechas como los escribe el handoff: `$ 184.350` (espacio fino que no corta
 /// el renglón, punto de miles, coma decimal), `12,4 %`, «hoy, 14:32», «jueves 30 de octubre».
 enum Formato {
+    /// Un texto para el valor de un parámetro de una URL (wa.me/?text=…). .urlQueryAllowed deja pasar
+    /// «&», «+», «=», «#» y «?»: con «Uñas & Co» el texto terminaba en «Uñas » y el link no se mandaba.
+    static func paraQuery(_ s: String) -> String {
+        var permitidos = CharacterSet.urlQueryAllowed
+        permitidos.remove(charactersIn: "&+=#?")
+        return s.addingPercentEncoding(withAllowedCharacters: permitidos) ?? ""
+    }
+
     /// Espacio fino sin corte (U+202F): entre `$` y el número, y antes de `%`.
     static let fino = "\u{202F}"
 

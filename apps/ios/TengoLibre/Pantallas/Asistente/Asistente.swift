@@ -5,6 +5,10 @@ import SwiftUI
 /// GET /v1/panel/asistente: si hay IA, los ejemplos y cuánto queda del cupo del mes.
 struct EstadoAsistente: Decodable {
     var ia: Bool
+    /// La plataforma tiene IA, la dueña la prendió para el negocio y quien mira la puede prender.
+    var iaPlataforma: Bool?
+    var iaNegocio: Bool?
+    var puedePrender: Bool?
     var sugerencias: [String]
     var cupo: CupoAsistente?
 }
@@ -22,6 +26,32 @@ struct PropuestaAsistente: Decodable, Identifiable, Equatable {
     var accion: String
     var resumen: String
     var venceEn: String?
+    /// Lo que dice el botón («Sí, cancelarlo»): un «Confirmar» / «Cancelar» al lado de «Cancelar el turno
+    /// de Rosa» se leía como cancelar el turno.
+    var boton: String?
+
+    var textoBoton: String {
+        if let boton, !boton.isEmpty { return boton }
+        switch accion {
+        case "cancelar_turno": return "Sí, cancelarlo"
+        case "reprogramar_turno": return "Sí, moverlo"
+        case "confirmar_turno": return "Sí, confirmarlo"
+        case "crear_turno": return "Sí, cargarlo"
+        case "ofrecer_a_la_lista": return "Sí, ofrecerlo"
+        default: return "Sí, hacerlo"
+        }
+    }
+}
+
+/// Un turno de una lista del asistente: se muestra como fila que abre el turno.
+struct ItemTurnoAsistente: Decodable, Identifiable, Equatable {
+    var id: String
+    var dia: String
+    var hora: String
+    var cliente: String
+    var servicio: String
+    var profesional: String?
+    var estado: String?
 }
 
 /// No hay más IA por ahora (mes, día o plataforma): el intérprete sigue contestando.
@@ -36,6 +66,8 @@ struct RespuestaAsistente: Decodable {
     var propuestas: [PropuestaAsistente]?
     var origen: String?
     var tope: TopeAsistente?
+    var encabezado: String?
+    var items: [ItemTurnoAsistente]?
 }
 
 /// Un turno de la charla, como lo pide la API en `historial`.
@@ -47,20 +79,22 @@ struct TurnoChat: Codable, Equatable {
 // MARK: La entrada en Hoy
 
 /// El renglón de Hoy que abre el asistente: preguntar por la agenda o pedir un cambio, escrito o dictado.
+/// La hoja la presenta Principal (nav.asistente). Sin conexión queda apagado.
 struct EntradaAsistente: View {
-    @State private var abierto = false
+    @Environment(Estado.self) private var estado
+    @Environment(Navegacion.self) private var nav
 
     var body: some View {
         Button {
             Haptico.suave()
-            abierto = true
+            nav.asistente = true
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "sparkles").font(.system(size: 18, weight: .semibold)).foregroundStyle(C.petroleoHondo)
                     .frame(width: 40, height: 40).background(C.menta, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Preguntale al asistente").font(Tipo.lato(16, .bold)).foregroundStyle(C.tinta)
-                    Text("«¿Qué tengo mañana?» o «Pasá a Juana al jueves»").font(Tipo.lato(13)).foregroundStyle(C.sub).lineLimit(2)
+                    Text(estado.sinConexion ? "Sin conexión" : "«¿Qué tengo mañana?» o «Pasá a Juana al jueves»").font(Tipo.lato(13)).foregroundStyle(C.sub).lineLimit(2)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right").font(.system(size: 15, weight: .semibold)).foregroundStyle(C.sub)
@@ -69,18 +103,16 @@ struct EntradaAsistente: View {
             .tarjeta(22)
         }
         .buttonStyle(.plain)
-        .sheet(isPresented: $abierto) {
-            Asistente()
-                .presentationDetents([.large])
-                .presentationCornerRadius(Radio.hoja)
-        }
+        .disabled(estado.sinConexion)
+        .opacity(estado.sinConexion ? 0.55 : 1)
     }
 }
 
 // MARK: La hoja
 
-/// La charla con el asistente: los ejemplos, las burbujas, «Pensando…», las propuestas con «Confirmar» y
-/// «Cancelar», el aviso del tope y el cupo del mes. La charla vive mientras la hoja está abierta.
+/// La charla con el asistente: los ejemplos, las burbujas (las listas de turnos como filas), «Pensando…»,
+/// las propuestas con el botón de la acción y «No, dejalo así», el aviso del tope, el cupo del mes y, para
+/// la dueña, prender la IA. La charla vive mientras la hoja está abierta.
 struct Asistente: View {
     @Environment(Estado.self) private var estado
     @Environment(\.dismiss) private var cerrar
@@ -90,9 +122,12 @@ struct Asistente: View {
         var rol: String
         var texto: String
         var propuestas: [PropuestaAsistente] = []
+        var encabezado: String?
+        var items: [ItemTurnoAsistente] = []
         /// Un error de la API: se muestra en la charla pero no viaja en el historial.
         var error = false
     }
+    @State private var prendiendo = false
 
     @State private var info: EstadoAsistente?
     @State private var mensajes: [Mensaje] = []
@@ -159,11 +194,38 @@ struct Asistente: View {
     @ViewBuilder private func burbuja(_ m: Mensaje) -> some View {
         let mio = m.rol == "usuario"
         VStack(alignment: mio ? .trailing : .leading, spacing: 8) {
-            Text(m.texto).font(Tipo.lato(15)).lineSpacing(2)
-                .foregroundStyle(mio ? C.petroleoHondo : (m.error ? C.ausenteTinta : C.tinta))
+            if !m.items.isEmpty {
+                // Una lista de turnos: una fila por turno (antes, renglones de texto que se partían en dos).
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(m.encabezado ?? m.texto).font(Tipo.lato(15, .bold)).foregroundStyle(C.tinta).padding(.bottom, 6)
+                    ForEach(m.items) { t in
+                        Button { abrirTurno(t.id) } label: {
+                            HStack(spacing: 12) {
+                                Text(t.hora).font(Tipo.lato(15, .bold)).monospacedDigit().frame(width: 48, alignment: .leading)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(t.cliente).font(Tipo.lato(15, .bold)).lineLimit(1)
+                                    Text([t.servicio, t.profesional, t.estado].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
+                                        .font(Tipo.lato(13)).foregroundStyle(C.sub).lineLimit(1)
+                                }
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(C.sub)
+                            }
+                            .foregroundStyle(C.tinta).frame(minHeight: 48).contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(t.hora), \(t.cliente), \(t.servicio)")
+                        if t.id != m.items.last?.id { Divider() }
+                    }
+                }
                 .padding(.horizontal, 14).padding(.vertical, 10)
-                .background(mio ? C.menta : (m.error ? C.ausenteFondo : C.chip), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .textSelection(.enabled)
+                .background(C.chip, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            } else {
+                Text(m.texto).font(Tipo.lato(15)).lineSpacing(2)
+                    .foregroundStyle(mio ? C.petroleoHondo : (m.error ? C.ausenteTinta : C.tinta))
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(mio ? C.menta : (m.error ? C.ausenteFondo : C.chip), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .textSelection(.enabled)
+            }
             ForEach(m.propuestas) { p in tarjetaPropuesta(p) }
         }
         .frame(maxWidth: .infinity, alignment: mio ? .trailing : .leading)
@@ -177,14 +239,14 @@ struct Asistente: View {
             Text("PARA CONFIRMAR").rotulo()
             Text(p.resumen).font(Tipo.lato(15)).foregroundStyle(C.tinta).lineSpacing(2)
             if let fin {
-                PastillaEstado(texto: fin, simbolo: fin == "Hecho" ? "checkmark" : "xmark",
+                PastillaEstado(texto: fin, simbolo: fin == "Hecho" ? "checkmark" : "minus",
                                fondo: fin == "Hecho" ? C.mentaSuave : C.chip, tinta: fin == "Hecho" ? C.mentaTexto : C.sub, alto: 28)
             } else {
                 HStack(spacing: 8) {
-                    Button(resolviendo == p.id ? "Confirmando…" : "Confirmar") { Task { await confirmar(p) } }
+                    Button(resolviendo == p.id ? "Un momento…" : p.textoBoton) { Task { await confirmar(p) } }
                         .buttonStyle(BotonMenta(alto: 44, tam: 15, conSombra: false))
-                    Button("Cancelar") { Task { await descartar(p) } }
-                        .buttonStyle(BotonContorno(alto: 44, tam: 15))
+                    Button("No, dejalo así") { Task { await descartar(p) } }
+                        .buttonStyle(BotonTexto(color: C.sub))
                 }
                 .disabled(resolviendo != nil)
             }
@@ -229,6 +291,17 @@ struct Asistente: View {
                 .disabled(!puedeEnviar)
                 .accessibilityLabel("Enviar")
             }
+            if info?.iaPlataforma == true, info?.puedePrender == true, info?.iaNegocio == false {
+                HStack(alignment: .center, spacing: 10) {
+                    Text(Formato.sinViudas("Con IA (Claude) entiende preguntas más libres. Nunca le mandamos notas ni datos de salud."))
+                        .font(Tipo.lato(13)).foregroundStyle(C.tinta)
+                    Spacer(minLength: 0)
+                    Button(prendiendo ? "Prendiendo…" : "Prender la IA") { Task { await prenderIA() } }
+                        .buttonStyle(BotonContorno(alto: 40, tam: 14)).fixedSize().disabled(prendiendo)
+                }
+                .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                .background(C.chip, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
             if let c = info?.cupo, info?.ia == true, c.cupoMensual > 0 {
                 Text("IA: \(min(c.usadasMes, c.cupoMensual)) de \(c.cupoMensual) respuestas este mes")
                     .font(Tipo.lato(12)).foregroundStyle(C.sub).monospacedDigit()
@@ -242,6 +315,33 @@ struct Asistente: View {
 
     private func cargar() async {
         info = try? await estado.api.get("/v1/panel/asistente") as EstadoAsistente
+    }
+
+    private struct Activa: Encodable { var activa: Bool }
+
+    /// La dueña prende la IA del negocio (Anthropic es un proveedor nuevo: lo acepta ella).
+    private func prenderIA() async {
+        prendiendo = true
+        defer { prendiendo = false }
+        struct R: Decodable { var iaNegocio: Bool }
+        do {
+            let _: R = try await estado.api.enviar("PATCH", "/v1/panel/asistente/ia", Activa(activa: true))
+            Haptico.exito()
+            await cargar()
+        } catch {
+            mensajes.append(Mensaje(rol: "asistente", texto: (error as? ErrorApi ?? .desconocido).detalle, error: true))
+        }
+    }
+
+    /// Abre el turno de una fila: se cierra la hoja y Principal lo abre (como un push).
+    private func abrirTurno(_ id: String) {
+        estado.rutaPendiente = .turno(id)
+        cerrar()
+    }
+
+    /// VoiceOver lee lo que contestó el asistente (la web lo hace con aria-live).
+    private func anunciar(_ texto: String) {
+        AccessibilityNotification.Announcement(texto).post()
     }
 
     private func enviar() {
@@ -266,12 +366,16 @@ struct Asistente: View {
             if let t = r.tope { tope = t }
             // Con tope, la respuesta es el mismo aviso: va arriba del campo y no se repite en la charla.
             if r.tope?.mensaje != r.respuesta || !(r.propuestas ?? []).isEmpty {
-                mensajes.append(Mensaje(rol: "asistente", texto: r.respuesta, propuestas: r.propuestas ?? []))
+                mensajes.append(Mensaje(rol: "asistente", texto: r.respuesta, propuestas: r.propuestas ?? [],
+                                        encabezado: r.encabezado, items: r.items ?? []))
             }
+            anunciar(r.respuesta)
             if r.origen == "ia" { await cargar() }
         } catch is CancellationError {
         } catch {
-            mensajes.append(Mensaje(rol: "asistente", texto: (error as? ErrorApi ?? .desconocido).detalle, error: true))
+            let detalle = (error as? ErrorApi ?? .desconocido).detalle
+            mensajes.append(Mensaje(rol: "asistente", texto: detalle, error: true))
+            anunciar(detalle)
         }
     }
 
@@ -281,10 +385,11 @@ struct Asistente: View {
         resolviendo = p.id
         defer { resolviendo = nil }
         do {
-            let r: RespuestaAsistente = try await estado.api.enviar("POST", "/v1/panel/asistente/confirmar", Cual(propuestaId: p.id))
+            let _: RespuestaAsistente = try await estado.api.enviar("POST", "/v1/panel/asistente/confirmar", Cual(propuestaId: p.id))
+            // La tarjeta con «Hecho» alcanza: antes se repetía la misma oración en una burbuja.
             resueltas[p.id] = "Hecho"
             Haptico.exito()
-            mensajes.append(Mensaje(rol: "asistente", texto: r.respuesta))
+            anunciar("Hecho")
             // La agenda cambió: Hoy y las demás listas se vuelven a pedir.
             estado.version += 1
         } catch is CancellationError {
@@ -297,9 +402,9 @@ struct Asistente: View {
         resolviendo = p.id
         defer { resolviendo = nil }
         do {
-            let r: RespuestaAsistente = try await estado.api.enviar("POST", "/v1/panel/asistente/descartar", Cual(propuestaId: p.id))
-            resueltas[p.id] = "Cancelada"
-            mensajes.append(Mensaje(rol: "asistente", texto: r.respuesta))
+            let _: RespuestaAsistente = try await estado.api.enviar("POST", "/v1/panel/asistente/descartar", Cual(propuestaId: p.id))
+            resueltas[p.id] = "Sin cambios"
+            anunciar("Sin cambios")
         } catch is CancellationError {
         } catch {
             fallo(p, error)
@@ -313,5 +418,6 @@ struct Asistente: View {
         if e.codigo == "propuesta_vencida" { resueltas[p.id] = "Vencida" }
         if e.codigo == "propuesta_resuelta" { resueltas[p.id] = "Ya resuelta" }
         mensajes.append(Mensaje(rol: "asistente", texto: e.detalle, error: true))
+        anunciar(e.detalle)
     }
 }

@@ -50,6 +50,9 @@ final class Navegacion {
     var compartir = false
     var avisos = false
     var buscar = false
+    /// La hoja del asistente vive acá (no en la entrada de Hoy): si Hoy se redibuja sin la entrada (sin
+    /// conexión, un error al recargar), la charla no se cierra ni se pierde.
+    var asistente = false
     var pilaHoy = NavigationPath()
     var pilaAgenda = NavigationPath()
     var pilaEspera = NavigationPath()
@@ -117,6 +120,12 @@ struct Principal: View {
         }
         .sheet(isPresented: $nav.avisos) {
             NavigationStack { Avisos() }
+                .presentationCornerRadius(Radio.hoja)
+                .environment(nav)
+        }
+        .sheet(isPresented: $nav.asistente) {
+            Asistente()
+                .presentationDetents([.large])
                 .presentationCornerRadius(Radio.hoja)
                 .environment(nav)
         }

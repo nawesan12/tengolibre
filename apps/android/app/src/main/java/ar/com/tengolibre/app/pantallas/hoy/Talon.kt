@@ -155,8 +155,10 @@ fun VistaTalon(
         add(OpcionMenu("Ver turno", "doc.text", accion = alTocar))
         if (alDeslizar != null) {
             if (EstadoTurno.puedePasar(turno.estado, "confirmado") && turno.estado != "confirmado") add(OpcionMenu("Confirmar", "checkmark") { alDeslizar("confirmado") })
-            if (EstadoTurno.puedePasar(turno.estado, "atendido")) add(OpcionMenu("Atendido", "checkmark.circle") { alDeslizar("atendido") })
-            if (EstadoTurno.puedePasar(turno.estado, "ausente")) add(OpcionMenu("No vino", "person.slash") { alDeslizar("ausente") })
+            // «Atendido» y «No vino» desde que empieza (antes, sobre un turno futuro, sumaba una ausencia con un toque equivocado).
+            val empezo = !turno.inicio.isAfter(java.time.Instant.now())
+            if (EstadoTurno.puedePasar(turno.estado, "atendido") && empezo) add(OpcionMenu("Atendido", "checkmark.circle") { alDeslizar("atendido") })
+            if (EstadoTurno.puedePasar(turno.estado, "ausente") && empezo) add(OpcionMenu("No vino", "person.slash") { alDeslizar("ausente") })
             if (EstadoTurno.puedePasar(turno.estado, "cancelado")) add(OpcionMenu("Cancelar", "calendar.badge.minus", destructiva = true) { alDeslizar("cancelado") })
         }
         val tel = turno.cliente.telefono.filter { it in "+0123456789" }

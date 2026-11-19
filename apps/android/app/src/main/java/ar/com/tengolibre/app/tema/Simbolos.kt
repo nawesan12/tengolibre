@@ -31,7 +31,6 @@ internal object Simbolos {
         "chart.line.uptrend.xyaxis" to '\ue8e5', // trending_up
         "checkmark" to '\ue668', // check
         "checkmark.circle" to '\uf0be', // check_circle
-        "checkmark.circle.badge.checkmark" to '\ue2e6', // task_alt
         "checkmark.message" to '\uf18b', // mark_chat_read
         "checkmark.seal" to '\uef76', // verified
         "chevron.down" to '\ue5cf', // expand_more
@@ -52,6 +51,7 @@ internal object Simbolos {
         "envelope" to '\ue159', // mail
         "envelope.badge" to '\uf18a', // mark_email_unread
         "envelope.badge.person.crop" to '\ue0d0', // contact_mail
+        "exclamationmark" to '\ue645', // priority_high
         "exclamationmark.bubble" to '\ue87f', // feedback
         "exclamationmark.circle" to '\uf8b6', // error
         "exclamationmark.shield" to '\uf014', // gpp_maybe
@@ -62,6 +62,7 @@ internal object Simbolos {
         "hand.draw" to '\ue746', // draw
         "hand.tap" to '\ue913', // touch_app
         "hourglass" to '\ue88b', // hourglass_empty
+        "hourglass.bottomhalf.filled" to '\uea5c', // hourglass_bottom
         "icloud.slash" to '\ue2c1', // cloud_off
         "info.circle" to '\ue88e', // info
         "largecircle.fill.circle" to '\ue837', // radio_button_checked
@@ -123,6 +124,5 @@ internal object Simbolos {
         "camera" to '\ue412', // photo_camera
         "arrow.up.right" to '\uf8ce', // arrow_outward
         "circle.dashed" to '\ue836', // radio_button_unchecked
-        "largecircle.fill.circle" to '\ue837', // radio_button_checked
     )
 }

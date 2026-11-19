@@ -107,7 +107,7 @@ enum EstadoTurno: String, CaseIterable {
         case .pendiente: "circle"
         case .confirmado: "checkmark.circle"
         case .enCurso: "timelapse"
-        case .atendido: "checkmark.circle.badge.checkmark"
+        case .atendido: "checkmark.circle.fill"
         case .ausente: "person.slash"
         case .cancelado: "xmark.circle"
         }

@@ -313,7 +313,7 @@ fun DetalleTurno(turnoInicial: Turno, cerrar: () -> Unit) {
                         turno.estado != "atendido" && turno.estado != "cancelado" -> BotonMenta("Marcar atendido", { cambiar("atendido") }, simbolo = "checkmark.circle")
                     }
                     if (turno.estado != "cancelado") Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (EstadoTurno.puedePasar(turno.estado, "ausente") && turno.estado != "ausente") Box(Modifier.weight(1f)) { BotonContorno("Ausente", { cambiar("ausente") }, alto = 48.dp, tam = 14f, simbolo = "person.slash") }
+                        if (EstadoTurno.puedePasar(turno.estado, "ausente") && turno.estado != "ausente" && !turno.inicio.isAfter(java.time.Instant.now())) Box(Modifier.weight(1f)) { BotonContorno("Ausente", { cambiar("ausente") }, alto = 48.dp, tam = 14f, simbolo = "person.slash") }
                         Box(Modifier.weight(1f)) { BotonContorno("Mover", { mover = true }, alto = 48.dp, tam = 14f, simbolo = "calendar.badge.clock") }
                         Box(Modifier.weight(1f)) { BotonContorno("Cancelar", { confirmarCancelar = true }, alto = 48.dp, tam = 14f, simbolo = "calendar.badge.minus") }
                     }

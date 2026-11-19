@@ -132,6 +132,11 @@ final class Estado {
     // MARK: Arranque
 
     func arrancar() async {
+        // Turnos que este iPhone seguía como clienta (versiones viejas): se dejan de seguir aunque la
+        // persona no llegue a Principal (el token se pide en cualquier fase, si ya hay permiso).
+        if UserDefaults.standard.dictionaryRepresentation().keys.contains(where: { $0.hasPrefix("seguidos-") }) {
+            await pedirTokenPushSiCorresponde()
+        }
         guard api.token != nil else { fase = .afuera; return }
         do {
             try await cargarSesion()
@@ -406,8 +411,10 @@ final class Estado {
 
     func registrarTokenPush(_ datos: Data) async {
         let hex = datos.map { String(format: "%02x", $0) }.joined()
-        guard hex != tokenPush, api.token != nil else { return }
+        guard hex != tokenPush else { return }
         tokenPush = hex
+        // Sin sesión (en el alta o afuera) igual se dejan de seguir los turnos viejos: no pide sesión.
+        guard api.token != nil else { await dejarDeSeguirTodos(); return }
         struct Cuerpo: Encodable { var plataforma = "ios"; var token: String; var entorno: String; var modelo: String; var version: String }
         let entorno = Self.entornoPush
         let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""

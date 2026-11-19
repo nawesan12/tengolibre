@@ -149,7 +149,7 @@ struct Compartir: View {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                         tile("Historia de Instagram", "camera") { historia() }
                         tile("Estado de WhatsApp", "message") {
-                            let t = texto.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                            let t = Formato.paraQuery(texto)
                             if let u = URL(string: "whatsapp://send?text=\(t)") { UIApplication.shared.open(u) }
                         }
                         tile("Guardar el QR", "square.and.arrow.down") {

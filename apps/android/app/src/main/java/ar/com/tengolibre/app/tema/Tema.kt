@@ -260,18 +260,39 @@ fun Texto(
 private val simbolosContorno = FontFamily(Font(R.font.simbolos_contorno))
 private val simbolosRelleno = FontFamily(Font(R.font.simbolos_relleno))
 
-/** Un ícono por su nombre de SF Symbol (Image(systemName:) en iOS). «.fill» elige la variante rellena. */
+/**
+ * Un ícono por su nombre de SF Symbol (Image(systemName:) en iOS). «.fill» elige la variante rellena.
+ * Se busca primero el nombre tal cual (así «hourglass.bottomhalf.filled» o «largecircle.fill.circle» se
+ * pueden mapear), después sin el segmento «.fill» y por último sin el último segmento. Antes se hacía
+ * replace(".fill", "") sobre el nombre entero, que rompía «.filled» y los «.fill» del medio.
+ */
 @Composable
 fun Icono(simbolo: String, tam: Float = 17f, color: Color = C.tinta, modifier: Modifier = Modifier, descripcion: String? = null) {
-    val relleno = simbolo.endsWith(".fill") || simbolo.contains(".fill.")
-    val nombre = simbolo.replace(".fill", "")
-    val c = Simbolos.mapa[nombre] ?: Simbolos.mapa[nombre.substringBeforeLast('.')] ?: ''
+    val relleno = esRelleno(simbolo)
+    val c = glifoDe(simbolo)
     // Los símbolos de Material son un poco más chicos que los de SF a igual tamaño de letra.
     BasicText(
         c.toString(),
         modifier.then(if (descripcion != null) Modifier.semantics { contentDescription = descripcion } else Modifier),
         style = TextStyle(fontFamily = if (relleno) simbolosRelleno else simbolosContorno, fontSize = (tam * 1.18f).sp, color = color, lineHeight = (tam * 1.18f).sp),
     )
+}
+
+/** Si el símbolo es de la variante rellena (como decide iOS por el nombre). */
+fun esRelleno(simbolo: String): Boolean = simbolo.endsWith(".fill") || simbolo.contains(".fill.") || simbolo.endsWith(".filled")
+
+/** El glifo de Material de un nombre de SF Symbol (un espacio si no está en el mapa). */
+fun glifoDe(simbolo: String): Char {
+    Simbolos.mapa[simbolo]?.let { return it }
+    val sinFill = simbolo.split('.').filter { it != "fill" }.joinToString(".")
+    Simbolos.mapa[sinFill]?.let { return it }
+    return Simbolos.mapa[sinFill.substringBeforeLast('.')] ?: '\u2003'
+}
+
+/** Un texto con partes en negrita (AnnotatedString): «Tu link de antes sigue andando. Los QR…» en un párrafo, como en iOS. */
+@Composable
+fun TextoRico(texto: androidx.compose.ui.text.AnnotatedString, estilo: TextStyle = Tipo.texto, color: Color = C.tinta, modifier: Modifier = Modifier) {
+    BasicText(texto, modifier, style = estilo.copy(color = color))
 }
 
 /** Rótulo: MAYÚSCULAS, 12 Black, tracking 0,08em, en el gris del tema. */

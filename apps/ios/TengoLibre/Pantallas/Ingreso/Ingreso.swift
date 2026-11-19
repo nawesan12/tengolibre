@@ -194,6 +194,8 @@ struct Alta: View {
     @Environment(Estado.self) private var estado
     @State private var nombre = ""
     @State private var slug = ""
+    /// Lo que muestra el campo del link: se normaliza en onChange (ver CambiarLink).
+    @State private var campoSlug = ""
     @State private var slugTocado = false
     /// Si el link está libre (lo pregunta a la API con 300 ms de pausa): libre, tomada o invalida.
     @State private var libre: String?
@@ -214,10 +216,11 @@ struct Alta: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Abrí tu negocio en Tengo Libre").font(Tipo.lato(30, .black)).tracking(-0.8).padding(.top, 40)
-                Text("Gratis los primeros 30 días. Después lo terminás de armar desde Más: servicios, equipo y horarios.").font(Tipo.lato(16)).foregroundStyle(C.sub)
+                // La prueba es de 7 días (cobros: now() + 7 days), como dice la web.
+                Text(Formato.sinViudas("7 días gratis. Después lo terminás de armar desde Más: servicios, equipo y horarios.")).font(Tipo.lato(16)).foregroundStyle(C.sub)
                 Bloque {
                     RenglonCampo(titulo: "Nombre del negocio", texto: $nombre, placeholder: "Lumi Estética")
-                    RenglonCampo(titulo: "Tu link", texto: Binding(get: { slug }, set: { slug = LinkRegla.limpiar($0); slugTocado = true }), placeholder: "lumi", teclado: .URL)
+                    RenglonCampo(titulo: "Tu link", texto: $campoSlug, placeholder: "lumi", teclado: .URL)
                 }
                 // El link, grande: es lo que va a compartir (la gente no lee: que se vea antes de explicarlo).
                 VStack(alignment: .leading, spacing: 8) {
@@ -239,17 +242,39 @@ struct Alta: View {
                 .overlay(RoundedRectangle(cornerRadius: Radio.bloque, style: .continuous).strokeBorder(libre == "libre" ? C.menta : C.linea, lineWidth: 2))
                 if !error.isEmpty { Text(error).font(Tipo.lato(14, .bold)).foregroundStyle(C.error) }
                 Button(creando ? "Creando…" : "Crear mi negocio") { Task { await crear() } }
-                    .buttonStyle(BotonMenta()).disabled(creando || nombre.count < 2 || slug.count < 3 || libre == "tomada" || libre == "invalida")
+                    .buttonStyle(BotonMenta()).disabled(creando || nombre.count < 2 || slug.count < 3 || libre == "tomada" || libre == "invalida" || libre == "escribiendo")
+                // La app es para negocios: quien la bajó para reservar sigue por la web (y ve sus turnos en Mi cuenta).
+                VStack(spacing: 8) {
+                    Link(destination: Web.base.appending(path: "explorar")) {
+                        Text(Formato.sinViudas("¿Querés reservar un turno? Hacelo desde la página del negocio."))
+                            .font(Tipo.lato(14, .bold)).foregroundStyle(C.sub).multilineTextAlignment(.center)
+                    }
+                    Link(destination: Web.base.appending(path: "mi-cuenta")) {
+                        Text("Tus turnos están en Mi\u{00a0}cuenta").font(Tipo.lato(14, .bold)).foregroundStyle(C.mentaTexto)
+                    }
+                }
+                .frame(maxWidth: .infinity).padding(.top, 4)
                 Button("Salir") { Task { await estado.salir() } }.buttonStyle(BotonTexto(color: C.sub)).frame(maxWidth: .infinity)
+                // La cuenta ya existe (el ingreso la crea): se tiene que poder borrar sin abrir un negocio
+                // (App Store, guía 5.1.1(v)).
+                BorrarCuenta()
             }
-            .foregroundStyle(C.tinta).padding(.horizontal, 20)
+            .foregroundStyle(C.tinta).padding(.horizontal, 20).padding(.bottom, 24)
         }
         .scrollDismissesKeyboard(.interactively)
         .background(C.fondo.ignoresSafeArea())
-        .onChange(of: nombre) { _, n in if !slugTocado { slug = aSlug(n) } }
+        .onChange(of: nombre) { _, n in if !slugTocado { slug = aSlug(n); campoSlug = slug } }
+        .onChange(of: campoSlug) { _, v in
+            // Si coincide con el slug, el cambio vino del nombre (o de la normalización): no es «tocado».
+            guard v != slug else { return }
+            slugTocado = true
+            slug = LinkRegla.limpiar(v)
+            if campoSlug != slug { campoSlug = slug }
+        }
         .task(id: slug) {
             libre = nil
             guard slug.count >= 3 else { return }
+            if LinkRegla.aMedias(slug) { libre = "escribiendo"; return }
             guard LinkRegla.valido(slug) else { libre = "invalida"; return }
             try? await Task.sleep(for: .milliseconds(300))
             if Task.isCancelled { return }
@@ -265,6 +290,7 @@ struct Alta: View {
         case "libre": ("Está libre. Es tuya.", "checkmark.circle.fill", C.mentaTexto)
         case "tomada": ("Ya la usa otro negocio.", "xmark.circle.fill", C.error)
         case "invalida": ("Esa dirección no se puede usar.", "xmark.circle.fill", C.error)
+        case "escribiendo": ("Seguí escribiendo…", "ellipsis", C.sub)
         default: ("Fijándonos si está libre…", "ellipsis", C.sub)
         }
     }

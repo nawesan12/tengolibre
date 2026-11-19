@@ -33,6 +33,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
@@ -53,14 +57,38 @@ import java.util.UUID
 
 /** GET /v1/panel/asistente: si hay IA, los ejemplos y cuánto queda del cupo del mes. */
 @Serializable
-data class EstadoAsistente(val ia: Boolean = false, val sugerencias: List<String> = emptyList(), val cupo: CupoAsistente? = null)
+data class EstadoAsistente(
+    val ia: Boolean = false,
+    /** La plataforma tiene IA, la dueña la prendió para el negocio y quien mira la puede prender. */
+    val iaPlataforma: Boolean = false,
+    val iaNegocio: Boolean = false,
+    val puedePrender: Boolean = false,
+    val sugerencias: List<String> = emptyList(),
+    val cupo: CupoAsistente? = null,
+)
 
 @Serializable
 data class CupoAsistente(val cupoMensual: Int = 0, val usadasMes: Int = 0, val usadasHoy: Int = 0, val topeDiario: Int = 0)
 
 /** Un cambio en la agenda que el asistente no hace solo: vuelve para que la persona lo confirme. */
 @Serializable
-data class PropuestaAsistente(val id: String, val accion: String = "", val resumen: String = "", val venceEn: String? = null)
+data class PropuestaAsistente(val id: String, val accion: String = "", val resumen: String = "", val venceEn: String? = null, val boton: String? = null) {
+    /** Lo que dice el botón («Sí, cancelarlo»): un «Confirmar» / «Cancelar» al lado de «Cancelar el turno de Rosa» se
+     *  leía como cancelar el turno. */
+    val textoBoton: String get() = boton?.takeIf { it.isNotEmpty() } ?: when (accion) {
+        "cancelar_turno" -> "Sí, cancelarlo"
+        "reprogramar_turno" -> "Sí, moverlo"
+        "confirmar_turno" -> "Sí, confirmarlo"
+        "crear_turno" -> "Sí, cargarlo"
+        "ofrecer_a_la_lista" -> "Sí, ofrecerlo"
+        else -> "Sí, hacerlo"
+    }
+}
+
+/** Un turno de una lista del asistente: se muestra como fila que abre el turno. */
+@Serializable
+data class ItemTurnoAsistente(val id: String, val dia: String = "", val hora: String = "", val cliente: String = "", val servicio: String = "",
+    val profesional: String? = null, val estado: String? = null)
 
 /** No hay más IA por ahora (mes, día o plataforma): el intérprete sigue contestando. */
 @Serializable
@@ -68,7 +96,8 @@ data class TopeAsistente(val motivo: String = "", val mensaje: String = "")
 
 /** POST /v1/panel/asistente (y lo que vuelve de /confirmar y /descartar, que sólo trae `respuesta`). */
 @Serializable
-data class RespuestaAsistente(val respuesta: String = "", val propuestas: List<PropuestaAsistente>? = null, val origen: String? = null, val tope: TopeAsistente? = null)
+data class RespuestaAsistente(val respuesta: String = "", val propuestas: List<PropuestaAsistente>? = null, val origen: String? = null, val tope: TopeAsistente? = null,
+    val encabezado: String? = null, val items: List<ItemTurnoAsistente>? = null)
 
 /** Un turno de la charla, como lo pide la API en `historial`. */
 @Serializable
@@ -76,13 +105,15 @@ data class TurnoChat(val rol: String, val texto: String)
 
 // MARK: La entrada en Hoy
 
-/** El renglón de Hoy que abre el asistente: preguntar por la agenda o pedir un cambio, escrito o dictado. */
+/** El renglón de Hoy que abre el asistente: preguntar por la agenda o pedir un cambio, escrito o dictado. La hoja la
+ *  presenta Principal (nav.asistente). Sin conexión queda apagado. */
 @Composable
 fun EntradaAsistente() {
-    var abierto by remember { mutableStateOf(false) }
+    val estado = LocalEstado.current
+    val nav = ar.com.tengolibre.app.pantallas.principal.LocalNavegacion.current
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp).tarjeta(22.dp).clip(RoundedCornerShape(22.dp))
-            .clickable { Haptico.suave(); abierto = true }.padding(horizontal = 16.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).alpha(if (estado.sinConexion) 0.55f else 1f).tarjeta(22.dp).clip(RoundedCornerShape(22.dp))
+            .clickable(enabled = !estado.sinConexion) { Haptico.suave(); nav.asistente = true }.padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(C.menta), contentAlignment = Alignment.Center) {
@@ -90,12 +121,9 @@ fun EntradaAsistente() {
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Texto("Preguntale al asistente", Tipo.lato(16f, Peso.Bold), C.tinta)
-            Texto("«¿Qué tengo mañana?» o «Pasá a Juana al jueves»", Tipo.lato(13f), C.sub, lineas = 2)
+            Texto(if (estado.sinConexion) "Sin conexión" else "«¿Qué tengo mañana?» o «Pasá a Juana al jueves»", Tipo.lato(13f), C.sub, lineas = 2)
         }
         Icono("chevron.right", 15f, C.sub)
-    }
-    Hoja(abierto, { abierto = false }, listOf(Altura.grande)) {
-        Asistente(cerrar = { abierto = false })
     }
 }
 
@@ -107,11 +135,14 @@ data class Mensaje(
     val rol: String,
     val texto: String,
     val propuestas: List<PropuestaAsistente> = emptyList(),
+    val encabezado: String? = null,
+    val items: List<ItemTurnoAsistente> = emptyList(),
     val error: Boolean = false,
 )
 
-/** La charla con el asistente: los ejemplos, las burbujas, «Pensando…», las propuestas con «Confirmar» y
- *  «Cancelar», el aviso del tope y el cupo del mes. La charla vive mientras la hoja está abierta. */
+/** La charla con el asistente: los ejemplos, las burbujas (las listas de turnos como filas), «Pensando…», las
+ *  propuestas con el botón de la acción y «No, dejalo así», el aviso del tope, el cupo del mes y, para la dueña,
+ *  prender la IA. La charla vive mientras la hoja está abierta. */
 @Composable
 fun ColumnScope.Asistente(cerrar: () -> Unit) {
     val estado = LocalEstado.current
@@ -124,6 +155,7 @@ fun ColumnScope.Asistente(cerrar: () -> Unit) {
     /** Propuestas ya resueltas: id → «Hecho», «Cancelada»… */
     var resueltas by remember { mutableStateOf(mapOf<String, String>()) }
     var resolviendo by remember { mutableStateOf<String?>(null) }
+    var prendiendo by remember { mutableStateOf(false) }
     val scroll = rememberScrollState()
     val puedeEnviar = texto.isNotBlank() && !pensando
 
@@ -134,6 +166,30 @@ fun ColumnScope.Asistente(cerrar: () -> Unit) {
 
     @Serializable data class Pregunta(val pregunta: String, val historial: List<TurnoChat>)
     @Serializable data class Cual(val propuestaId: String)
+    @Serializable data class Activa(val activa: Boolean)
+    @Serializable data class IANegocio(val iaNegocio: Boolean = false)
+
+    /** La dueña prende la IA del negocio (Anthropic es un proveedor nuevo: lo acepta ella). */
+    fun prenderIA() = alcance.launch {
+        prendiendo = true
+        try {
+            estado.api.enviar<IANegocio, Activa>("PATCH", "/v1/panel/asistente/ia", Activa(true))
+            Haptico.exito()
+            cargar()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            mensajes = mensajes + Mensaje(rol = "asistente", texto = mensajeDe(e), error = true)
+        } finally {
+            prendiendo = false
+        }
+    }
+
+    /** Abre el turno de una fila: se cierra la hoja y Principal lo abre (como un push). */
+    fun abrirTurno(id: String) {
+        estado.rutaPendiente = ar.com.tengolibre.app.app.Ruta.turno(id)
+        cerrar()
+    }
 
     suspend fun preguntar(q: String) {
         if (pensando) return
@@ -147,7 +203,8 @@ fun ColumnScope.Asistente(cerrar: () -> Unit) {
             r.tope?.let { tope = it }
             // Con tope, la respuesta es el mismo aviso: va arriba del campo y no se repite en la charla.
             if (r.tope?.mensaje != r.respuesta || !r.propuestas.isNullOrEmpty()) {
-                mensajes = mensajes + Mensaje(rol = "asistente", texto = r.respuesta, propuestas = r.propuestas ?: emptyList())
+                mensajes = mensajes + Mensaje(rol = "asistente", texto = r.respuesta, propuestas = r.propuestas ?: emptyList(),
+                    encabezado = r.encabezado, items = r.items.orEmpty())
             }
             if (r.origen == "ia") cargar()
         } catch (e: CancellationException) {
@@ -178,10 +235,10 @@ fun ColumnScope.Asistente(cerrar: () -> Unit) {
     fun confirmar(p: PropuestaAsistente) = alcance.launch {
         resolviendo = p.id
         try {
-            val r = estado.api.enviar<RespuestaAsistente, Cual>("POST", "/v1/panel/asistente/confirmar", Cual(p.id))
+            estado.api.enviar<RespuestaAsistente, Cual>("POST", "/v1/panel/asistente/confirmar", Cual(p.id))
+            // La tarjeta con «Hecho» alcanza: antes se repetía la misma oración en una burbuja.
             resueltas = resueltas + (p.id to "Hecho")
             Haptico.exito()
-            mensajes = mensajes + Mensaje(rol = "asistente", texto = r.respuesta)
             // La agenda cambió: Hoy y las demás listas se vuelven a pedir.
             estado.version += 1
         } catch (e: CancellationException) {
@@ -196,9 +253,8 @@ fun ColumnScope.Asistente(cerrar: () -> Unit) {
     fun descartar(p: PropuestaAsistente) = alcance.launch {
         resolviendo = p.id
         try {
-            val r = estado.api.enviar<RespuestaAsistente, Cual>("POST", "/v1/panel/asistente/descartar", Cual(p.id))
-            resueltas = resueltas + (p.id to "Cancelada")
-            mensajes = mensajes + Mensaje(rol = "asistente", texto = r.respuesta)
+            estado.api.enviar<RespuestaAsistente, Cual>("POST", "/v1/panel/asistente/descartar", Cual(p.id))
+            resueltas = resueltas + (p.id to "Sin cambios")
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -225,9 +281,16 @@ fun ColumnScope.Asistente(cerrar: () -> Unit) {
                 }
             }
         }
-        mensajes.forEach { m -> Burbuja(m, resueltas, resolviendo, { confirmar(it) }, { descartar(it) }) }
+        mensajes.forEachIndexed { i, m ->
+            // TalkBack lee lo último que contestó (la web lo hace con aria-live, iOS con un anuncio).
+            val ultima = i == mensajes.lastIndex && m.rol == "asistente"
+            Box(if (ultima) Modifier.semantics { liveRegion = LiveRegionMode.Polite } else Modifier) {
+                Burbuja(m, resueltas, resolviendo, { confirmar(it) }, { descartar(it) }, { abrirTurno(it) })
+            }
+        }
         if (pensando) {
-            Texto("Pensando…", Tipo.lato(15f), C.sub, Modifier.clip(RoundedCornerShape(18.dp)).background(C.chip).padding(horizontal = 14.dp, vertical = 10.dp))
+            Texto("Pensando…", Tipo.lato(15f), C.sub, Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+                .clip(RoundedCornerShape(18.dp)).background(C.chip).padding(horizontal = 14.dp, vertical = 10.dp))
         }
     }
 
@@ -242,9 +305,9 @@ fun ColumnScope.Asistente(cerrar: () -> Unit) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // El dictado es el del teclado: no hace falta pedir el micrófono.
             Box(Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(C.campo).padding(horizontal = 14.dp, vertical = 12.dp)) {
-                if (texto.isEmpty()) Texto("Escribí o dictá tu pregunta", Tipo.lato(16f), C.sub.copy(alpha = 0.7f), lineas = 1)
+                if (texto.isEmpty()) Texto("Escribí o dictá tu pregunta", Tipo.lato(16f), C.sub.copy(alpha = 0.7f), Modifier.clearAndSetSemantics {}, lineas = 1)
                 BasicTextField(
-                    texto, { texto = it }, Modifier.fillMaxWidth(),
+                    texto, { texto = it }, Modifier.fillMaxWidth().semantics { contentDescription = "Escribí o dictá tu pregunta" },
                     textStyle = Tipo.lato(16f).copy(color = C.tinta),
                     minLines = 1, maxLines = 4,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Send),
@@ -258,6 +321,14 @@ fun ColumnScope.Asistente(cerrar: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) { Icono("arrow.up", 18f, C.petroleoHondo) }
         }
+        val i = info
+        if (i != null && i.iaPlataforma && i.puedePrender && !i.iaNegocio) {
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.chip).padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Texto("Con IA (Claude) entiende preguntas más libres. Nunca le mandamos notas ni datos de salud.", Tipo.lato(13f), C.tinta, Modifier.weight(1f))
+                BotonContorno(if (prendiendo) "Prendiendo…" else "Prender la IA", { prenderIA() }, alto = 40.dp, tam = 14f, lleno = false, habilitado = !prendiendo)
+            }
+        }
         val c = info?.cupo
         if (c != null && info?.ia == true && c.cupoMensual > 0) {
             Texto("IA: ${minOf(c.usadasMes, c.cupoMensual)} de ${c.cupoMensual} respuestas este mes", Tipo.lato(12f, numeros = true), C.sub, lineas = 1)
@@ -266,13 +337,34 @@ fun ColumnScope.Asistente(cerrar: () -> Unit) {
 }
 
 @Composable
-private fun Burbuja(m: Mensaje, resueltas: Map<String, String>, resolviendo: String?, alConfirmar: (PropuestaAsistente) -> Unit, alCancelar: (PropuestaAsistente) -> Unit) {
+private fun Burbuja(m: Mensaje, resueltas: Map<String, String>, resolviendo: String?, alConfirmar: (PropuestaAsistente) -> Unit,
+    alCancelar: (PropuestaAsistente) -> Unit, alAbrir: (String) -> Unit) {
     val mio = m.rol == "usuario"
     Column(
         Modifier.fillMaxWidth().padding(start = if (mio) 48.dp else 0.dp),
         horizontalAlignment = if (mio) Alignment.End else Alignment.Start, verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        SelectionContainer {
+        if (m.items.isNotEmpty()) {
+            // Una lista de turnos: una fila por turno (antes, renglones de texto que se partían en dos).
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.chip).padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Texto(m.encabezado ?: m.texto, Tipo.lato(15f, Peso.Bold), C.tinta, Modifier.padding(bottom = 6.dp))
+                m.items.forEachIndexed { i, t ->
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = androidx.compose.ui.semantics.Role.Button) { alAbrir(t.id) }
+                            .semantics(mergeDescendants = true) {},
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Texto(t.hora, Tipo.lato(15f, Peso.Bold, numeros = true), C.tinta, Modifier.width(48.dp), lineas = 1)
+                        Column(Modifier.weight(1f)) {
+                            Texto(t.cliente, Tipo.lato(15f, Peso.Bold), C.tinta, lineas = 1)
+                            Texto(listOfNotNull(t.servicio, t.profesional, t.estado).filter { it.isNotEmpty() }.joinToString(" · "), Tipo.lato(13f), C.sub, lineas = 1)
+                        }
+                        Icono("chevron.right", 13f, C.sub)
+                    }
+                    if (i < m.items.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(C.linea))
+                }
+            }
+        } else SelectionContainer {
             Texto(
                 m.texto, Tipo.lato(15f).copy(lineHeight = 20.sp), if (mio) C.petroleoHondo else if (m.error) C.ausenteTinta else C.tinta,
                 Modifier.clip(RoundedCornerShape(18.dp)).background(if (mio) C.menta else if (m.error) C.ausenteFondo else C.chip).padding(horizontal = 14.dp, vertical = 10.dp),
@@ -293,11 +385,11 @@ private fun TarjetaPropuesta(p: PropuestaAsistente, fin: String?, resolviendo: S
         TextoRotulo("PARA CONFIRMAR")
         Texto(p.resumen, Tipo.lato(15f).copy(lineHeight = 20.sp), C.tinta)
         if (fin != null) {
-            PastillaEstado(fin, if (fin == "Hecho") "checkmark" else "xmark", if (fin == "Hecho") C.mentaSuave else C.chip, if (fin == "Hecho") C.mentaTexto else C.sub, alto = 28.dp)
+            PastillaEstado(fin, if (fin == "Hecho") "checkmark" else "minus", if (fin == "Hecho") C.mentaSuave else C.chip, if (fin == "Hecho") C.mentaTexto else C.sub, alto = 28.dp)
         } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                BotonMenta(if (resolviendo == p.id) "Confirmando…" else "Confirmar", { alConfirmar(p) }, Modifier.weight(1f), alto = 44.dp, tam = 15f, conSombra = false, habilitado = resolviendo == null)
-                BotonContorno("Cancelar", { alCancelar(p) }, Modifier.weight(1f), alto = 44.dp, tam = 15f, habilitado = resolviendo == null)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                BotonMenta(if (resolviendo == p.id) "Un momento…" else p.textoBoton, { alConfirmar(p) }, Modifier.weight(1f), alto = 44.dp, tam = 15f, conSombra = false, habilitado = resolviendo == null)
+                BotonTexto("No, dejalo así", { if (resolviendo == null) alCancelar(p) }, color = C.sub)
             }
         }
     }

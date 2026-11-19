@@ -92,7 +92,7 @@ enum class EstadoTurno(val valor: String) {
         pendiente -> "circle"
         confirmado -> "checkmark.circle"
         enCurso -> "timelapse"
-        atendido -> "checkmark.circle.badge.checkmark"
+        atendido -> "checkmark.circle.fill"
         ausente -> "person.slash"
         cancelado -> "xmark.circle"
     }

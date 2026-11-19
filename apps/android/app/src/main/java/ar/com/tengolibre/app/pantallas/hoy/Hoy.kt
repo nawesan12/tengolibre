@@ -77,7 +77,10 @@ fun Hoy() {
     /** Los próximos turnos de los días que vienen: sin esto, uno reservado para dentro de dos semanas no se veía en ningún lado. */
     var proximos by remember { mutableStateOf<List<Turno>>(emptyList()) }
     /** Turnos de los últimos 30 días (hasta LinkRegla.pocosTurnos): con pocos, el link va primero. */
-    var movimiento by remember { mutableStateOf<Int?>(null) }
+    var movimiento by remember(estado.negocio?.id) {
+        // El último conocido de este negocio: el link arranca con la variante correcta (no aparece grande y se achica).
+        mutableStateOf(estado.negocio?.id?.let { Guardado.leer<Int>("movimiento-$it")?.first })
+    }
     val linkPrimero = (movimiento ?: 0) < LinkRegla.pocosTurnos
     val contexto = LocalContext.current
 
@@ -104,8 +107,13 @@ fun Hoy() {
 
     suspend fun cargar() {
         datos.cargar(estado, hoy, hoy)
+        // El movimiento antes que los próximos (decide qué link se ve). Si falla, queda el que había: un null pisaba
+        // el bueno y la tarjeta volvía a grande.
+        LinkRegla.movimiento(estado, hoy)?.let { m ->
+            movimiento = m
+            estado.negocio?.id?.let { Guardado.guardar(m, "movimiento-$it") }
+        }
         cargarProximos()
-        movimiento = LinkRegla.movimiento(estado, hoy)
         // Sólo con el día bien traído: sin conexión y sin caché quedaba vacío y apagaba la notificación en curso.
         if (datos.carga == DatosDia.Carga.listo) ActividadTurno.sincronizar(datos.turnos.filter { Formato.diaISO(it.inicio) == Formato.diaISO(hoy) }, estado)
         estado.vivo.cargar(estado)
@@ -148,8 +156,6 @@ fun Hoy() {
         }
         Cuerpo {
             banners(estado, nav).forEach { Banner(it) }
-            // El asistente necesita la API: sin conexión no se ofrece. En sólo lectura sí (preguntar anda).
-            if (!estado.sinConexion) EntradaAsistente()
             when (val c = datos.carga) {
                 is DatosDia.Carga.cargando -> if (datos.turnos.isEmpty()) {
                     listOf(80, 72, 80, 80).forEach { Esqueleto(it.dp) }
@@ -157,11 +163,15 @@ fun Hoy() {
                 }
                 is DatosDia.Carga.error -> ErrorConSalida("No pudimos traer tu día", "Tus turnos están a salvo. ${c.texto}") { alcance.launch { cargar() } }
                 else -> {
-                    if (linkPrimero) TarjetaLink()
+                    // El link primero (con pocos turnos es lo principal) y después el asistente, como la web. Mientras no se
+                    // sabe el movimiento, ninguna variante del link.
+                    if (movimiento != null && linkPrimero) TarjetaLink()
+                    // Sin conexión se ve apagado (la hoja vive en Principal: no se cierra si esto cambia).
+                    EntradaAsistente()
                     if (delDia.none { it.ocupa }) {
                         Vacio(dias, estado, nav)
                         ProximosDias(proximos, estado, ahora) { nav.turno = it }
-                        if (!linkPrimero) TarjetaLink(compacta = true)
+                        if (movimiento != null && !linkPrimero) TarjetaLink(compacta = true)
                         BarraAvance()
                         PlataHoy()
                         AtajosHoy()
@@ -172,7 +182,7 @@ fun Hoy() {
                         AtajosHoy()
                         Pila(estado, nav, datos, delDia, dias, ahora, hoy, lectura, verTemprano, { verTemprano = !verTemprano }, avisados,
                             alTocarHueco = { cargarEn(it) }, alAccionHueco = { h, n -> if (!lectura) { if (n > 0) ofrecer = h else cargarEn(h) } }, alDeslizar = alDeslizar)
-                        if (!linkPrimero) TarjetaLink(compacta = true)
+                        if (movimiento != null && !linkPrimero) TarjetaLink(compacta = true)
                         ProximosDias(proximos, estado, ahora) { nav.turno = it }
                         BarraAvance()
                         DescubrirHoy()

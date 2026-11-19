@@ -30,6 +30,10 @@ enum LinkRegla {
         return String(out.prefix(48))
     }
 
+    /// A medio escribir: termina en guion o tiene dos seguidos («peluqueria-»). No es un error todavía:
+    /// el campo dice «Seguí escribiendo…» y no se le pregunta a la API.
+    static func aMedias(_ s: String) -> Bool { s.hasSuffix("-") || s.contains("--") }
+
     /// El formato que acepta la API (negocios.ValidarSlug).
     static func valido(_ s: String) -> Bool {
         s.range(of: "^[a-z0-9]([a-z0-9-]{0,46}[a-z0-9])?$", options: .regularExpression) != nil && !s.contains("--")
@@ -113,7 +117,7 @@ struct TarjetaLink: View {
 
     private func whatsapp() {
         let t = "Reservá tu turno en \(estado.negocio?.nombre ?? ""): \(url.absoluteString)"
-        let q = t.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let q = Formato.paraQuery(t)
         if let u = URL(string: "whatsapp://send?text=\(q)"), UIApplication.shared.canOpenURL(u) { UIApplication.shared.open(u) }
         else if let u = URL(string: "https://wa.me/?text=\(q)") { UIApplication.shared.open(u) }
     }
@@ -147,7 +151,8 @@ struct CambiarLink: View {
     /// Ícono, color y texto del estado. Nunca sólo color.
     private var campo: (simbolo: String, color: Color, texto: String, ok: Bool) {
         if nuevo == actual { return ("checkmark.circle.fill", C.mentaTexto, "Es tu link de ahora.", false) }
-        if nuevo.count < 3 { return ("info.circle.fill", C.pagoTinta, "Tiene que tener al menos 3 letras", false) }
+        if nuevo.count < 3 { return ("info.circle.fill", C.pagoTinta, "Tiene que tener al menos 3 letras.", false) }
+        if LinkRegla.aMedias(nuevo) { return ("ellipsis", C.sub, "Seguí escribiendo…", false) }
         if !LinkRegla.valido(nuevo) || disponible == "invalida" { return ("xmark.circle.fill", C.error, "Esa dirección no se puede usar.", false) }
         switch disponible {
         case "libre": return ("checkmark.circle.fill", C.mentaTexto, "Está libre.", true)
@@ -167,7 +172,10 @@ struct CambiarLink: View {
                         .lineLimit(2).minimumScaleFactor(0.6)
                 }
                 HStack(spacing: 8) {
-                    TextField("tu-negocio", text: Binding(get: { nuevo }, set: { nuevo = LinkRegla.limpiar($0) }))
+                    // Atado a $nuevo y normalizado en onChange: con un Binding que limpiaba al escribir, si el
+                    // carácter se descartaba el campo seguía mostrándolo (el valor no cambiaba y no se redibujaba).
+                    TextField("tu-negocio", text: $nuevo)
+                        .onChange(of: nuevo) { _, v in let l = LinkRegla.limpiar(v); if l != v { nuevo = l } }
                         .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                         .font(Tipo.lato(17, .bold)).foregroundStyle(C.tinta)
                         .accessibilityLabel("Tu link nuevo")
@@ -194,6 +202,7 @@ struct CambiarLink: View {
                         .font(Tipo.lato(13)).foregroundStyle(C.sub).frame(maxWidth: .infinity)
                     if !link.anteriores.isEmpty {
                         Rotulo("SIGUEN LLEVANDO A TU PÁGINA")
+                        Text("Se guardan los últimos\u{00a0}5.").font(Tipo.lato(12)).foregroundStyle(C.sub)
                         ForEach(link.anteriores, id: \.slug) { a in
                             Label("\(host)\(a.slug)", systemImage: "link").font(Tipo.lato(14)).foregroundStyle(C.sub)
                         }
@@ -212,7 +221,7 @@ struct CambiarLink: View {
         .task(id: nuevo) {
             // Con 300 ms de pausa: no se pregunta letra por letra.
             disponible = nil
-            guard nuevo != actual, nuevo.count >= 3, LinkRegla.valido(nuevo) else { return }
+            guard nuevo != actual, nuevo.count >= 3, !LinkRegla.aMedias(nuevo), LinkRegla.valido(nuevo) else { return }
             try? await Task.sleep(for: .milliseconds(300))
             if Task.isCancelled { return }
             let d: Disponibilidad? = try? await estado.api.get("/v1/panel/negocio/link/\(nuevo)")

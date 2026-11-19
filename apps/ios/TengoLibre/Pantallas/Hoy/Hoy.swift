@@ -17,6 +17,8 @@ struct Hoy: View {
     /// Turnos de los últimos 30 días (hasta LinkRegla.pocosTurnos): con pocos, el link va primero.
     @State private var movimiento: Int?
     private var linkPrimero: Bool { (movimiento ?? 0) < LinkRegla.pocosTurnos }
+    /// Al cambiar de negocio, el movimiento es el del otro: se olvida.
+    @State private var negocioDelMovimiento: String?
 
     private var hoy: Date { Formato.calendario.startOfDay(for: ahora) }
     private var delDia: [Turno] { datos.turnos.filter { Formato.diaISO($0.inicio) == Formato.diaISO(hoy) } }
@@ -48,7 +50,10 @@ struct Hoy: View {
         .toolbar(.hidden, for: .navigationBar)
         .refreshable { await cargar() }
         .task { await Consejos.abrioHoy.donate() }
-        .task(id: "\(estado.version)-\(estado.negocio?.id ?? "")") { await cargar() }
+        .task(id: "\(estado.version)-\(estado.negocio?.id ?? "")") {
+            if negocioDelMovimiento != estado.negocio?.id { movimiento = movimientoGuardado(); negocioDelMovimiento = estado.negocio?.id }
+            await cargar()
+        }
         .task {
             // El minuto corre: «Ahora», lo en curso y los huecos se acomodan solos.
             while !Task.isCancelled {
@@ -70,11 +75,21 @@ struct Hoy: View {
 
     private func cargar() async {
         await datos.cargar(estado, desde: hoy, hasta: hoy)
+        // El movimiento antes que los próximos (decide qué link se ve). Si falla, queda el que había:
+        // un nil pisaba el bueno y la tarjeta volvía a grande.
+        if let m = await LinkRegla.movimiento(estado, hoy: hoy) { movimiento = m }
+        else if movimiento == nil { movimiento = movimientoGuardado() }
+        if let m = movimiento, let id = estado.negocio?.id { Guardado.guardar(m, clave: "movimiento-\(id)") }
         await cargarProximos()
-        movimiento = await LinkRegla.movimiento(estado, hoy: hoy)
         // Sólo con el día bien traído: sin conexión y sin caché delDia viene vacío y apagaba la Live Activity en curso.
         if case .listo = datos.carga { ActividadTurno.sincronizar(delDia, estado: estado) }
         await estado.vivo.cargar(estado)
+    }
+
+    /// El último movimiento conocido de este negocio: con él, el link arranca con la variante correcta.
+    private func movimientoGuardado() -> Int? {
+        guard let id = estado.negocio?.id else { return nil }
+        return Guardado.leer(Int.self, clave: "movimiento-\(id)")?.0
     }
 
     private struct Turnos: Decodable { var turnos: [Turno] }
@@ -112,8 +127,6 @@ struct Hoy: View {
 
     @ViewBuilder private var contenido: some View {
         ForEach(banners, id: \.titulo) { b in Banner(b: b) }
-        // El asistente necesita la API: sin conexión no se ofrece. En sólo lectura sí (preguntar anda).
-        if !estado.sinConexion { EntradaAsistente() }
         switch datos.carga {
         case .cargando where datos.turnos.isEmpty:
             ForEach([80, 72, 80, 80], id: \.self) { h in Esqueleto(alto: CGFloat(h)) }
@@ -121,11 +134,15 @@ struct Hoy: View {
         case .error(let m):
             ErrorConSalida(titulo: "No pudimos traer tu día", texto: "Tus turnos están a salvo. \(m)") { Task { await cargar() } }
         default:
-            if linkPrimero { TarjetaLink() }
+            // El link primero (con pocos turnos es lo principal) y después el asistente, como la web.
+            // Mientras no se sabe el movimiento, ninguna variante del link: no aparece grande y se achica.
+            if movimiento != nil, linkPrimero { TarjetaLink() }
+            // Sin conexión se ve apagado (la hoja vive en Principal: no se cierra si esto cambia).
+            EntradaAsistente()
             if delDia.filter(\.ocupa).isEmpty {
                 vacio
                 proximosDias
-                if !linkPrimero { TarjetaLink(compacta: true) }
+                if movimiento != nil, !linkPrimero { TarjetaLink(compacta: true) }
                 BarraAvance()
                 PlataHoy()
                 AtajosHoy()
@@ -135,7 +152,7 @@ struct Hoy: View {
                 PlataHoy()
                 AtajosHoy()
                 pila
-                if !linkPrimero { TarjetaLink(compacta: true) }
+                if movimiento != nil, !linkPrimero { TarjetaLink(compacta: true) }
                 proximosDias
                 BarraAvance()
                 DescubrirHoy()

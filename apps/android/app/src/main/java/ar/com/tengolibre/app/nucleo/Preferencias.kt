@@ -17,5 +17,9 @@ object Preferencias {
     fun ponerEntero(k: String, v: Int) { p?.edit()?.putInt(k, v)?.apply() ?: memoria.put(k, v) }
     fun lista(k: String): List<String> = p?.getStringSet(k, null)?.toList() ?: (memoria[k] as? List<String> ?: emptyList())
     fun ponerLista(k: String, v: List<String>) { p?.edit()?.putStringSet(k, v.toSet())?.apply() ?: memoria.put(k, v) }
+    /** Si hay alguna lista no vacía guardada con ese prefijo (los «seguidos-…» de versiones viejas). */
+    fun hayListaConPrefijo(prefijo: String): Boolean =
+        p?.all?.any { (k, v) -> k.startsWith(prefijo) && (v as? Set<*>)?.isNotEmpty() == true }
+            ?: memoria.any { (k, v) -> k.startsWith(prefijo) && (v as? List<*>)?.isNotEmpty() == true }
     fun borrarTodo() { p?.edit()?.clear()?.apply(); memoria.clear() }
 }

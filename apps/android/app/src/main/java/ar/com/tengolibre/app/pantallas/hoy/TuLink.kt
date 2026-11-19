@@ -1,5 +1,10 @@
 package ar.com.tengolibre.app.pantallas.hoy
 
+import ar.com.tengolibre.app.nucleo.Formato
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -79,6 +84,10 @@ object LinkRegla {
         }
         return out.toString().take(48)
     }
+
+    /** A medio escribir: termina en guion o tiene dos seguidos («peluqueria-»). No es un error todavía:
+     *  el campo dice «Seguí escribiendo…» y no se le pregunta a la API. */
+    fun aMedias(s: String): Boolean = s.endsWith("-") || s.contains("--")
 
     /** El formato que acepta la API (negocios.ValidarSlug). */
     fun valido(s: String): Boolean = Regex("^[a-z0-9]([a-z0-9-]{0,46}[a-z0-9])?$").matches(s) && !s.contains("--")
@@ -186,7 +195,7 @@ fun ColumnScope.CambiarLink(cerrar: () -> Unit) {
     LaunchedEffect(nuevo) {
         // Con 300 ms de pausa: no se pregunta letra por letra.
         disponible = null
-        if (nuevo == actual || nuevo.length < 3 || !LinkRegla.valido(nuevo)) return@LaunchedEffect
+        if (nuevo == actual || nuevo.length < 3 || LinkRegla.aMedias(nuevo) || !LinkRegla.valido(nuevo)) return@LaunchedEffect
         delay(300)
         disponible = estado.api.opcional<Disponibilidad>("/v1/panel/negocio/link/$nuevo")?.estado
     }
@@ -195,7 +204,8 @@ fun ColumnScope.CambiarLink(cerrar: () -> Unit) {
     data class EstadoCampo(val simbolo: String, val color: Color, val texto: String, val ok: Boolean)
     val campo = when {
         nuevo == actual -> EstadoCampo("checkmark.circle.fill", C.mentaTexto, "Es tu link de ahora.", false)
-        nuevo.length < 3 -> EstadoCampo("info.circle.fill", C.pagoTinta, "Tiene que tener al menos 3 letras", false)
+        nuevo.length < 3 -> EstadoCampo("info.circle.fill", C.pagoTinta, "Tiene que tener al menos 3 letras.", false)
+        LinkRegla.aMedias(nuevo) -> EstadoCampo("ellipsis", C.sub, "Seguí escribiendo…", false)
         !LinkRegla.valido(nuevo) || disponible == "invalida" -> EstadoCampo("xmark.circle.fill", C.error, "Esa dirección no se puede usar.", false)
         disponible == "libre" -> EstadoCampo("checkmark.circle.fill", C.mentaTexto, "Está libre.", true)
         disponible == "tomada" -> EstadoCampo("xmark.circle.fill", C.error, "Ya la usa otro negocio.", false)
@@ -254,10 +264,14 @@ fun ColumnScope.CambiarLink(cerrar: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Icono("checkmark.seal.fill", 20f, C.mentaTexto)
-            Column {
-                Texto("Tu link de antes sigue andando.", Tipo.lato(14f, Peso.Bold), C.tinta)
-                Texto("Los QR y carteles impresos llevan al nuevo.", Tipo.lato(14f), C.tinta)
-            }
+            // Un solo párrafo, la primera frase en negrita (como iOS y la web).
+            TextoRico(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Tu link de antes sigue andando. ") }
+                    append(Formato.sinViudas("Los QR y carteles impresos llevan al nuevo."))
+                },
+                Tipo.lato(14f), C.tinta,
+            )
         }
 
         if (error.isNotEmpty()) Texto(error, Tipo.lato(14f, Peso.Bold), C.error)
@@ -271,6 +285,7 @@ fun ColumnScope.CambiarLink(cerrar: () -> Unit) {
             Texto(quedan, Tipo.lato(13f), C.sub, Modifier.fillMaxWidth(), alinear = androidx.compose.ui.text.style.TextAlign.Center)
             if (l.anteriores.isNotEmpty()) {
                 Rotulo("SIGUEN LLEVANDO A TU PÁGINA")
+                Texto("Se guardan los últimos 5.", Tipo.lato(12f), C.sub)
                 l.anteriores.forEach { a ->
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icono("link", 14f, C.sub); Texto("$host${a.slug}", Tipo.lato(14f), C.sub)

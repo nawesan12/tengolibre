@@ -941,7 +941,11 @@ struct PreferenciasPush: View {
 extension PhotosPickerItem {
     /// La achica (lado largo 2000 px), la sube como JPEG y devuelve la URL; si falla, avisa y da nil.
     @MainActor func subirAchicada(_ estado: Estado) async -> String? {
-        guard let d = try? await loadTransferable(type: Data.self), let img = UIImage(data: d) else { return nil }
+        // Si la foto no se puede abrir, se dice (antes no pasaba nada y no se entendía por qué).
+        guard let d = try? await loadTransferable(type: Data.self), let img = UIImage(data: d) else {
+            estado.avisar(Toast(simbolo: "photo", titulo: "No pudimos abrir esa foto", texto: "Probá con otra.", error: true))
+            return nil
+        }
         let lado: CGFloat = 2000
         let f = min(1, lado / max(img.size.width, img.size.height))
         let tam = CGSize(width: img.size.width * f, height: img.size.height * f)
@@ -949,7 +953,10 @@ extension PhotosPickerItem {
         let formato = UIGraphicsImageRendererFormat.default()
         formato.scale = 1
         let chica = UIGraphicsImageRenderer(size: tam, format: formato).image { _ in img.draw(in: CGRect(origin: .zero, size: tam)) }
-        guard let jpg = chica.jpegData(compressionQuality: 0.85) else { return nil }
+        guard let jpg = chica.jpegData(compressionQuality: 0.85) else {
+            estado.avisar(Toast(simbolo: "photo", titulo: "No pudimos abrir esa foto", texto: "Probá con otra.", error: true))
+            return nil
+        }
         do { return try await estado.api.subirImagen(jpg) } catch { estado.avisar(error); return nil }
     }
 }

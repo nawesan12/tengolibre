@@ -247,8 +247,14 @@ internal fun Imagen(url: String?, alto: Dp, ancho: Dp?, radio: Dp) {
 /** La achica (lado largo 2000 px), la sube como JPEG y devuelve la URL; si falla, avisa y da null. */
 suspend fun subirAchicada(ctx: Context, estado: Estado, uri: Uri): String? =
     try {
-        val jpg = jpegDe(ctx, uri) ?: throw IllegalStateException("No pudimos abrir esa foto. Probá con otra.")
-        estado.api.subirImagen(jpg)
+        // Si la foto no se puede abrir, se dice tal cual (antes la excepción salía como «error desconocido»).
+        val jpg = jpegDe(ctx, uri)
+        if (jpg == null) {
+            estado.avisar(Toast(simbolo = "photo", titulo = "No pudimos abrir esa foto", texto = "Probá con otra.", error = true))
+            null
+        } else estado.api.subirImagen(jpg)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
     } catch (e: Exception) { estado.avisar(e); null }
 
 /**

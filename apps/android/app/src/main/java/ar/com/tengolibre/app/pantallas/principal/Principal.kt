@@ -1,5 +1,6 @@
 package ar.com.tengolibre.app.pantallas.principal
 
+import ar.com.tengolibre.app.pantallas.asistente.Asistente
 import androidx.compose.runtime.key
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -90,6 +91,16 @@ enum class Pestana {
         resenas -> "star.bubble"
         mas -> "line.3.horizontal"
     }
+
+    /** El de la pestaña elegida: los mismos nombres que iOS (Principal.swift, simboloElegido). */
+    val simboloElegido: String get() = when (this) {
+        hoy -> "sun.max.fill"
+        agenda -> "calendar"
+        espera -> "hourglass.bottomhalf.filled"
+        clientes -> "person.2.fill"
+        resenas -> "star.bubble.fill"
+        mas -> "line.3.horizontal"
+    }
 }
 
 /** Con qué arranca «Nuevo turno»: un hueco tocado, una clienta, una oferta que se carga a mano. */
@@ -110,6 +121,9 @@ class Navegacion {
     var compartir by mutableStateOf(false)
     var avisos by mutableStateOf(false)
     var buscar by mutableStateOf(false)
+    /** La hoja del asistente vive acá (no en la entrada de Hoy): si Hoy se redibuja sin la entrada (sin conexión,
+     *  un error al recargar), la charla no se cierra ni se pierde. */
+    var asistente by mutableStateOf(false)
     val pilas: Map<Pestana, SnapshotStateList<Any>> = Pestana.entries.associateWith { mutableStateListOf() }
     val pilaHoy get() = pilas.getValue(Pestana.hoy)
     val pilaAgenda get() = pilas.getValue(Pestana.agenda)
@@ -186,6 +200,9 @@ fun Principal() {
             Hoja(nav.compartir, { nav.compartir = false }) { Destinos.compartir() }
             Hoja(nav.buscar, { nav.buscar = false }) { Destinos.buscar() }
             Hoja(nav.avisos, { nav.avisos = false }) { Destinos.avisos() }
+            Hoja(nav.asistente, { nav.asistente = false }, listOf(Altura.grande)) {
+                Asistente(cerrar = { nav.asistente = false })
+            }
             // La primera vez: el recorrido por todo lo que trae la app.
             if (!recorridoVisto) Destinos.recorrido { recorridoVisto = true; Preferencias.ponerBool("recorridoVisto", true) }
         }
@@ -237,7 +254,7 @@ fun BarraPestanas(pestanas: List<Pestana>, elegida: Pestana, alElegir: (Pestana)
                     if (on) Box(Modifier.size(40.dp, 5.dp).clip(RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp)).background(C.menta))
                     Column(Modifier.padding(top = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Box(Modifier.size(56.dp, 30.dp).clip(CircleShape).background(if (on) C.seleccion else Color.Transparent), contentAlignment = Alignment.Center) {
-                            Icono(if (on && p != Pestana.mas) p.simbolo + ".fill" else p.simbolo, 20f, if (on) C.seleccionTexto else C.sub)
+                            Icono(if (on) p.simboloElegido else p.simbolo, 20f, if (on) C.seleccionTexto else C.sub)
                         }
                         Texto(p.titulo(profesional), Tipo.lato(11f, if (on) Peso.Black else Peso.Bold), if (on) C.tinta else C.sub, lineas = 1)
                     }
