@@ -403,7 +403,7 @@
 					<div class="uso">
 						<div class="uso-fila">
 							<span>Recordatorios por WhatsApp</span>
-							<b class="num">{waIncluidosQuedan + u.whatsappSaldo}</b>
+							<b class="num">{u.whatsappIncluidos || u.whatsappSaldo ? waIncluidosQuedan + u.whatsappSaldo : '—'}</b>
 						</div>
 						<p class="g-nota">
 							{#if u.whatsappIncluidos}Quedan {waIncluidosQuedan} de los {u.whatsappIncluidos} de este mes{#if u.whatsappSaldo}, más {u.whatsappSaldo} de packs{/if}.
@@ -1060,9 +1060,10 @@
 		.comparar tfoot {
 			display: block;
 		}
+		/* Tres planes, tres columnas: cada valor queda debajo de su plan. */
 		.comparar tr {
 			display: grid;
-			grid-template-columns: repeat(2, minmax(0, 1fr));
+			grid-template-columns: repeat(3, minmax(0, 1fr));
 		}
 		.comparar th.que,
 		.comparar td.que {
@@ -1070,10 +1071,16 @@
 		}
 		thead th {
 			width: auto !important;
-			padding: 16px 14px 12px;
+			padding: 14px 8px 10px;
 		}
 		.plan-precio b {
-			font-size: 22px;
+			font-size: 17px;
+		}
+		.plan-precio {
+			font-size: 12px;
+		}
+		thead .recomendado {
+			font-size: 9px;
 		}
 		tbody th {
 			grid-column: 1 / -1;
@@ -1081,19 +1088,20 @@
 		}
 		tbody td {
 			height: auto;
-			padding: 4px 14px 12px;
+			padding: 4px 8px 12px;
 			border-top: 0;
+			font-size: 13px;
 		}
 		tbody td.rec {
 			padding-top: 4px;
 		}
 		tfoot td {
-			padding: 12px 10px;
+			padding: 12px 4px;
 		}
 		tfoot .g-cta {
 			min-height: 48px;
-			font-size: 15px;
-			padding: 0 10px;
+			font-size: 13px;
+			padding: 0 6px;
 		}
 	}
 </style>

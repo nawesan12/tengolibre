@@ -206,6 +206,26 @@ test('suscripción en prueba y Mercado Pago sin configurar', async ({ page }) =>
 	await expect(page.getByRole('alert')).toContainText('No se autorizó');
 });
 
+test('los planes nuevos: precios, el anual de 10 meses y el uso del plan, sin desbordar', async ({ page }) => {
+	await negocioNuevo(page);
+	await abrir(page, '/panel/suscripcion');
+	// En la prueba rige Equipo.
+	await expect(page.getByRole('heading', { name: /Tenés el plan Equipo hasta/ })).toBeVisible();
+	const tabla = page.locator('table.comparar');
+	await expect(tabla.getByRole('columnheader', { name: /Inicial.*6\.900/ })).toBeVisible();
+	await expect(tabla.getByRole('columnheader', { name: /El más elegido.*Equipo.*14\.900/ })).toBeVisible();
+	await expect(tabla.getByRole('columnheader', { name: /Centro.*29\.900/ })).toBeVisible();
+	// El carrito arranca en el destacado; por año son 10 meses.
+	await expect(page.locator('label.opcion.on')).toContainText('Equipo');
+	await page.locator('.periodos label', { hasText: 'Por año' }).click();
+	await expect(page.locator('label.opcion.on')).toContainText('149.000');
+	await expect(page.locator('.resumen')).toContainText('Anual');
+	// Lo que lleva contra los topes.
+	await expect(page.getByText(/\d+ de 12/)).toBeVisible();
+	await expect(page.getByRole('button', { name: /Comprar 100 por/ })).toBeVisible();
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 test('con la prueba vencida, todo el panel avisa que está en sólo lectura', async ({ page }) => {
 	const slug = await negocioNuevo(page);
 	await expect(page.getByText('Tu prueba gratis terminó')).toHaveCount(0);
@@ -251,8 +271,9 @@ test('membresías, referidos y dominio, sin desbordar en el teléfono', async ({
 	await abrir(page, '/panel/dominio');
 	await page.getByLabel('Dominio').fill(`turnos.e2e${unico()}.com`);
 	await page.getByRole('button', { name: 'Conectar' }).click();
-	await expect(page.getByRole('status')).toContainText('Anotamos el dominio');
-	await expect(page.getByRole('cell', { name: 'TXT' })).toBeVisible();
+	// El dominio propio viene con Centro: en la prueba (rige Equipo) lo dice y lleva a cambiar de plan.
+	await expect(page.getByRole('alert')).toContainText('plan Centro');
+	await expect(page.getByRole('alert').getByRole('link', { name: 'Cambiar de plan' })).toHaveAttribute('href', '/panel/suscripcion#planes');
 	await sinDesborde();
 
 	for (const ruta of ['/panel/equipo', '/panel/mi-web', '/panel/configuracion', '/panel/pagos', '/panel/suscripcion', '/panel/cupones', '/panel/auditoria']) {
