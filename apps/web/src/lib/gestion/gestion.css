@@ -532,6 +532,17 @@ input.g-valor {
 	min-height: 36px;
 	box-shadow: none;
 }
+/* En una columna angosta (el teléfono), el botón baja abajo del texto y no lo aprieta. */
+.g-aviso:has(> .g-boton, > form) {
+	flex-wrap: wrap;
+}
+.g-aviso:has(> .g-boton, > form) > :not(.icono, .g-boton, form) {
+	flex: 1 1 220px;
+}
+.g-aviso:has(> .g-boton, > form) > .g-boton,
+.g-aviso:has(> .g-boton, > form) > form {
+	margin-left: auto;
+}
 
 /* Estado: ícono + palabra (nunca sólo color) */
 .g-estado {
