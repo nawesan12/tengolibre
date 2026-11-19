@@ -437,8 +437,14 @@ func (s *Servicio) aplicar(ctx context.Context, negocio string, p observado) (tu
 		if err := tx.QueryRow(ctx, "SELECT estado, vence_en FROM turnos WHERE id = $1 FOR UPDATE", turnoID).Scan(&estado, &vence); err != nil {
 			return err
 		}
+		if estado == "cancelado" {
+			// Cancelado mientras pagaba (por la clienta, el panel o una serie): el pago queda para
+			// devolver. Antes no se enteraba nadie; ahora el negocio y la clienta.
+			s.log().Error("cobros: pago aprobado de un turno cancelado", "turno", turnoID, "referencia", p.Referencia)
+			evento = "pago_de_cancelado"
+			return nil
+		}
 		if estado != "pendiente_pago" {
-			// Cancelado mientras pagaba: el pago queda para devolver.
 			return nil
 		}
 		// Pagó tarde: el horario dejó de estar guardado. Sólo se confirma si sigue libre de verdad
@@ -458,7 +464,9 @@ func (s *Servicio) aplicar(ctx context.Context, negocio string, p observado) (tu
 			_, err = tx.Exec(ctx, "UPDATE turnos SET estado = 'cancelado', vence_en = NULL, actualizado_en = now() WHERE id = $1", turnoID)
 			return err
 		}
-		evento = "confirmado"
+		// «pagado» y no «confirmado»: a la clienta le llega el comprobante de la seña (una confirmación
+		// desde el panel es otra cosa).
+		evento = "pagado"
 		// Pagó la seña desde la web: la confirmación es del cliente (el talón lo muestra así).
 		_, err = tx.Exec(ctx, `UPDATE turnos SET estado = 'confirmado', confirmado_por = 'web', vence_en = NULL, actualizado_en = now()
 			WHERE id = $1`, turnoID)

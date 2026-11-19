@@ -323,6 +323,9 @@ func (s *Servicio) listar(w http.ResponseWriter, r *http.Request) error {
 			if err := escanearCliente(filas, c); err != nil {
 				return err
 			}
+			if ses.Rol == sesion.Profesional {
+				c.Gastado = 0
+			}
 			out.Clientes = append(out.Clientes, c)
 		}
 		if err := filas.Err(); err != nil {
@@ -461,9 +464,16 @@ func (s *Servicio) ficha(w http.ResponseWriter, r *http.Request) error {
 		if _, err := MarcarAusentes(ctx, tx, ahora); err != nil {
 			return err
 		}
+		// Un profesional ve la ficha sólo de su cartera (un cliente ajeno es 404) y sin lo gastado.
+		if err := existe(ctx, tx, r.PathValue("id")); err != nil {
+			return err
+		}
 		var err error
 		if f.Cliente, err = LeerCliente(ctx, tx, r.PathValue("id"), ahora); err != nil {
 			return err
+		}
+		if sesion.De(ctx).Rol == sesion.Profesional {
+			f.Gastado = 0
 		}
 		// Un profesional ve sólo los turnos de su agenda (como en /v1/panel/turnos): cada uno trae el
 		// código del link, y con el de otro podría cancelarlo o moverlo por /v1/t/{codigo}.

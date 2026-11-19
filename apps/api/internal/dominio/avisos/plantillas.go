@@ -136,26 +136,50 @@ func Pesos(n int64) string {
 // ICS arma el evento de calendario del turno. El UID es el del turno: si se reprograma, el
 // calendario actualiza el mismo evento (SEQUENCE crece con el tiempo).
 func ICS(uid, titulo, descripcion, lugar string, inicio, fin, ahora time.Time) []byte {
+	return ICSEvento(Evento{UID: uid, Titulo: titulo, Descripcion: descripcion, Lugar: lugar, Inicio: inicio, Fin: fin, Ahora: ahora})
+}
+
+// Evento de calendario de un turno.
+type Evento struct {
+	UID, Titulo, Descripcion, Lugar string
+	Inicio, Fin, Ahora              time.Time
+	// Cancelado: METHOD:CANCEL y STATUS:CANCELLED con el mismo UID: el calendario que importó el
+	// evento del mail de reserva lo saca (antes quedaba, y su alarma sonaba igual).
+	Cancelado bool
+}
+
+// SecuenciaICS: la misma en el mail y en el .ics de la web (minutos desde 1970 del momento en que se
+// arma): un calendario se queda con la versión más nueva.
+func SecuenciaICS(ahora time.Time) int64 { return ahora.Unix() / 60 }
+
+// ICSEvento arma el .ics de un evento.
+func ICSEvento(e Evento) []byte {
 	f := func(t time.Time) string { return t.UTC().Format("20060102T150405Z") }
+	metodo, estado := "PUBLISH", "CONFIRMED"
+	if e.Cancelado {
+		metodo, estado = "CANCEL", "CANCELLED"
+	}
 	lineas := []string{
-		"BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TengoLibre//Turnos//ES", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+		"BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TengoLibre//Turnos//ES", "CALSCALE:GREGORIAN", "METHOD:" + metodo,
 		"BEGIN:VEVENT",
-		"UID:" + uid + "@tengolibre.com.ar",
-		fmt.Sprintf("SEQUENCE:%d", ahora.Unix()/60),
-		"DTSTAMP:" + f(ahora),
-		"DTSTART:" + f(inicio),
-		"DTEND:" + f(fin),
-		"SUMMARY:" + escaparICS(titulo),
+		"UID:" + e.UID + "@tengolibre.com.ar",
+		fmt.Sprintf("SEQUENCE:%d", SecuenciaICS(e.Ahora)),
+		"DTSTAMP:" + f(e.Ahora),
+		"DTSTART:" + f(e.Inicio),
+		"DTEND:" + f(e.Fin),
+		"SUMMARY:" + escaparICS(e.Titulo),
 	}
-	if descripcion != "" {
-		lineas = append(lineas, "DESCRIPTION:"+escaparICS(descripcion))
+	if e.Descripcion != "" {
+		lineas = append(lineas, "DESCRIPTION:"+escaparICS(e.Descripcion))
 	}
-	if lugar != "" {
-		lineas = append(lineas, "LOCATION:"+escaparICS(lugar))
+	if e.Lugar != "" {
+		lineas = append(lineas, "LOCATION:"+escaparICS(e.Lugar))
 	}
-	lineas = append(lineas, "STATUS:CONFIRMED",
-		"BEGIN:VALARM", "TRIGGER:-PT1H", "ACTION:DISPLAY", "DESCRIPTION:Recordatorio de turno", "END:VALARM",
-		"END:VEVENT", "END:VCALENDAR")
+	lineas = append(lineas, "STATUS:"+estado)
+	if !e.Cancelado {
+		lineas = append(lineas, "BEGIN:VALARM", "TRIGGER:-PT1H", "ACTION:DISPLAY", "DESCRIPTION:Recordatorio de turno", "END:VALARM")
+	}
+	lineas = append(lineas, "END:VEVENT", "END:VCALENDAR")
 	var b strings.Builder
 	for _, l := range lineas {
 		b.WriteString(plegar(l))
@@ -185,4 +209,13 @@ func plegar(l string) string {
 		n += tam
 	}
 	return b.String()
+}
+
+// Referencia corta de un turno (la misma que turnos.Referencia): los primeros 6 caracteres del id, en
+// mayúsculas. Es lo que la clienta dice en el local.
+func Referencia(id string) string {
+	if len(id) < 6 {
+		return strings.ToUpper(id)
+	}
+	return strings.ToUpper(id[:6])
 }

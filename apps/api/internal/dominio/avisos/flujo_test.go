@@ -207,8 +207,9 @@ func TestAvisosDeUnTurno(t *testing.T) {
 	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/t/" + t1.Codigo + "/reprogramar",
 		Cuerpo: map[string]any{"inicio": en("2026-11-02 10:30").Format(time.RFC3339)}}, nil)
 	e.enviar()
-	if m := e.ultimo(lucia); m.Asunto != "Cambiamos tu turno — El Corte" || !strings.Contains(m.Texto, "Antes era el lunes 2 de noviembre a las 09:00") ||
-		!strings.Contains(m.Texto, "Hora: 10:30") {
+	// Lo cambió ella: «Cambiaste tu turno», con el código corto, el plazo y la respuesta al negocio.
+	if m := e.ultimo(lucia); m.Asunto != "Cambiaste tu turno — El Corte" || !strings.Contains(m.Texto, "Antes era el lunes 2 de noviembre a las 09:00") ||
+		!strings.Contains(m.Texto, "Hora: 10:30") || !strings.Contains(m.Texto, "mostralo al llegar") || m.ResponderA != mailDuenia {
 		t.Fatalf("reprogramado: %s", m.Texto)
 	}
 	if m := e.ultimo("martina@ejemplo.com"); m.Asunto != "Se liberó lo que esperabas — El Corte" || !strings.Contains(m.Texto, "Hora: 09:00") || !strings.Contains(m.Texto, sitio+"/espera/") {
@@ -649,5 +650,51 @@ func TestMisTurnosNoMuestraTurnosAjenos(t *testing.T) {
 	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/yo/turnos", Quien: duena}, &r)
 	if len(r.Turnos) != 1 {
 		t.Fatalf("el turno con mail de confianza no aparece: %+v", r)
+	}
+}
+
+// La seña pagada tarde (el horario ya era de otra) y la de un turno ya cancelado: a la clienta le llega
+// un mail que habla de su plata (no el «Tu turno fue cancelado» genérico) y al negocio, la campanita.
+func TestPagoTardeYPagoDeCancelado(t *testing.T) {
+	e := armar(t)
+	av := &avisos.Servicio{Pool: e.Bases.App, Ahora: e.Reloj()}
+	mail := "rosa@ejemplo.com"
+	var t1, t2 turnos.Turno
+	e.panel(201, "POST", "/v1/panel/turnos", map[string]any{"servicioId": e.servicio, "profesionalId": e.ana,
+		"inicio": en("2026-11-02 09:00").Format(time.RFC3339), "cliente": map[string]string{"nombre": "Rosa Díaz", "telefono": "7777", "email": mail}}, &t1)
+	e.panel(201, "POST", "/v1/panel/turnos", map[string]any{"servicioId": e.servicio, "profesionalId": e.ana,
+		"inicio": en("2026-11-02 10:00").Format(time.RFC3339), "cliente": map[string]string{"nombre": "Rosa Díaz", "telefono": "7777", "email": mail}}, &t2)
+	e.enviar()
+	av.Avisar(context.Background(), e.negocio, t1.ID, "pago_sin_lugar")
+	e.enviar()
+	if m := e.ultimo(mail); m.Asunto != "Tu seña llegó tarde — El Corte" || !strings.Contains(m.Texto, "te va a devolver la seña") {
+		t.Fatalf("pago tarde: %s %s", m.Asunto, m.Texto)
+	}
+	av.Avisar(context.Background(), e.negocio, t2.ID, "pago_de_cancelado")
+	e.enviar()
+	if m := e.ultimo(mail); !strings.Contains(m.Asunto, "turno cancelado") || !strings.Contains(m.Texto, "ya estaba cancelado") {
+		t.Fatalf("pago de cancelado: %s %s", m.Asunto, m.Texto)
+	}
+	var c campanita
+	e.panel(200, "GET", "/v1/panel/campanita", nil, &c)
+	titulos := ""
+	for _, n := range c.Notificaciones {
+		titulos += n.Titulo + "|"
+	}
+	if !strings.Contains(titulos, "pagó la seña tarde") || !strings.Contains(titulos, "pagó la seña de un turno cancelado") {
+		t.Fatalf("campanita: %s", titulos)
+	}
+}
+
+// Sin email no se encola ningún mail del turno (antes quedaba «En cola» y después «Descartado»).
+func TestSinEmailNoSeEncola(t *testing.T) {
+	e := armar(t)
+	var t1 turnos.Turno
+	e.panel(201, "POST", "/v1/panel/turnos", map[string]any{"servicioId": e.servicio, "profesionalId": e.ana,
+		"inicio": en("2026-11-02 09:00").Format(time.RFC3339), "cliente": map[string]string{"nombre": "Sin Mail", "telefono": "8888"}}, &t1)
+	var n int
+	e.Fila("SELECT count(*) FROM avisos WHERE turno_id = $1", []any{t1.ID}, &n)
+	if n != 0 {
+		t.Fatalf("se encolaron %d avisos para una clienta sin email", n)
 	}
 }

@@ -517,7 +517,8 @@ func (s *Servicio) reprogramarCliente(w http.ResponseWriter, r *http.Request) er
 	if err != nil {
 		return err
 	}
-	s.avisar(ctx, negocio, t.ID, "reprogramado")
+	// Lo cambió la clienta desde su link: el mail dice «Cambiaste tu turno».
+	s.avisar(ctx, negocio, t.ID, "reprogramado_cliente")
 	web.JSON(w, http.StatusOK, t)
 	return nil
 }

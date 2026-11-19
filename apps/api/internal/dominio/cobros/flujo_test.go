@@ -138,7 +138,7 @@ func TestReservaConSenaYWebhook(t *testing.T) {
 	if tc.Sena == nil || tc.Sena.Monto != 4000 || tc.Sena.Estado != "aprobado" || tc.Referencia == "" {
 		t.Fatalf("seña en el link: %+v %+v", tc.Sena, tc.Referencia)
 	}
-	if ev := e.Avisos[tu.ID]; len(ev) != 2 || ev[1] != "confirmado" {
+	if ev := e.Avisos[tu.ID]; len(ev) != 2 || ev[1] != "pagado" {
 		t.Fatalf("avisos del turno: %v", ev)
 	}
 	// El mismo aviso otra vez no cambia nada; un rechazo posterior no pisa el aprobado.

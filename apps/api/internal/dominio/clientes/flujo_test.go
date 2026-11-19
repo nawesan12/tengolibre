@@ -229,7 +229,9 @@ func TestClientesDePuntaAPunta(t *testing.T) {
 	var ns struct {
 		Notas []clientes.Nota `json:"notas"`
 	}
-	m.como(profe, 200, "GET", "/v1/panel/clientes/"+j.ID+"/notas", nil, &ns)
+	// La profesional sin profesional asociado no tiene cartera: no ve las notas de nadie.
+	m.como(profe, 404, "GET", "/v1/panel/clientes/"+j.ID+"/notas", nil, nil)
+	m.como(recep, 200, "GET", "/v1/panel/clientes/"+j.ID+"/notas", nil, &ns)
 	if len(ns.Notas) != 1 || ns.Notas[0].Texto != "Prefiere a la mañana" {
 		t.Fatalf("notas: %+v", ns)
 	}
@@ -440,10 +442,10 @@ func TestAislamientoYPermisos(t *testing.T) {
 	m.panel(200, "GET", "/v1/panel/clientes/"+juana, nil, nil) // y a Juana no le pasó nada
 	m.panel(400, "GET", "/v1/panel/clientes/no-es-un-id", nil, nil)
 
-	// Roles: la profesional ve clientes y escribe notas, pero no da de alta ni edita ni etiqueta;
-	// recepción da de alta pero no maneja etiquetas, penalidades ni reportes.
-	m.como(profe, 200, "GET", "/v1/panel/clientes/"+juana, nil, nil)
-	m.como(profe, 201, "POST", "/v1/panel/clientes/"+juana+"/notas", map[string]string{"texto": "ok"}, nil)
+	// Roles: la profesional ve sólo los clientes de su agenda (sin una, ninguno) y no da de alta ni
+	// edita ni etiqueta; recepción da de alta pero no maneja etiquetas, penalidades ni reportes.
+	m.como(profe, 404, "GET", "/v1/panel/clientes/"+juana, nil, nil)
+	m.como(profe, 404, "POST", "/v1/panel/clientes/"+juana+"/notas", map[string]string{"texto": "ok"}, nil)
 	m.como(profe, 403, "POST", "/v1/panel/clientes", map[string]string{"nombre": "X"}, nil)
 	m.como(profe, 403, "PATCH", "/v1/panel/clientes/"+juana, map[string]string{"nombre": "X"}, nil)
 	m.como(profe, 403, "PUT", "/v1/panel/clientes/"+juana+"/etiquetas/"+e.ID, nil, nil)
@@ -479,7 +481,26 @@ func TestFichaDelProfesionalSoloSuAgenda(t *testing.T) {
 		t.Fatalf("la dueña ve todos: %d", len(f.Turnos))
 	}
 	m.como(profe, 200, "GET", "/v1/panel/clientes/"+cliente, nil, &f)
-	if len(f.Turnos) != 1 || f.Turnos[0].ID != deAna.ID {
+	if len(f.Turnos) != 1 || f.Turnos[0].ID != deAna.ID || f.Gastado != 0 {
 		t.Fatalf("el profesional ve sólo los de su agenda: %+v", f.Turnos)
+	}
+	// Un cliente que sólo atiende Beto no es de su cartera: ni ficha, ni notas, ni listado, ni búsqueda.
+	deBeto := m.reservar(201, m.beto, "2026-11-02 10:30", "Pedro Ruiz", "2222222222")
+	var otro string
+	m.Fila("SELECT cliente_id::text FROM turnos WHERE id = $1", []any{deBeto.ID}, &otro)
+	m.como(profe, 404, "GET", "/v1/panel/clientes/"+otro, nil, nil)
+	m.como(profe, 404, "GET", "/v1/panel/clientes/"+otro+"/notas", nil, nil)
+	m.como(profe, 201, "POST", "/v1/panel/clientes/"+cliente+"/notas", map[string]string{"texto": "ok"}, nil)
+	var l struct {
+		Clientes []clientes.Cliente `json:"clientes"`
+	}
+	m.como(profe, 200, "GET", "/v1/panel/clientes", nil, &l)
+	if len(l.Clientes) != 1 || l.Clientes[0].ID != cliente {
+		t.Fatalf("listado de la profesional: %+v", l.Clientes)
+	}
+	var b clientes.Resultados
+	m.como(profe, 200, "GET", "/v1/panel/buscar?q=pedro", nil, &b)
+	if len(b.Clientes) != 0 {
+		t.Fatalf("búsqueda de la profesional: %+v", b.Clientes)
 	}
 }

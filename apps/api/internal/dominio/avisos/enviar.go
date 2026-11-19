@@ -251,19 +251,66 @@ func (e *Enviador) armarTurno(ctx context.Context, tx pgx.Tx, f fila, n negocio,
 	if l := n.lugar(); l != "" {
 		filas = append(filas, Fila{"Dónde", l})
 	}
+	// La seña del turno (si la hay): monto, estado y hasta cuándo se guarda el lugar.
+	var sena struct {
+		Monto  int64
+		Estado string
+		Vence  *time.Time
+	}
+	if err := tx.QueryRow(ctx, `SELECT p.monto, p.estado, t.vence_en FROM pagos p JOIN turnos t ON t.id = p.turno_id WHERE p.turno_id = $1`,
+		t.ID).Scan(&sena.Monto, &sena.Estado, &sena.Vence); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return sin, "", err
+	}
+	// Precio y la referencia corta para decir en el local; el plazo para cambiar o cancelar online.
+	datosTurno := func(fs []Fila) []Fila {
+		if t.Precio > 0 {
+			fs = append(fs, Fila{"Precio", Pesos(t.Precio)})
+		}
+		return append(fs, Fila{"Código", Referencia(t.ID) + " (mostralo al llegar)"})
+	}
+	plazo := func() string {
+		if n.CancelarHastaHoras <= 0 {
+			return "Podés cambiarlo o cancelarlo desde el link hasta que empiece."
+		}
+		h := inicio.Add(-time.Duration(n.CancelarHastaHoras) * time.Hour)
+		return "Podés cambiarlo o cancelarlo desde el link hasta el " + Fecha(h) + " a las\u00a0" + Hora(h) + "."
+	}
 	conICS := false
+	metodoICS := "PUBLISH"
 	switch f.Tipo {
 	case Reservado:
 		if !activo {
 			return sin, "el turno ya no está activo", nil
 		}
 		c.Asunto, c.Titulo = "Turno reservado — "+n.Nombre, "Listo, tu turno quedó reservado"
-		if t.Estado == "pendiente_pago" {
-			c.Titulo = "Tu turno te espera: falta el pago"
-		}
-		c.Filas, c.Boton, c.Link = filas, "Ver o cambiar mi turno", LinkTurno(e.Sitio, t.Codigo)
-		c.Notas = []string{"¡Te esperamos!"}
+		c.Filas, c.Boton, c.Link = datosTurno(filas), "Ver o cambiar mi turno", LinkTurno(e.Sitio, t.Codigo)
+		c.Notas = []string{plazo(), "¡Te esperamos!"}
 		conICS = true
+		switch {
+		case f.Datos["pagado"] == "1":
+			// El comprobante de la seña.
+			c.Asunto, c.Titulo = "Seña recibida — "+n.Nombre, "Seña recibida: tu turno está confirmado"
+			if sena.Monto > 0 {
+				c.Filas = append(c.Filas, Fila{"Seña pagada", Pesos(sena.Monto)})
+				if t.Precio > sena.Monto {
+					c.Filas = append(c.Filas, Fila{"En el local", Pesos(t.Precio - sena.Monto)})
+				}
+			}
+		case t.Estado == "pendiente_pago":
+			// Falta pagar: cuánto, hasta cuándo y el botón para pagar. Sin «¡Te esperamos!» ni .ics
+			// (el lugar todavía no está asegurado).
+			c.Asunto, c.Titulo = "Falta la seña — "+n.Nombre, "Tu turno te espera: falta la seña"
+			if sena.Monto > 0 {
+				c.Filas = append(c.Filas, Fila{"Seña", Pesos(sena.Monto)})
+			}
+			if sena.Vence != nil {
+				v := sena.Vence.In(n.zona)
+				c.Filas = append(c.Filas, Fila{"Pagala antes de", "las " + Hora(v) + " del " + Fecha(v)})
+			}
+			c.Boton = "Pagar la seña"
+			c.Notas = []string{"Si no se paga a tiempo, el horario se libera."}
+			conICS = false
+		}
 	case Recordatorio:
 		if !activo || !t.Inicio.After(ahora) {
 			return sin, "el turno ya no está activo", nil
@@ -277,23 +324,41 @@ func (e *Enviador) armarTurno(ctx context.Context, tx pgx.Tx, f fila, n negocio,
 			return sin, "el cliente pidió no recibir recordatorios", nil
 		}
 		c.Asunto, c.Titulo = "Mañana tenés turno — "+n.Nombre, "Mañana tenés turno"
-		c.Filas, c.Boton, c.Link = filas, "Ver o cambiar mi turno", LinkTurno(e.Sitio, t.Codigo)
+		c.Filas, c.Boton, c.Link = datosTurno(filas), "Ver o cambiar mi turno", LinkTurno(e.Sitio, t.Codigo)
 		c.Notas = []string{"¡Te esperamos!"}
 	case Cancelado:
 		c.Asunto, c.Titulo = "Turno cancelado — "+n.Nombre, "Tu turno fue cancelado"
 		c.Filas, c.Boton, c.Link = filas[:4], "Reservar otro turno", LinkReserva(e.Sitio, n.Slug)
+		switch f.Datos["motivo"] {
+		case "pago_tarde":
+			c.Asunto, c.Titulo = "Tu seña llegó tarde — "+n.Nombre, "Tu pago llegó tarde"
+			c.Parrafos = []string{"Tu pago llegó cuando el horario ya lo había tomado otra persona. " + n.Nombre +
+				" te va a devolver la seña; si querés, elegí otro\u00a0horario."}
+			c.Boton = "Elegir otro horario"
+		case "pago_de_cancelado":
+			c.Asunto, c.Titulo = "Tu seña llegó con el turno cancelado — "+n.Nombre, "Tu pago llegó con el turno cancelado"
+			c.Parrafos = []string{"Pagaste la seña de un turno que ya estaba cancelado. " + n.Nombre +
+				" te va a devolver la seña; si querés, elegí otro\u00a0horario."}
+			c.Boton = "Elegir otro horario"
+		}
+		// El evento que se importó del mail de reserva se cancela en el calendario de la clienta.
+		conICS, metodoICS = true, "CANCEL"
 	case Reprogramado:
 		if !activo {
 			return sin, "el turno ya no está activo", nil
 		}
 		c.Asunto, c.Titulo = "Cambiamos tu turno — "+n.Nombre, "Tu turno cambió de horario"
+		if f.Datos["por"] == "cliente" {
+			c.Asunto, c.Titulo = "Cambiaste tu turno — "+n.Nombre, "Listo, cambiaste tu turno"
+		}
 		if v := f.Datos["anterior"]; v != "" {
 			if antes, err := time.Parse(time.RFC3339Nano, v); err == nil {
 				a := antes.In(n.zona)
-				c.Parrafos = []string{"Antes era el " + Fecha(a) + " a las " + Hora(a) + ". Ahora queda así:"}
+				c.Parrafos = []string{"Antes era el " + Fecha(a) + " a las " + Hora(a) + ". Ahora queda\u00a0así:"}
 			}
 		}
-		c.Filas, c.Boton, c.Link = filas, "Ver o cambiar mi turno", LinkTurno(e.Sitio, t.Codigo)
+		c.Filas, c.Boton, c.Link = datosTurno(filas), "Ver o cambiar mi turno", LinkTurno(e.Sitio, t.Codigo)
+		c.Notas = []string{plazo()}
 		conICS = true
 	case Resena:
 		token := f.Datos["token"]
@@ -319,10 +384,13 @@ func (e *Enviador) armarTurno(ctx context.Context, tx pgx.Tx, f fila, n negocio,
 		c.Notas = []string{"El enlace vence en 7 días."}
 	}
 	m := c.Mensaje(t.ClienteEmail)
+	// La respuesta de la clienta va al negocio, no a Tengo Libre.
+	m.ResponderA = n.Email
 	if conICS {
 		desc := t.Servicio + " con " + t.Profesional + "\n" + LinkTurno(e.Sitio, t.Codigo)
-		m.Adjuntos = []correo.Adjunto{{Nombre: "turno.ics", Tipo: "text/calendar; charset=utf-8; method=PUBLISH",
-			Datos: ICS(t.ID, t.Servicio+" — "+n.Nombre, desc, n.lugar(), inicio, fin, ahora)}}
+		m.Adjuntos = []correo.Adjunto{{Nombre: "turno.ics", Tipo: "text/calendar; charset=utf-8; method=" + metodoICS,
+			Datos: ICSEvento(Evento{UID: t.ID, Titulo: t.Servicio + " — " + n.Nombre, Descripcion: desc, Lugar: n.lugar(),
+				Inicio: inicio, Fin: fin, Ahora: ahora, Cancelado: metodoICS == "CANCEL"})}}
 	}
 	return m, "", nil
 }

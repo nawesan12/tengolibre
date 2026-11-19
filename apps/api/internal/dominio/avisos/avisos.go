@@ -172,9 +172,18 @@ func (s *Servicio) avisar(ctx context.Context, tx pgx.Tx, turnoID, evento string
 	quien := sesion.De(ctx).ClerkID
 	cuando := Fecha(t.Inicio.In(n.zona)) + " a las " + Hora(t.Inicio.In(n.zona))
 	inicio := map[string]any{"inicio": t.Inicio.UTC().Format(time.RFC3339Nano)}
+	// Sin email no se encola ningún mail del turno: antes quedaba en la historia como «En cola» y
+	// después «Descartado», con un «Reenviar» que no podía andar.
+	encolar := func(a Aviso) error {
+		if t.ClienteEmail == "" {
+			return nil
+		}
+		_, err := Encolar(ctx, tx, a, ahora)
+		return err
+	}
 	switch evento {
 	case "reservado", "reservado_espera":
-		if _, err := Encolar(ctx, tx, Aviso{Tipo: Reservado, TurnoID: t.ID, Clave: "reservado:" + t.ID, Datos: inicio}, ahora); err != nil {
+		if err := encolar(Aviso{Tipo: Reservado, TurnoID: t.ID, Clave: "reservado:" + t.ID, Datos: inicio}); err != nil {
 			return err
 		}
 		// Lo tomó alguien de la lista de espera desde su link: la campanita cuenta que se llenó el hueco.
@@ -193,8 +202,15 @@ func (s *Servicio) avisar(ctx context.Context, tx pgx.Tx, turnoID, evento string
 				return err
 			}
 		}
+	case "pagado":
+		// Se aprobó la seña: la clienta recibe el comprobante (antes, en su casilla quedaba sólo el
+		// «falta el pago»).
+		if err := encolar(Aviso{Tipo: Reservado, TurnoID: t.ID, Clave: "pagado:" + t.ID,
+			Datos: map[string]any{"inicio": inicio["inicio"], "pagado": "1"}}); err != nil {
+			return err
+		}
 	case "cancelado", "cancelado_cliente":
-		if _, err := Encolar(ctx, tx, Aviso{Tipo: Cancelado, TurnoID: t.ID, Clave: "cancelado:" + t.ID, Datos: inicio}, ahora); err != nil {
+		if err := encolar(Aviso{Tipo: Cancelado, TurnoID: t.ID, Clave: "cancelado:" + t.ID, Datos: inicio}); err != nil {
 			return err
 		}
 		if evento == "cancelado_cliente" || quien == "" {
@@ -208,15 +224,26 @@ func (s *Servicio) avisar(ctx context.Context, tx pgx.Tx, turnoID, evento string
 		}
 	case "pago_sin_lugar":
 		// Pagó la seña después de que venciera y el horario ya era de otra persona: el turno quedó
-		// cancelado con la plata aprobada. Antes no se enteraba nadie (sólo quedaba en el log).
-		if _, err := Encolar(ctx, tx, Aviso{Tipo: Cancelado, TurnoID: t.ID, Clave: "cancelado:" + t.ID, Datos: inicio}, ahora); err != nil {
+		// cancelado con la plata aprobada. A la clienta, un mail propio que habla de su plata.
+		if err := encolar(Aviso{Tipo: Cancelado, TurnoID: t.ID, Clave: "pago_tarde:" + t.ID,
+			Datos: map[string]any{"inicio": inicio["inicio"], "motivo": "pago_tarde"}}); err != nil {
 			return err
 		}
 		if err := Notificar(ctx, tx, Notificacion{Tipo: NotiCancelacion, TurnoID: t.ID, Titulo: t.ClienteNombre + " pagó la seña tarde",
 			Texto: "El horario del " + cuando + " ya lo había tomado otra persona y el turno se canceló. Devolvele la seña desde Pagos o ofrecele otro horario."}); err != nil {
 			return err
 		}
-	case "reprogramado":
+	case "pago_de_cancelado":
+		// Pagó la seña de un turno que ya estaba cancelado (se canceló mientras pagaba).
+		if err := encolar(Aviso{Tipo: Cancelado, TurnoID: t.ID, Clave: "pago_de_cancelado:" + t.ID,
+			Datos: map[string]any{"inicio": inicio["inicio"], "motivo": "pago_de_cancelado"}}); err != nil {
+			return err
+		}
+		if err := Notificar(ctx, tx, Notificacion{Tipo: NotiCancelacion, TurnoID: t.ID, Titulo: t.ClienteNombre + " pagó la seña de un turno cancelado",
+			Texto: "El turno del " + cuando + " ya estaba cancelado. Devolvele la seña desde Pagos o ofrecele otro horario."}); err != nil {
+			return err
+		}
+	case "reprogramado", "reprogramado_cliente":
 		// El horario que tenía: el del último aviso del turno (turnos ya guardó el nuevo).
 		anterior, err := ultimoInicio(ctx, tx, t.ID)
 		if err != nil {
@@ -226,10 +253,13 @@ func (s *Servicio) avisar(ctx context.Context, tx pgx.Tx, turnoID, evento string
 		if anterior != nil {
 			datos["anterior"] = anterior.UTC().Format(time.RFC3339Nano)
 		}
-		if _, err := Encolar(ctx, tx, Aviso{Tipo: Reprogramado, TurnoID: t.ID, Datos: datos}, ahora); err != nil {
+		if evento == "reprogramado_cliente" {
+			datos["por"] = "cliente"
+		}
+		if err := encolar(Aviso{Tipo: Reprogramado, TurnoID: t.ID, Datos: datos}); err != nil {
 			return err
 		}
-		if quien == "" {
+		if quien == "" || evento == "reprogramado_cliente" {
 			if err := Notificar(ctx, tx, Notificacion{Tipo: NotiReprogramacion, TurnoID: t.ID, Titulo: t.ClienteNombre + " cambió su turno",
 				Texto: t.Servicio + " con " + t.Profesional + ", ahora el " + cuando + "."}); err != nil {
 				return err
@@ -241,9 +271,17 @@ func (s *Servicio) avisar(ctx context.Context, tx pgx.Tx, turnoID, evento string
 			}
 		}
 	}
+	// En la Actividad del negocio queda sólo lo que hizo alguien del equipo: la reserva web reenvía la
+	// sesión de la clienta, y su clerk_id quedaba como un autor sin nombre de alguien de afuera.
 	if quien != "" {
-		return auditoria.Anotar(ctx, tx, auditoria.Registro{Quien: quien, Accion: "turno." + evento, Entidad: "turno", EntidadID: t.ID,
-			Detalle: map[string]any{"estado": t.Estado, "inicio": t.Inicio, "cliente": t.ClienteNombre}})
+		var miembro bool
+		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM miembros WHERE clerk_id = $1 AND activo)", quien).Scan(&miembro); err != nil {
+			return err
+		}
+		if miembro {
+			return auditoria.Anotar(ctx, tx, auditoria.Registro{Quien: quien, Accion: "turno." + evento, Entidad: "turno", EntidadID: t.ID,
+				Detalle: map[string]any{"estado": t.Estado, "inicio": t.Inicio, "cliente": t.ClienteNombre}})
+		}
 	}
 	return nil
 }
@@ -303,7 +341,11 @@ func leerTurno(ctx context.Context, tx pgx.Tx, id string) (turno, error) {
 // negocio fijado, con lo que necesitan los mails.
 type negocio struct {
 	Nombre, Slug, Direccion, Ciudad, Telefono string
-	zona                                      *time.Location
+	// Email: a dónde va la respuesta de la clienta (el del negocio o, si no cargó uno, el de la dueña).
+	Email string
+	// CancelarHastaHoras: hasta cuántas horas antes la clienta cambia o cancela online.
+	CancelarHastaHoras int
+	zona               *time.Location
 }
 
 func (n negocio) lugar() string {
@@ -334,8 +376,11 @@ func PrimerNombre(nombre string) string { return primerNombre(nombre) }
 func leerNegocio(ctx context.Context, tx pgx.Tx) (negocio, error) {
 	var n negocio
 	var zona string
-	err := tx.QueryRow(ctx, `SELECT nombre, slug, direccion, ciudad, telefono, zona_horaria FROM negocios WHERE id = app.negocio_actual()`).
-		Scan(&n.Nombre, &n.Slug, &n.Direccion, &n.Ciudad, &n.Telefono, &zona)
+	err := tx.QueryRow(ctx, `SELECT g.nombre, g.slug, g.direccion, g.ciudad, g.telefono, g.zona_horaria,
+			coalesce(nullif(g.email, ''), (SELECT m.email FROM miembros m WHERE m.rol = 'duenio' AND m.activo ORDER BY m.creado_en LIMIT 1), ''),
+			coalesce((SELECT a.cancelar_hasta_horas FROM ajustes a WHERE a.negocio_id = g.id), 2)
+		FROM negocios g WHERE g.id = app.negocio_actual()`).
+		Scan(&n.Nombre, &n.Slug, &n.Direccion, &n.Ciudad, &n.Telefono, &zona, &n.Email, &n.CancelarHastaHoras)
 	if err != nil {
 		return n, err
 	}
