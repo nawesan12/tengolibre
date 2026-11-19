@@ -25,6 +25,11 @@ export async function opcional<T>(p: Promise<T>, si: T): Promise<T> {
 const slugValido = (s: string) => /^[a-z0-9]([a-z0-9-]{0,46}[a-z0-9])?$/.test(s);
 
 export async function pagina(f: typeof fetch, slug: string, url?: URL) {
+	// /Estudio-Lumi: el link escrito con mayúsculas lleva al de minúsculas (antes, 404).
+	if (url && slug !== slug.toLowerCase() && slugValido(slug.toLowerCase())) {
+		const a = rutaCanonica(url, slug, slug.toLowerCase());
+		if (a) redirect(308, a);
+	}
 	if (!slugValido(slug)) error(404, 'No encontramos ese negocio.');
 	const p = await o404(apiPublica(f).get<Pagina>(`/v1/p/${slug}`), 'No encontramos ese negocio.');
 	if (url) canonica(url, slug, p.negocio.slug);
@@ -32,13 +37,18 @@ export async function pagina(f: typeof fetch, slug: string, url?: URL) {
 }
 
 /**
- * Un link viejo (el negocio cambió su dirección): la API lo sigue resolviendo y acá se manda al nuevo
- * con un 301, con la misma ruta y la query. Así los QR y carteles impresos siguen andando. En un
- * dominio propio la ruta no lleva el slug, y no hay nada que corregir.
+ * Un link viejo (el negocio cambió su dirección): la API lo sigue resolviendo y acá se manda al nuevo,
+ * con la misma ruta y la query. Así los QR y carteles impresos siguen andando. En un dominio propio la
+ * ruta no lleva el slug, y no hay nada que corregir.
+ *
+ * Temporal (307) y con caché acotada (hooks.server.ts): un 301 sin Cache-Control lo guarda el
+ * navegador para siempre, y si el negocio volvía a su link anterior (o el viejo lo tomaba otro) la
+ * clienta quedaba en un bucle de redirecciones o en el negocio equivocado. El canonical de la página
+ * ya le dice a los buscadores cuál es la buena.
  */
 export function canonica(url: URL, pedido: string, actual: string) {
 	const a = rutaCanonica(url, pedido, actual);
-	if (a) redirect(301, a);
+	if (a) redirect(307, a);
 }
 
 export const cobro = (f: typeof fetch, slug: string) => opcional(apiPublica(f).get<Cobro>(`/v1/p/${slug}/cobro`), null);

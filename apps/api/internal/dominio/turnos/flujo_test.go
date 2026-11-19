@@ -149,7 +149,7 @@ func TestReservaDePuntaAPunta(t *testing.T) {
 		t.Fatalf("link: %+v", tc)
 	}
 	a.Esperar(409, P{Metodo: "POST", Ruta: "/v1/t/" + t1.Codigo + "/reprogramar",
-		Cuerpo: map[string]any{"inicio": en("2026-11-02 10:00").Format(time.RFC3339)}}, nil) // Ana ya tiene las 10
+		Cuerpo: map[string]any{"inicio": en("2026-11-02 10:00").Format(time.RFC3339), "profesionalId": ana}}, nil) // Ana ya tiene las 10
 	a.Esperar(200, P{Metodo: "POST", Ruta: "/v1/t/" + t1.Codigo + "/reprogramar",
 		Cuerpo: map[string]any{"inicio": en("2026-11-02 10:30").Format(time.RFC3339)}}, &tc)
 	if !tc.Inicio.Equal(en("2026-11-02 10:30")) || *tc.ProfesionalID != ana {

@@ -38,6 +38,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const ruta = event.url.pathname;
 	const en = (base: string) => ruta === base || ruta.startsWith(base + '/');
 	if (en('/panel') || en('/admin')) res.headers.set('x-frame-options', 'DENY');
+	// Nadie enmarca las páginas en un sitio ajeno (clickjacking en la reserva, Mi turno, Mi cuenta o el
+	// ingreso). La vista previa de Plantillas es del mismo origen. La CSP completa necesita relevar
+	// antes Clerk, Mercado Pago y los demás externos: por ahora, sólo esto.
+	if (!res.headers.has('content-security-policy')) res.headers.set('content-security-policy', "frame-ancestors 'self'");
+	// Una redirección nunca queda guardada para siempre: los links de un negocio cambian (y vuelven).
+	if (res.status >= 300 && res.status < 400 && !res.headers.has('cache-control'))
+		res.headers.set('cache-control', 'public, max-age=600');
 	// Lo de la sesión nunca queda en una caché compartida: el panel, la cuenta, el alta, el ingreso y
 	// cualquier respuesta a alguien con sesión (la reserva con su membresía, por ejemplo).
 	if (en('/panel') || en('/admin') || en('/mi-cuenta') || en('/empezar') || en('/ingresar') || event.locals.token)
