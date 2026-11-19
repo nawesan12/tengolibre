@@ -3,6 +3,7 @@ package promos
 import (
 	"context"
 	"errors"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"net/http"
 	"regexp"
 	"time"
@@ -385,6 +386,9 @@ func (s *Servicio) validarCupon(w http.ResponseWriter, r *http.Request) error {
 			}
 			precio = &srv.Precio
 		}
+		if ok, err := planes.Tiene(ctx, tx, s.ahora(), planes.Cupones); err != nil || !ok {
+			return err // sin cupones en el plan: «Cupón no encontrado»
+		}
 		if err := liberarVencidos(ctx, tx, in.Codigo, "", s.ahora()); err != nil {
 			return err
 		}
@@ -436,6 +440,9 @@ func (s *Servicio) validarReferido(w http.ResponseWriter, r *http.Request) error
 	err = s.Pool.EnNegocio(ctx, id, func(tx pgx.Tx) error {
 		a, err := leerReferidos(ctx, tx)
 		if err != nil || !a.Activo || in.Codigo == "" {
+			return err
+		}
+		if ok, err := planes.Tiene(ctx, tx, s.ahora(), planes.Referidos); err != nil || !ok {
 			return err
 		}
 		return tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM referidos WHERE codigo = $1)", Normalizar(in.Codigo)).Scan(&valido)
@@ -542,7 +549,11 @@ func (s *Servicio) crearReferido(w http.ResponseWriter, r *http.Request) error {
 		if ajeno {
 			return problema.Conflicto("referido_oculto", "Desde este turno no podemos darte el código. Pedíselo al negocio.")
 		}
-		if !a.Activo {
+		enPlan, err := planes.Tiene(ctx, tx, s.ahora(), planes.Referidos)
+		if err != nil {
+			return err
+		}
+		if !a.Activo || !enPlan {
 			return problema.Conflicto("sin_referidos", "Este negocio no tiene programa de referidos.")
 		}
 		// Un choque de código (raro) se reintenta; el del cliente ya existente lo deja como está.

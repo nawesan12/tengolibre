@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/disponibilidad"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/web"
@@ -16,20 +17,24 @@ import (
 
 // Las horas salen de Postgres como time; to_char las deja en "HH24:MI".
 const columnasProfesional = `p.id::text, p.miembro_id::text, p.nombre, p.especialidad, p.bio, p.foto, p.email, p.telefono, p.orden, p.activo,
+	(p.activo AND p.id IN (SELECT x.id FROM profesionales x WHERE x.activo ORDER BY x.creado_en, x.id
+		LIMIT app.tope_profesionales(now()))),
 	coalesce((SELECT array_agg(ps.servicio_id::text ORDER BY ps.servicio_id) FROM profesional_servicios ps WHERE ps.profesional_id = p.id), '{}'),
 	coalesce((SELECT jsonb_agg(jsonb_build_object('dia', h.dia, 'desde', to_char(h.desde, 'HH24:MI'), 'hasta', to_char(h.hasta, 'HH24:MI'))
 		ORDER BY h.dia, h.desde) FROM horarios h WHERE h.profesional_id = p.id), '[]')`
 
 func escanearProfesional(f pgx.Row, p *Profesional) error {
 	return f.Scan(&p.ID, &p.MiembroID, &p.Nombre, &p.Especialidad, &p.Bio, &p.Foto, &p.Email, &p.Telefono, &p.Orden, &p.Activo,
-		&p.Servicios, &p.Horario)
+		&p.EnPlan, &p.Servicios, &p.Horario)
 }
 
-// Profesionales del negocio fijado; soloActivos para la página pública.
+// Profesionales del negocio fijado; soloActivos para la página pública y la agenda: los activos
+// dentro del tope del plan (los que sobran después de bajar de plan no toman turnos).
 func Profesionales(ctx context.Context, tx pgx.Tx, soloActivos bool) ([]Profesional, error) {
 	q := "SELECT " + columnasProfesional + " FROM profesionales p"
 	if soloActivos {
-		q += " WHERE p.activo"
+		q = "SELECT " + columnasProfesional + ` FROM profesionales p WHERE p.activo AND p.id IN (SELECT x.id FROM profesionales x
+			WHERE x.activo ORDER BY x.creado_en, x.id LIMIT app.tope_profesionales(now()))`
 	}
 	filas, err := tx.Query(ctx, q+" ORDER BY p.orden, p.nombre")
 	if err != nil {
@@ -57,6 +62,37 @@ func LeerProfesional(ctx context.Context, tx pgx.Tx, id string, paraReservar boo
 	}
 	err := escanearProfesional(tx.QueryRow(ctx, q, id), &p)
 	return p, err
+}
+
+// Toma turnos: activo y dentro del tope del plan.
+func (p Profesional) TomaTurnos() bool { return p.Activo && p.EnPlan }
+
+// lugarParaActivar: si se puede sumar un profesional activo más con el plan que rige (si no,
+// tope_plan con el plan que alcanza; en Centro, sumar profesionales extra).
+func (s *Servicio) lugarParaActivar(ctx context.Context, tx pgx.Tx) error {
+	// En fila: dos altas a la vez no pasan el tope.
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext('profesionales:' || app.negocio_actual()::text))"); err != nil {
+		return err
+	}
+	v, err := planes.Leer(ctx, tx, s.ahora())
+	if err != nil {
+		return err
+	}
+	var activos int
+	if err := tx.QueryRow(ctx, "SELECT count(*) FROM profesionales WHERE activo").Scan(&activos); err != nil {
+		return err
+	}
+	tope := v.TopeProfesionales()
+	if activos < tope {
+		return nil
+	}
+	extra := ""
+	sig := planes.SiguientePorProfesionales(activos + 1)
+	if sig.Clave == "" || planes.Rango(sig.Clave) <= planes.Rango(v.Clave) {
+		sig = planes.Plan{}
+		extra = "En Centro podés sumar profesionales extra ($1.900 por mes cada uno) desde Suscripción."
+	}
+	return planes.ProblemaTope("profesionales activos", tope, v.Clave, sig, extra)
 }
 
 // Hace dice si el profesional hace el servicio.
@@ -125,6 +161,11 @@ func (s *Servicio) crearProfesional(w http.ResponseWriter, r *http.Request) erro
 		if err := miembroDelNegocio(ctx, tx, p.MiembroID); err != nil {
 			return err
 		}
+		if p.Activo {
+			if err := s.lugarParaActivar(ctx, tx); err != nil {
+				return err
+			}
+		}
 		err := tx.QueryRow(ctx, `INSERT INTO profesionales (negocio_id, miembro_id, nombre, especialidad, bio, foto, email, telefono, orden, activo)
 			VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id::text`,
 			p.MiembroID, p.Nombre, p.Especialidad, p.Bio, p.Foto, p.Email, p.Telefono, p.Orden, p.Activo).Scan(&p.ID)
@@ -154,9 +195,15 @@ func (s *Servicio) editarProfesional(w http.ResponseWriter, r *http.Request) err
 		if p, err = LeerProfesional(ctx, tx, r.PathValue("id"), false); err != nil {
 			return err
 		}
-		id, servicios, horario := p.ID, p.Servicios, p.Horario
+		id, servicios, horario, activo := p.ID, p.Servicios, p.Horario, p.Activo
 		if err := web.Leer(w, r, &p); err != nil {
 			return err
+		}
+		// Volver a activar uno ocupa un lugar del plan.
+		if p.Activo && !activo {
+			if err := s.lugarParaActivar(ctx, tx); err != nil {
+				return err
+			}
 		}
 		// Servicios y horario tienen su propio PUT.
 		p.ID, p.Servicios, p.Horario = id, servicios, horario

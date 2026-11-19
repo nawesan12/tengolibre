@@ -5,11 +5,13 @@ package miweb
 
 import (
 	"context"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"net/http"
 	"net/url"
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
@@ -109,6 +111,21 @@ func (e Estilo) Validar() error {
 		}
 	}
 	return nil
+}
+
+// LeerPublica: la web como la ve el público. Las plantillas vienen con Centro: con un plan más
+// chico la página se muestra con la de por defecto (lo elegido queda guardado para cuando vuelva a
+// subir).
+func LeerPublica(ctx context.Context, tx pgx.Tx, ahora time.Time) (Web, error) {
+	w, err := Leer(ctx, tx)
+	if err != nil || w.Estilo.Plantilla == Plantillas[0] {
+		return w, err
+	}
+	ok, err := planes.Tiene(ctx, tx, ahora, planes.Plantillas)
+	if err == nil && !ok {
+		w.Estilo.Plantilla = Plantillas[0]
+	}
+	return w, err
 }
 
 // Foto de la galería.
@@ -280,6 +297,18 @@ func (s *Servicio) editar(w http.ResponseWriter, r *http.Request) error {
 	}
 	var out Web
 	err := s.enNegocio(r, func(ctx context.Context, tx pgx.Tx) (err error) {
+		if in.Estilo != nil && in.Estilo.Plantilla != Plantillas[0] {
+			// Cambiar a otra plantilla que la de por defecto es de Centro (dejar la que ya estaba, no).
+			var actual string
+			if err := tx.QueryRow(ctx, "SELECT coalesce(estilo->>'plantilla', '') FROM negocios WHERE id = app.negocio_actual()").Scan(&actual); err != nil {
+				return err
+			}
+			if actual != in.Estilo.Plantilla {
+				if err := planes.Exigir(ctx, tx, time.Now(), planes.Plantillas); err != nil {
+					return err
+				}
+			}
+		}
 		if in.Estilo != nil {
 			if _, err = tx.Exec(ctx, "UPDATE negocios SET estilo = $1 WHERE id = app.negocio_actual()", *in.Estilo); err != nil {
 				return err

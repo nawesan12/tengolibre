@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -449,7 +450,7 @@ func elegirCon(ctx context.Context, tx pgx.Tx, c contexto, reglas disponibilidad
 		if err != nil {
 			return p, err
 		}
-		if !p.Activo || !p.Hace(srv.ID) {
+		if !p.TomaTurnos() || !p.Hace(srv.ID) {
 			continue
 		}
 		if forzar && !inicio.Before(ahora) {
@@ -578,6 +579,12 @@ func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora ti
 		if err != nil {
 			return Turno{}, err
 		}
+		// Las penalidades vienen con Equipo: con un plan más chico quedan guardadas pero no frenan.
+		if penalizado {
+			if penalizado, err = planes.Tiene(ctx, tx, ahora, planes.Penalidades); err != nil {
+				return Turno{}, err
+			}
+		}
 		if penalizado {
 			return Turno{}, problema.Conflicto("cliente_penalizado",
 				"Por ausencias anteriores no podés reservar online por ahora. Escribile al negocio.")
@@ -701,7 +708,7 @@ func Disponible(ctx context.Context, tx pgx.Tx, servicioID, profesionalID string
 		return false, err
 	}
 	p, err := catalogo.LeerProfesional(ctx, tx, profesionalID, false)
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && (!p.Activo || !p.Hace(srv.ID))) {
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && (!p.TomaTurnos() || !p.Hace(srv.ID))) {
 		return false, nil
 	}
 	if err != nil {

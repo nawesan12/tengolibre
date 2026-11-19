@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/avisos"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/privado"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/trabajos"
@@ -85,9 +86,22 @@ func encolar(ctx context.Context, tx pgx.Tx, tipo string, c candidato, ahora tim
 	if err != nil {
 		para, estado, motivo = "", "descartado", "El teléfono «"+c.Telefono+"» no es un celular válido."
 	}
+	// El tope del plan: los incluidos del mes (Centro) y, después, los packs. Sin lugar no se encola:
+	// la próxima corrida lo vuelve a intentar (si compran un pack, sale mientras siga en la ventana).
+	var desdeSaldo bool
+	if estado == "pendiente" {
+		ok, saldo, err := planes.ConsumirWhatsApp(ctx, tx, ahora)
+		if err != nil || !ok {
+			return false, err
+		}
+		desdeSaldo = saldo
+	}
 	tag, err := tx.Exec(ctx, `INSERT INTO whatsapp_mensajes (negocio_id, turno_id, tipo, para, token, clave, datos, estado,
-		ultimo_error, proximo_intento) VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, nullif($8, ''), $9)
+		ultimo_error, proximo_intento, creado_en) VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, nullif($8, ''), $9, $9)
 		ON CONFLICT (negocio_id, clave) DO NOTHING`, c.ID, tipo, para, avisos.Token(), clave, datos, estado, motivo, ahora)
+	if err == nil && tag.RowsAffected() == 0 && desdeSaldo {
+		err = planes.DevolverWhatsApp(ctx, tx)
+	}
 	return tag.RowsAffected() == 1 && estado == "pendiente", err
 }
 

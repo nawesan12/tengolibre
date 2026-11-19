@@ -8,6 +8,7 @@ package grupos
 
 import (
 	"context"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"net/http"
 	"slices"
 	"strings"
@@ -296,8 +297,55 @@ func (s *Servicio) ponerGrupo(r *http.Request, grupo *string, soloSi string) err
 	})
 }
 
+// lugarEnGrupo: un grupo de más de una sucursal es de Centro (hasta 3): alguna de las sucursales
+// tiene que tener Centro vigente. Sacar una siempre se puede, y bajar de plan no saca a nadie (el
+// reporte sigue andando): sólo frena sumar.
+func (s *Servicio) lugarEnGrupo(ctx context.Context, grupo, negocio string) error {
+	gs, _, err := s.armar(ctx)
+	if err != nil {
+		return err
+	}
+	i := slices.IndexFunc(gs, func(g Grupo) bool { return g.ID == grupo })
+	if i < 0 {
+		return nil // ponerGrupo responde que no existe
+	}
+	ids := []string{negocio}
+	for _, x := range gs[i].Sucursales {
+		if x.ID == negocio {
+			return nil // ya está
+		}
+		ids = append(ids, x.ID)
+	}
+	if len(ids) <= 1 {
+		return nil
+	}
+	centro := planes.Planes[len(planes.Planes)-1]
+	if len(ids) > centro.Sucursales {
+		return planes.ProblemaTope("sucursales", centro.Sucursales, "centro", planes.Plan{}, "")
+	}
+	for _, id := range ids {
+		var ok bool
+		if err := s.Pool.EnNegocio(ctx, id, func(tx pgx.Tx) (err error) {
+			ok, err = planes.Tiene(ctx, tx, s.ahora(), planes.Sucursales)
+			return err
+		}); err != nil {
+			return err
+		}
+		if ok {
+			return nil
+		}
+	}
+	return planes.ProblemaFuncion(planes.Sucursales)
+}
+
 func (s *Servicio) sumar(w http.ResponseWriter, r *http.Request) error {
 	id := r.PathValue("id")
+	if err := s.duenia(r.Context(), r.PathValue("negocio")); err != nil {
+		return err
+	}
+	if err := s.lugarEnGrupo(r.Context(), id, r.PathValue("negocio")); err != nil {
+		return err
+	}
 	if err := s.ponerGrupo(r, &id, ""); err != nil {
 		return err
 	}

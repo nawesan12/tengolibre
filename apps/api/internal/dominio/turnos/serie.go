@@ -159,7 +159,7 @@ func servicioYProfesional(ctx context.Context, tx pgx.Tx, servicioID, profesiona
 			problema.Campo{Ruta: "profesionalId", Mensaje: "requerido"})
 	}
 	p, err := catalogo.LeerProfesional(ctx, tx, profesionalID, false)
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && (!p.Activo || !p.Hace(srv.ID))) {
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && (!p.TomaTurnos() || !p.Hace(srv.ID))) {
 		return srv, p, problema.NoEncontrado("Ese profesional no existe o no hace ese servicio.")
 	}
 	return srv, p, err

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
@@ -167,7 +168,7 @@ func (s *Servicio) publico(w http.ResponseWriter, r *http.Request) error {
 		Galeria []Foto `json:"galeria"`
 	}
 	err = s.Pool.EnNegocio(ctx, *id, func(tx pgx.Tx) (err error) {
-		if out.Web, err = Leer(ctx, tx); err != nil {
+		if out.Web, err = LeerPublica(ctx, tx, time.Now()); err != nil {
 			return err
 		}
 		out.Galeria, err = Galeria(ctx, tx)

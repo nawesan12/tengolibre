@@ -14,6 +14,7 @@ package espera
 import (
 	"context"
 	"errors"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"net/http"
 	"strconv"
 	"time"
@@ -285,6 +286,10 @@ func Caer(ctx context.Context, tx pgx.Tx, profesionalID string, desde, hasta, ah
 func Liberado(ctx context.Context, tx pgx.Tx, l avisos.Liberado) error {
 	if l.ProfesionalID == "" {
 		return nil
+	}
+	// La lista de espera viene con Equipo: con un plan más chico no se ofrece nada solo.
+	if ok, err := planes.Tiene(ctx, tx, l.Ahora, planes.Espera); err != nil || !ok {
+		return err
 	}
 	a, err := leerAjustes(ctx, tx)
 	if err != nil {

@@ -3,6 +3,7 @@ package membresias
 import (
 	"context"
 	"errors"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"net/http"
 	"strings"
 	"time"
@@ -502,6 +503,12 @@ func (s *Servicio) planesPublicos(w http.ResponseWriter, r *http.Request) error 
 	}
 	var out []Plan
 	err := s.Pool.EnNegocio(ctx, *id, func(tx pgx.Tx) (err error) {
+		// Las membresías vienen con Equipo: con un plan más chico no se ofrecen (los socios que ya
+		// están siguen usando sus visitas).
+		if ok, err := planes.Tiene(ctx, tx, s.ahora(), planes.Membresias); err != nil || !ok {
+			out = []Plan{}
+			return err
+		}
 		out, err = listarPlanes(ctx, tx, true)
 		return err
 	})

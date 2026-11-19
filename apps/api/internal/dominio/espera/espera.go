@@ -6,6 +6,7 @@ package espera
 
 import (
 	"context"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"net/http"
 	"strings"
 	"time"
@@ -214,6 +215,12 @@ func (s *Servicio) anotarse(w http.ResponseWriter, r *http.Request) error {
 	}
 	var a Anotado
 	err = s.Pool.EnNegocio(ctx, *negocio, func(tx pgx.Tx) error {
+		if ok, err := planes.Tiene(ctx, tx, s.ahora(), planes.Espera); err != nil || !ok {
+			if err == nil {
+				err = problema.NoEncontrado("Este negocio no tiene lista de espera.")
+			}
+			return err
+		}
 		var err error
 		a, err = s.anotar(ctx, tx, in, false)
 		return err

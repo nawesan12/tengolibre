@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
@@ -24,6 +25,15 @@ import (
 type Servicio struct {
 	Pool   *db.Pool
 	Sesion *sesion.Servicio
+	// Ahora: el reloj (nil: time.Now), para el plan que rige.
+	Ahora func() time.Time
+}
+
+func (s *Servicio) ahora() time.Time {
+	if s.Ahora != nil {
+		return s.Ahora()
+	}
+	return time.Now()
 }
 
 // Categoria de servicios.
@@ -56,18 +66,21 @@ const MaxFotosServicio = 5
 
 // Profesional con lo que hace y cuándo atiende.
 type Profesional struct {
-	ID           string                  `json:"id"`
-	MiembroID    *string                 `json:"miembroId"`
-	Nombre       string                  `json:"nombre"`
-	Especialidad string                  `json:"especialidad"`
-	Bio          string                  `json:"bio"`
-	Foto         *string                 `json:"foto"`
-	Email        string                  `json:"email"`
-	Telefono     string                  `json:"telefono"`
-	Orden        int                     `json:"orden"`
-	Activo       bool                    `json:"activo"`
-	Servicios    []string                `json:"servicios"`
-	Horario      []disponibilidad.Franja `json:"horario"`
+	ID           string  `json:"id"`
+	MiembroID    *string `json:"miembroId"`
+	Nombre       string  `json:"nombre"`
+	Especialidad string  `json:"especialidad"`
+	Bio          string  `json:"bio"`
+	Foto         *string `json:"foto"`
+	Email        string  `json:"email"`
+	Telefono     string  `json:"telefono"`
+	Orden        int     `json:"orden"`
+	Activo       bool    `json:"activo"`
+	// EnPlan: activo y dentro del tope de profesionales del plan (los más antiguos). Uno activo
+	// fuera del plan (bajaron de plan) queda en el panel pero no toma turnos. Lo calcula la base.
+	EnPlan    bool                    `json:"enPlan"`
+	Servicios []string                `json:"servicios"`
+	Horario   []disponibilidad.Franja `json:"horario"`
 }
 
 // Rutas del dominio.

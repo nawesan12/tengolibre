@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"net"
 	"net/http"
 	"regexp"
@@ -325,6 +326,21 @@ func SlugPorHost(ctx context.Context, pool *db.Pool, host string) (string, error
 		return nil
 	})
 	if err != nil || slug == nil {
+		return "", err
+	}
+	// El dominio propio viene con Centro: con un plan más chico queda guardado pero no sirve la
+	// página (sigue andando en la dirección de Tengo Libre) hasta volver a subir.
+	var id *string
+	if err := pool.EnTx(ctx, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, "SELECT app.negocio_publico($1)::text", *slug).Scan(&id)
+	}); err != nil || id == nil {
+		return "", err
+	}
+	var ok bool
+	if err := pool.EnNegocio(ctx, *id, func(tx pgx.Tx) (err error) {
+		ok, err = planes.Tiene(ctx, tx, time.Now(), planes.Dominio)
+		return err
+	}); err != nil || !ok {
 		return "", err
 	}
 	return *slug, nil

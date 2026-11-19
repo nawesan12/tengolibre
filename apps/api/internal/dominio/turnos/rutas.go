@@ -109,7 +109,7 @@ func (s *Servicio) pagina(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 		out.DiasVista, out.PoliticaCancelacion = a.DiasVista, a.PoliticaCancelacion
-		if out.Web, err = miweb.Leer(ctx, tx); err != nil {
+		if out.Web, err = miweb.LeerPublica(ctx, tx, time.Now()); err != nil {
 			return err
 		}
 		if out.Galeria, err = miweb.Galeria(ctx, tx); err != nil {

@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"net/http"
 	"strings"
 	"time"
@@ -213,6 +214,13 @@ func (s *Servicio) AlReservar(ctx context.Context, tx pgx.Tx, r *turnos.Reserva)
 		return err
 	}
 	if r.Pedido.Cupon != "" {
+		// Cupones y referidos vienen con Equipo: con un plan más chico no se aplican.
+		if ok, err := planes.Tiene(ctx, tx, r.Ahora, planes.Cupones); err != nil || !ok {
+			if err == nil {
+				err = problema.NoProcesable("cupon_invalido", "Este negocio no tiene cupones activos.")
+			}
+			return err
+		}
 		c, motivo, err := vigente(ctx, tx, r.Pedido.Cupon, &t.Precio, r.Ahora)
 		if err != nil {
 			return err
@@ -245,6 +253,9 @@ func (s *Servicio) AlReservar(ctx context.Context, tx pgx.Tx, r *turnos.Reserva)
 		t.Descuento += d
 	}
 	if r.Pedido.Referido != "" {
+		if ok, err := planes.Tiene(ctx, tx, r.Ahora, planes.Referidos); err != nil || !ok {
+			return err
+		}
 		return s.referir(ctx, tx, r)
 	}
 	return nil

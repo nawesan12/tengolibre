@@ -7,6 +7,7 @@ package reportes
 
 import (
 	"context"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"maps"
 	"math"
 	"net/http"
@@ -43,16 +44,32 @@ func (s *Servicio) ahora() time.Time {
 // Rutas del dominio. Todo es de gestión: son los números del negocio y los datos de todos los clientes.
 func (s *Servicio) Rutas(mux *http.ServeMux) {
 	g := func(h web.Manejador) http.HandlerFunc { return s.Sesion.Panel(sesion.Gestion, web.Envolver(h)) }
+	// El resumen y el tablero vienen con todos los planes; el resto es de Equipo (reportes completos)
+	// y las exportaciones CSV, de Centro.
+	c := func(f planes.Funcion, h web.Manejador) http.HandlerFunc { return g(s.exige(f, h)) }
 	mux.HandleFunc("GET /v1/panel/reportes", g(s.reporte))
 	mux.HandleFunc("GET /v1/panel/estadisticas", g(s.tablero))
-	mux.HandleFunc("GET /v1/panel/reportes/ausentes", g(s.ausentes))
-	mux.HandleFunc("GET /v1/panel/reportes/clientes.csv", g(s.csvClientes))
-	mux.HandleFunc("GET /v1/panel/reportes/turnos.csv", g(s.csvTurnos))
-	mux.HandleFunc("GET /v1/panel/reportes/horas-muertas", g(s.horasMuertas))
+	mux.HandleFunc("GET /v1/panel/reportes/ausentes", c(planes.ReportesCompletos, s.ausentes))
+	mux.HandleFunc("GET /v1/panel/reportes/clientes.csv", c(planes.CSV, s.csvClientes))
+	mux.HandleFunc("GET /v1/panel/reportes/turnos.csv", c(planes.CSV, s.csvTurnos))
+	mux.HandleFunc("GET /v1/panel/reportes/horas-muertas", c(planes.ReportesCompletos, s.horasMuertas))
 	mux.HandleFunc("POST /v1/panel/reportes/horas-muertas/cupon", g(s.crearCupon))
-	mux.HandleFunc("GET /v1/panel/reportes/mensual", g(s.mensual))
+	mux.HandleFunc("GET /v1/panel/reportes/mensual", c(planes.ReportesCompletos, s.mensual))
 	mux.HandleFunc("GET /v1/panel/reportes/mensual/ajustes", g(s.leerAjustesMensual))
 	mux.HandleFunc("PUT /v1/panel/reportes/mensual/ajustes", g(s.guardarAjustesMensual))
+}
+
+// exige f en el plan que rige antes de h (402 tope_plan si no la incluye).
+func (s *Servicio) exige(f planes.Funcion, h web.Manejador) web.Manejador {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		ctx := r.Context()
+		if err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error {
+			return planes.Exigir(ctx, tx, s.ahora(), f)
+		}); err != nil {
+			return err
+		}
+		return h(w, r)
+	}
 }
 
 // MaxDias de un reporte.
