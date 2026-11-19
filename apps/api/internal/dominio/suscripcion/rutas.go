@@ -444,8 +444,9 @@ func (s *Servicio) ConciliarCobro(ctx context.Context, id string) error {
 		var extras int
 		var siguiente *string
 		var extrasSiguiente *int
-		err := tx.QueryRow(ctx, `SELECT id::text, plan, periodo, profesionales_extra, plan_siguiente, extras_siguiente FROM suscripciones
-			WHERE mp_id = $1 FOR UPDATE`, c.PreapprovalID).Scan(&subID, &plan, &periodo, &extras, &siguiente, &extrasSiguiente)
+		var ultimo *time.Time
+		err := tx.QueryRow(ctx, `SELECT id::text, plan, periodo, profesionales_extra, plan_siguiente, extras_siguiente, ultimo_cobro FROM suscripciones
+			WHERE mp_id = $1 FOR UPDATE`, c.PreapprovalID).Scan(&subID, &plan, &periodo, &extras, &siguiente, &extrasSiguiente, &ultimo)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -454,6 +455,11 @@ func (s *Servicio) ConciliarCobro(ctx context.Context, id string) error {
 		}
 		switch c.Payment.Status {
 		case "approved":
+			// Un aviso repetido de un cobro ya aplicado (Mercado Pago reenvía los avisos) no vuelve a aplicar
+			// la baja programada ni coteja el monto viejo: pisaba una subida pagada después de ese cobro.
+			if c.DebitDate != nil && ultimo != nil && !c.DebitDate.After(*ultimo) {
+				return nil
+			}
 			// Una cancelada o vencida no revive con un cobro suyo que llegó tarde (por ejemplo, la vieja
 			// después de cambiar de plan, si su baja en Mercado Pago falló): pisaba el plan nuevo.
 			tag, err := tx.Exec(ctx, `UPDATE suscripciones SET estado = 'autorizada', ultimo_cobro = $2, proximo_cobro = coalesce($3, proximo_cobro),

@@ -265,7 +265,8 @@ func TestSenaSoloConEquipo(t *testing.T) {
 func cobro(e *cobrosprueba.Entorno, id, cobroID string, monto int64, proximo time.Time) {
 	e.T.Helper()
 	e.MP.Autorizar(id, "authorized", &proximo)
-	c := mercadopago.CobroAutorizado{PreapprovalID: id, TransactionAmount: float64(monto)}
+	debito := e.Ahora
+	c := mercadopago.CobroAutorizado{PreapprovalID: id, TransactionAmount: float64(monto), DebitDate: &debito}
 	c.Payment.Status = "approved"
 	e.MP.Cobros[cobroID] = c
 	if s := e.Avisar("subscription_authorized_payment", cobroID); s != 200 {
@@ -416,6 +417,13 @@ func TestSubirCobraLaDiferencia(t *testing.T) {
 	if s := leer(e); s.Plan != "centro" || s.Suscripcion.Monto != 29900 || e.MP.Montos[id] != 29900 {
 		t.Fatalf("subida pagada: %+v %+v", s.Acceso, s.Suscripcion)
 	}
+	// Mercado Pago reenvía el aviso del cobro de Inicial (de antes de la subida): no vuelve a Inicial.
+	if s := e.Avisar("subscription_authorized_payment", "8001"); s != 200 {
+		t.Fatalf("aviso repetido: %d", s)
+	}
+	if s := leer(e); s.Plan != "centro" {
+		t.Fatalf("el aviso repetido pisó la subida: %+v", s.Acceso)
+	}
 	// Bajar a Inicial: Centro pagado sigue hasta el cobro; el cobro es de Inicial y ahí baja.
 	e.Panel(200, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "inicial"}, &x)
 	if s := leer(e); s.Plan != "centro" || e.MP.Montos[id] != 6900 {
@@ -429,6 +437,7 @@ func TestSubirCobraLaDiferencia(t *testing.T) {
 	// Si Mercado Pago cobra menos que el plan (un cambio de monto que no llegó), rige lo que se pagó.
 	e.SQL("UPDATE suscripciones SET plan = 'centro', monto = 29900 WHERE mp_id = $1", id)
 	e.SQL("UPDATE negocios SET plan = 'centro' WHERE id = $1", e.Negocio)
+	e.Ahora = e.Ahora.AddDate(0, 1, 0)
 	cobro(e, id, "8003", 14900, e.Ahora.AddDate(0, 2, 0))
 	if s := leer(e); s.Plan != "equipo" {
 		t.Fatalf("cobró menos: %+v", s.Acceso)
