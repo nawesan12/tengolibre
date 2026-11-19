@@ -1,6 +1,7 @@
 package miweb_test
 
 import (
+	"strings"
 	"reflect"
 	"testing"
 	"time"
@@ -28,6 +29,8 @@ func TestMiWebYGaleria(t *testing.T) {
 	var uno, dos negocios.Negocio
 	a.Esperar(201, P{Metodo: "POST", Ruta: "/v1/negocios", Quien: ana, Cuerpo: map[string]string{"slug": "uno", "nombre": "Uno"}}, &uno)
 	a.Esperar(201, P{Metodo: "POST", Ruta: "/v1/negocios", Quien: beto, Cuerpo: map[string]string{"slug": "dos", "nombre": "Dos"}}, &dos)
+	// Las plantillas vienen con Centro (TestPlantillasConElPlan prueba el tope).
+	a.PonerPlan(uno.ID, "centro")
 	panel := func(estado int, metodo, ruta string, cuerpo, v any) {
 		t.Helper()
 		a.Esperar(estado, P{Metodo: metodo, Ruta: ruta, Quien: ana, Negocio: uno.ID, Cuerpo: cuerpo}, v)
@@ -117,4 +120,25 @@ func TestMiWebYGaleria(t *testing.T) {
 		t.Fatalf("pública: %+v", pub)
 	}
 	a.Esperar(404, P{Metodo: "GET", Ruta: "/v1/p/no-existe/web"}, nil)
+
+	// Las plantillas vienen con Centro. Al bajar de plan, la elegida queda guardada (y se puede
+	// volver a guardar) pero no se puede cambiar por otra, y la página se ve con la de por defecto.
+	panel(200, "PATCH", "/v1/panel/mi-web", map[string]any{"estilo": map[string]string{"plantilla": "galeria"}}, &w)
+	a.PonerPlan(uno.ID, "equipo")
+	if r := a.Hacer(P{Metodo: "PATCH", Ruta: "/v1/panel/mi-web", Quien: ana, Negocio: uno.ID,
+		Cuerpo: map[string]any{"estilo": map[string]string{"plantilla": "vidriera"}}}); r.Estado != 402 || !strings.Contains(string(r.Cuerpo), `"code":"tope_plan"`) {
+		t.Fatalf("otra plantilla sin Centro: %d %s", r.Estado, r.Cuerpo)
+	}
+	panel(200, "PATCH", "/v1/panel/mi-web", map[string]any{"estilo": map[string]string{"plantilla": "galeria", "fondo": "blanco"}}, &w)
+	panel(200, "PATCH", "/v1/panel/mi-web", map[string]any{"estilo": map[string]string{"plantilla": "carta"}}, &w)
+	panel(402, "PATCH", "/v1/panel/mi-web", map[string]any{"estilo": map[string]string{"plantilla": "galeria"}}, nil)
+	a.Fila("UPDATE negocios SET estilo = '{\"plantilla\": \"galeria\"}' WHERE id = $1::uuid", []any{uno.ID})
+	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/p/uno/web"}, &pub)
+	if pub.Estilo.Plantilla != "carta" {
+		t.Fatalf("sin Centro, la pública va con la de por defecto: %+v", pub.Estilo)
+	}
+	panel(200, "GET", "/v1/panel/mi-web", nil, &w)
+	if w.Estilo.Plantilla != "galeria" {
+		t.Fatalf("lo elegido queda guardado: %+v", w.Estilo)
+	}
 }

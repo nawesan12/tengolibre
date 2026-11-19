@@ -43,6 +43,8 @@ type MP struct {
 	Cobros        map[string]mercadopago.CobroAutorizado
 	// Montos: el último precio que se le puso a cada preapproval con un PUT (cambio de plan).
 	Montos map[string]int64
+	// Frecuencias: los meses entre cobros con que se creó cada preapproval (1 mensual, 12 anual).
+	Frecuencias map[string]int
 	// Cuenta: lo que devuelve /users/me con el token del vendedor (el nombre de la cuenta).
 	Cuenta map[string]any
 	// Renovaciones de tokens pedidas.
@@ -75,7 +77,7 @@ type ReembolsoOrden struct {
 func Nuevo(t testing.TB) *MP {
 	m := &MP{Usuario: 777, Ordenes: map[string]*Orden{}, OrdenesID: map[string]*Orden{}, clavesOrden: map[string]*Orden{},
 		DevolucionesOrden: map[string][]ReembolsoOrden{}, Pagos: map[int64]mercadopago.Pago{}, Devoluciones: map[int64][]int64{}, Preaprobacion: map[string]*mercadopago.Preaprobacion{},
-		Cobros: map[string]mercadopago.CobroAutorizado{}, Montos: map[string]int64{},
+		Cobros: map[string]mercadopago.CobroAutorizado{}, Montos: map[string]int64{}, Frecuencias: map[string]int{},
 		Cuenta: map[string]any{"id": 777, "nickname": "ELCORTE", "first_name": "Carla", "last_name": "Gómez",
 			"company": map[string]any{"brand_name": "El Corte", "corporate_name": "EL CORTE SRL"}}}
 	m.Server = httptest.NewServer(http.HandlerFunc(m.servir))
@@ -172,10 +174,15 @@ func (m *MP) servir(w http.ResponseWriter, r *http.Request) {
 		var b struct {
 			ExternalReference string `json:"external_reference"`
 			PayerEmail        string `json:"payer_email"`
+			AutoRecurring     struct {
+				Frequency         int   `json:"frequency"`
+				TransactionAmount int64 `json:"transaction_amount"`
+			} `json:"auto_recurring"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&b)
 		m.n++
 		id := fmt.Sprintf("pre%04d", m.n)
+		m.Montos[id], m.Frecuencias[id] = b.AutoRecurring.TransactionAmount, b.AutoRecurring.Frequency
 		m.Preaprobacion[id] = &mercadopago.Preaprobacion{ID: id, Status: "pending", InitPoint: "https://mp.falso/suscripcion/" + id,
 			ExternalReference: b.ExternalReference, PayerEmail: b.PayerEmail}
 		escribir(w, 201, m.Preaprobacion[id])

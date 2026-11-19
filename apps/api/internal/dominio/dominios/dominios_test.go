@@ -99,6 +99,8 @@ func TestDominioPropioDePuntaAPunta(t *testing.T) {
 	var uno, dos negocios.Negocio
 	a.Esperar(201, P{Metodo: "POST", Ruta: "/v1/negocios", Quien: ana, Cuerpo: map[string]string{"slug": "uno", "nombre": "Uno"}}, &uno)
 	a.Esperar(201, P{Metodo: "POST", Ruta: "/v1/negocios", Quien: beto, Cuerpo: map[string]string{"slug": "dos", "nombre": "Dos"}}, &dos)
+	// El dominio propio viene con Centro.
+	a.PonerPlan(uno.ID, "centro")
 
 	var r respuesta
 	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/panel/dominio", Quien: ana, Negocio: uno.ID}, &r)
@@ -142,6 +144,11 @@ func TestDominioPropioDePuntaAPunta(t *testing.T) {
 			t.Fatalf("%s: %v", host, h)
 		}
 	}
+	// Bajar de plan no lo borra: deja de servir la página hasta volver a Centro.
+	a.PonerPlan(uno.ID, "equipo")
+	a.Esperar(404, P{Metodo: "GET", Ruta: "/v1/host/turnos.uno.com"}, nil)
+	a.PonerPlan(uno.ID, "centro")
+	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/host/turnos.uno.com"}, &h)
 
 	// Otro negocio puede anotar el mismo dominio (nadie lo traba), pero no verificarlo: su token
 	// no está, y aunque estuviera, el dominio ya es de uno.

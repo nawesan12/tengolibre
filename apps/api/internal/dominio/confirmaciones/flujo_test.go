@@ -129,6 +129,8 @@ func armar(t *testing.T) *entorno {
 	e.panel(201, "POST", "/v1/panel/profesionales", map[string]any{"nombre": "Ana", "servicios": []string{s.ID},
 		"horario": []disponibilidad.Franja{{Dia: 1, Desde: "09:00", Hasta: "12:00"}}}, &pa)
 	e.ana = pa.ID
+	// Los recordatorios por WhatsApp vienen con Centro (150 por mes) o con packs.
+	e.PonerPlan(e.negocio, "centro")
 	return e
 }
 
@@ -495,6 +497,45 @@ func TestRecordatorioPorWhatsApp(t *testing.T) {
 	if r := e.correr(e.tj.Recordatorios); r["encolados"] != 0 {
 		t.Fatalf("con confirmación: %v", r)
 	}
+}
+
+// El tope de WhatsApp: fuera de Centro sólo con packs; en Centro, 150 por mes y después los packs.
+// Sin lugar no se encola (la próxima corrida lo vuelve a intentar).
+func TestWhatsAppTopeDelPlan(t *testing.T) {
+	e := armar(t)
+	e.Ahora = en("2026-11-01 10:00")
+	e.PonerPlan(e.negocio, "equipo")
+	e.panel(200, "PUT", "/v1/panel/ajustes/whatsapp", map[string]any{"confirmacion": false, "hora": "10:00", "sinRespuestaHoras": 4, "recordatorio": true}, nil)
+	e.reservar("2026-11-02 10:30", "Sofía Méndez", "11 2345-6789")
+	e.reservar("2026-11-02 10:00", "Nadia Paz", "11 2345-0000")
+	if r := e.correr(e.tj.Recordatorios); r["encolados"] != 0 {
+		t.Fatalf("Equipo sin packs: %v", r)
+	}
+	// Un pack con un solo recordatorio de saldo: sale uno y el otro espera.
+	e.Fila("UPDATE negocios SET whatsapp_saldo = 1 WHERE id = $1::uuid", []any{e.negocio})
+	if r := e.correr(e.tj.Recordatorios); r["encolados"] != 1 {
+		t.Fatalf("con saldo 1: %v", r)
+	}
+	var saldo int
+	e.Fila("SELECT whatsapp_saldo FROM negocios WHERE id = $1::uuid", []any{e.negocio}, &saldo)
+	if saldo != 0 {
+		t.Fatalf("el saldo no bajó: %d", saldo)
+	}
+	// Centro: los incluidos del mes; ya usados los 150, vuelve a depender del saldo.
+	e.PonerPlan(e.negocio, "centro")
+	e.Fila(`INSERT INTO whatsapp_mensajes (negocio_id, tipo, para, token, clave, estado, proximo_intento, creado_en)
+		SELECT $1::uuid, 'recordatorio', '+5491100000000', 'tokendeprueba' || lpad(g::text, 6, '0'), 'viejo:' || g, 'enviado', $2, $2
+		FROM generate_series(1, 149) g`, []any{e.negocio, e.Ahora})
+	if r := e.correr(e.tj.Recordatorios); r["encolados"] != 0 {
+		t.Fatalf("Centro con los 150 usados y sin saldo: %v", r)
+	}
+	// El mes que viene arranca de cero.
+	e.Ahora = en("2026-12-06 10:00")
+	e.reservar("2026-12-07 10:00", "Lola Fernández", "11 3456-7890")
+	if r := e.correr(e.tj.Recordatorios); r["encolados"] != 1 {
+		t.Fatalf("mes nuevo: %v", r)
+	}
+	// Sin plan de WhatsApp los mails y el push siguen (no tienen límite): nada que probar acá.
 }
 
 func TestWhatsAppSinConfigurar(t *testing.T) {

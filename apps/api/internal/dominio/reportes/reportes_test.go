@@ -40,6 +40,8 @@ func TestReportesYExportaciones(t *testing.T) {
 	})
 	var n negocios.Negocio
 	a.Esperar(201, P{Metodo: "POST", Ruta: "/v1/negocios", Quien: duenia, Cuerpo: map[string]string{"slug": "el-corte", "nombre": "El Corte"}}, &n)
+	// Las exportaciones CSV vienen con Centro.
+	a.PonerPlan(n.ID, "centro")
 	panel := func(estado int, metodo, ruta string, cuerpo, v any) prueba.Respuesta {
 		t.Helper()
 		return a.Esperar(estado, P{Metodo: metodo, Ruta: ruta, Quien: duenia, Negocio: n.ID, Cuerpo: cuerpo}, v)

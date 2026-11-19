@@ -192,9 +192,9 @@ func TestAdminEstadosYPlata(t *testing.T) {
 	prueba(dos, -10*dia) // pagando
 	prueba(tres, -5*dia) // el cobro no pasó
 	prueba(cuatro, -dia) // sólo lectura
-	sql(t, a, `INSERT INTO suscripciones (negocio_id, referencia, plan, estado, monto, proximo_cobro) VALUES ($1, md5(random()::text), 'completo', 'autorizada', 15000, $2)`,
+	sql(t, a, `INSERT INTO suscripciones (negocio_id, referencia, plan, estado, monto, proximo_cobro) VALUES ($1, md5(random()::text), 'equipo', 'autorizada', 14900, $2)`,
 		dos, a.Ahora.Add(20*dia))
-	sql(t, a, `INSERT INTO suscripciones (negocio_id, referencia, plan, estado, monto, gracia_hasta) VALUES ($1, md5(random()::text), 'inicial', 'pausada', 7000, $2)`,
+	sql(t, a, `INSERT INTO suscripciones (negocio_id, referencia, plan, estado, monto, gracia_hasta) VALUES ($1, md5(random()::text), 'inicial', 'pausada', 6900, $2)`,
 		tres, a.Ahora.Add(3*dia))
 	// Hoy: dos turnos por la web y uno del panel (y uno cancelado, que no cuenta).
 	sql(t, a, `WITH c AS (INSERT INTO clientes (negocio_id, nombre, telefono) VALUES ($1, 'Cliente', '1111') RETURNING id, negocio_id)
@@ -212,7 +212,7 @@ func TestAdminEstadosYPlata(t *testing.T) {
 		Conversion         *int `json:"conversion"`
 	}
 	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/admin/estadisticas", Quien: equipo}, &est)
-	if est.TurnosHoy != 3 || est.PorcentajeWeb == nil || *est.PorcentajeWeb != 67 || est.SuscripcionesPagas != 1 || est.Mrr != 15000 ||
+	if est.TurnosHoy != 3 || est.PorcentajeWeb == nil || *est.PorcentajeWeb != 67 || est.SuscripcionesPagas != 1 || est.Mrr != 14900 ||
 		est.PruebasPorVencer != 1 || est.Conversion == nil || *est.Conversion != 67 {
 		t.Fatalf("estadísticas: %+v", est)
 	}
@@ -233,12 +233,12 @@ func TestAdminEstadosYPlata(t *testing.T) {
 	for _, n := range l.Negocios {
 		estados[n.Slug] = n
 	}
-	if estados["uno"].Estado != "prueba" || estados["dos"].Estado != "completo" || estados["tres"].Estado != "cobro_fallido" ||
+	if estados["uno"].Estado != "prueba" || estados["dos"].Estado != "equipo" || estados["tres"].Estado != "cobro_fallido" ||
 		estados["cuatro"].Estado != "solo_lectura" || estados["tres"].GraciaDias == nil || *estados["tres"].GraciaDias != 3 ||
 		estados["dos"].GraciaDias != nil {
 		t.Fatalf("estados: %+v", estados)
 	}
-	if l.Conteos["prueba"] != 1 || l.Conteos["completo"] != 1 || l.Conteos["cobro_fallido"] != 1 || l.Conteos["solo_lectura"] != 1 {
+	if l.Conteos["prueba"] != 1 || l.Conteos["equipo"] != 1 || l.Conteos["cobro_fallido"] != 1 || l.Conteos["solo_lectura"] != 1 {
 		t.Fatalf("conteos: %+v", l.Conteos)
 	}
 	// El filtro deja los conteos como están (son las pastillas de la búsqueda).
@@ -248,7 +248,7 @@ func TestAdminEstadosYPlata(t *testing.T) {
 	}
 	l.Conteos = nil // el JSON se suma a un mapa que ya existe
 	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/admin/negocios?estado=prueba&q=dos", Quien: equipo}, &l)
-	if l.Total != 0 || l.Conteos["completo"] != 1 || len(l.Conteos) != 1 {
+	if l.Total != 0 || l.Conteos["equipo"] != 1 || len(l.Conteos) != 1 {
 		t.Fatalf("filtro con búsqueda: %+v", l)
 	}
 	a.Esperar(400, P{Metodo: "GET", Ruta: "/v1/admin/negocios?estado=oro", Quien: equipo}, nil)

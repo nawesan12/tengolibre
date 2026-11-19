@@ -129,9 +129,10 @@ func ArmarCon(t *testing.T, mas func(a *prueba.API, tur *turnos.Servicio) []serv
 		// El orden de los extras importa: la membresía cubre, el cupón descuenta, el cobro cobra lo que queda.
 		tur := &turnos.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj, Avisar: avisar, Extras: []turnos.Extra{mem, pro, cob}}
 		cob.CancelarTurno = tur.AlCancelar
+		cob.OrdenesPlataforma = sus.RecibirOrdenPlataforma
 		ds := []servidor.Dominio{
 			&negocios.Servicio{Pool: app, Sesion: a.Sesion},
-			&catalogo.Servicio{Pool: app, Sesion: a.Sesion},
+			&catalogo.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj},
 			tur, cob, pro, mem, sus,
 			&caja.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj},
 			&reportes.Servicio{Pool: app, Sesion: a.Sesion, Ahora: reloj},

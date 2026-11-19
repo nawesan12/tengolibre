@@ -50,7 +50,7 @@ func TestPanelEnSoloLecturaConLaPruebaVencida(t *testing.T) {
 	e := cobrosprueba.Armar(t)
 	e.SQL("UPDATE negocios SET prueba_hasta = $1", e.Ahora.Add(60*time.Hour))
 	s := leer(e)
-	if s.Bloqueado || s.DiasDePrueba != 3 || s.Plan != "completo" || len(s.Catalogo) != 2 || s.Suscripcion != nil {
+	if s.Bloqueado || s.DiasDePrueba != 3 || s.Plan != "equipo" || len(s.Catalogo) != 3 || s.Suscripcion != nil {
 		t.Fatalf("en prueba: %+v", s)
 	}
 	escribe(e, 201)
@@ -83,7 +83,7 @@ func TestPanelEnSoloLecturaConLaPruebaVencida(t *testing.T) {
 		ID  string `json:"suscripcionId"`
 		URL string `json:"url"`
 	}
-	e.Panel(201, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "completo"}, &alta)
+	e.Panel(201, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "equipo"}, &alta)
 	// Abandonar el checkout y volver a empezar no traba nada.
 	e.Panel(201, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "inicial"}, &alta)
 	id := strings.TrimPrefix(alta.URL, "https://mp.falso/suscripcion/")
@@ -91,7 +91,7 @@ func TestPanelEnSoloLecturaConLaPruebaVencida(t *testing.T) {
 	if pre == nil || !strings.HasPrefix(pre.ExternalReference, e.Negocio+"-") || pre.PayerEmail != "duenia0001@prueba.tengolibre.com.ar" {
 		t.Fatalf("preapproval: %+v", pre)
 	}
-	if s = leer(e); !s.Bloqueado || s.Suscripcion == nil || s.Suscripcion.Estado != "pendiente" || s.Suscripcion.Plan != "inicial" || s.Suscripcion.Monto != 7000 {
+	if s = leer(e); !s.Bloqueado || s.Suscripcion == nil || s.Suscripcion.Estado != "pendiente" || s.Suscripcion.Plan != "inicial" || s.Suscripcion.Monto != 6900 {
 		t.Fatalf("pendiente no destraba: %+v %+v", s, s.Suscripcion)
 	}
 
@@ -105,15 +105,28 @@ func TestPanelEnSoloLecturaConLaPruebaVencida(t *testing.T) {
 		!s.Suscripcion.ProximoCobro.Equal(proximo) {
 		t.Fatalf("autorizada: %+v %+v", s, s.Suscripcion)
 	}
-	escribe(e, 201)
-	e.Panel(409, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "completo"}, nil)
+	// Con Inicial el panel escribe, salvo lo que es de Equipo (tope_plan, con el plan que lo trae).
+	e.Panel(201, "POST", "/v1/panel/servicios", map[string]any{"nombre": "Barba", "duracion": 30, "precio": 5000}, nil)
+	e.Panel(200, "PUT", "/v1/panel/cobros", map[string]any{"modo": "sin_cobro"}, nil)
+	var p struct {
+		Codigo string `json:"code"`
+		Plan   string `json:"plan"`
+	}
+	e.Panel(402, "POST", "/v1/panel/cupones", map[string]any{"codigo": "INICIAL", "tipo": "fijo", "valor": 100}, &p)
+	if p.Codigo != "tope_plan" || p.Plan != "equipo" {
+		t.Fatalf("cupones con Inicial: %+v", p)
+	}
+	e.Panel(402, "PUT", "/v1/panel/referidos/config", map[string]any{"activo": false}, nil)
+	e.Panel(402, "POST", "/v1/panel/membresias/planes", map[string]any{"nombre": "Plan", "precio": 1000}, nil)
+	e.Panel(200, "GET", "/v1/panel/cupones", nil, nil)
+	e.Panel(409, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "equipo"}, nil)
 	acceso := func() suscripcion.Acceso {
 		e.T.Helper()
 		var a suscripcion.Acceso
 		e.Panel(200, "GET", "/v1/panel/acceso", nil, &a)
 		return a
 	}
-	if a := acceso(); a.ProximoCobro == nil || !a.ProximoCobro.Fecha.Equal(proximo) || a.ProximoCobro.Monto != 7000 || a.CobroFallidoHasta != nil {
+	if a := acceso(); a.ProximoCobro == nil || !a.ProximoCobro.Fecha.Equal(proximo) || a.ProximoCobro.Monto != 6900 || a.CobroFallidoHasta != nil {
 		t.Fatalf("acceso autorizada: %+v", a)
 	}
 
@@ -182,11 +195,11 @@ func TestCanceladaDesdeMercadoPago(t *testing.T) {
 	var alta struct {
 		URL string `json:"url"`
 	}
-	e.Panel(201, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "completo"}, &alta)
+	e.Panel(201, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "equipo"}, &alta)
 	id := strings.TrimPrefix(alta.URL, "https://mp.falso/suscripcion/")
 	e.MP.Autorizar(id, "authorized", nil)
 	e.Avisar("subscription_preapproval", id)
-	if s := leer(e); s.Bloqueado || s.Plan != "completo" {
+	if s := leer(e); s.Bloqueado || s.Plan != "equipo" {
 		t.Fatalf("autorizada: %+v", s)
 	}
 	// La persona la cancela desde Mercado Pago (sin pasar por el panel): se corta.
@@ -215,7 +228,7 @@ func TestCambiarPagarTarjetaYReactivar(t *testing.T) {
 		URL string `json:"url"`
 	}
 	// Sin suscripción no hay nada que cambiar.
-	e.Panel(409, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "completo"}, nil)
+	e.Panel(409, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "equipo"}, nil)
 	e.Panel(404, "POST", "/v1/panel/suscripcion/pagar", nil, nil)
 	e.Panel(201, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "inicial"}, &url)
 	id := strings.TrimPrefix(url.URL, "https://mp.falso/suscripcion/")
@@ -227,11 +240,11 @@ func TestCambiarPagarTarjetaYReactivar(t *testing.T) {
 	e.Panel(400, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "oro"}, nil)
 	e.Panel(409, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "inicial"}, nil)
 	var x suscripcion.Suscripcion
-	e.Panel(200, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "completo"}, &x)
-	if x.Plan != "completo" || x.Monto != 15000 || e.MP.Montos[id] != 15000 {
+	e.Panel(200, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "equipo"}, &x)
+	if x.Plan != "equipo" || x.Monto != 14900 || e.MP.Montos[id] != 14900 {
 		t.Fatalf("cambiar: %+v %v", x, e.MP.Montos)
 	}
-	if s := leer(e); s.Plan != "completo" || s.NombrePlan != "Completo" {
+	if s := leer(e); s.Plan != "equipo" || s.NombrePlan != "Equipo" {
 		t.Fatalf("plan: %+v", s)
 	}
 	// Va a la auditoría, entre los cambios de plata; lo del equipo no.
@@ -255,7 +268,7 @@ func TestCambiarPagarTarjetaYReactivar(t *testing.T) {
 		t.Fatalf("tarjeta: %s", url.URL)
 	}
 	// Mientras no se autoriza, se sigue viendo la de antes.
-	if s := leer(e); s.Suscripcion.Estado != "autorizada" || s.Suscripcion.Plan != "completo" {
+	if s := leer(e); s.Suscripcion.Estado != "autorizada" || s.Suscripcion.Plan != "equipo" {
 		t.Fatalf("antes de autorizar la nueva: %+v", s.Suscripcion)
 	}
 	e.MP.Autorizar(nueva, "authorized", &proximo)
@@ -263,7 +276,7 @@ func TestCambiarPagarTarjetaYReactivar(t *testing.T) {
 	if e.MP.Preaprobacion[id].Status != "cancelled" {
 		t.Fatalf("la vieja en Mercado Pago: %s", e.MP.Preaprobacion[id].Status)
 	}
-	if s := leer(e); s.Bloqueado || s.Suscripcion.Estado != "autorizada" || !strings.HasSuffix(*s.Suscripcion.Link, nueva) || s.Plan != "completo" {
+	if s := leer(e); s.Bloqueado || s.Suscripcion.Estado != "autorizada" || !strings.HasSuffix(*s.Suscripcion.Link, nueva) || s.Plan != "equipo" {
 		t.Fatalf("con la tarjeta nueva: %+v", s.Suscripcion)
 	}
 
@@ -290,7 +303,7 @@ func TestCambiarPagarTarjetaYReactivar(t *testing.T) {
 	if p := e.MP.Preaprobacion[strings.TrimPrefix(url.URL, "https://mp.falso/suscripcion/")]; p == nil {
 		t.Fatalf("reactivar: %s", url.URL)
 	}
-	if s := leer(e); s.Suscripcion.Estado != "pendiente" || s.Suscripcion.Plan != "completo" {
+	if s := leer(e); s.Suscripcion.Estado != "pendiente" || s.Suscripcion.Plan != "equipo" {
 		t.Fatalf("reactivada: %+v", s.Suscripcion)
 	}
 }
@@ -310,19 +323,19 @@ func TestSuscripcionDesdeElIPhone(t *testing.T) {
 		t.Fatalf("sin prueba ni suscripción tendría que estar bloqueado: %+v", s)
 	}
 	vence := e.Ahora.AddDate(0, 1, 0)
-	compra := e.Apple.Transaccion("2000001", "ar.com.tengolibre.completo.mensual", e.Negocio, vence)
+	compra := e.Apple.Transaccion("2000001", "ar.com.tengolibre.equipo.mensual", e.Negocio, vence)
 
 	// Una firma que no es de la App Store, y una compra hecha para otro negocio, no sirven.
 	e.Panel(400, "POST", "/v1/panel/suscripcion/apple", map[string]string{"transaccion": "a.b.c"}, nil)
-	otro := e.Apple.Transaccion("2000002", "ar.com.tengolibre.completo.mensual", "00000000-0000-0000-0000-000000000000", vence)
+	otro := e.Apple.Transaccion("2000002", "ar.com.tengolibre.equipo.mensual", "00000000-0000-0000-0000-000000000000", vence)
 	e.Panel(409, "POST", "/v1/panel/suscripcion/apple", map[string]string{"transaccion": otro}, nil)
 
 	var x suscripcion.Suscripcion
 	e.Panel(200, "POST", "/v1/panel/suscripcion/apple", map[string]string{"transaccion": compra}, &x)
-	if x.Origen != "apple" || x.Estado != "autorizada" || x.Plan != "completo" {
+	if x.Origen != "apple" || x.Estado != "autorizada" || x.Plan != "equipo" {
 		t.Fatalf("la compra no quedó: %+v", x)
 	}
-	if s := leer(e); s.Bloqueado || !s.ConSuscripcion || s.Plan != "completo" || s.Suscripcion == nil || s.Suscripcion.Origen != "apple" {
+	if s := leer(e); s.Bloqueado || !s.ConSuscripcion || s.Plan != "equipo" || s.Suscripcion == nil || s.Suscripcion.Origen != "apple" {
 		t.Fatalf("con la compra tendría que estar abierto: %+v", s)
 	}
 	// Mandarla dos veces (restaurar compras) no duplica.
@@ -336,13 +349,13 @@ func TestSuscripcionDesdeElIPhone(t *testing.T) {
 		e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/webhooks/appstore", Cuerpo: map[string]string{"signedPayload": cuerpo}}, nil)
 	}
 	// Apagó la renovación: sigue valiendo hasta que vence.
-	ren := e.Apple.Firmar(map[string]any{"originalTransactionId": "2000001", "autoRenewStatus": 0, "autoRenewProductId": "ar.com.tengolibre.completo.mensual"})
+	ren := e.Apple.Firmar(map[string]any{"originalTransactionId": "2000001", "autoRenewStatus": 0, "autoRenewProductId": "ar.com.tengolibre.equipo.mensual"})
 	webhook(e.Apple.Notificacion("DID_CHANGE_RENEWAL_STATUS", "AUTO_RENEW_DISABLED", compra, ren))
 	if s := leer(e); s.Bloqueado || s.Suscripcion.CanceladaEn == nil {
 		t.Fatalf("con la renovación apagada sigue valiendo hasta el vencimiento: %+v", s)
 	}
 	// Renovó (otro mes).
-	renovo := e.Apple.Transaccion("2000001", "ar.com.tengolibre.completo.mensual", e.Negocio, vence.AddDate(0, 1, 0))
+	renovo := e.Apple.Transaccion("2000001", "ar.com.tengolibre.equipo.mensual", e.Negocio, vence.AddDate(0, 1, 0))
 	webhook(e.Apple.Notificacion("DID_RENEW", "", renovo, ""))
 	if s := leer(e); s.Bloqueado || s.Suscripcion.ProximoCobro == nil || !s.Suscripcion.ProximoCobro.After(vence) {
 		t.Fatalf("renovada: %+v", s)
@@ -356,7 +369,7 @@ func TestSuscripcionDesdeElIPhone(t *testing.T) {
 	// Una notificación firmada por otro no hace nada (400).
 	e.Esperar(400, P{Metodo: "POST", Ruta: "/v1/webhooks/appstore", Cuerpo: map[string]string{"signedPayload": "a.b.c"}}, nil)
 	// Venció: el panel vuelve a sólo lectura.
-	vencida := e.Apple.Transaccion("2000001", "ar.com.tengolibre.completo.mensual", e.Negocio, e.Ahora.Add(-2*time.Hour))
+	vencida := e.Apple.Transaccion("2000001", "ar.com.tengolibre.equipo.mensual", e.Negocio, e.Ahora.Add(-2*time.Hour))
 	webhook(e.Apple.Notificacion("EXPIRED", "VOLUNTARY", vencida, ""))
 	if s := leer(e); !s.Bloqueado || s.Plan != "sin_plan" {
 		t.Fatalf("vencida tendría que bloquear: %+v", s)
@@ -368,7 +381,7 @@ func sus(estado, negocio string, vence time.Time, renueva bool) googleplay.Suscr
 	var g googleplay.Suscripcion
 	b, _ := json.Marshal(map[string]any{"subscriptionState": estado, "startTime": vence.AddDate(0, -1, 0).Format(time.RFC3339),
 		"externalAccountIdentifiers": map[string]string{"obfuscatedExternalAccountId": negocio},
-		"lineItems": []map[string]any{{"productId": "ar.com.tengolibre.completo.mensual", "expiryTime": vence.Format(time.RFC3339),
+		"lineItems": []map[string]any{{"productId": "ar.com.tengolibre.equipo.mensual", "expiryTime": vence.Format(time.RFC3339),
 			"autoRenewingPlan": map[string]bool{"autoRenewEnabled": renueva}}}})
 	_ = json.Unmarshal(b, &g)
 	return g
@@ -386,14 +399,14 @@ func TestSuscripcionDesdeAndroid(t *testing.T) {
 	e.Panel(400, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "x", "token": "no-existe"}, nil)
 	e.Panel(409, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "x", "token": "tok-otro"}, nil)
 	var x suscripcion.Suscripcion
-	e.Panel(200, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "ar.com.tengolibre.completo.mensual", "token": "tok-1"}, &x)
-	if x.Origen != "google" || x.Estado != "autorizada" || x.Plan != "completo" {
+	e.Panel(200, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "ar.com.tengolibre.equipo.mensual", "token": "tok-1"}, &x)
+	if x.Origen != "google" || x.Estado != "autorizada" || x.Plan != "equipo" {
 		t.Fatalf("la compra no quedó: %+v", x)
 	}
 	if s := leer(e); s.Bloqueado || s.Suscripcion == nil || s.Suscripcion.Origen != "google" {
 		t.Fatalf("con la compra tendría que estar abierto: %+v", s)
 	}
-	e.Panel(200, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "ar.com.tengolibre.completo.mensual", "token": "tok-1"}, nil)
+	e.Panel(200, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "ar.com.tengolibre.equipo.mensual", "token": "tok-1"}, nil)
 	e.Panel(409, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "inicial"}, nil)
 	e.Panel(409, "POST", "/v1/panel/suscripcion/cancelar", nil, nil)
 
@@ -425,7 +438,7 @@ func TestSondeoGooglePlay(t *testing.T) {
 	e.SQL("UPDATE negocios SET prueba_hasta = $1", e.Ahora.Add(-time.Hour))
 	vence := e.Ahora.AddDate(0, 1, 0)
 	e.Google.Cargar("tok-1", sus("SUBSCRIPTION_STATE_ACTIVE", e.Negocio, vence, true))
-	e.Panel(200, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "ar.com.tengolibre.completo.mensual", "token": "tok-1"}, nil)
+	e.Panel(200, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "ar.com.tengolibre.equipo.mensual", "token": "tok-1"}, nil)
 	ctx := context.Background()
 
 	if n, err := e.Suscripcion.SondearGoogle(ctx, e.Ahora); err != nil || n != 0 {
@@ -466,7 +479,7 @@ func TestComprasDePruebaApagadas(t *testing.T) {
 	e.Suscripcion.SandboxApple, e.Suscripcion.PruebasGoogle = false, false
 	e.SQL("UPDATE negocios SET prueba_hasta = $1", e.Ahora.Add(-time.Hour))
 	vence := e.Ahora.AddDate(0, 1, 0)
-	const producto = "ar.com.tengolibre.completo.mensual"
+	const producto = "ar.com.tengolibre.equipo.mensual"
 	for _, entorno := range []string{"Sandbox", "Xcode", ""} {
 		e.Panel(400, "POST", "/v1/panel/suscripcion/apple", map[string]string{"transaccion": transaccionApple(e, "3000001", producto, entorno, vence)}, nil)
 	}
@@ -479,7 +492,7 @@ func TestComprasDePruebaApagadas(t *testing.T) {
 	vencida := transaccionApple(e, "3000002", producto, "Production", e.Ahora.Add(-2*time.Hour))
 	e.Esperar(200, P{Metodo: "POST", Ruta: "/v1/webhooks/appstore", Cuerpo: map[string]string{
 		"signedPayload": e.Apple.Notificacion("EXPIRED", "VOLUNTARY", vencida, "")}}, nil)
-	if s := leer(e); s.Bloqueado || s.Plan != "completo" {
+	if s := leer(e); s.Bloqueado || s.Plan != "equipo" {
 		t.Fatalf("la notificación de sandbox tocó la suscripción: %+v", s)
 	}
 
@@ -503,8 +516,8 @@ func TestBajaConOtraSuscripcionVigente(t *testing.T) {
 	e.Panel(200, "POST", "/v1/panel/suscripcion/apple", map[string]string{
 		"transaccion": transaccionApple(e, "4000001", "ar.com.tengolibre.inicial.mensual", "Production", vence)}, nil)
 	e.Google.Cargar("tok-1", sus("SUBSCRIPTION_STATE_ACTIVE", e.Negocio, vence, true))
-	e.Panel(200, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "ar.com.tengolibre.completo.mensual", "token": "tok-1"}, nil)
-	if s := leer(e); s.Plan != "completo" {
+	e.Panel(200, "POST", "/v1/panel/suscripcion/google", map[string]string{"producto": "ar.com.tengolibre.equipo.mensual", "token": "tok-1"}, nil)
+	if s := leer(e); s.Plan != "equipo" {
 		t.Fatalf("con las dos: %+v", s)
 	}
 	// Vence la de Google: queda la de Apple, con su plan.

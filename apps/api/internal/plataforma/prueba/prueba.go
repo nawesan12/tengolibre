@@ -121,3 +121,16 @@ func (a *API) Fila(q string, args []any, dest ...any) {
 		a.T.Fatal(err)
 	}
 }
+
+// PonerPlan deja al negocio con una suscripción autorizada de Mercado Pago del plan (inicial,
+// equipo, centro) y sin prueba: para probar lo que cada plan incluye.
+func (a *API) PonerPlan(negocio, plan string) {
+	a.T.Helper()
+	precios := map[string]int64{"inicial": 6900, "equipo": 14900, "centro": 29900}
+	a.Fila(`UPDATE suscripciones SET estado = 'cancelada', cancelada_en = now() WHERE negocio_id = $1::uuid AND estado <> 'cancelada'`,
+		[]any{negocio})
+	a.Fila(`INSERT INTO suscripciones (negocio_id, referencia, plan, estado, monto, proximo_cobro)
+		VALUES ($1::uuid, $1::text || '-prueba-' || gen_random_uuid()::text, $2, 'autorizada', $3, now() + interval '30 days')`,
+		[]any{negocio, plan, precios[plan]})
+	a.Fila("UPDATE negocios SET plan = $2, prueba_hasta = NULL WHERE id = $1", []any{negocio, plan})
+}

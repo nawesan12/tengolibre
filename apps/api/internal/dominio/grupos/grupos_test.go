@@ -3,6 +3,7 @@ package grupos_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,6 +39,9 @@ func TestSucursalesYReporte(t *testing.T) {
 		return n.ID
 	}
 	centro, norte, ajeno := alta(ana, "centro"), alta(ana, "norte"), alta(beto, "ajeno")
+	// Un grupo de más de una sucursal es de Centro: alcanza con que una lo tenga.
+	a.PonerPlan(centro, "centro")
+	a.PonerPlan(norte, "inicial")
 
 	var l lista
 	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/grupos", Quien: ana}, &l)
@@ -118,6 +122,22 @@ func TestSucursalesYReporte(t *testing.T) {
 	}
 	a.Esperar(400, P{Metodo: "GET", Ruta: "/v1/grupos/" + g.ID + "/reporte?desde=2026-10-02&hasta=2026-10-01", Quien: ana}, nil)
 
+	// Topes: hasta 3 sucursales con Centro; sin ninguna en Centro, no se suma (y bajar no saca a nadie).
+	sur, oeste := alta(ana, "sur"), alta(ana, "oeste")
+	a.Esperar(200, P{Metodo: "PUT", Ruta: "/v1/grupos/" + g.ID + "/sucursales/" + sur, Quien: ana}, &g)
+	if r := a.Esperar(402, P{Metodo: "PUT", Ruta: "/v1/grupos/" + g.ID + "/sucursales/" + oeste, Quien: ana}, nil); !strings.Contains(string(r.Cuerpo), `"limit":3`) {
+		t.Fatalf("la cuarta: %s", r.Cuerpo)
+	}
+	a.Esperar(200, P{Metodo: "DELETE", Ruta: "/v1/grupos/" + g.ID + "/sucursales/" + sur, Quien: ana}, &g)
+	a.PonerPlan(centro, "equipo")
+	if r := a.Esperar(402, P{Metodo: "PUT", Ruta: "/v1/grupos/" + g.ID + "/sucursales/" + sur, Quien: ana}, nil); !strings.Contains(string(r.Cuerpo), `"plan":"centro"`) {
+		t.Fatalf("sin centro: %s", r.Cuerpo)
+	}
+	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/grupos/" + g.ID + "/reporte", Quien: ana}, &rep)
+	if len(rep.Sucursales) != 2 {
+		t.Fatalf("bajar de plan no saca sucursales: %+v", rep)
+	}
+
 	// Sacar una sucursal y borrar el grupo: los negocios quedan, sueltos.
 	a.Esperar(200, P{Metodo: "DELETE", Ruta: "/v1/grupos/" + g.ID + "/sucursales/" + norte, Quien: ana}, &g)
 	if len(g.Sucursales) != 1 || g.Sucursales[0].ID != centro {
@@ -129,7 +149,7 @@ func TestSucursalesYReporte(t *testing.T) {
 	}
 	a.Esperar(204, P{Metodo: "DELETE", Ruta: "/v1/grupos/" + g.ID, Quien: ana}, nil)
 	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/grupos", Quien: ana}, &l)
-	if len(l.Grupos) != 0 || len(l.SinGrupo) != 2 {
+	if len(l.Grupos) != 0 || len(l.SinGrupo) != 4 {
 		t.Fatalf("después de borrar: %+v", l)
 	}
 }
