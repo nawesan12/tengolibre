@@ -30,6 +30,14 @@
 	let nuevoInicio = $state('');
 	const nuevaHora = $derived(data.horarios.find((h) => h.inicio === nuevoInicio)?.hora ?? '');
 	const vivo = $derived(t.estado !== 'cancelado' && t.estado !== 'atendido' && t.estado !== 'ausente');
+	// Pedir seña: dueña, encargada y recepción (la API no deja a la profesional).
+	const puedePedirSena = $derived(
+		puedeActuar && data.negocio?.rol !== 'profesional' && t.origen === 'panel' && (t.estado === 'pendiente' || t.estado === 'confirmado') && Date.parse(t.inicio) > Date.now() && t.precio > 0
+	);
+	let linkCopiado = $state(false);
+	/** El mismo texto que mandan las apps. */
+	const textoSena = (s: { monto: number; url: string }) =>
+		`Para confirmar tu turno en ${data.negocio?.nombre ?? ''}, pagá la seña de ${pesos(s.monto)} acá: ${s.url}`;
 	const wa = $derived(t.cliente.telefono ? `https://wa.me/${t.cliente.telefono.replace(/\D/g, '').replace(/^(?!54)/, '549')}` : '');
 	const MOTIVO_L: Record<string, string> = { cambio: 'Pidió cambiarlo', sin_respuesta: 'No contestó el WhatsApp', no_llego: 'No le llegó el WhatsApp' };
 
@@ -120,14 +128,25 @@
 				<div class="linea"><span>Precio</span><b class="tl-num">{pesos(t.precio)}</b></div>
 			{/if}
 			<!-- Pedir seña: para los turnos que llegaron por teléfono o WhatsApp (la web ya la cobra al reservar). -->
-			{#if puedeActuar && t.origen === 'panel' && (t.estado === 'pendiente' || t.estado === 'confirmado') && Date.parse(t.inicio) > Date.now() && t.precio > 0}
+			{#if puedePedirSena}
 				{#if form && 'sena' in form && form.sena}
 					{@const s = form.sena}
 					<div class="sena-lista" role="status">
 						<span>Seña de <b class="tl-num">{pesos(s.monto)}</b>: mandale el link para que la pague.</span>
 						<div class="sena-botones">
-							{#if wa}<a class="sec" href={`${wa}?text=${encodeURIComponent(`Para confirmar tu turno, pagá la seña acá: ${s.url}`)}`} target="_blank" rel="noopener">WhatsApp</a>{/if}
-							<button type="button" class="sec" onclick={() => navigator.clipboard?.writeText(s.url)}>Copiar link</button>
+							{#if wa}<a class="sec" href={`${wa}?text=${encodeURIComponent(textoSena(s))}`} target="_blank" rel="noopener">WhatsApp</a>{/if}
+							<button
+								type="button"
+								class="sec"
+								onclick={async () => {
+									try {
+										await navigator.clipboard.writeText(textoSena(s));
+										linkCopiado = true;
+									} catch {
+										linkCopiado = false;
+									}
+								}}><Icono nombre={linkCopiado ? 'check' : 'content_copy'} tam={18} />{linkCopiado ? 'Copiado' : 'Copiar link'}</button
+							>
 						</div>
 					</div>
 				{:else}
