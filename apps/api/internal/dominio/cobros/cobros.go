@@ -19,6 +19,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/cifrado"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/privado"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
 )
@@ -127,7 +128,7 @@ func (s *Servicio) traducir(err error) error {
 	case errors.Is(err, ErrEstado):
 		return problema.Invalido("La conexión venció. Probá de nuevo.")
 	case errors.As(err, &emp):
-		s.log().Warn("mercadopago: la API respondió con error", "estado", emp.Estado, "cuerpo", mercadopago.Recortar(emp.Cuerpo, 300))
+		s.log().Warn("mercadopago: la API respondió con error", "estado", emp.Estado, "cuerpo", privado.Enmascarar(mercadopago.Recortar(emp.Cuerpo, 300)))
 		return &problema.Problema{Estado: http.StatusBadGateway, Codigo: "mercadopago", Titulo: "Mercado Pago no respondió",
 			Detalle: "Probá de nuevo en un rato."}
 	}

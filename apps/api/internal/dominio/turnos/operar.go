@@ -108,6 +108,11 @@ func (s *Servicio) CambiarEstado(ctx context.Context, negocioID, turnoID, estado
 		if !PuedePasar(t.Estado, estado) {
 			return problema.Conflicto("estado", "No se puede pasar de "+t.Estado+" a "+estado+".")
 		}
+		if estado != antes {
+			if err := antesDeEmpezar(t, estado, s.ahora()); err != nil {
+				return err
+			}
+		}
 		// Como en el panel: un pendiente_pago vencido ya no guardaba el horario; se confirma sólo si sigue libre.
 		if t.Estado == "pendiente_pago" && (estado == "pendiente" || estado == "confirmado") && t.VenceEn != nil && !t.VenceEn.After(s.ahora()) {
 			libre, err := SigueLibre(ctx, tx, t.ID, s.ahora())

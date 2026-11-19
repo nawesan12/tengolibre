@@ -33,6 +33,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/tope"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/web"
 )
 
@@ -49,8 +50,10 @@ const (
 	DuracionCodigo = 2 * time.Minute
 	// MaxConexiones OAuth vigentes por negocio (aparte de las MaxTokens claves).
 	MaxConexiones = 10
-	// MaxRegistrosPorHora: tope global del registro dinámico (es abierto).
+	// MaxRegistrosPorHora: tope global del registro dinámico (es abierto): la red de seguridad.
 	MaxRegistrosPorHora = 300
+	// MaxRegistrosPorIPPorHora: lo que registra una IP (un cliente de IA registra uno por conexión).
+	MaxRegistrosPorIPPorHora = 10
 	// PrefijoRefresco de los tokens de refresco (los de acceso usan Prefijo, como las claves).
 	PrefijoRefresco = "tlmcpr_"
 )
@@ -215,6 +218,12 @@ func (s *Servicio) registrarCliente(w http.ResponseWriter, r *http.Request) {
 		GrantTypes              []string `json:"grant_types"`
 		ResponseTypes           []string `json:"response_types"`
 		TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
+	}
+	// Por IP primero: el tope global (abierto) lo agotaba uno solo y dejaba a todos sin conectar.
+	if !s.limite.Permitir("oauth-reg:"+tope.IP(r), MaxRegistrosPorIPPorHora, time.Hour, s.ahora()) {
+		w.Header().Set("Retry-After", "3600")
+		errorOAuth(w, http.StatusTooManyRequests, "temporarily_unavailable", "Demasiados registros: probá en un rato.")
+		return
 	}
 	// Los clientes mandan más metadatos (logo_uri, scope, software_id…): se ignoran.
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&in); err != nil {

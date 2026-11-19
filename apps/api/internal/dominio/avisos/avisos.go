@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -274,9 +275,12 @@ func (s *Servicio) avisar(ctx context.Context, tx pgx.Tx, turnoID, evento string
 	// En la Actividad del negocio queda sólo lo que hizo alguien del equipo: la reserva web reenvía la
 	// sesión de la clienta, y su clerk_id quedaba como un autor sin nombre de alguien de afuera.
 	if quien != "" {
-		var miembro bool
-		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM miembros WHERE clerk_id = $1 AND activo)", quien).Scan(&miembro); err != nil {
-			return err
+		// Las claves del asistente conectado por MCP (mcp:<token>) también son del negocio.
+		miembro := strings.HasPrefix(quien, "mcp:")
+		if !miembro {
+			if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM miembros WHERE clerk_id = $1 AND activo)", quien).Scan(&miembro); err != nil {
+				return err
+			}
 		}
 		if miembro {
 			return auditoria.Anotar(ctx, tx, auditoria.Registro{Quien: quien, Accion: "turno." + evento, Entidad: "turno", EntidadID: t.ID,

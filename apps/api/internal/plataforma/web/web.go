@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/privado"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 )
 
@@ -56,7 +57,8 @@ func Error(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.As(err, &pg) && pg.Code == "23503":
 		problema.Escribir(w, problema.Conflicto("en_uso", "Hace referencia a algo que no existe, o todavía se usa."))
 	default:
-		slog.Error("error interno", "ruta", r.URL.Path, "metodo", r.Method, "error", err)
+		// La ruta va como patrón (/v1/t/{codigo}), nunca con el token o el código de la URL.
+		slog.Error("error interno", "ruta", Patron(r), "metodo", r.Method, "error", privado.Error(err))
 		problema.Escribir(w, problema.Interno())
 	}
 }
@@ -71,4 +73,13 @@ func Envolver(h Manejador) http.HandlerFunc {
 			Error(w, r, err)
 		}
 	}
+}
+
+// Patron de la ruta del pedido (el que eligió el ServeMux), sin los valores de la URL: los tokens de
+// /v1/cal/{archivo}, /v1/t/{codigo} o /v1/espera/{token} no terminan en el log.
+func Patron(r *http.Request) string {
+	if r.Pattern != "" {
+		return r.Pattern
+	}
+	return "sin ruta"
 }

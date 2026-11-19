@@ -106,6 +106,9 @@ func muyGrande() error {
 func (s *Servicio) subir(w http.ResponseWriter, r *http.Request) error {
 	// Un margen para el resto del multipart; lo que pase el tope corta la lectura.
 	r.Body = http.MaxBytesReader(w, r.Body, MaxBytes+64<<10)
+	// Las apps suben directo a la API: con una conexión lenta, los 15 s del ReadTimeout global no
+	// alcanzan para una foto. Sólo esta ruta tiene más.
+	_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(90 * time.Second))
 	f, _, err := r.FormFile("archivo")
 	if err != nil {
 		var grande *http.MaxBytesError

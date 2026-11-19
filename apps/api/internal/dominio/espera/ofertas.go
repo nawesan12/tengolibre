@@ -227,19 +227,23 @@ func avanzar(ctx context.Context, tx pgx.Tx, id string, ahora time.Time) error {
 			}
 			continue
 		}
-		vence := ahora.Add(time.Duration(a.Minutos) * time.Minute)
+		// De noche (22 a 8, en la zona del negocio) el aviso sale a las 8 y el plazo corre desde ahí: si
+		// no, una cancelación de madrugada recorría la lista entera sin que nadie la leyera. Si el turno
+		// es antes de las 9, no se espera (no daría el tiempo).
+		desde := DespuesDeDormir(ahora, inicio, zona(ctx, tx))
+		vence := desde.Add(time.Duration(a.Minutos) * time.Minute)
 		if vence.After(inicio) {
 			vence = inicio
 		}
 		if _, err := tx.Exec(ctx, `UPDATE oferta_intentos SET estado = 'ofrecida', ofrecida_en = $2, vence_en = $3 WHERE id::text = $1`,
-			intento, ahora, vence); err != nil {
+			intento, desde, vence); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, "UPDATE espera SET avisado_en = $2 WHERE id::text = $1", *esperaID, ahora); err != nil {
+		if _, err := tx.Exec(ctx, "UPDATE espera SET avisado_en = $2 WHERE id::text = $1", *esperaID, desde); err != nil {
 			return err
 		}
 		_, err = avisos.Encolar(ctx, tx, avisos.Aviso{Tipo: avisos.Espera, Para: *email, Clave: "oferta:" + intento,
-			Datos: map[string]any{"intento": intento, "espera": *esperaID}}, ahora)
+			Datos: map[string]any{"intento": intento, "espera": *esperaID}}, desde)
 		return err
 	}
 }
@@ -851,4 +855,21 @@ func (s *Servicio) Ofrecer(ctx context.Context, negocioID, servicioID, profesion
 			Detalle: map[string]any{"inicio": inicio, "profesional": o.Profesional, "cola": len(o.Cola), "desde": "asistente"}})
 	})
 	return o, err
+}
+
+// DespuesDeDormir: desde cuándo corre una oferta que sale en ahora. Entre las 22 y las 8 (en z), las 8
+// del día que sigue, si el turno es después de las 9; si no, ahora.
+func DespuesDeDormir(ahora, inicio time.Time, z *time.Location) time.Time {
+	l := ahora.In(z)
+	if l.Hour() >= 8 && l.Hour() < 22 {
+		return ahora
+	}
+	ocho := time.Date(l.Year(), l.Month(), l.Day(), 8, 0, 0, 0, z)
+	if l.Hour() >= 22 {
+		ocho = ocho.AddDate(0, 0, 1)
+	}
+	if inicio.Before(ocho.Add(time.Hour)) {
+		return ahora
+	}
+	return ocho
 }

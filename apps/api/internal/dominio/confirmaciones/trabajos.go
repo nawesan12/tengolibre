@@ -12,6 +12,7 @@ import (
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/avisos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/privado"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/trabajos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/whatsapp"
 )
@@ -356,7 +357,7 @@ func (t *Trabajos) uno(ctx context.Context, tx pgx.Tx, id string, ahora time.Tim
 	intentos++
 	var e *whatsapp.Error
 	reintentar := errors.As(errEnvio, &e) && e.Reintentable() || !errors.As(errEnvio, &e) && !errors.Is(errEnvio, whatsapp.ErrDestinoInvalido)
-	t.Log.Warn("whatsapp: no salió", "mensaje", id, "tipo", tipo, "intento", intentos, "error", errEnvio)
+	t.Log.Warn("whatsapp: no salió", "mensaje", id, "tipo", tipo, "intento", intentos, "error", privado.Error(errEnvio))
 	if !reintentar || intentos >= avisos.MaxIntentos {
 		res.Fallidos++
 		if _, err := tx.Exec(ctx, "UPDATE whatsapp_mensajes SET intentos = $2 WHERE id = $1", id, intentos); err != nil {

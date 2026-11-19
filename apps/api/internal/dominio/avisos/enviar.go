@@ -13,6 +13,7 @@ import (
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/privado"
 )
 
 // MaxIntentos: después de esto el aviso queda fallido (y la campanita lo cuenta).
@@ -162,7 +163,7 @@ func (e *Enviador) uno(ctx context.Context, tx pgx.Tx, id string, ahora time.Tim
 	if len(msj) > 1000 {
 		msj = msj[:1000]
 	}
-	e.log().Warn("avisos: no salió", "aviso", f.ID, "tipo", f.Tipo, "intento", intentos, "error", msj)
+	e.log().Warn("avisos: no salió", "aviso", f.ID, "tipo", f.Tipo, "intento", intentos, "error", privado.Enmascarar(msj))
 	if intentos >= MaxIntentos {
 		res.Fallidos++
 		if _, err := tx.Exec(ctx, "UPDATE avisos SET estado = 'fallido', intentos = $2, ultimo_error = $3, para = $4 WHERE id = $1",

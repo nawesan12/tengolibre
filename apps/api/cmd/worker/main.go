@@ -58,7 +58,8 @@ func correr() error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	app, err := db.Abrir(ctx, cfg.BaseApp)
+	// El worker corre las purgas: más tiempo por consulta y menos conexiones.
+	app, err := db.AbrirCon(ctx, cfg.BaseApp, db.Opciones{MaxConns: 5, StatementTimeout: "120s", IdleEnTx: "180s"})
 	if err != nil {
 		return err
 	}

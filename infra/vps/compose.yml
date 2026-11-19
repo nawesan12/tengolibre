@@ -30,6 +30,9 @@ services:
       - ./claves/play.json:/claves/play.json:ro
     ports: ['127.0.0.1:4200:4200']
     mem_limit: 128m
+    # El GC de Go se apura antes del límite del contenedor (sin esto, unas subidas en paralelo lo
+    # llevaban a un OOM kill que cortaba todos los SSE).
+    environment: ['GOMEMLIMIT=100MiB']
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,6 +51,7 @@ services:
       # Las imágenes: la purga de negocios cerrados (TENGOLIBRE_PURGA_NEGOCIOS=1) borra las suyas.
       - ./archivos:/datos/archivos
     mem_limit: 64m
+    environment: ['GOMEMLIMIT=48MiB']
     depends_on:
       postgres:
         condition: service_healthy

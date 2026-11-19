@@ -58,7 +58,19 @@ func TestReportesYExportaciones(t *testing.T) {
 			"cliente": map[string]string{"nombre": nombre, "telefono": telefono}}}, &x)
 		return x
 	}
-	estado := func(id, e string) { panel(200, "PATCH", "/v1/panel/turnos/"+id, map[string]any{"estado": e}, nil) }
+	estado := func(id, e string) {
+		// «No vino» se marca desde que el turno empieza.
+		if e == "ausente" {
+			var inicio time.Time
+			a.Fila("SELECT inicio FROM turnos WHERE id = $1", []any{id}, &inicio)
+			antes := a.Ahora
+			if a.Ahora.Before(inicio) {
+				a.Ahora = inicio.Add(time.Minute)
+			}
+			defer func() { a.Ahora = antes }()
+		}
+		panel(200, "PATCH", "/v1/panel/turnos/"+id, map[string]any{"estado": e}, nil)
+	}
 
 	// Lunes 2: Ana atiende a Juana a las 9 (8000), Beto tiene una ausencia a las 9, Ana un cancelado a
 	// las 9:30 y un confirmado a las 10. El lunes 9 Juana vuelve.

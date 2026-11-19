@@ -641,6 +641,16 @@ func (s *Servicio) verPanel(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// antesDeEmpezar: «No vino» es de un turno que ya empezó: suma una ausencia (y puede penalizar a la
+// clienta), y sobre un turno futuro era un toque equivocado. «Atendido» sí se puede antes (la clienta
+// llegó temprano); el panel y las apps no lo ofrecen hasta que empieza.
+func antesDeEmpezar(t Turno, estado string, ahora time.Time) error {
+	if estado == "ausente" && ahora.Before(t.Inicio) {
+		return problema.Conflicto("todavia_no", "Ese turno todavía no empezó: «No vino» se marca desde que empieza.")
+	}
+	return nil
+}
+
 func (s *Servicio) cambiar(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	var in struct {
@@ -667,6 +677,11 @@ func (s *Servicio) cambiar(w http.ResponseWriter, r *http.Request) error {
 		antes = t.Estado
 		if in.Estado != nil && !PuedePasar(t.Estado, *in.Estado) {
 			return problema.Conflicto("estado", "No se puede pasar de "+t.Estado+" a "+*in.Estado+".")
+		}
+		if in.Estado != nil && *in.Estado != antes {
+			if err := antesDeEmpezar(t, *in.Estado, s.ahora()); err != nil {
+				return err
+			}
 		}
 		// Un pendiente_pago vencido ya no guardaba el horario: se confirma sólo si sigue libre.
 		if in.Estado != nil && t.Estado == "pendiente_pago" && (*in.Estado == "pendiente" || *in.Estado == "confirmado") &&

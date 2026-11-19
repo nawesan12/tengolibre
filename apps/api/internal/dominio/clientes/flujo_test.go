@@ -92,6 +92,16 @@ func (m *mundo) reservar(estado int, profesional, inicio, nombre, telefono strin
 
 func (m *mundo) estado(turno, estado string) {
 	m.t.Helper()
+	// «No vino» se marca desde que el turno empieza: el reloj va un minuto después del inicio.
+	if estado == "ausente" {
+		var inicio time.Time
+		m.Fila("SELECT inicio FROM turnos WHERE id = $1", []any{turno}, &inicio)
+		antes := m.Ahora
+		if m.Ahora.Before(inicio) {
+			m.Ahora = inicio.Add(time.Minute)
+		}
+		defer func() { m.Ahora = antes }()
+	}
 	m.panel(200, "PATCH", "/v1/panel/turnos/"+turno, map[string]any{"estado": estado}, nil)
 }
 

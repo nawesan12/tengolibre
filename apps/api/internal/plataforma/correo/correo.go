@@ -54,16 +54,18 @@ func Elegir(direccion, usuario, clave, de string) Correo {
 // el servidor propio: en el puerto 465 con TLS desde el arranque y en los demás con STARTTLS.
 type SMTP struct{ Direccion, De, Usuario, Clave string }
 
-func (s *SMTP) Enviar(_ context.Context, m Mensaje) error {
+func (s *SMTP) Enviar(ctx context.Context, m Mensaje) error {
 	cuerpo, err := Armar(s.De, m, time.Now())
 	if err != nil {
 		return err
 	}
-	if s.Usuario == "" {
-		return smtp.SendMail(s.Direccion, nil, direccionDe(s.De), []string{m.Para}, cuerpo)
-	}
-	return s.conUsuario(m.Para, cuerpo)
+	return s.conUsuario(ctx, m.Para, cuerpo)
 }
+
+// PlazoSMTP: lo máximo que puede durar una conversación con el servidor de correo. Sin plazo, uno que
+// no contestaba después de conectar dejaba el worker entero esperando (push, recordatorios, purgas…)
+// con la transacción del aviso abierta.
+var PlazoSMTP = 60 * time.Second
 
 // Armar escribe el mail entero (encabezados y partes MIME). Exportado para los tests.
 func Armar(remitente string, m Mensaje, ahora time.Time) ([]byte, error) {
@@ -123,38 +125,48 @@ func escribirAlternativa(b *bytes.Buffer, frontera string, m Mensaje) {
 	fmt.Fprintf(b, "--%s--\r\n", frontera)
 }
 
-// conUsuario manda autenticado y siempre cifrado: nunca manda la clave en claro.
-func (s *SMTP) conUsuario(para string, cuerpo []byte) error {
+// conUsuario manda autenticado y siempre cifrado: nunca manda la clave en claro. Sin usuario (el
+// correo de desarrollo), sin autenticar y con STARTTLS sólo si el servidor lo ofrece. Toda la
+// conversación tiene un plazo (PlazoSMTP) y se corta si se cancela ctx.
+func (s *SMTP) conUsuario(ctx context.Context, para string, cuerpo []byte) error {
 	host, puerto, err := net.SplitHostPort(s.Direccion)
 	if err != nil {
 		return fmt.Errorf("correo: dirección SMTP inválida: %w", err)
 	}
 	cfg := &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}
 	d := &net.Dialer{Timeout: 20 * time.Second}
-	var c *smtp.Client
+	var con net.Conn
 	if puerto == "465" {
-		con, err := tls.DialWithDialer(d, "tcp", s.Direccion, cfg)
-		if err != nil {
-			return err
-		}
-		if c, err = smtp.NewClient(con, host); err != nil {
-			return err
-		}
+		con, err = tls.DialWithDialer(d, "tcp", s.Direccion, cfg)
 	} else {
-		con, err := d.Dial("tcp", s.Direccion)
-		if err != nil {
-			return err
-		}
-		if c, err = smtp.NewClient(con, host); err != nil {
-			return err
-		}
-		if err := c.StartTLS(cfg); err != nil {
-			return fmt.Errorf("correo: el servidor no acepta STARTTLS: %w", err)
-		}
+		con, err = d.DialContext(ctx, "tcp", s.Direccion)
+	}
+	if err != nil {
+		return err
+	}
+	if err := con.SetDeadline(time.Now().Add(PlazoSMTP)); err != nil {
+		con.Close()
+		return err
+	}
+	parar := context.AfterFunc(ctx, func() { con.Close() })
+	defer parar()
+	c, err := smtp.NewClient(con, host)
+	if err != nil {
+		con.Close()
+		return err
 	}
 	defer c.Close()
-	if err := c.Auth(smtp.PlainAuth("", s.Usuario, s.Clave, host)); err != nil {
-		return err
+	if puerto != "465" {
+		if ok, _ := c.Extension("STARTTLS"); ok || s.Usuario != "" {
+			if err := c.StartTLS(cfg); err != nil {
+				return fmt.Errorf("correo: el servidor no acepta STARTTLS: %w", err)
+			}
+		}
+	}
+	if s.Usuario != "" {
+		if err := c.Auth(smtp.PlainAuth("", s.Usuario, s.Clave, host)); err != nil {
+			return err
+		}
 	}
 	if err := c.Mail(direccionDe(s.De)); err != nil {
 		return err

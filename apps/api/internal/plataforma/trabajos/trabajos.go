@@ -78,7 +78,11 @@ func (p *Planificador) Pasada(ctx context.Context) ([]string, error) {
 		if !toca {
 			continue
 		}
-		res, errT := p.correrUno(ctx, t, ahora)
+		// Cada trabajo con su plazo: uno colgado no frena a los demás para siempre.
+		plazo := min(max(2*time.Minute, t.Cada*6), 10*time.Minute)
+		ctxT, cortar := context.WithTimeout(ctx, plazo)
+		res, errT := p.correrUno(ctxT, t, ahora)
+		cortar()
 		if errT != nil {
 			p.log().Error("trabajo fallido", "trabajo", t.Nombre, "error", errT)
 		}

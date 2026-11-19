@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,11 +17,35 @@ import (
 // Pool es la conexión de un rol.
 type Pool struct{ *pgxpool.Pool }
 
+// Opciones del pool. Cero: lo de pgx (o lo que diga la URL).
+type Opciones struct {
+	// MaxConns si la URL no trae pool_max_conns (pgx usa max(4, CPUs): 4 en el VPS, y el Inicio del
+	// panel hace 10 pedidos en paralelo).
+	MaxConns int32
+	// StatementTimeout e IdleEnTx van como parámetros de cada conexión: una consulta que no termina o
+	// una transacción olvidada no retienen conexiones ni locks para siempre.
+	StatementTimeout, IdleEnTx string
+}
+
 // Abrir conecta con la URL de un rol y verifica que responda.
 func Abrir(ctx context.Context, url string) (*Pool, error) {
+	return AbrirCon(ctx, url, Opciones{})
+}
+
+// AbrirCon conecta con opciones.
+func AbrirCon(ctx context.Context, url string, o Opciones) (*Pool, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, fmt.Errorf("url de la base: %w", err)
+	}
+	if o.MaxConns > 0 && !strings.Contains(url, "pool_max_conns") {
+		cfg.MaxConns = o.MaxConns
+	}
+	if o.StatementTimeout != "" {
+		cfg.ConnConfig.RuntimeParams["statement_timeout"] = o.StatementTimeout
+	}
+	if o.IdleEnTx != "" {
+		cfg.ConnConfig.RuntimeParams["idle_in_transaction_session_timeout"] = o.IdleEnTx
 	}
 	p, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {

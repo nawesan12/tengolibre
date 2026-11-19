@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/web"
 )
 
 // Dependencias del servidor. App puede ser nil en tests que no tocan la base.
@@ -62,7 +64,24 @@ func Nuevo(d Dependencias) http.Handler {
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		problema.Escribir(w, problema.NoEncontrado("Esa ruta no existe."))
 	})
-	return recuperar(d.Log, cors(d.Origenes, mux))
+	return recuperar(d.Log, cors(d.Origenes, conPlazo(mux)))
+}
+
+// PlazoPedido: lo máximo que espera un pedido (la base, Anthropic). WriteTimeout corta la conexión pero
+// no cancela el contexto: sin esto, un handler podía quedar esperando una conexión del pool para
+// siempre. El SSE del panel y las exportaciones CSV viven más.
+var PlazoPedido = 28 * time.Second
+
+func conPlazo(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/panel/eventos" || strings.HasSuffix(r.URL.Path, ".csv") || strings.HasPrefix(r.URL.Path, "/v1/cal/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		ctx, cortar := context.WithTimeout(r.Context(), PlazoPedido)
+		defer cortar()
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 // recuperar convierte un panic en un 500 con problem+json y lo registra, sin tirar el proceso.
@@ -73,7 +92,7 @@ func recuperar(log *slog.Logger, next http.Handler) http.Handler {
 				if v == http.ErrAbortHandler {
 					panic(v)
 				}
-				log.Error("panic en un handler", "ruta", r.URL.Path, "valor", v)
+				log.Error("panic en un handler", "ruta", web.Patron(r), "valor", v)
 				problema.Escribir(w, problema.Interno())
 			}
 		}()

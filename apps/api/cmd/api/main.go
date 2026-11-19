@@ -76,7 +76,9 @@ func correr() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	app, err := db.Abrir(ctx, cfg.BaseApp)
+	// 10 conexiones (Postgres tiene 256 MB en el compose: api + worker entran holgados), 30 s por
+	// consulta (las exportaciones CSV son las más largas) y 60 s de transacción quieta.
+	app, err := db.AbrirCon(ctx, cfg.BaseApp, db.Opciones{MaxConns: 10, StatementTimeout: "30s", IdleEnTx: "60s"})
 	if err != nil {
 		return err
 	}
