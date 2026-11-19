@@ -238,7 +238,7 @@
 			<div class="acciones">
 				{#if paso === 'mail'}{@render proveedores(false)}{/if}
 				{@render conMail(false)}
-				<p class="pie">¿Todavía no tenés cuenta? <a href="/empezar">Probá 7 días gratis</a></p>
+				<p class="pie">¿Todavía no tenés cuenta? <a href="/empezar">Probá 14 días gratis</a></p>
 			</div>
 			{@render prueba()}
 		</main>

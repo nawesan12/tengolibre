@@ -30,8 +30,8 @@ describe('presentación de cuenta', () => {
 			detalle: 'Elegí un plan para no pasar a sólo lectura el 5\u00a0nov.'
 		});
 		expect(estadoDeAcceso({ ...base, bloqueado: true }, 'encargado')?.detalle).toBe('El dueño tiene que elegir un plan.');
-		expect(estadoDeAcceso({ ...base, conSuscripcion: true, plan: 'completo', proximoCobro: { fecha: '2026-11-12T12:00:00Z', monto: 15000 } }, 'duenio'))
-			.toMatchObject({ texto: 'Plan Completo', tono: 'ok' });
+		expect(estadoDeAcceso({ ...base, conSuscripcion: true, plan: 'equipo', proximoCobro: { fecha: '2026-11-12T12:00:00Z', monto: 14900 } }, 'duenio'))
+			.toMatchObject({ texto: 'Plan Equipo', tono: 'ok' });
 	});
 
 	it('el estado en el admin', () => {

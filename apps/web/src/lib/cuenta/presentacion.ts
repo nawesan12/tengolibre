@@ -83,7 +83,7 @@ export function estadoDeAcceso(a: Acceso | null, rol: string): Estado | null {
 			detalle: duenia ? 'Elegí un plan para volver a cargar turnos.' : 'El dueño tiene que elegir un plan.'
 		};
 	if (a.conSuscripcion) {
-		const plan = a.plan === 'inicial' ? 'Plan Inicial' : a.plan === 'completo' ? 'Plan Completo' : 'Suscripción activa';
+		const plan = ({ inicial: 'Plan Inicial', equipo: 'Plan Equipo', centro: 'Plan Centro' } as Record<string, string>)[a.plan ?? ''] ?? 'Suscripción activa';
 		return {
 			texto: plan,
 			icono: 'check_circle',
@@ -112,8 +112,10 @@ export function estadoAdmin(
 ): Estado {
 	if (!n.activo) return { texto: 'Desactivado', icono: 'block', tono: 'peligro' };
 	switch (n.estado) {
-		case 'completo':
-			return { texto: 'Completo', icono: 'check_circle', tono: 'ok' };
+		case 'centro':
+			return { texto: 'Centro', icono: 'check_circle', tono: 'ok' };
+		case 'equipo':
+			return { texto: 'Equipo', icono: 'check_circle', tono: 'ok' };
 		case 'inicial':
 			return { texto: 'Inicial', icono: 'check_circle', tono: 'ok' };
 		case 'cobro_fallido':
@@ -135,7 +137,8 @@ export function estadoAdmin(
 export const NOMBRE_ESTADO: Record<EstadoNegocio, string> = {
 	prueba: 'En prueba',
 	inicial: 'Inicial',
-	completo: 'Completo',
+	equipo: 'Equipo',
+	centro: 'Centro',
 	cobro_fallido: 'Cobro fallido',
 	solo_lectura: 'Sólo lectura'
 };

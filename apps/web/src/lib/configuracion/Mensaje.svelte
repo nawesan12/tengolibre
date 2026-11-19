@@ -11,6 +11,11 @@
 		{m.texto}
 		<a href="/panel/suscripcion">Ir a la suscripción</a>
 	</p>
+{:else if m?.tipo === 'tope'}
+	<p class="aviso error" role="alert">
+		{m.texto}
+		<a href="/panel/suscripcion#planes">Cambiar de plan</a>
+	</p>
 {:else if m?.tipo === 'error'}
 	<p class="aviso error" role="alert">{m.texto}</p>
 {:else if m?.tipo === 'listo'}

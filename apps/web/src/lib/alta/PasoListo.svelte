@@ -59,7 +59,7 @@
 	</div>
 
 	<TuLink nombre={cargado.negocio.nombre} {slug} {origen} ver bajada="Compartilo ahora: el primer turno puede entrar&nbsp;hoy." />
-	<p class="prueba">Tenés 7 días gratis con&nbsp;todo.</p>
+	<p class="prueba">Tenés 14 días gratis con el plan&nbsp;Equipo.</p>
 
 	<div class="hecho">
 		{#each hecho as x, i (x.t)}

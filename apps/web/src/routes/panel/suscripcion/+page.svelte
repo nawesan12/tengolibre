@@ -5,6 +5,7 @@
 	import { confirmar } from '#lib/configuracion/formularios.ts';
 	import Mensaje from '#lib/configuracion/Mensaje.svelte';
 	import { diasHasta, fechaLarga } from '#lib/gestion/cobros/formato.ts';
+	import type { PlanVenta } from './+page.server.ts';
 
 	let { data, form } = $props();
 	const e = $derived(data.estado);
@@ -12,39 +13,64 @@
 	const esDuenio = $derived(data.negocio.rol === 'duenio');
 	const enPrueba = $derived(e.pruebaHasta !== null && !e.conSuscripcion);
 	const vigente = $derived(!!s && (s.estado === 'autorizada' || s.estado === 'pausada'));
-	// Contratada desde el iPhone: la cobra la App Store y se cambia o cancela desde ahí.
+	// Contratada desde el teléfono: la cobra la App Store o Google Play, y se cambia o cancela desde ahí.
 	const deApple = $derived(s?.origen === 'apple');
+	const deGoogle = $derived(s?.origen === 'google');
+	const deTienda = $derived(deApple || deGoogle);
 	const COMO_APPLE = 'En el iPhone: Ajustes › tu nombre › Suscripciones › Tengo Libre.';
+	const COMO_GOOGLE = 'En Android: Play Store › Pagos y suscripciones › Suscripciones › Tengo Libre.';
+	const COMO_TIENDA = $derived(deGoogle ? COMO_GOOGLE : COMO_APPLE);
 	const DIA = 86_400_000;
 
-	// El carrito: el plan elegido, cuánto se paga hoy, cuándo es el primer cobro y cuánto después.
-	let elegido = $state('completo');
+	// El carrito: el plan elegido (por defecto, el destacado), el período, cuánto se paga hoy, cuándo
+	// es el primer cobro y cuánto después. Los precios salen de la API.
+	const destacado = $derived(e.catalogo.find((p) => p.destacado)?.clave ?? e.catalogo[0]?.clave);
+	let elegidoA = $state<string | null>(null);
+	const elegido = $derived(elegidoA ?? destacado);
+	let periodo = $state<'mensual' | 'anual'>('mensual');
 	const plan = $derived(e.catalogo.find((p) => p.clave === elegido) ?? e.catalogo[0]);
+	const precioDe = (p: PlanVenta) => (periodo === 'anual' ? p.precioAnual : p.precio);
+	const ahorro = $derived(plan.precio * 12 - plan.precioAnual);
 	const conPrueba = $derived(!!e.pruebaHasta && new Date(e.pruebaHasta).getTime() > Date.now());
 	const primerCobro = $derived(conPrueba ? new Date(e.pruebaHasta!) : new Date());
 	const fechaCorta = (d: Date) => new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long', timeZone: ZONA }).format(d);
-	const DESCRIPCION: Record<string, string> = {
-		inicial: 'Para empezar: turnos online, agenda y recordatorios, hasta 2 profesionales.',
-		completo: 'Todo Tengo Libre: señas, membresías, reportes, IA y sin límite de equipo.'
-	};
-	const PRUEBA = 7;
+	const PRUEBA = $derived(e.extras?.diasDePrueba ?? 14);
+	const planRango = (clave: string) => e.catalogo.findIndex((p) => p.clave === clave);
+	const nombreDe = (clave: string) => e.catalogo.find((p) => p.clave === clave)?.nombre ?? clave;
 
-	// Qué incluye cada plan, fila por fila (ícono + palabra en cada celda).
-	const FILAS = $derived<[string, string, string][]>([
-		['Turnos online y agenda', 'Sí', 'Sí'],
-		['Recordatorios por mail', 'Sí', 'Sí'],
-		['Profesionales', 'Hasta 2', 'Sin límite'],
-		['Señas y pagos con Mercado Pago', 'No', 'Sí'],
-		['Membresías, cupones y referidos', 'No', 'Sí'],
-		['Reportes y descargas', 'Básicos', 'Completos'],
-		['Dominio propio y plantillas', 'No', 'Sí'],
-		['Integraciones con IA', 'No', 'Sí'],
-		// El asistente de Inicio: el intérprete sin límite y un cupo de respuestas con IA por mes.
-		...(e.cupoIA ? [['Asistente con IA', `${e.cupoIA} respuestas por\u00a0mes`, `${e.cupoIA} respuestas por\u00a0mes`] as [string, string, string]] : []),
-		['Sucursales', 'No', 'Sí']
+	// Qué incluye cada plan, fila por fila (ícono + palabra en cada celda), armado con lo que dice la
+	// API de cada plan: nada que no exista.
+	const tiene = (p: PlanVenta, f: string) => p.funciones.includes(f);
+	const siNo = (b: boolean) => (b ? 'Sí' : 'No');
+	const FILAS = $derived<{ que: string; valor: (p: PlanVenta) => string }[]>([
+		{ que: 'Profesionales', valor: (p) => `Hasta ${p.profesionales}` + (p.clave === 'centro' ? ` (+${pesos(e.extras.precioProfesional)} c/u)` : '') },
+		{ que: 'Link propio y reservas por la web', valor: () => 'Sí' },
+		{ que: 'Recordatorios por mail y en el celular', valor: () => 'Sin límite' },
+		{ que: 'Ficha de cada cliente y caja', valor: () => 'Sí' },
+		{ que: 'Seña con Mercado Pago al reservar', valor: (p) => siNo(tiene(p, 'sena')) },
+		{ que: 'Lista de espera que ofrece el hueco sola', valor: (p) => siNo(tiene(p, 'espera')) },
+		{ que: 'Membresías, cupones y referidos', valor: (p) => siNo(tiene(p, 'membresias')) },
+		{ que: 'Penalidades por ausencias', valor: (p) => siNo(tiene(p, 'penalidades')) },
+		{ que: 'Reportes', valor: (p) => (tiene(p, 'csv') ? 'Completos y CSV' : tiene(p, 'reportes_completos') ? 'Completos' : 'Resumen') },
+		{ que: 'Sucursales', valor: (p) => `${p.sucursales}` },
+		{ que: 'Dominio propio y plantillas de página', valor: (p) => siNo(tiene(p, 'dominio')) },
+		{
+			que: 'Recordatorios por WhatsApp',
+			valor: (p) => (p.whatsappIncluidos ? `${p.whatsappIncluidos} por\u00a0mes` : `Packs de ${e.extras.packWhatsApp.cantidad}`)
+		},
+		{ que: 'Asistente con IA', valor: (p) => `${p.cupoIA.toLocaleString('es-AR')} respuestas por\u00a0mes` }
 	]);
-	const COLUMNA: Record<string, 1 | 2> = { inicial: 1, completo: 2 };
-	const valor = (fila: [string, string, string], clave: string) => (COLUMNA[clave] ? fila[COLUMNA[clave]] : '—');
+
+	// Lo que lleva el negocio contra los topes del plan que rige.
+	const u = $derived(e.uso);
+	const pctProfes = $derived(u ? Math.min(100, Math.round((100 * u.profesionalesActivos) / Math.max(1, u.topeProfesionales))) : 0);
+	const sobran = $derived(u ? Math.max(0, u.profesionalesActivos - u.topeProfesionales) : 0);
+	const waIncluidosQuedan = $derived(u ? Math.max(0, u.whatsappIncluidos - u.whatsappUsadosMes) : 0);
+	let extrasA = $state<number | null>(null);
+	const extras = $derived(extrasA ?? s?.profesionalesExtra ?? 0);
+	const montoConExtras = $derived(
+		s ? (e.catalogo.find((p) => p.clave === 'centro')!.precio + extras * e.extras.precioProfesional) * (s.periodo === 'anual' ? e.extras.mesesAnual : 1) : 0
+	);
 
 	// La semana de prueba: lo que pasó, hoy y lo que queda.
 	const semana = $derived.by(() => {
@@ -93,13 +119,21 @@
 			<span>Volviste de Mercado Pago. Apenas confirme el alta, tu plan se actualiza solo (puede tardar unos&nbsp;minutos).</span>
 		</p>
 	{/if}
+	{#if data.vueltaWhatsApp}
+		<p class="g-aviso" role="status">
+			<span class="icono lleno" aria-hidden="true">info</span>
+			<span>Volviste de Mercado Pago. Apenas se acredite el pago, los recordatorios se suman a tu saldo (puede tardar unos&nbsp;minutos).</span>
+		</p>
+	{/if}
 	<Mensaje {form} que="cancelar" />
 	<Mensaje {form} que="pagar" />
+	<Mensaje {form} que="whatsapp" />
+	<Mensaje {form} que="extras" />
 
 	{#if enPrueba}
 		<section class="prueba" aria-labelledby="t-prueba">
 			<div class="prueba-izq">
-				<h2 id="t-prueba" class="prueba-titulo">Tenés todo el plan Completo hasta el {fechaLarga(e.pruebaHasta!)}</h2>
+				<h2 id="t-prueba" class="prueba-titulo">Tenés el plan {e.nombrePlan} hasta el {fechaLarga(e.pruebaHasta!)}</h2>
 				<p class="prueba-texto">
 					Elegí un plan antes de esa fecha y no se corta nada. Si no elegís, el panel queda en sólo lectura y tu página sigue tomando&nbsp;reservas.
 				</p>
@@ -115,11 +149,11 @@
 				<span class="visualmente-oculto">{e.diasDePrueba === 1 ? 'Te queda 1 día' : `Te quedan ${e.diasDePrueba} días`} de prueba</span>
 			</div>
 		</section>
-	{:else if s?.estado === 'pausada' && deApple}
+	{:else if s?.estado === 'pausada' && deTienda}
 		<section class="g-bloque estado" aria-labelledby="t-estado">
-			<h2 id="t-estado" class="g-bloque-titulo grande">La App Store no pudo cobrar el plan {e.nombrePlan}</h2>
+			<h2 id="t-estado" class="g-bloque-titulo grande">{deGoogle ? 'Google Play' : 'La App Store'} no pudo cobrar el plan {e.nombrePlan}</h2>
 			<p class="g-nota">
-				{#if s.graciaHasta}Todo sigue andando hasta el {fechaLarga(s.graciaHasta)}.{/if} Revisá el medio de pago de tu cuenta de Apple. {COMO_APPLE}
+				{#if s.graciaHasta}Todo sigue andando hasta el {fechaLarga(s.graciaHasta)}.{/if} Revisá el medio de pago de tu cuenta de {deGoogle ? 'Google' : 'Apple'}. {COMO_TIENDA}
 			</p>
 		</section>
 	{:else if s?.estado === 'pausada'}
@@ -165,18 +199,19 @@
 	{:else if s?.estado === 'autorizada'}
 		<section class="g-bloque estado" aria-labelledby="t-estado">
 			<h2 id="t-estado" class="g-bloque-titulo grande">Plan {e.nombrePlan}</h2>
-			{#if deApple}
+			{#if deTienda}
 				<p class="g-nota">
-					<span class="icono" aria-hidden="true">phone_iphone</span>
-					Contratada desde el iPhone: la cobra la App Store{#if s.proximoCobro}{s.canceladaEn ? ' y termina' : ' y se renueva'} el {fechaLarga(s.proximoCobro)}{/if}.
-					Para cambiar de plan o cancelarla: {COMO_APPLE}
+					<span class="icono" aria-hidden="true">{deGoogle ? 'phone_android' : 'phone_iphone'}</span>
+					Contratada desde el teléfono: la cobra {deGoogle ? 'Google Play' : 'la App Store'}{#if s.proximoCobro}{s.canceladaEn ? ' y termina' : ' y se renueva'} el {fechaLarga(s.proximoCobro)}{/if}.
+					Para cambiar de plan o cancelarla: {COMO_TIENDA}
 				</p>
 			{:else}
 				<p class="g-nota">
-					{#if s.proximoCobro}Próximo cobro el {fechaLarga(s.proximoCobro)}: {pesos(s.monto)}.{:else}{pesos(s.monto)} por mes, con débito automático.{/if}
+					{#if s.proximoCobro}Próximo cobro el {fechaLarga(s.proximoCobro)}: {pesos(s.monto)}.{:else}{pesos(s.monto)} por {s.periodo === 'anual' ? 'año' : 'mes'}, con débito automático.{/if}
+					{#if s.periodo === 'anual'}Pago anual: 12 meses al precio de {e.extras.mesesAnual}.{/if}
 				</p>
 			{/if}
-			{#if esDuenio && !deApple}
+			{#if esDuenio && !deTienda}
 				<div class="fila acciones">
 					<a class="g-accion" href="#planes">Cambiar de plan</a>
 					<form method="POST" action="?/cancelar" use:enhance={confirmar('¿Cancelar la suscripción? Si el mes ya está pago, sigue andando hasta el próximo cobro.')}>
@@ -191,8 +226,8 @@
 				{cancelHasta ? `Seguís con todo hasta el ${fechaLarga(cancelHasta)}` : 'Tu suscripción está cancelada'}
 			</h2>
 			<p class="g-nota">No se te vuelve a cobrar. Tus datos quedan&nbsp;guardados.</p>
-			{#if deApple}<p class="g-nota">Se contrató desde el iPhone: para volver, suscribite otra vez desde la app o elegí un plan acá abajo.</p>{/if}
-			{#if esDuenio && !deApple}
+			{#if deTienda}<p class="g-nota">Se contrató desde el teléfono: para volver, suscribite otra vez desde la app o elegí un plan acá abajo.</p>{/if}
+			{#if esDuenio && !deTienda}
 				<form method="POST" action="?/reactivar"><button class="g-accion">Reactivar</button></form>
 			{/if}
 		</section>
@@ -220,8 +255,8 @@
 					<tr>
 						<th scope="col" class="que">Qué incluye</th>
 						{#each e.catalogo as p (p.clave)}
-							<th scope="col" class:rec={p.clave === 'completo'}>
-								{#if p.clave === 'completo'}<span class="recomendado">Recomendado</span>{/if}
+							<th scope="col" class:rec={p.destacado}>
+								{#if p.destacado}<span class="recomendado">El más elegido</span>{/if}
 								<span class="plan-nombre">{p.nombre}</span>
 								<span class="plan-precio"><b class="num">{pesos(p.precio)}</b> por&nbsp;mes</span>
 							</th>
@@ -229,12 +264,12 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each FILAS as f (f[0])}
+					{#each FILAS as f (f.que)}
 						<tr>
-							<th scope="row">{f[0]}</th>
+							<th scope="row">{f.que}</th>
 							{#each e.catalogo as p (p.clave)}
-								{@const v = valor(f, p.clave)}
-								<td class:rec={p.clave === 'completo'} class:no={v === 'No'}>
+								{@const v = f.valor(p)}
+								<td class:rec={p.destacado} class:no={v === 'No'}>
 									<span class="icono lleno" aria-hidden="true">{v === 'No' ? 'remove' : 'check_circle'}</span>
 									<span class="solo-tel">{p.nombre}:&nbsp;</span>{v}
 								</td>
@@ -242,16 +277,23 @@
 						</tr>
 					{/each}
 				</tbody>
-				{#if esDuenio && vigente && s?.estado !== 'pausada' && !deApple}
+				{#if esDuenio && vigente && s?.estado !== 'pausada' && !deTienda}
 					<tfoot>
 						<tr>
 							<td class="que"></td>
 							{#each e.catalogo as p (p.clave)}
-								<td class:rec={p.clave === 'completo'}>
+								<td class:rec={p.destacado}>
 									{#if s?.plan === p.clave}
 										<span class="g-pildora actual"><span class="icono lleno" aria-hidden="true">check_circle</span>Tu plan</span>
 									{:else}
-										<form method="POST" action="?/cambiar" use:enhance={confirmar(`¿Pasarte al plan ${p.nombre}? El precio nuevo rige desde el próximo cobro.`)}>
+										<form
+											method="POST"
+											action="?/cambiar"
+											use:enhance={confirmar(
+												`¿Pasarte al plan ${p.nombre}? El precio nuevo rige desde el próximo cobro.` +
+													(planRango(p.clave) < planRango(s?.plan ?? '') ? ' No se borra nada: lo que tu plan nuevo no incluye queda guardado, en sólo lectura.' : '')
+											)}
+										>
 											<input type="hidden" name="plan" value={p.clave} />
 											<button class="g-cta claro">Cambiar a {p.nombre}</button>
 										</form>
@@ -266,18 +308,25 @@
 				<div class="carrito" id="elegir">
 					<fieldset class="opciones">
 						<legend class="rotulo">1 · Elegí tu plan</legend>
+						<div class="periodos" role="radiogroup" aria-label="Cómo pagás">
+							<label class:on={periodo === 'mensual'}><input type="radio" name="periodo-vista" value="mensual" bind:group={periodo} />Por mes</label>
+							<label class:on={periodo === 'anual'}
+								><input type="radio" name="periodo-vista" value="anual" bind:group={periodo} />Por año
+								<small>12 meses al precio de {e.extras.mesesAnual}</small></label
+							>
+						</div>
 						{#each e.catalogo as p (p.clave)}
 							<label class="opcion" class:on={elegido === p.clave}>
-								<input type="radio" name="plan-vista" value={p.clave} bind:group={elegido} />
+								<input type="radio" name="plan-vista" value={p.clave} checked={elegido === p.clave} onchange={() => (elegidoA = p.clave)} />
 								<span class="opcion-marca" aria-hidden="true"><span class="icono lleno">{elegido === p.clave ? 'radio_button_checked' : 'radio_button_unchecked'}</span></span>
 								<span class="opcion-cuerpo">
 									<span class="opcion-titulo">
 										{p.nombre}
-										{#if p.clave === 'completo'}<span class="recomendado">Recomendado</span>{/if}
+										{#if p.destacado}<span class="recomendado">El más elegido</span>{/if}
 									</span>
-									<span class="opcion-texto">{DESCRIPCION[p.clave] ?? ''}</span>
+									<span class="opcion-texto">{p.bajada} {p.incluye[0]}.</span>
 								</span>
-								<span class="opcion-precio"><b class="num">{pesos(p.precio)}</b><small>por mes</small></span>
+								<span class="opcion-precio"><b class="num">{pesos(precioDe(p))}</b><small>{periodo === 'anual' ? 'por año' : 'por mes'}</small></span>
 							</label>
 						{/each}
 					</fieldset>
@@ -288,9 +337,9 @@
 							<span class="icono lleno" aria-hidden="true">workspace_premium</span>
 							<span>
 								<b>Plan {plan.nombre}</b>
-								<small>Mensual · se renueva sola · cancelás cuando quieras</small>
+								<small>{periodo === 'anual' ? `Anual · ahorrás ${pesos(ahorro)}` : 'Mensual'} · se renueva sola · cancelás cuando quieras</small>
 							</span>
-							<b class="num">{pesos(plan.precio)}</b>
+							<b class="num">{pesos(precioDe(plan))}</b>
 						</div>
 						<dl class="cuentas">
 							{#if conPrueba}
@@ -299,39 +348,94 @@
 							{:else}
 								<div><dt>Primer cobro</dt><dd>hoy, al confirmar</dd></div>
 							{/if}
-							<div><dt>Después</dt><dd><b class="num">{pesos(plan.precio)}</b> cada mes, el día {primerCobro.getDate()}</dd></div>
+							<div>
+								<dt>Después</dt>
+								<dd>
+									<b class="num">{pesos(precioDe(plan))}</b>
+									{periodo === 'anual' ? `cada año, el ${fechaCorta(primerCobro)}` : `cada mes, el día ${primerCobro.getDate()}`}
+								</dd>
+							</div>
 							<div><dt>Medio de pago</dt><dd>Mercado Pago · tarjeta o dinero en cuenta</dd></div>
 						</dl>
 						<div class="total">
 							<span>Hoy pagás</span>
-							<b class="num">{conPrueba ? pesos(0) : pesos(plan.precio)}</b>
+							<b class="num">{conPrueba ? pesos(0) : pesos(precioDe(plan))}</b>
 						</div>
 						<!-- Sin enhance: la respuesta es una redirección a Mercado Pago. -->
 						<form method="POST" action="?/suscribir">
 							<input type="hidden" name="plan" value={plan.clave} />
+							<input type="hidden" name="periodo" value={periodo} />
 							<button class="g-cta pagar">
 								<span class="icono" aria-hidden="true">lock</span>
-								{conPrueba ? `Suscribirme · ${pesos(0)} hoy` : `Pagar ${pesos(plan.precio)}`}
+								{conPrueba ? `Suscribirme · ${pesos(0)} hoy` : `Pagar ${pesos(precioDe(plan))}`}
 							</button>
 						</form>
 						<p class="letra-chica">
 							{conPrueba ? `No se cobra nada hasta que termine la prueba. ` : ''}Te lleva a Mercado Pago para cargar el medio de pago. Precios finales en pesos, con
-							impuestos incluidos. <a href="/terminos">Términos</a> · <a href="/privacidad">Privacidad</a>
+							impuestos incluidos y sin comisión por turno. <a href="/terminos">Términos</a> · <a href="/privacidad">Privacidad</a>
 						</p>
 					</section>
 				</div>
 			{/if}
 			{#if !esDuenio}<p class="g-nota pad">La suscripción la elige la dueña o el dueño del&nbsp;negocio.</p>{/if}
-			{#if esDuenio && deApple && vigente}<p class="g-nota pad">Tu plan se paga con la App Store. Para cambiarlo: {COMO_APPLE}</p>{/if}
+			{#if esDuenio && deTienda && vigente}<p class="g-nota pad">Tu plan se paga con {deGoogle ? 'Google Play' : 'la App Store'}. Para cambiarlo: {COMO_TIENDA}</p>{/if}
 		</section>
 
 		<div class="g-col lado">
+			{#if u}
+				<section class="g-bloque grande" aria-labelledby="t-uso">
+					<h2 id="t-uso" class="g-bloque-titulo">Tu plan {e.nombrePlan}</h2>
+					<div class="uso">
+						<div class="uso-fila">
+							<span>Profesionales activos</span>
+							<b class="num">{u.profesionalesActivos} de {u.topeProfesionales}</b>
+						</div>
+						<span class="barra" class:llena={pctProfes >= 100} aria-hidden="true"><span style:width="{pctProfes}%"></span></span>
+						{#if sobran > 0}
+							<p class="g-nota alerta">
+								{sobran === 1 ? 'La más nueva queda' : `Las ${sobran} más nuevas quedan`} fuera de la agenda (no se borra nada). Desactivá a alguien en Equipo o pasá a
+								un plan más&nbsp;grande.
+							</p>
+						{:else if u.profesionalesActivos >= u.topeProfesionales && e.plan !== 'centro'}
+							<p class="g-nota">Llegaste al tope. Para sumar más, pasá a {nombreDe(e.plan === 'inicial' ? 'equipo' : 'centro')}.</p>
+						{/if}
+					</div>
+					<div class="uso">
+						<div class="uso-fila">
+							<span>Recordatorios por WhatsApp</span>
+							<b class="num">{waIncluidosQuedan + u.whatsappSaldo}</b>
+						</div>
+						<p class="g-nota">
+							{#if u.whatsappIncluidos}Quedan {waIncluidosQuedan} de los {u.whatsappIncluidos} de este mes{#if u.whatsappSaldo}, más {u.whatsappSaldo} de packs{/if}.
+							{:else if u.whatsappSaldo}Te quedan {u.whatsappSaldo} de packs (no vencen).
+							{:else}Tu plan no trae WhatsApp: los recordatorios salen por mail y en el celular. Con un pack de {e.extras.packWhatsApp.cantidad} también salen por
+								WhatsApp.{/if}
+						</p>
+						{#if esDuenio}
+							<form method="POST" action="?/whatsapp">
+								<button class="g-accion">Comprar {e.extras.packWhatsApp.cantidad} por {pesos(e.extras.packWhatsApp.precio)}</button>
+							</form>
+						{/if}
+					</div>
+					{#if esDuenio && s?.plan === 'centro' && s.estado === 'autorizada' && !deTienda}
+						<form class="uso" method="POST" action="?/extras" use:enhance>
+							<label class="uso-fila" for="extras">
+								<span>Profesionales extra <small>({pesos(e.extras.precioProfesional)} por mes c/u)</small></span>
+								<input id="extras" class="g-entrada extras" name="cantidad" type="number" min="0" max="100" inputmode="numeric" value={extras}
+									oninput={(ev) => (extrasA = Math.max(0, Math.min(100, Number(ev.currentTarget.value) || 0)))} />
+							</label>
+							<p class="g-nota">Con {extras} extra: hasta {25 + extras} profesionales por {pesos(montoConExtras)} {s.periodo === 'anual' ? 'por año' : 'por mes'}.</p>
+							<button class="g-accion" disabled={extras === (s.profesionalesExtra ?? 0)}>Guardar</button>
+						</form>
+					{/if}
+				</section>
+			{/if}
 			<section class="g-bloque grande" aria-labelledby="t-como">
 				<h2 id="t-como" class="g-bloque-titulo">Cómo se cobra</h2>
 				<ol class="pasos">
 					<li><span class="n num">1</span><span><b>Elegís el plan</b> y te lleva a Mercado&nbsp;Pago.</span></li>
 					<li><span class="n num">2</span><span><b>Autorizás el débito</b> con tarjeta o dinero en&nbsp;cuenta.</span></li>
-					<li><span class="n num">3</span><span><b>Listo:</b> cada mes se cobra solo y te llega la factura por&nbsp;mail.</span></li>
+					<li><span class="n num">3</span><span><b>Listo:</b> se cobra solo cada mes (o cada año, si elegís el pago&nbsp;anual).</span></li>
 				</ol>
 				<p class="mp"><img src="/logos/mercadopago.svg" alt="" width="20" height="20" />Débito automático con Mercado Pago. Precios finales, con&nbsp;IVA.</p>
 			</section>
@@ -351,6 +455,84 @@
 </div>
 
 <style>
+	.uso {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		padding-top: 12px;
+		margin-top: 12px;
+		border-top: 1px solid var(--tl-linea);
+	}
+	.uso:first-of-type {
+		border-top: 0;
+		margin-top: 4px;
+		padding-top: 0;
+	}
+	.uso-fila {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		font-size: 14px;
+	}
+	.uso-fila small {
+		color: var(--suave);
+		font-weight: 400;
+	}
+	.barra {
+		display: block;
+		height: 8px;
+		border-radius: 4px;
+		background: var(--tl-linea);
+		overflow: hidden;
+	}
+	.barra > span {
+		display: block;
+		height: 100%;
+		background: var(--tl-menta);
+	}
+	.barra.llena > span {
+		background: var(--aviso);
+	}
+	.alerta {
+		color: var(--peligro);
+	}
+	.extras {
+		width: 84px;
+		text-align: right;
+	}
+	.periodos {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 8px;
+		margin-bottom: 10px;
+	}
+	.periodos label {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 2px;
+		padding: 10px 8px;
+		border-radius: 14px;
+		border: 1.5px solid var(--tl-linea);
+		font-weight: 700;
+		font-size: 14px;
+		cursor: pointer;
+		text-align: center;
+	}
+	.periodos label.on {
+		border-color: var(--tl-petroleo);
+		background: color-mix(in srgb, var(--tl-menta) 12%, transparent);
+	}
+	.periodos input {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+	.periodos small {
+		font-weight: 400;
+		font-size: 12px;
+	}
 	.titulo {
 		flex: 0 1 auto;
 	}

@@ -20,6 +20,8 @@ export type Profesional = {
 	telefono: string;
 	orden: number;
 	activo: boolean;
+	/** Activo y dentro del tope del plan: sólo esos toman turnos (bajar de plan no borra a nadie). */
+	enPlan?: boolean;
 	servicios: string[];
 	horario: Franja[];
 };

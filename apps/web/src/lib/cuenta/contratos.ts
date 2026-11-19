@@ -22,7 +22,7 @@ export type EstadisticasExtra = {
 };
 
 /** Estado de la cuenta de un negocio, para el admin. */
-export type EstadoNegocio = 'prueba' | 'inicial' | 'completo' | 'cobro_fallido' | 'solo_lectura';
+export type EstadoNegocio = 'prueba' | 'inicial' | 'equipo' | 'centro' | 'cobro_fallido' | 'solo_lectura';
 export const ESTADOS_NEGOCIO: EstadoNegocio[] = ['prueba', 'cobro_fallido', 'solo_lectura'];
 
 /**

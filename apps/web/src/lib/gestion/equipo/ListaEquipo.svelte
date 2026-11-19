@@ -8,7 +8,17 @@
 	import type { Franja } from '#lib/configuracion/horario.ts';
 	import { horasSemana, horasTexto, iniciales } from './semana.ts';
 
-	type P = { id: string; nombre: string; especialidad: string; activo: boolean; miembroId: string | null; servicios: string[]; horario: Franja[] };
+	type P = {
+		id: string;
+		nombre: string;
+		especialidad: string;
+		activo: boolean;
+		/** Activo y dentro del tope del plan (false: bajaron de plan; no toma turnos, no se borró). */
+		enPlan?: boolean;
+		miembroId: string | null;
+		servicios: string[];
+		horario: Franja[];
+	};
 	let { profesionales, actual, children }: { profesionales: P[]; actual?: string; children?: Snippet } = $props();
 
 	const sub = (p: P) => {
@@ -36,7 +46,9 @@
 				<span class="g-avatar" class:menta={p.id === actual} aria-hidden="true">{iniciales(p.nombre)}</span>
 				<span class="texto">
 					<b>{p.nombre}</b>
-					<span>{sub(p)}{#if !p.activo} · <span class="pausa">pausado</span>{/if}</span>
+					<span
+						>{sub(p)}{#if !p.activo} · <span class="pausa">pausado</span>{:else if p.enPlan === false} · <span class="pausa">fuera de tu plan</span>{/if}</span
+					>
 				</span>
 				{#if !p.miembroId}<span class="sin-acceso">Sin acceso</span>{/if}
 			</a>

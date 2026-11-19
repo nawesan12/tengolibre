@@ -82,7 +82,7 @@
 			</div>
 		</div>
 		<span class="ventajas">
-			<span><Icono nombre="check_circle" lleno tam={18} />7 días con todo</span>
+			<span><Icono nombre="check_circle" lleno tam={18} />14 días gratis</span>
 			<span><Icono nombre="check_circle" lleno tam={18} />Sin tarjeta</span>
 			<span><Icono nombre="check_circle" lleno tam={18} />Cancelás cuando quieras</span>
 		</span>

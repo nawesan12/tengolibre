@@ -29,6 +29,8 @@ export type Profesional = {
 	nombre: string;
 	especialidad: string;
 	activo: boolean;
+	/** Activo y dentro del tope del plan: sólo esos toman turnos. */
+	enPlan?: boolean;
 	orden: number;
 	servicios: string[];
 	horario: Franja[];

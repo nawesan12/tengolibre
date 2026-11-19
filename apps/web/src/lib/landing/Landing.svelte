@@ -84,38 +84,53 @@
 		{ n: 'Consultorios', s: 'Recepción y varios profesionales', foto: 'recepcion.jpg', r: 'consultorio' }
 	];
 
+	// Los planes del 19/11/2026 (apps/api/internal/dominio/planes es la fuente: si cambia allá, acá).
 	const precios = [
 		{
 			n: 'Inicial',
-			precio: '$\u00a07.000',
-			para: 'Para quien atiende solo o con una persona más.',
-			inc: ['Página y turnos online', 'App para el celular', 'Recordatorios por mail', 'Hasta 2 profesionales'],
+			precio: '$\u00a06.900',
+			para: 'Para un negocio chico.',
+			inc: ['Hasta 5 profesionales', 'Link propio y reservas por la web', 'Recordatorios por mail y en el celular, sin límite', 'Ficha de cada cliente y caja', 'Asistente: 100 respuestas al mes'],
 			clase: 'crema'
 		},
 		{
-			n: 'Completo',
-			precio: '$\u00a015.000',
-			para: 'Para equipos que quieren llenar cada hueco.',
+			n: 'Equipo',
+			precio: '$\u00a014.900',
+			para: 'Cuando suma gente y le empiezan a faltar a los turnos.',
 			inc: [
-				'Todo lo del Inicial',
-				'Seña con Mercado Pago',
-				'Lista de espera que se ofrece sola',
-				'Recordatorios por WhatsApp',
+				'Hasta 12 profesionales',
+				'Todo lo de Inicial',
+				'Seña con Mercado Pago al reservar',
+				'Lista de espera que ofrece el hueco sola',
 				'Membresías, cupones y referidos',
-				'Sin límite de profesionales'
+				'Asistente: 400 respuestas al mes'
 			],
 			clase: 'oscuro',
 			tag: 'EL MÁS ELEGIDO'
+		},
+		{
+			n: 'Centro',
+			precio: '$\u00a029.900',
+			para: 'Para equipos grandes o con más de un local.',
+			inc: [
+				'Hasta 25 profesionales (cada uno extra, $\u00a01.900)',
+				'Todo lo de Equipo',
+				'Hasta 3 sucursales',
+				'Dominio propio y plantillas de página',
+				'150 recordatorios por WhatsApp incluidos',
+				'Asistente: 1.500 respuestas al mes'
+			],
+			clase: 'crema'
 		}
 	];
 
 	const faq = [
-		['¿Mis clientes tienen que bajarse una\u00a0app?', 'No. Reservan desde tu página en el navegador, sin crear cuenta. Les llega el comprobante por mail o WhatsApp.'],
+		['¿Mis clientes tienen que bajarse una\u00a0app?', 'No. Reservan desde tu página en el navegador, sin crear cuenta. Les llega el comprobante por mail.'],
 		['¿Cómo cobro la\u00a0seña?', 'Conectás tu cuenta de Mercado Pago en un paso. La plata va directo a tu cuenta; nosotros no la tocamos.'],
 		['¿Qué pasa cuando termina la\u00a0prueba?', 'Elegís un plan o la agenda queda en sólo lectura. No se borra nada y no te cobramos sin avisar.'],
 		['¿Qué pasa si alguien\u00a0cancela?', 'Le ofrecemos el lugar a quien está en la lista de espera. Si lo toma, el hueco se llena solo y vos no le escribís a nadie.'],
 		['¿Para qué rubros\u00a0sirve?', 'Para peluquerías, barberías, estética, uñas y consultorios, y para cualquier negocio que trabaje con turnos.'],
-		['¿Puedo usar mi propio\u00a0dominio?', 'Sí, en el plan Completo podés usar turnos.tunegocio.com.ar o el dominio que ya tengas.']
+		['¿Puedo usar mi propio\u00a0dominio?', 'Sí, en el plan Centro podés usar turnos.tunegocio.com.ar o el dominio que ya tengas.']
 	];
 
 	// Datos estructurados para los buscadores: qué es Tengo Libre y sus preguntas frecuentes.
@@ -414,7 +429,7 @@
 			</article>
 		</div>
 		<div class="centro">
-			<a class="pastilla menta grande sombra" href="/empezar">Probalo 7 días gratis<Icono nombre="arrow_forward" tam={22} /></a>
+			<a class="pastilla menta grande sombra" href="/empezar">Probalo 14 días gratis<Icono nombre="arrow_forward" tam={22} /></a>
 		</div>
 	</section>
 
@@ -436,8 +451,8 @@
 	<section id="precios" class="seccion">
 		<div class="titulo-centro" use:aparecer>
 			<span class="rotulo verde">PRECIOS</span>
-			<h2 class="h2">7 días con todo. Después&nbsp;elegís.</h2>
-			<p class="sub">Sin permanencia. Cancelás cuando&nbsp;quieras.</p>
+			<h2 class="h2">14 días con Equipo. Después&nbsp;elegís.</h2>
+			<p class="sub">Precios finales, sin comisión por turno. Pagando el año, 12 meses al precio de&nbsp;10.</p>
 		</div>
 		<div class="planes">
 			{#each precios as p, i (p.n)}
@@ -492,7 +507,7 @@
 			<div class="pie-arriba">
 				<div class="pie-tit">
 					<h2>¿Tenés un hueco? <span>Llenalo.</span></h2>
-					<span>7 días gratis, sin tarjeta. En 5 minutos tenés tu&nbsp;página.</span>
+					<span>14 días gratis, sin tarjeta. En 5 minutos tenés tu&nbsp;página.</span>
 				</div>
 				<div class="pie-cta">
 					<a class="pastilla menta grande sombra" href="/empezar">Empezar gratis<Icono nombre="arrow_forward" tam={22} /></a>
@@ -522,7 +537,7 @@
 
 	<div class="barra" class:visible={barra} aria-hidden={!barra}>
 		<img src="/marca/simbolo_una_tinta_blanco.svg" alt="" width="22" height="22" />
-		<span>7 días gratis, sin tarjeta</span>
+		<span>14 días gratis, sin tarjeta</span>
 		<a class="pastilla menta media" href="/empezar" tabindex={barra ? 0 : -1}>Empezar</a>
 	</div>
 </div>
@@ -1717,9 +1732,9 @@
 	}
 	.planes {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
 		gap: 20px;
-		max-width: 920px;
+		max-width: 1120px;
 		width: 100%;
 		margin: 0 auto;
 	}

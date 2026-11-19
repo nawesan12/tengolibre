@@ -57,7 +57,7 @@
 			</form>
 			<a class="crear" href="/empezar">
 				<Icono nombre="add_business" tam={22} />
-				<span class="texto"><b>Crear otro negocio</b><span>7 días gratis</span></span>
+				<span class="texto"><b>Crear otro negocio</b><span>14 días gratis</span></span>
 			</a>
 			<div class="cuenta">
 				<span class="email" title={persona.email}>{persona.email}</span>
