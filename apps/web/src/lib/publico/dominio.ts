@@ -9,36 +9,48 @@ export const esHostPropio = (host: string) => PROPIOS.has(host.toLowerCase());
 /** El endpoint que traduce el host al slug (no choca con ningún slug: llevan sólo a-z, 0-9 y -). */
 export const RUTA_HOST = '/_host';
 
-type Entrada = { slug: string | null; vence: number };
+/** Lo que dice la API de un host: el slug del negocio y si hay que llevar a la dirección de TengoLibre
+ * (el dominio está guardado pero el plan ya no trae dominio propio). */
+export type Destino = { slug: string | null; redirigir?: boolean };
+
+type Entrada = { destino: Destino; vence: number };
 
 /** Caché corta en memoria: un minuto por host, así una visita no pega siempre en la API. */
 export function cacheDeHosts(ttl = 60_000, ahora = () => Date.now()) {
 	const m = new Map<string, Entrada>();
 	return {
-		leer(host: string): string | null | undefined {
+		leer(host: string): Destino | undefined {
 			const e = m.get(host);
 			if (!e) return undefined;
 			if (e.vence <= ahora()) {
 				m.delete(host);
 				return undefined;
 			}
-			return e.slug;
+			return e.destino;
 		},
-		guardar(host: string, slug: string | null) {
+		guardar(host: string, destino: Destino) {
 			if (m.size > 1000) m.clear();
-			m.set(host, { slug, vence: ahora() + ttl });
+			m.set(host, { destino, vence: ahora() + ttl });
 		}
 	};
 }
 
 /**
  * A qué ruta va un pedido: en un dominio ajeno, la raíz es la página del negocio. Lo demás (el
- * link del turno, /_app, /{slug}/reservar) sigue igual.
+ * link del turno, /_app, /{slug}/reservar) sigue igual. Un dominio fuera del plan no se reescribe:
+ * lo redirige el handle (redireccionFueraDelPlan).
  */
-export async function rutaPara(url: URL, buscar: (host: string) => Promise<string | null>): Promise<string | undefined> {
+export async function rutaPara(url: URL, buscar: (host: string) => Promise<Destino>): Promise<string | undefined> {
 	if (url.pathname !== '/' || esHostPropio(url.hostname)) return undefined;
-	const slug = await buscar(url.hostname.toLowerCase());
-	return slug ? `/${slug}` : undefined;
+	const d = await buscar(url.hostname.toLowerCase());
+	return d.slug && !d.redirigir ? `/${d.slug}` : undefined;
+}
+
+/** Un dominio propio fuera del plan lleva, en cualquier ruta, a la página en TengoLibre. */
+export function redireccionFueraDelPlan(url: URL, d: Destino): string | null {
+	if (!d.slug || !d.redirigir) return null;
+	const resto = url.pathname === '/' ? '' : url.pathname;
+	return `${SITIO}/${d.slug}${resto}${url.search}`;
 }
 
 /** La dirección de TengoLibre: la de los canonical de las páginas de los negocios. */

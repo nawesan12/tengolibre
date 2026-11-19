@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { diaCorto, fechaLarga, mesesCortos, semanas, sumarDias } from './calendario.ts';
 import { completar, contraste, secciones, tema, textoSobre, variables, vistaPrevia } from './estilo.ts';
-import { cacheDeHosts, esHostPropio, rutaPara } from './dominio.ts';
+import { cacheDeHosts, esHostPropio, redireccionFueraDelPlan, rutaPara } from './dominio.ts';
 import { urlDePaso } from './reserva.ts';
 import { duracion, estadoAtencion, iniciales, linkMapa, linkWhatsapp, montoSena, renglonesAtencion, sinViuda } from './textos.ts';
 
@@ -25,7 +25,7 @@ describe('calendario', () => {
 
 describe('dominio propio', () => {
 	it('no resuelve los hosts de TengoLibre ni otras rutas que la raíz', async () => {
-		const buscar = vi.fn(async () => 'la-barberia');
+		const buscar = vi.fn(async () => ({ slug: 'la-barberia' }));
 		expect(esHostPropio('tengolibre.com.ar')).toBe(true);
 		expect(await rutaPara(new URL('https://www.tengolibre.com.ar/'), buscar)).toBeUndefined();
 		expect(await rutaPara(new URL('https://turnos.labarberia.com/turno/abc'), buscar)).toBeUndefined();
@@ -34,15 +34,24 @@ describe('dominio propio', () => {
 		expect(buscar).toHaveBeenCalledWith('turnos.labarberia.com');
 	});
 	it('sin negocio para el host, no cambia la ruta', async () => {
-		expect(await rutaPara(new URL('https://nadie.com/'), async () => null)).toBeUndefined();
+		expect(await rutaPara(new URL('https://nadie.com/'), async () => ({ slug: null }))).toBeUndefined();
+	});
+	it('un dominio fuera del plan lleva a la página en TengoLibre, en cualquier ruta', async () => {
+		const d = { slug: 'la-barberia', redirigir: true };
+		expect(await rutaPara(new URL('https://turnos.labarberia.com/'), async () => d)).toBeUndefined();
+		expect(redireccionFueraDelPlan(new URL('https://turnos.labarberia.com/'), d)).toBe('https://tengolibre.com.ar/la-barberia');
+		expect(redireccionFueraDelPlan(new URL('https://turnos.labarberia.com/reservar?x=1'), d)).toBe(
+			'https://tengolibre.com.ar/la-barberia/reservar?x=1'
+		);
+		expect(redireccionFueraDelPlan(new URL('https://turnos.labarberia.com/'), { slug: 'la-barberia' })).toBeNull();
 	});
 	it('la caché vence', () => {
 		let t = 0;
 		const c = cacheDeHosts(1000, () => t);
-		c.guardar('a.com', 'a');
-		c.guardar('b.com', null);
-		expect(c.leer('a.com')).toBe('a');
-		expect(c.leer('b.com')).toBeNull();
+		c.guardar('a.com', { slug: 'a' });
+		c.guardar('b.com', { slug: null });
+		expect(c.leer('a.com')?.slug).toBe('a');
+		expect(c.leer('b.com')?.slug).toBeNull();
 		expect(c.leer('c.com')).toBeUndefined();
 		t = 1000;
 		expect(c.leer('a.com')).toBeUndefined();

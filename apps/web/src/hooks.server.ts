@@ -1,8 +1,28 @@
 import type { Handle, HandleFetch } from '@sveltejs/kit/hooks';
 import { COOKIE_NEGOCIO, COOKIE_SESION, elegirNegocio } from '#lib/server/sesion.ts';
 import { apiDe, BASE_API, type NegocioDeLaPersona } from '#lib/server/api.ts';
+import { cacheDeHosts, esHostPropio, redireccionFueraDelPlan, RUTA_HOST, type Destino } from '#lib/publico/dominio.ts';
+
+// Dominio propio fuera del plan (bajó de Centro): cualquier ruta de ese host lleva a la página del
+// negocio en TengoLibre, en vez de mostrar la portada de TengoLibre en su dominio.
+const hosts = cacheDeHosts();
+
+async function destinoDe(event: Parameters<Handle>[0]['event']): Promise<Destino | null> {
+	const host = event.url.hostname.toLowerCase();
+	if (esHostPropio(host) || event.url.pathname === RUTA_HOST || event.url.pathname.startsWith('/_app/')) return null;
+	const enCache = hosts.leer(host);
+	if (enCache !== undefined) return enCache;
+	const r = await event.fetch(`${RUTA_HOST}?host=${encodeURIComponent(host)}`).catch(() => null);
+	if (!r || r.status >= 500) return null;
+	const d: Destino = r.ok ? ((await r.json()) as Destino) : { slug: null };
+	hosts.guardar(host, d);
+	return d;
+}
 
 export const handle: Handle = async ({ event, resolve }) => {
+	const destino = await destinoDe(event);
+	const ir = destino ? redireccionFueraDelPlan(event.url, destino) : null;
+	if (ir) return new Response(null, { status: 302, headers: { location: ir, 'cache-control': 'public, max-age=60' } });
 	event.locals.token = event.cookies.get(COOKIE_SESION) ?? null;
 	event.locals.negocio = event.cookies.get(COOKIE_NEGOCIO) ?? null;
 	// Sin negocio elegido (recién ingresó o se borró la cookie), el primero, como el layout del panel: si

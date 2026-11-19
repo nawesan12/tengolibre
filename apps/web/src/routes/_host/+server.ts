@@ -7,8 +7,8 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
 	const host = (url.searchParams.get('host') ?? '').toLowerCase();
 	if (!/^[a-z0-9.-]{1,253}$/.test(host)) return json({ slug: null });
 	try {
-		const r = await apiPublica(fetch).get<{ slug: string }>(`/v1/host/${encodeURIComponent(host)}`);
-		return json({ slug: r.slug }, { headers: { 'cache-control': 'public, max-age=60' } });
+		const r = await apiPublica(fetch).get<{ slug: string; redirigir?: boolean }>(`/v1/host/${encodeURIComponent(host)}`);
+		return json({ slug: r.slug, redirigir: r.redirigir === true }, { headers: { 'cache-control': 'public, max-age=60' } });
 	} catch (e) {
 		if (e instanceof ErrorApi && e.estado === 404) return json({ slug: null }, { headers: { 'cache-control': 'public, max-age=60' } });
 		throw e;
