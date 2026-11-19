@@ -1,5 +1,16 @@
 # Estado
 
+## 19/11/2026: planes y precios nuevos DESPLEGADOS (API y web 58fd6d7, migración 00038; iOS build 2611191839; Android 139)
+
+- **Planes:** Inicial $ 6.900, Equipo $ 14.900 (destacado), Centro $ 29.900 (+ $ 1.900 por profesional arriba de 25); prueba de 14 días; «completo» pasó a «equipo».
+- **Integración:** `planes-precios` entró a main por avance rápido.
+- **Copia previa:** `/var/backups/tengolibre/antes-planes-202611192133.sql.gz`.
+- **Despliegue:** el de «Desplegar» (abajo), con el worker parado durante `migrar`; la web con `bun run build` + rsync. `goose_db_version` en 38, `/salud/listo` «listo» y la home muestra los precios nuevos.
+- **IA:** `TENGOLIBRE_IA_TOPE_DIARIO` no está fijado en `/opt/tengolibre/api.conf`: rige el 100 por defecto del código.
+- **iOS:** `testflight-local.sh … tengolibre` (build 2611191839) y `ultima.py`. El espejo grupovimo/tengolibre-ios no se actualizó (iOS se compila desde el monorepo).
+- **Android:** espejo grupovimo/tengolibre-android desde la copia limpia (`[skip ci]`), workflow «Android» corrida 39 y `subir_aab.py`: 139 en la prueba cerrada, mandado a revisión.
+- **Pendiente (lo decide Nahuel):** productos de suscripción en App Store y Play (el acuerdo de apps pagas todavía no está activo).
+
 ## 19/11/2026: todo en producción (API y web con migraciones hasta la 00037; apps subidas el 18-19/11)
 
 Las entradas del 18/11 de abajo que dicen «sin desplegar» ya están desplegadas:
