@@ -46,6 +46,26 @@
 	<SinPermiso que="la lista de espera" />
 {:else}
 	{#if form?.error}<p class="aviso error" role="alert">{form.error}</p>{/if}
+	{#if form && 'anotada' in form && form.anotada}<p class="aviso" role="status"><Icono nombre="check_circle" lleno tam={20} />Anotamos a {form.anotada}. Si se libera un lugar, le llega un&nbsp;mail.</p>{/if}
+
+	<details class="anotar" open={!!(form && 'error' in form && form.error)}>
+		<summary><Icono nombre="person_add" tam={20} />Anotar a alguien</summary>
+		<form method="POST" action={accion(page.url, 'anotar')} use:enhance class="anotar-form">
+			<label class="campo">Nombre <input name="nombre" required maxlength="80" autocomplete="off" /></label>
+			<label class="campo">Email <input name="email" type="email" required maxlength="120" autocomplete="off" /></label>
+			<label class="campo">Teléfono <input name="telefono" type="tel" maxlength="30" autocomplete="off" /></label>
+			<label class="campo">
+				Servicio
+				<select name="servicioId" required>
+					{#each data.servicios as s (s.id)}<option value={s.id}>{s.nombre}</option>{/each}
+				</select>
+			</label>
+			<label class="campo">Desde <input name="desde" type="date" required min={data.hoy} value={data.hoy} /></label>
+			<label class="campo">Hasta <input name="hasta" type="date" min={data.hoy} /></label>
+			<p class="nota-anotar">El aviso le llega por mail, con el link para tomar el&nbsp;lugar.</p>
+			<button class="boton oscuro">Anotar</button>
+		</form>
+	</details>
 
 	<ul class="lista">
 		{#each lista as a (a.id)}
@@ -335,5 +355,39 @@
 		.match select {
 			height: 44px;
 		}
+	}
+	.anotar {
+		margin: 0 0 16px;
+		border-radius: 16px;
+		background: var(--tl-papel);
+		box-shadow: inset 0 0 0 1px var(--tl-linea);
+	}
+	.anotar summary {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-height: 52px;
+		padding: 0 16px;
+		font-weight: 700;
+		cursor: pointer;
+		list-style: none;
+	}
+	.anotar summary::-webkit-details-marker {
+		display: none;
+	}
+	.anotar-form {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 12px;
+		padding: 0 16px 16px;
+	}
+	.nota-anotar {
+		grid-column: 1 / -1;
+		margin: 0;
+		font-size: 13px;
+		color: var(--tl-sub);
+	}
+	.anotar-form .boton {
+		justify-self: start;
 	}
 </style>

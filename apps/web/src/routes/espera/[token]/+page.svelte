@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance, type SubmitFunction } from '$app/forms';
 	import { onMount } from 'svelte';
 	import { dia, hora, pesos } from '#lib/formato.ts';
 	import Icono from '#lib/ui/Icono.svelte';
@@ -24,6 +24,17 @@
 	const vencida = $derived(o.estado !== 'ofrecida' || quedan === 0);
 	const pasada = $derived((!!form && 'pasada' in form) || o.estado === 'paso');
 	const tomadaPorOtro = $derived(!!form && 'codigo' in form && (form.codigo === 'oferta_cerrada' || form.codigo === 'horario_ocupado' || form.codigo === 'oferta_vencida'));
+	let enviando = $state('');
+	const enviar =
+		(cual: string): SubmitFunction =>
+		({ cancel }) => {
+			if (enviando) return cancel();
+			enviando = cual;
+			return async ({ update }) => {
+				await update();
+				enviando = '';
+			};
+		};
 </script>
 
 <svelte:head>
@@ -67,12 +78,13 @@
 					<span>Es tuyo si lo tomás en los próximos <b class="tl-num">{quedan} min</b>. Después pasa a la&nbsp;siguiente.</span>
 				</p>
 			{/if}
+			<!-- Mientras va un pedido, los dos botones quietos: un doble toque mostraba la respuesta del segundo. -->
 			<div class="acciones">
-				<form method="POST" action="?/tomar" use:enhance>
-					<button class="cta">Tomar el lugar</button>
+				<form method="POST" action="?/tomar" use:enhance={enviar('tomar')}>
+					<button class="cta" disabled={!!enviando}>{enviando === 'tomar' ? 'Tomando…' : 'Tomar el lugar'}</button>
 				</form>
-				<form method="POST" action="?/pasar" use:enhance>
-					<button class="cta-2">No me sirve, que pase</button>
+				<form method="POST" action="?/pasar" use:enhance={enviar('pasar')}>
+					<button class="cta-2" disabled={!!enviando}>{enviando === 'pasar' ? 'Un momento…' : 'No me sirve, que pase'}</button>
 				</form>
 			</div>
 		{/if}

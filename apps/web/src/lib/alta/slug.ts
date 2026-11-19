@@ -7,8 +7,14 @@
 export const RESERVADOS = new Set([
 	'admin', 'api', 'explorar', 'iniciar-sesion', 'invitacion', 'mi-cuenta', 'mis-turnos', 'panel', 'presentacion',
 	'recuperar-contrasena', 'registrarse', 'review', 'resena', 'sin-conexion', 'turno', 'ingresar', 'precios', 'ayuda',
-	'legal', 'terminos', 'privacidad', 'www', 'cal', 'espera', 'conectar', 'empezar', 'salir', 'fotos', 'logos', 'marca', 'og'
+	'legal', 'terminos', 'privacidad', 'www', 'cal', 'espera', 'conectar', 'empezar', 'salir', 'fotos', 'logos', 'marca', 'og',
+	// Marca y pagos (como negocios.Reservados en la API).
+	'soporte', 'tengolibre', 'tengo-libre', 'oficial', 'grupovimo', 'grupo-vimo', 'mercadopago', 'mercado-pago', 'pagos', 'pago',
+	'seguridad', 'contacto'
 ]);
+
+/** Reservada: de la lista, o con «tengolibre» adentro (nadie se hace pasar por la plataforma). */
+export const reservada = (slug: string) => RESERVADOS.has(slug) || slug.replaceAll('-', '').includes('tengolibre');
 
 /** Del nombre (o lo que se escriba) a una dirección válida: minúsculas, sin acentos, guiones. */
 export const aSlug = (s: string) =>
@@ -47,7 +53,7 @@ export type EstadoCampo = {
 export function estadoCampo(slug: string, r: Disponibilidad | null, vacio = 'Escribí el nombre de tu negocio'): EstadoCampo {
 	if (!slug) return { estado: 'vacio', icono: 'edit', borde: '#ddd1b9', color: '#4a5d61', mensaje: vacio, ok: false };
 	if (slug.length < 3)
-		return { estado: 'corta', icono: 'info', borde: '#b26a00', color: '#8a5200', mensaje: 'Tiene que tener al menos 3 letras', ok: false };
+		return { estado: 'corta', icono: 'info', borde: '#b26a00', color: '#8a5200', mensaje: 'Tiene que tener al menos 3 letras.', ok: false };
 	if (!r) return { estado: 'buscando', icono: 'progress_activity', borde: '#ddd1b9', color: '#4a5d61', mensaje: 'Fijándonos si está libre…', ok: false };
 	if (r.estado === 'tomada')
 		return {

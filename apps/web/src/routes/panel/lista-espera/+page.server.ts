@@ -3,7 +3,7 @@ import { intentar } from '#lib/server/acciones.ts';
 import { dia } from '#lib/formato.ts';
 import { sumarDias } from '#lib/operacion/fechas.ts';
 import { TABS_ESPERA, tabDe, type TabEspera } from '#lib/operacion/espera.ts';
-import { enc, param, siSePuede } from '#lib/operacion/servidor.ts';
+import { catalogo, enc, param, siSePuede } from '#lib/operacion/servidor.ts';
 import type { Anotado, HorarioLibre } from '#lib/operacion/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -30,12 +30,13 @@ export const load: PageServerLoad = async (event) => {
 	// Compatibilidad: ?todos=1 era «ver también avisados y vencidos».
 	const pedida = param(event.url, 'tab');
 	const tab: TabEspera = TABS.includes(pedida) ? (pedida as TabEspera) : param(event.url, 'todos') === '1' ? 'avisados' : 'esperando';
-	const r = await siSePuede(api.get<{ espera: Anotado[] }>('/v1/panel/espera?todos=1'));
-	if (!r) return { prohibido: true as const, tab, espera: [], hoy: dia(), sugeridos: {} as Record<string, HorarioLibre[]> };
+	const [r, cat] = await Promise.all([siSePuede(api.get<{ espera: Anotado[] }>('/v1/panel/espera?todos=1')), catalogo(api).catch(() => null)]);
+	const servicios = (cat?.servicios ?? []).filter((s) => s.activo).map((s) => ({ id: s.id, nombre: s.nombre }));
+	if (!r) return { prohibido: true as const, tab, espera: [], hoy: dia(), servicios, sugeridos: {} as Record<string, HorarioLibre[]> };
 	const hoy = dia();
 	const pendientes = r.espera.filter((a) => tabDe(a, hoy) === 'esperando').slice(0, 30);
 	const pares = await Promise.all(pendientes.map(async (a) => [a.id, await sugeridos(api, a, hoy)] as const));
-	return { prohibido: false as const, tab, hoy, espera: r.espera, sugeridos: Object.fromEntries(pares) as Record<string, HorarioLibre[]> };
+	return { prohibido: false as const, tab, hoy, servicios, espera: r.espera, sugeridos: Object.fromEntries(pares) as Record<string, HorarioLibre[]> };
 };
 
 export const actions: Actions = {
@@ -48,6 +49,23 @@ export const actions: Actions = {
 				nota: String(f.get('nota') ?? '')
 			})
 		);
+	},
+	/** Anotar a alguien que lo pidió por teléfono o WhatsApp (la mayoría no llega por la web). */
+	anotar: async (event) => {
+		const f = await event.request.formData();
+		const s = (k: string) => String(f.get(k) ?? '').trim();
+		const r = await intentar(() =>
+			apiDe(event).post('/v1/panel/espera', {
+				servicioId: s('servicioId'),
+				nombre: s('nombre'),
+				email: s('email'),
+				telefono: s('telefono'),
+				desde: s('desde'),
+				hasta: s('hasta') || s('desde'),
+				momento: s('momento') || 'cualquiera'
+			})
+		);
+		return 'ok' in r ? { anotada: s('nombre') } : r;
 	},
 	borrar: async (event) => {
 		const f = await event.request.formData();

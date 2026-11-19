@@ -19,7 +19,8 @@
 			titulo: 'Portada',
 			ayuda: 'Con tu mejor foto o sólo con tu color.',
 			ops: [
-				{ v: 'foto', t: 'Con foto', muestra: 'url(/fotos/manicura.jpg) center/cover' },
+				// La muestra es una foto del rubro elegido (antes, la de manicura para todos).
+				{ v: 'foto', t: 'Con foto', muestra: `url(/fotos/${b.rubroInfo?.foto ?? 'recepcion.jpg'}) center/cover` },
 				{ v: 'color', t: 'Sólo color', muestra: b.color }
 			]
 		},

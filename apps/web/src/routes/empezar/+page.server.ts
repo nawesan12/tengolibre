@@ -16,7 +16,7 @@ import { fapiDe } from '#lib/clerk.ts';
 import { esPaso, conNegocio, siguiente, urlPaso, type Paso } from '#lib/alta/pasos.ts';
 import { rubroDe } from '#lib/alta/rubros.ts';
 import { franjas, minutos, proximosFeriados, hhmm } from '#lib/alta/agenda.ts';
-import { ESTILO_BASE, type Ajustes, type BloqueoAlta, type Cargado, type CobroAlta, type NegocioAlta, type ProfesionalAlta, type ServicioAlta, type WebAlta } from '#lib/alta/tipos.ts';
+import { acentoDe, ESTILO_BASE, type Ajustes, type BloqueoAlta, type Cargado, type CobroAlta, type NegocioAlta, type ProfesionalAlta, type ServicioAlta, type WebAlta } from '#lib/alta/tipos.ts';
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
 
 const texto = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
@@ -173,9 +173,22 @@ export const actions: Actions = {
 			const ids = servicios.filter((s) => s.activo).map((s) => s.id);
 			const { profesionales } = await api.get<{ profesionales: ProfesionalAlta[] }>('/v1/panel/profesionales');
 			for (const id of quitar) await api.patch(`/v1/panel/profesionales/${id}`, { activo: false }).catch(() => null);
-			for (const p of personas) {
+			// La primera persona es la dueña (el alta la propone con su nombre): su profesional queda atado a
+			// su cuenta. Si no, en Equipo figuraba «Sin acceso».
+			const nadieAtado = !profesionales.some((x) => (x as { miembroId?: string | null }).miembroId);
+			const duenia = nadieAtado
+				? await api
+						.get<{ miembros: { id: string; rol: string; activo: boolean }[] }>('/v1/panel/equipo')
+						.then((e) => e.miembros.filter((m) => m.rol === 'duenio' && m.activo))
+						.then((ds) => (ds.length === 1 ? ds[0].id : null))
+						.catch(() => null)
+				: null;
+			for (const [i, p] of personas.entries()) {
 				let id = p.id;
-				if (!id) id = (await api.post<{ id: string }>('/v1/panel/profesionales', { nombre: p.nombre.trim(), especialidad: '', email: '', telefono: '', servicios: ids, activo: true })).id;
+				if (!id) {
+					id = (await api.post<{ id: string }>('/v1/panel/profesionales', { nombre: p.nombre.trim(), especialidad: '', email: '', telefono: '', servicios: ids, activo: true })).id;
+					if (i === 0 && duenia) await api.patch(`/v1/panel/profesionales/${id}`, { miembroId: duenia }).catch(() => null);
+				}
 				else if (profesionales.find((x) => x.id === id)?.nombre !== p.nombre.trim())
 					await api.patch(`/v1/panel/profesionales/${id}`, { nombre: p.nombre.trim() });
 				// Si ya tenía descanso cargado (paso «Tu día»), se respeta al volver.
@@ -251,7 +264,9 @@ export const actions: Actions = {
 	web: async (event) => {
 		const f = await event.request.formData();
 		const estilo = { ...ESTILO_BASE, ...json<Partial<typeof ESTILO_BASE>>(f, 'estilo', {}) };
-		const r = await intentar(() => apiDe(event).patch('/v1/panel/mi-web', { colorPrimario: texto(f, 'color'), estilo }));
+		const color = texto(f, 'color');
+		// El acento va con el color elegido (si no, quedaba el de la base, que no era de ninguna paleta).
+		const r = await intentar(() => apiDe(event).patch('/v1/panel/mi-web', { colorPrimario: color, colorAcento: acentoDe(color), estilo }));
 		if (!('ok' in r)) return r;
 		ir('web');
 	}

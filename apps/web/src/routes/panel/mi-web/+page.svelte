@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '#lib/gestion/gestion.css';
 	import { enhance } from '$app/forms';
+	import { ACENTO_POR_DEFECTO } from '#lib/alta/tipos.ts';
 	import { page } from '$app/state';
 	import type { SubmitFunction } from '$app/forms';
 	import { hora } from '#lib/formato.ts';
@@ -23,7 +24,7 @@
 	let ciudad = $derived(n.ciudad);
 	let rubro = $derived(w.rubro);
 	let primario = $derived(w.colorPrimario || '#183c44');
-	let acento = $derived(w.colorAcento || '#3ccc90');
+	let acento = $derived(w.colorAcento || ACENTO_POR_DEFECTO);
 	const bajada = $derived([RUBROS[rubro], ciudad].filter(Boolean).join(' · '));
 	const legible = $derived(textoSobre(primario));
 	const acentoSobrePapel = $derived(contraste(acento, '#faf6ee'));
@@ -129,7 +130,7 @@
 				</div>
 
 				<details class="g-plegable g-ancho extras" bind:open={abrirExtras}>
-					<summary>Acerca de, contactos y redes<span class="g-meta empuja">{cargados} de 8 cargados</span></summary>
+					<summary>Acerca de, contactos y&nbsp;redes<span class="g-meta empuja">{cargados} de 8 cargados</span></summary>
 					<div class="g-form adentro">
 						<label class="g-campo">Ciudad <input form="f-negocio" name="ciudad" bind:value={ciudad} maxlength="80" onchange={enviar} /></label>
 						<label class="g-campo">Provincia <input form="f-web" name="provincia" value={w.provincia} maxlength="80" onchange={enviar} /></label>

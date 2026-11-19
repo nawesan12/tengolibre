@@ -2,7 +2,7 @@
 	import Legal from '#lib/legal/Legal.svelte';
 </script>
 
-<Legal titulo="Términos de uso" actualizado="12 de noviembre de 2026">
+<Legal titulo="Términos de uso" actualizado="18 de noviembre de 2026">
 	<p>Al usar Tengo Libre (la web, el panel o la app) aceptás estos términos.</p>
 
 	<h2>El servicio</h2>
@@ -42,7 +42,8 @@
 		<li>
 			<b>Tengo Libre es el encargado</b> (art. 25): guarda y procesa esos datos sólo por cuenta del negocio y para darle el servicio. No los
 			usa para otra cosa, no se los cede a nadie fuera de los proveedores que nombra la <a href="/privacidad">política de privacidad</a> y los
-			cuida con las medidas de seguridad que corresponden.
+			cuida con las medidas de seguridad que corresponden. Un proveedor nuevo que reciba datos de los clientes (como Anthropic para el
+			asistente con IA) se usa sólo si el negocio lo prende.
 		</li>
 		<li>
 			Si un cliente pide ver, corregir o borrar sus datos, el negocio lo hace desde el panel o la app (en la ficha del cliente). Si nos llega

@@ -137,8 +137,17 @@
 			<fieldset class="modos">
 				<legend class="visualmente-oculto">Modo de cobro</legend>
 				{#each MODOS as m (m.clave)}
-					<label class="modo" class:on={modo === m.clave}>
-						<input type="radio" name="modo" value={m.clave} bind:group={modo} aria-describedby="m-{m.clave}" />
+					<!-- Sin Mercado Pago habilitado en Tengo Libre, los modos que cobran no se eligen (parecía una función que existía). -->
+					{@const apagado = !c.disponible && m.clave !== 'sin_cobro'}
+					<label class="modo" class:on={modo === m.clave} class:apagado>
+						<input
+							type="radio"
+							name="modo"
+							value={m.clave}
+							bind:group={modo}
+							disabled={apagado}
+							aria-describedby={apagado ? `m-${m.clave} m-no-disponible` : `m-${m.clave}`}
+						/>
 						<span class="modo-cabeza">
 							<span class="radio" aria-hidden="true"></span>
 							<b>{m.titulo}{#if m.simbolo}&nbsp;<span aria-hidden="true">{m.simbolo}</span>{/if}<span class="visualmente-oculto"> {m.oculto}</span></b>
@@ -148,6 +157,7 @@
 					</label>
 				{/each}
 			</fieldset>
+			{#if !c.disponible}<span id="m-no-disponible" class="visualmente-oculto">Todavía no se puede: los cobros no están habilitados.</span>{/if}
 
 			<div class="cobro-pie">
 				{#if modo === 'porcentaje'}
@@ -302,6 +312,10 @@
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
 		gap: 10px;
+	}
+	.modo.apagado {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 	.modo {
 		position: relative;

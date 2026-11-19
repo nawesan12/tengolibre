@@ -19,8 +19,18 @@ const RAPIDAS = [
 	{ estado: 'cancelado', texto: 'Cancelar' }
 ];
 
-/** Las acciones rápidas que tienen sentido desde ese estado (sin la de quedarse igual). */
-export const accionesRapidas = (estado: string) => RAPIDAS.filter((a) => a.estado !== estado && puedePasar(estado, a.estado));
+/**
+ * Las acciones rápidas que tienen sentido desde ese estado (sin la de quedarse igual). Antes de que
+ * empiece (con inicio), sólo Confirmar y Cancelar: «No vino» sobre un turno futuro sumaba una ausencia
+ * con un toque equivocado (la API tampoco lo deja).
+ */
+export const accionesRapidas = (estado: string, inicio?: string, ahora = Date.now()) =>
+	RAPIDAS.filter(
+		(a) =>
+			a.estado !== estado &&
+			puedePasar(estado, a.estado) &&
+			!(inicio && Date.parse(inicio) > ahora && (a.estado === 'atendido' || a.estado === 'ausente'))
+	);
 
 /** Los estados que ocupan la agenda (un cancelado no). */
 export const ocupa = (estado: string) => estado !== 'cancelado';

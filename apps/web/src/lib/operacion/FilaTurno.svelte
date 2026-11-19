@@ -23,7 +23,7 @@
 
 	const est = $derived(estadoVisible(t.estado, t.inicio, t.fin, ahora));
 	const principal = $derived(puedeActuar ? accionPrincipal(t.estado, t.inicio, ahora) : null);
-	const menu = $derived(puedeActuar ? accionesRapidas(t.estado) : []);
+	const menu = $derived(puedeActuar ? accionesRapidas(t.estado, t.inicio, ahora) : []);
 	let abierto = $state(false);
 	let enviando = $state(false);
 	let raiz: HTMLElement | undefined = $state();
@@ -121,6 +121,7 @@
 										disabled={enviando}
 										onclick={(e) => {
 											if (a.estado === 'cancelado' && !confirm('¿Cancelar este turno? Se le avisa al cliente y queda el hueco.')) e.preventDefault();
+											if (a.estado === 'ausente' && !confirm(`¿Marcar que ${t.cliente.nombre} no vino? Le suma una ausencia.`)) e.preventDefault();
 										}}><Icono nombre={ICONO_ACCION[a.estado]} tam={20} />{a.estado === 'cancelado' ? 'Cancelar turno' : a.texto}</button
 									>
 								{/if}

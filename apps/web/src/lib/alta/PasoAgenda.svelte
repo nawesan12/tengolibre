@@ -60,7 +60,8 @@
 		<span class="dia-t"><span>{b.abre}</span><span>Un día con {deServicio}</span><span>{b.cierra}</span></span>
 		<div class="tira" aria-hidden="true">
 			{#each dia.seg as g, i (i)}
-				<span class="seg {g.tipo}" style:flex={g.f}>{g.tipo === 'descanso' ? 'Descanso' : ''}</span>
+				<!-- Sin texto adentro (en un tramo angosto quedaba «Desca»): lo dice la leyenda. -->
+				<span class="seg {g.tipo}" style:flex={g.f}></span>
 			{/each}
 		</div>
 		<span class="leyenda">

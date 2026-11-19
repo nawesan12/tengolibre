@@ -25,13 +25,24 @@
 	const est = $derived(estadoVisible(t.estado, t.inicio, t.fin));
 	const e = $derived(ESTILO[est] ?? ESTILO.pendiente);
 	const principal = $derived(puedeActuar ? accionPrincipal(t.estado, t.inicio) : null);
-	const otras = $derived(puedeActuar ? accionesRapidas(t.estado).filter((a) => a.estado !== principal?.estado) : []);
+	const otras = $derived(puedeActuar ? accionesRapidas(t.estado, t.inicio).filter((a) => a.estado !== principal?.estado) : []);
+	// Reprogramar: ningún horario viene elegido (un toque en el botón movía el turno al primero libre).
+	let nuevoInicio = $state('');
+	const nuevaHora = $derived(data.horarios.find((h) => h.inicio === nuevoInicio)?.hora ?? '');
 	const vivo = $derived(t.estado !== 'cancelado' && t.estado !== 'atendido' && t.estado !== 'ausente');
 	const wa = $derived(t.cliente.telefono ? `https://wa.me/${t.cliente.telefono.replace(/\D/g, '').replace(/^(?!54)/, '549')}` : '');
 	const MOTIVO_L: Record<string, string> = { cambio: 'Pidió cambiarlo', sin_respuesta: 'No contestó el WhatsApp', no_llego: 'No le llegó el WhatsApp' };
 
 	const ORIGENES: Record<string, string> = { web: 'Reservó por la web', panel: 'Lo cargó el equipo', app: 'Reservó por la app', ia: 'Lo reservó el asistente de IA de quien vino' };
-	const ESTADO_AVISO: Record<string, string> = { pendiente: 'En cola', enviado: 'Enviado', fallido: 'Falló', descartado: 'Descartado' };
+	const ESTADO_AVISO: Record<string, string> = { pendiente: 'Por mandar', enviado: 'Mandado', fallido: 'No se pudo mandar', descartado: 'No se mandó' };
+	const TIPO_AVISO: Record<string, string> = {
+		reservado: 'Aviso de reserva',
+		recordatorio: 'Recordatorio',
+		cancelado: 'Aviso de cancelación',
+		reprogramado: 'Aviso de cambio',
+		resena: 'Pedido de reseña',
+		espera: 'Aviso de la lista de espera'
+	};
 	const COLOR_AVISO: Record<string, string> = { pendiente: '#c9bda4', enviado: '#3ccc90', fallido: '#a3241a', descartado: '#4a5d61' };
 	const trabajar = () => {
 		enviando = true;
@@ -148,9 +159,9 @@
 					<li>
 						<span class="punto" style:background={COLOR_AVISO[a.estado] ?? '#183c44'}></span>
 						<span>
-							Mail «{a.tipo.replaceAll('_', ' ')}»{a.para ? ` a ${a.para}` : ''} · {ESTADO_AVISO[a.estado] ?? a.estado}
+							{TIPO_AVISO[a.tipo] ?? 'Mail'}{a.para ? ` a ${a.para}` : ''} · {ESTADO_AVISO[a.estado] ?? a.estado}
 							{#if a.ultimoError}<span class="error-a">· {a.ultimoError}</span>{/if}
-							{#if a.estado !== 'pendiente'}
+							{#if a.estado !== 'pendiente' && a.para}
 								<form method="POST" action={accion(page.url, 'reenviar')} use:enhance class="reenviar">
 									<input type="hidden" name="id" value={a.id} />
 									<button>Reenviar</button>
@@ -187,15 +198,15 @@
 						{:else}
 							<fieldset class="horas">
 								<legend class="visualmente-oculto">Horario del {nombreDia(data.fecha)}</legend>
-								{#each data.horarios as h, i (h.inicio)}
-									<label class="h"><input type="radio" name="inicio" value={h.inicio} required checked={i === 0} /><span class="tl-num">{h.hora}</span></label>
+								{#each data.horarios as h (h.inicio)}
+									<label class="h"><input type="radio" name="inicio" value={h.inicio} required bind:group={nuevoInicio} /><span class="tl-num">{h.hora}</span></label>
 								{/each}
 							</fieldset>
 						{/if}
 					{/if}
 					<label class="sobre"><input type="checkbox" name="forzar" bind:checked={forzar} />Sobreturno: a una hora que no figura&nbsp;libre</label>
 					{#if forzar}<label class="campo">Hora <input type="time" name="hora" required step="300" /></label>{/if}
-					<button class="boton oscuro">Reprogramar</button>
+					<button class="boton oscuro" disabled={!forzar && !nuevoInicio}>{forzar ? 'Reprogramar' : nuevaHora ? `Pasar a las ${nuevaHora}` : 'Elegí un horario'}</button>
 				</form>
 			</section>
 		{/if}
@@ -227,6 +238,7 @@
 							disabled={enviando}
 							onclick={(ev) => {
 								if (a.estado === 'cancelado' && !confirm('¿Cancelar este turno? Se le avisa al cliente y queda el hueco.')) ev.preventDefault();
+								if (a.estado === 'ausente' && !confirm(`¿Marcar que ${t.cliente.nombre} no vino? Le suma una ausencia.`)) ev.preventDefault();
 							}}>{a.texto}</button
 						>
 					{/if}

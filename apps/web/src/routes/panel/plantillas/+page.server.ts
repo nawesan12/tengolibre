@@ -1,6 +1,7 @@
 import { apiDe } from '#lib/server/api.ts';
 import { accion, siPuede } from '#lib/configuracion/acciones.server.ts';
 import { estiloDeForm, type Estilo } from '#lib/gestion/plantillas.ts';
+import { ACENTO_POR_DEFECTO, PRIMARIO_POR_DEFECTO } from '#lib/alta/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 type Web = { portada: string | null; colorPrimario: string; colorAcento: string; rubro: string; estilo: Estilo };
@@ -23,7 +24,7 @@ export const load: PageServerLoad = async (event) => {
 	const fotos = [web.portada, ...galeria.map((f) => f.url)].filter((u): u is string => !!u);
 	return {
 		negocio: { slug: negocio.slug, nombre: negocio.nombre, ciudad: negocio.ciudad, logo: negocio.logo },
-		colores: { primario: web.colorPrimario || '#183c44', acento: web.colorAcento || '#3ccc90' },
+		colores: { primario: web.colorPrimario || PRIMARIO_POR_DEFECTO, acento: web.colorAcento || ACENTO_POR_DEFECTO },
 		rubro: web.rubro,
 		publicado: web.estilo,
 		// Las secciones: una API vieja no las conoce, y entonces no se publican.

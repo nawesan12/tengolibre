@@ -75,13 +75,31 @@ export const load: PageServerLoad = async (event) => {
 		}
 	}
 
+	// El primer lugar (cabecera del panel): el del servicio elegido o, sin servicio, el del primero. Con
+	// servicio sale de los días ya traídos (antes se volvían a pedir todos los /dias y /libres, en serie);
+	// a lo sumo un /libres más, en paralelo con lo demás.
+	const primerDia = dias.find((d) => d.libres > 0);
+	const primerP: Promise<{ fecha: string; hora: string } | null> = (async () => {
+		if (servicio && profesionalId) {
+			if (!primerDia) return null;
+			if (primerDia.fecha === fecha && horarios[0]) return { fecha, hora: horarios[0].hora };
+			if (cercano && cercano.fecha === primerDia.fecha) return { fecha: cercano.fecha, hora: cercano.horario.hora };
+			const hs = await opcional(api.get<{ horarios: Horario[] }>(`/v1/p/${slug}/libres?${filtro({ fecha: primerDia.fecha })}`), { horarios: [] });
+			return hs.horarios[0] ? { fecha: primerDia.fecha, hora: hs.horarios[0].hora } : null;
+		}
+		const s = servicio ?? p.servicios.find((x) => x.activo !== false);
+		const l = s ? await primerLugar(fetch, slug, s.id, profesional?.id ?? '') : null;
+		return l ? { fecha: l.fecha, hora: l.hora } : null;
+	})();
+
 	// Socios: con sesión, su membresía (si cubre el servicio, la puede usar); sin sesión, si el negocio
 	// tiene planes, la invitación a ingresar.
-	const [c, resenas, planes, delHost] = await Promise.all([
+	const [c, resenas, planes, delHost, primer] = await Promise.all([
 		cobro(fetch, slug),
 		opcional(api.get<Resumen & { resenas: ResenaPublica[] }>(`/v1/p/${slug}/resenas`), null),
 		opcional(api.get<{ planes: Plan[] }>(`/v1/p/${slug}/membresias`), { planes: [] }),
-		slugDelHost(fetch, url.hostname)
+		slugDelHost(fetch, url.hostname),
+		primerP
 	]);
 	let membresia: MiMembresia | null = null;
 	if (paso === 'datos' && servicio && locals.token) {
@@ -90,15 +108,6 @@ export const load: PageServerLoad = async (event) => {
 			membresia = m.membresia;
 	}
 
-	// El primer lugar (cabecera del panel): el del servicio elegido o, sin servicio, el del primero.
-	const primerDia = dias.find((d) => d.libres > 0);
-	let primer: { fecha: string; hora: string } | null = null;
-	if (primerDia && primerDia.fecha === fecha && horarios[0]) primer = { fecha, hora: horarios[0].hora };
-	else {
-		const s = servicio ?? p.servicios.find((x) => x.activo !== false);
-		const l = s ? await primerLugar(fetch, slug, s.id, profesional?.id ?? '') : null;
-		if (l) primer = { fecha: l.fecha, hora: l.hora };
-	}
 
 	return {
 		// El paso a paso no se indexa: el canonical es la página del negocio (su dominio propio, si se ve ahí).

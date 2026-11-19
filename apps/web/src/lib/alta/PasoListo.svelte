@@ -18,10 +18,12 @@
 	const servicios = $derived(cargado.servicios.filter((s) => s.activo));
 	const h = $derived(cargado.profesionales[0] ? leerHorario(cargado.profesionales[0].horario) : null);
 	const senas = $derived({ sin_cobro: 'Sin seña', porcentaje: `${cargado.cobro.senaPorcentaje}% al reservar`, fija: `${pesos(cargado.cobro.senaFija)} al reservar`, total: 'Pago total' });
+	const pideMP = $derived(cargado.cobro.modo !== 'sin_cobro' && !cargado.mercadoPago);
 	const hecho = $derived([
 		{ ic: 'spa', t: 'Servicios', s: servicios.length ? `${servicios.length} ${servicios.length === 1 ? 'servicio' : 'servicios'} · desde ${pesos(Math.min(...servicios.map((x) => x.precio)))}` : 'Te falta cargarlos' },
 		{ ic: 'schedule', t: 'Horario', s: h ? `${h.dias.length} días · ${h.abre} a ${h.cierra}` : 'Te falta cargarlo' },
-		{ ic: 'payments', t: 'Seña', s: senas[cargado.cobro.modo] },
+		// Sin Mercado Pago conectado, la seña no se cobra todavía: no va con el mismo tilde que lo que ya anda.
+		{ ic: 'payments', t: 'Seña', s: pideMP ? `${senas[cargado.cobro.modo]} · falta conectar Mercado Pago` : senas[cargado.cobro.modo], falta: pideMP },
 		{ ic: 'palette', t: 'Tu página', s: `Plantilla ${PLANTILLAS.find(([v]) => v === cargado.web.estilo.plantilla)?.[1] ?? 'Carta'}` }
 	]);
 
@@ -38,8 +40,7 @@
 	});
 	const confeti = $derived(['#3ccc90', '#183c44', '#f0c46a', b.color, '#3ccc90', '#f0a98c', '#183c44', '#3ccc90']);
 
-	const pideMP = $derived(cargado.cobro.modo !== 'sin_cobro' && !cargado.mercadoPago);
-</script>
+	</script>
 
 <div class="listo" data-paso="listo">
 	<div class="hero tl-petroleo">
@@ -62,7 +63,7 @@
 
 	<div class="hecho">
 		{#each hecho as x, i (x.t)}
-			<div class="hecho-t" style:animation-delay="{150 + i * 70}ms">
+			<div class="hecho-t" class:falta={'falta' in x && x.falta} style:animation-delay="{150 + i * 70}ms">
 				<span class="hecho-ic"><Icono nombre={x.ic} lleno tam={22} /><span class="picado"></span></span>
 				<span class="hecho-c"><b>{x.t}</b><span>{x.s}</span></span>
 			</div>
@@ -398,5 +399,12 @@
 		.fila-b {
 			min-height: 44px;
 		}
+	}
+	.hecho-t.falta .hecho-ic {
+		background: #fbe9c2;
+		color: #7a4a00;
+	}
+	.hecho-t.falta .hecho-c span {
+		color: #7a4a00;
 	}
 </style>

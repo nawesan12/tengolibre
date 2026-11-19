@@ -133,7 +133,13 @@
 	const galeria = $derived(pagina.galeria.slice(0, 3));
 	const lugar = $derived([n.ciudad, w.provincia].filter(Boolean).join(', '));
 	const conPunto = $derived(/[.!?]$/.test(n.nombre) ? n.nombre : `${n.nombre}.`);
-	const meta = $derived([w.rubro ? rubro(w.rubro) : '', lugar].filter(Boolean).join(' · '));
+	// Cada parte con espacios duros adentro («Ciudad de Buenos Aires» no se parte): el corte cae en un «·».
+	const meta = $derived(
+		[w.rubro ? rubro(w.rubro) : '', lugar]
+			.filter(Boolean)
+			.map((x) => x.replaceAll(' ', '\u00a0'))
+			.join(' · ')
+	);
 	const promedio = $derived(pagina.resenas.promedio.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 	const hayResenas = $derived(pagina.resenas.cantidad > 0);
 	const nResenas = $derived(`${pagina.resenas.cantidad} ${pagina.resenas.cantidad === 1 ? 'reseña' : 'reseñas'}`);
@@ -212,9 +218,14 @@
 		{#if grupos.length === 0}<p class="sub">Este negocio todavía no cargó&nbsp;servicios.</p>{/if}
 		{#each grupos as g (g.id)}
 			{#if g.nombre}<h3 class="categoria">{g.nombre}</h3>{/if}
+			{@const algunaFoto = g.servicios.some((x) => !!x.foto)}
 			{#each g.servicios as s (s.id)}
-				<a class="servicio" class:con-foto={!!s.foto} href={`${reservar}?servicio=${s.id}`} aria-current={elegido === s.id ? 'true' : undefined}>
-					{#if s.foto}<img class="srv-foto" src={s.foto} alt="" width="64" height="64" loading="lazy" />{/if}
+				<!-- Si algún servicio del grupo tiene foto, todos reservan el lugar (con la inicial): un solo margen izquierdo. -->
+				<a class="servicio" class:con-foto={algunaFoto} href={`${reservar}?servicio=${s.id}`} aria-current={elegido === s.id ? 'true' : undefined}>
+					{#if s.foto}<img class="srv-foto" src={s.foto} alt="" width="64" height="64" loading="lazy" />{:else if algunaFoto}<span
+							class="srv-foto srv-ini"
+							aria-hidden="true">{s.nombre.trim().slice(0, 1).toUpperCase()}</span
+						>{/if}
 					<span class="srv-fila">
 						<span class="srv-nombre">{s.nombre}</span>
 						<span class="puntos" aria-hidden="true"></span>
@@ -876,7 +887,7 @@
 		letter-spacing: -0.03em;
 	}
 	.estrellas {
-		color: var(--w-acc);
+		color: var(--w-acc-texto);
 		font-size: 16px;
 		letter-spacing: 1px;
 	}
@@ -979,6 +990,14 @@
 		height: 64px;
 		border-radius: 12px;
 		object-fit: cover;
+	}
+	.srv-ini {
+		display: grid;
+		place-items: center;
+		background: var(--w-tint);
+		color: var(--w-marca);
+		font-size: 22px;
+		font-weight: 700;
 	}
 	.srv-fila {
 		display: flex;

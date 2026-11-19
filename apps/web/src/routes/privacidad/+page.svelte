@@ -80,23 +80,28 @@
 		<li><b>WhatsApp</b> (Meta, Estados Unidos): la confirmación del turno, si el negocio la activa (teléfono del cliente y datos del turno).</li>
 		<li>
 			<b>Calendarios</b>: si el negocio suscribe su agenda a Google Calendar, Apple o Outlook, ese calendario recibe sus turnos con el
-			nombre, el teléfono y la nota del cliente. Lo activa y lo corta el negocio.
+			nombre, el teléfono, el email y la nota del cliente. Lo activa y lo corta el negocio, y se corta solo cuando alguien del equipo deja
+			de tener&nbsp;acceso.
 		</li>
 		<li>
 			<b>Asistentes de IA</b>: si el negocio conecta su asistente (Claude, ChatGPT u otro) por MCP, ese asistente ve la agenda y los
 			clientes según los permisos que el negocio le da a cada clave. Lo elige y lo revoca el negocio.
 		</li>
 		<li>
-			<b>Anthropic</b> (Claude, Estados Unidos): el asistente del panel y de la app usa Claude para entender lo que no entiende solo. Le
-			mandamos la pregunta, la conversación de ese momento y lo que hace falta para contestarla del negocio que pregunta: los servicios, el
-			equipo y los horarios, y los turnos y los nombres de los clientes que la consulta necesita (el teléfono y el email, sólo si quien
-			pregunta los puede ver). Nunca datos de salud, documentos ni datos de pago. Anthropic no usa estos datos para entrenar sus modelos y
-			los borra después de un plazo corto. Las preguntas que el asistente entiende solo (la agenda del día, mover o cancelar un turno) no
-			salen de nuestro&nbsp;servidor.
+			<b>Anthropic</b> (Claude, Estados Unidos): sólo si la dueña del negocio lo prende, el asistente del panel y de la app usa Claude para
+			entender lo que no entiende solo. Le mandamos la pregunta, la conversación de ese momento y lo que hace falta para contestarla del
+			negocio que pregunta: los servicios, el equipo y los horarios, y los turnos y los nombres de los clientes que la consulta necesita (el
+			teléfono y el email, sólo si quien pregunta los puede ver). Nunca las notas de los turnos ni datos de salud, documentos ni datos de
+			pago. Anthropic no usa estos datos para entrenar sus modelos y los borra después de un plazo corto. Las preguntas que el asistente
+			entiende solo (la agenda del día, mover o cancelar un turno) no salen de nuestro&nbsp;servidor.
 		</li>
 		<li><b>GitHub</b> (Estados Unidos): las copias de seguridad diarias, cifradas.</li>
 	</ul>
 	<p>Cada negocio ve sólo los datos de sus&nbsp;clientes.</p>
+	<p>
+		<b>Tus turnos</b>: con una cuenta de Tengo Libre, en <a href="/mi-cuenta">Mi cuenta</a> ves los próximos turnos que reservaste con el
+		email de tu cuenta, o que el negocio cargó con ese email, en cualquier negocio. Nunca los de otra persona, aunque tenga tu&nbsp;teléfono.
+	</p>
 
 	<h2>Cuánto tiempo</h2>
 	<ul>
@@ -114,6 +119,10 @@
 			teléfono ni&nbsp;email.
 		</li>
 		<li>Los mails y avisos ya enviados se borran a los 60 días, y el registro de actividad del panel, a los&nbsp;180.</li>
+		<li>
+			Lo que el asistente deja para confirmar (sus propuestas) se borra a los 30 días, y lo que hizo cada asistente conectado por MCP, a
+			los&nbsp;180.
+		</li>
 		<li>Las copias de seguridad cifradas pueden conservar por un tiempo lo que ya se borró; sólo se usan para recuperar el sistema ante una&nbsp;falla.</li>
 	</ul>
 

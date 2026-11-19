@@ -66,3 +66,16 @@ describe('números', () => {
 		expect(porcentaje(12.345)).toBe('12,3 %');
 	});
 });
+
+describe('acciones rápidas antes de que empiece', () => {
+	it('un turno futuro sólo ofrece confirmar y cancelar', () => {
+		const ahora = Date.parse('2026-11-18T10:00:00-03:00');
+		expect(accionesRapidas('pendiente', '2026-11-18T15:00:00-03:00', ahora).map((a) => a.estado)).toEqual(['confirmado', 'cancelado']);
+		expect(accionesRapidas('pendiente', '2026-11-18T09:00:00-03:00', ahora).map((a) => a.estado)).toEqual([
+			'confirmado',
+			'atendido',
+			'ausente',
+			'cancelado'
+		]);
+	});
+});

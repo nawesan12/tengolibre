@@ -1,11 +1,11 @@
 import { json } from '@sveltejs/kit';
 import { apiPublica } from '#lib/server/api.ts';
-import { alternativas, formatoValido, RESERVADOS, type Disponibilidad } from '#lib/alta/slug.ts';
+import { alternativas, formatoValido, reservada, type Disponibilidad } from '#lib/alta/slug.ts';
 import type { RequestHandler } from './$types';
 
 /**
  * ¿Está libre esta dirección? Le pregunta a la API (/v1/slugs/{slug}), que también da por tomada la
- * dirección anterior de otro negocio (sus QR impresos siguen andando 90 días como mínimo).
+ * dirección anterior de otro negocio (sus QR impresos siguen andando mientras ese negocio esté activo).
  * Si está tomada, devuelve alternativas que sí están libres.
  */
 // El alta pregunta sin sesión (se elige la dirección antes de entrar con Google o Apple), así que no
@@ -15,7 +15,7 @@ const TTL = 30_000;
 const vistos = new Map<string, { libre: boolean; vence: number }>();
 
 async function libre(f: typeof fetch, slug: string): Promise<boolean> {
-	if (!formatoValido(slug) || RESERVADOS.has(slug)) return false;
+	if (!formatoValido(slug) || reservada(slug)) return false;
 	const ya = vistos.get(slug);
 	if (ya && ya.vence > Date.now()) return ya.libre;
 	const { estado } = await apiPublica(f).get<{ estado: string }>(`/v1/slugs/${slug}`);
@@ -29,7 +29,7 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
 	const slug = url.searchParams.get('slug') ?? '';
 	const rubro = url.searchParams.get('rubro') ?? undefined;
 	let r: Disponibilidad;
-	if (!formatoValido(slug) || RESERVADOS.has(slug)) r = { estado: 'invalida', sugerencias: [] };
+	if (!formatoValido(slug) || reservada(slug)) r = { estado: 'invalida', sugerencias: [] };
 	else if (await libre(fetch, slug)) r = { estado: 'libre', sugerencias: [] };
 	else {
 		const alts = alternativas(slug, rubro);

@@ -116,6 +116,13 @@ export function tema(e: Estilo, primario?: string | null, acento?: string | null
 	}
 	const noche = e.fondo === 'noche';
 	const f = FONDO[e.fondo];
+	// El acento como texto o ícono sobre el fondo (las estrellas): el del handoff casi no llega a 3:1 sobre
+	// crema; se oscurece (o, de noche, se aclara) hasta 3:1, como se hace con la marca.
+	let accTexto = acc;
+	for (let t = 0; contraste(accTexto, f.bg) < 3 && t < 1; ) {
+		t += 0.05;
+		accTexto = mezclar(acc, noche ? '#ffffff' : '#000000', t);
+	}
 	return {
 		...f,
 		noche,
@@ -137,7 +144,8 @@ export function tema(e: Estilo, primario?: string | null, acento?: string | null
 		raya: noche ? rgba(pri, 0.3) : rgba(pri, 0.14),
 		troquel: noche ? mezclar(pri, '#14221f', 0.4) : mezclar(pri, '#fffdf9', 0.7),
 		// Estrellas y el acento sobre claro: el acento tal cual decora; como texto, oscurecido.
-		accSuave: mezclar(acc, noche ? '#14221f' : '#fffdf9', 0.6)
+		accSuave: mezclar(acc, noche ? '#14221f' : '#fffdf9', 0.6),
+		accTexto
 	};
 }
 
@@ -147,6 +155,7 @@ export function variables(t: Tema) {
 		bg: t.bg, papel: t.papel, campo: t.campo, chip: t.chip, socios: t.socios, 'socios-txt': t.sociosTxt, ink: t.ink, sub: t.sub,
 		sub2: t.sub2, line: t.line, line2: t.line2, pri: t.pri, acc: t.acc, on: t.on, 'on-a': t.onA, 'pri-a': t.priA, tw: t.tw, tl: t.tl,
 		br: t.br, cr: t.cr, sr: t.sr, marca: t.marca, ok: t.ok, tint: t.tint, raya: t.raya, troquel: t.troquel, 'acc-suave': t.accSuave,
+		'acc-texto': t.accTexto,
 		'foto-op': t.conFoto ? '1' : '0'
 	};
 	return Object.entries(v)

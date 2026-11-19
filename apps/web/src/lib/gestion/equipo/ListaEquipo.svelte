@@ -1,6 +1,7 @@
 <!--
 	La columna del equipo (handoff v2, «Equipo y horarios»): cada profesional con sus iniciales,
-	cuántos servicios hace y cuántas horas atiende; el ícono dice si tiene cuenta en el panel.
+	cuántos servicios hace y cuántas horas atiende. Quien no entra al panel lleva una pastilla «Sin
+	acceso» (el ícono solo, con el sentido en el title, no se entendía en el teléfono).
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
@@ -13,7 +14,12 @@
 	const sub = (p: P) => {
 		const s = p.servicios.length;
 		const h = horasSemana(p.horario);
-		return [p.especialidad, s === 1 ? '1 servicio' : `${s} servicios`, h ? `${horasTexto(h)} h/sem` : 'sin horario'].filter(Boolean).join(' · ');
+		// Espacios duros dentro de cada parte («48 h/sem» no se corta) y antes de la última: el corte
+		// cae en un «·».
+		const partes = [p.especialidad, s === 1 ? '1 servicio' : `${s} servicios`, h ? `${horasTexto(h)} h/sem` : 'sin horario']
+			.filter(Boolean)
+			.map((x) => x.replaceAll(' ', '\u00a0'));
+		return partes.join(' · ').replace(/ · (?=[^·]*$)/, '\u00a0·\u00a0');
 	};
 </script>
 
@@ -32,13 +38,7 @@
 					<b>{p.nombre}</b>
 					<span>{sub(p)}{#if !p.activo} · <span class="pausa">pausado</span>{/if}</span>
 				</span>
-				<span
-					class="icono vinculo"
-					class:sin={!p.miembroId}
-					role="img"
-					aria-label={p.miembroId ? 'Entra al panel' : 'Sin cuenta del panel'}
-					title={p.miembroId ? 'Entra al panel' : 'Sin cuenta del panel'}>{p.miembroId ? 'link' : 'link_off'}</span
-				>
+				{#if !p.miembroId}<span class="sin-acceso">Sin acceso</span>{/if}
 			</a>
 		</li>
 	{/each}
@@ -96,11 +96,14 @@
 		font-weight: 700;
 		color: #7a4a00;
 	}
-	.vinculo {
-		font-size: 18px;
-		color: var(--tl-menta-texto);
-	}
-	.vinculo.sin {
+	.sin-acceso {
+		flex: none;
+		padding: 3px 10px;
+		border-radius: 999px;
+		background: rgba(15, 35, 40, 0.06);
 		color: var(--tl-sub);
+		font-size: 12px;
+		font-weight: 700;
+		white-space: nowrap;
 	}
 </style>

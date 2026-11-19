@@ -133,6 +133,8 @@
 	{#if link?.anteriores.length}
 		<div class="anteriores">
 			<span class="tl-rotulo">Siguen llevando a tu página</span>
+			<!-- Retenidos mientras el negocio siga activo; con el sexto cambio se libera el más viejo (00035). -->
+			<span class="nota-anteriores">Se guardan los últimos&nbsp;5.</span>
 			<ul>
 				{#each link.anteriores as a (a.slug)}<li><Icono nombre="subdirectory_arrow_right" tam={16} />{host}/{a.slug}</li>{/each}
 			</ul>
@@ -289,5 +291,11 @@
 		align-items: center;
 		gap: 6px;
 		overflow-wrap: anywhere;
+	}
+	.nota-anteriores {
+		display: block;
+		margin-top: 2px;
+		font-size: 12px;
+		color: var(--tl-sub);
 	}
 </style>

@@ -4,15 +4,22 @@ export type Paso = (typeof PASOS)[number];
 
 export const esPaso = (v: string | null | undefined): v is Paso => !!v && (PASOS as readonly string[]).includes(v);
 
-export const INFO: Record<Paso, { nombre: string; icono: string; consejo: string; saltable: boolean }> = {
+/** consejo: el pasoTip del handoff. consejoTel: si en el teléfono dice otra cosa (no hay vista previa al lado). */
+export const INFO: Record<Paso, { nombre: string; icono: string; consejo: string; consejoTel?: string; saltable: boolean }> = {
 	rubro: { nombre: 'Tu rubro', icono: 'storefront', consejo: 'Te dejamos servicios y horarios típicos de tu rubro. Todo se cambia después.', saltable: false },
-	nombre: { nombre: 'El nombre', icono: 'badge', consejo: 'Con el nombre se arma tu link. Lo compartís y te reservan\u00a0solos.', saltable: false },
+	nombre: { nombre: 'El nombre', icono: 'badge', consejo: 'Es lo que van a ver tus clientes y tu dirección para\u00a0compartir.', saltable: false },
 	servicios: { nombre: 'Servicios', icono: 'spa', consejo: 'Precios finales, como los cobrás. Las clientas los ven antes de reservar.', saltable: true },
 	equipo: { nombre: 'Equipo y horario', icono: 'groups', consejo: 'Si trabajás sola, dejalo así. Cada persona después tiene su propio horario.', saltable: true },
 	agenda: { nombre: 'Tu día', icono: 'schedule', consejo: 'Descansos, tiempo entre turnos y feriados: lo que hace que la agenda sea la tuya.', saltable: true },
 	cobro: { nombre: 'Seña', icono: 'payments', consejo: 'La seña baja las ausencias. Se cobra al reservar y va directo a tu cuenta.', saltable: true },
-	web: { nombre: 'Tu página', icono: 'palette', consejo: 'Probá colores y plantillas: a la derecha ves cómo queda, al instante.', saltable: true },
-	listo: { nombre: '¡Listo!', icono: 'celebration', consejo: 'Tu página ya está publicada. Compartí tu link: el primer turno puede entrar\u00a0hoy.', saltable: false }
+	web: {
+		nombre: 'Tu página',
+		icono: 'palette',
+		consejo: 'Probá colores y plantillas: a la derecha ves cómo queda, al\u00a0instante.',
+		consejoTel: 'Probá colores y plantillas, y mirá cómo\u00a0queda.',
+		saltable: true
+	},
+	listo: { nombre: '¡Listo!', icono: 'celebration', consejo: 'Tu página ya está publicada. Compartila y esperá el primer\u00a0turno.', saltable: false }
 };
 
 export const siguiente = (p: Paso): Paso => PASOS[Math.min(PASOS.indexOf(p) + 1, PASOS.length - 1)];

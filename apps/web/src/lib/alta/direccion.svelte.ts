@@ -1,4 +1,4 @@
-import { estadoCampo, formatoValido, RESERVADOS, type Disponibilidad } from './slug.ts';
+import { estadoCampo, formatoValido, reservada, type Disponibilidad } from './slug.ts';
 
 /**
  * Chequea al instante si una dirección está libre (debounce de 300 ms) contra /empezar/direccion, que
@@ -26,7 +26,7 @@ export class Direccion {
 		this.resultado = null;
 		clearTimeout(this.#t);
 		if (slug.length < 3) return;
-		if (!formatoValido(slug) || RESERVADOS.has(slug)) {
+		if (!formatoValido(slug) || reservada(slug)) {
 			this.resultado = { estado: 'invalida', sugerencias: [] };
 			return;
 		}

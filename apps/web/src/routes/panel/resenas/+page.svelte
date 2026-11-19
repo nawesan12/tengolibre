@@ -52,12 +52,12 @@
 				<b class="numero">{data.cantidad ? unDecimal.format(data.promedio) : '—'}</b>
 				<span class="g-sub">{data.cantidad}&nbsp;{data.cantidad === 1 ? 'reseña' : 'reseñas'}</span>
 			</div>
-			{#if distribucion}
+			{#if distribucion && data.cantidad > 0}
 				<ul class="distribucion" aria-label="Reseñas por puntaje">
 					{#each distribucion as n, i (i)}
 						<li>
 							<span class="p" aria-label={`${5 - i} estrellas`}>{5 - i}★</span>
-							<span class="pista" aria-hidden="true"><span style:width="{(n / maxDist) * 100}%"></span></span>
+							<span class="pista" aria-hidden="true">{#if n > 0}<span style:width="{(n / maxDist) * 100}%"></span>{/if}</span>
 							<span class="n">{n}</span>
 						</li>
 					{/each}

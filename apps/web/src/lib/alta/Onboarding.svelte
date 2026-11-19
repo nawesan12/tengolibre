@@ -60,6 +60,7 @@
 
 	// Cada paso dice si se puede seguir.
 	let listo = $state(false);
+	let verPrevia = $state(false);
 
 	const extraNuevo = $derived(creado ? { n: '1' } : { rubro: b.rubro, nombre: b.nombre || undefined, slug: b.slugManual ?? undefined });
 	const volverA = $derived(i > 0 && !ult ? urlPaso(anterior(paso), anterior(paso) === 'rubro' || anterior(paso) === 'nombre' ? extraNuevo : {}) : null);
@@ -109,7 +110,12 @@
 					<span class="num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
 					<span class="enc-c">
 						<span class="pastilla-paso tl-petroleo"><span class="pp-ic"><Icono nombre={info.icono} lleno tam={17} /></span>{info.nombre}</span>
-						<span class="consejo">{info.consejo}</span>
+						{#if info.consejoTel}
+							<span class="consejo solo-escritorio">{info.consejo}</span>
+							<span class="consejo solo-tel">{info.consejoTel}</span>
+						{:else}
+							<span class="consejo">{info.consejo}</span>
+						{/if}
 					</span>
 				</div>
 
@@ -126,6 +132,10 @@
 				{:else if paso === 'cobro'}
 					<PasoCobro {b} {alEnviar} {form} bind:listo />
 				{:else if paso === 'web'}
+					<!-- En el teléfono no está la vista previa al lado: se abre en una hoja. -->
+					<button type="button" class="ver-previa solo-tel" onclick={() => (verPrevia = true)}
+						><Icono nombre="visibility" tam={20} />Ver cómo queda</button
+					>
 					<PasoWeb {b} {alEnviar} {form} bind:listo />
 				{:else if data.cargado}
 					<PasoListo {b} cargado={data.cargado} origen={data.origen} {horas} />
@@ -149,10 +159,20 @@
 		</aside>
 	</div>
 
+	{#if verPrevia}
+		<div class="hoja-previa" role="dialog" aria-modal="true" aria-label="Cómo queda tu página">
+			<button type="button" class="velo-previa" aria-label="Cerrar" onclick={() => (verPrevia = false)}></button>
+			<div class="marco-previa">
+				<button type="button" class="cerrar-previa" onclick={() => (verPrevia = false)}><Icono nombre="close" tam={22} />Cerrar</button>
+				<div class="telefono-previa"><Previa {b} /></div>
+			</div>
+		</div>
+	{/if}
+
 	<footer class="barra-abajo">
 		<div class="barra-in">
 			{#if info.saltable && creado}
-				<a class="saltar" href={saltarA}>Lo completo después</a>
+				<a class="saltar" href={saltarA}><span class="largo">Lo completo después</span><span class="corto" aria-hidden="true">Después</span></a>
 			{/if}
 			<span class="espacio"></span>
 			{#if ult}
@@ -476,7 +496,69 @@
 	.espacio {
 		flex: 1;
 	}
+	.solo-tel,
+	.corto {
+		display: none;
+	}
+	.ver-previa {
+		align-self: flex-start;
+		align-items: center;
+		gap: 8px;
+		min-height: 44px;
+		padding: 0 16px;
+		border: 1px solid var(--tl-petroleo);
+		border-radius: 999px;
+		background: transparent;
+		color: var(--tl-petroleo);
+		font: 700 15px var(--tl-font);
+		cursor: pointer;
+	}
+	.hoja-previa {
+		position: fixed;
+		inset: 0;
+		z-index: 60;
+		display: grid;
+		place-items: end center;
+	}
+	.velo-previa {
+		position: absolute;
+		inset: 0;
+		border: 0;
+		background: rgba(15, 35, 40, 0.55);
+	}
+	.marco-previa {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		width: 100%;
+		max-height: 92dvh;
+		padding: 12px 16px max(16px, env(safe-area-inset-bottom));
+		border-radius: 24px 24px 0 0;
+		background: #183c44;
+		overflow: auto;
+	}
+	.cerrar-previa {
+		align-self: flex-end;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		min-height: 44px;
+		padding: 0 12px;
+		border: 0;
+		background: none;
+		color: #fff;
+		font: 700 15px var(--tl-font);
+		cursor: pointer;
+	}
+	.telefono-previa {
+		width: min(100%, 360px);
+		margin: 0 auto;
+		border-radius: 28px;
+		overflow: hidden;
+	}
 	.saltar {
+		flex-shrink: 0;
 		white-space: nowrap;
 		min-height: 48px;
 		padding: 0 6px;
@@ -716,15 +798,35 @@
 		.saltar {
 			font-size: 14px;
 		}
+		/* «Publicar mi página» encoge antes de salirse de la pantalla. */
 		.seguir {
-			padding: 0 20px;
+			min-width: 0;
+			flex-shrink: 1;
+			padding: 0 16px;
 			font-size: 16px;
+		}
+		.solo-escritorio {
+			display: none;
+		}
+		.consejo.solo-tel {
+			display: block;
+		}
+		.ver-previa.solo-tel {
+			display: inline-flex;
 		}
 		.onb :global(.hoja) {
 			padding: 20px 16px;
 		}
 		.onb :global(.hoja h1) {
 			font-size: 34px;
+		}
+	}
+	@media (max-width: 379px) {
+		.saltar .largo {
+			display: none;
+		}
+		.saltar .corto {
+			display: inline;
 		}
 	}
 </style>

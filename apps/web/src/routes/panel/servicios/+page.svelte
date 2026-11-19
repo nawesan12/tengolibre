@@ -253,7 +253,7 @@
 							</span>
 							<span class="activo">
 								<input class="g-interruptor" type="checkbox" role="switch" name="activo" checked={s.activo} aria-label="{s.nombre} activo" onchange={enviar} />
-								<span class="estado-activo">{s.activo ? 'Sí' : 'No'}</span>
+								<span class="estado-activo" aria-hidden="true">{s.activo ? 'Se ve' : 'Oculto'}</span>
 							</span>
 							<button
 								type="button"
@@ -368,7 +368,7 @@
 				<input type="hidden" name="categoriaId" value={gid ?? ''} />
 				<input type="hidden" name="activo" value="on" />
 				<button class="manija sumar" aria-label="Agregar"><span class="icono" aria-hidden="true">add</span></button>
-				<input class="celda nombre" name="nombre" required minlength="2" maxlength="80" placeholder="Agregar a {g.nombre}…" aria-label="Nombre" />
+				<input class="celda nombre" name="nombre" required minlength="2" maxlength="80" placeholder="Agregar un servicio…" aria-label="Nombre del servicio nuevo" />
 				<span class="celda caja">
 					<input name="duracion" type="number" min="5" max="480" step="5" placeholder="30" aria-label="Duración (minutos)" />
 					<span aria-hidden="true">min</span>
@@ -730,6 +730,17 @@
 		}
 		.fila-servicio > .activo {
 			grid-area: a;
+		}
+		/* En el teléfono no está la cabecera «Activo»: la palabra va al lado del interruptor. */
+		.estado-activo {
+			position: static;
+			width: auto;
+			height: auto;
+			overflow: visible;
+			clip: auto;
+			font-size: 12px;
+			font-weight: 700;
+			color: var(--tl-sub);
 		}
 		.fila-servicio > .mas {
 			grid-area: x;

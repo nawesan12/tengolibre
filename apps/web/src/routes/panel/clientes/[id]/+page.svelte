@@ -96,10 +96,11 @@
 				{/if}
 			{/if}
 		{/if}
-		<div class="numeros">
+		<!-- Lo gastado son números del negocio: un profesional no lo ve (la API lo manda en 0). -->
+		<div class="numeros" class:sin-plata={data.negocio.rol === 'profesional'}>
 			<div><b class="tl-num">{c.visitas}</b><span>visitas</span></div>
 			<div><b class="tl-num">{c.ausencias}</b><span>{c.ausencias === 1 ? 'ausencia' : 'ausencias'}</span></div>
-			<div><b class="tl-num">{pesos(c.gastado)}</b><span>gastado</span></div>
+			{#if data.negocio.rol !== 'profesional'}<div class="plata"><b class="tl-num">{pesos(c.gastado)}</b><span>gastado</span></div>{/if}
 		</div>
 		<div class="contacto">
 			{#if c.telefono}<a class="chip-c tl-num" href={wa} target="_blank" rel="noopener"><img src="/logos/whatsapp.svg" alt="" width="16" height="16" />{c.telefono}</a>{/if}
@@ -354,10 +355,14 @@
 		display: flex;
 		gap: 8px;
 	}
+	/* La plata nunca se corta adentro del número: las dos cuentas se achican y el monto toma el resto. */
 	.numeros {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: auto auto minmax(0, 1fr);
 		gap: 8px;
+	}
+	.numeros.sin-plata {
+		grid-template-columns: 1fr 1fr;
 	}
 	.numeros div {
 		display: flex;
@@ -369,10 +374,10 @@
 		min-width: 0;
 	}
 	.numeros b {
-		font-size: 20px;
+		font-size: clamp(15px, 5vw, 20px);
 		font-weight: 700;
 		letter-spacing: -0.03em;
-		overflow-wrap: anywhere;
+		white-space: nowrap;
 	}
 	.numeros span {
 		font-size: 11px;

@@ -6,8 +6,14 @@
 	 * Los botones de estado de un turno (confirmar, atendido, no vino, cancelar). Mandan a la acción
 	 * `estado` de la página donde están (o a la que se indique).
 	 */
-	let { id, estado, accion = '?/estado', quien = '' }: { id: string; estado: string; accion?: string; quien?: string } = $props();
-	const acciones = $derived(accionesRapidas(estado));
+	let {
+		id,
+		estado,
+		inicio,
+		accion = '?/estado',
+		quien = ''
+	}: { id: string; estado: string; inicio?: string; accion?: string; quien?: string } = $props();
+	const acciones = $derived(accionesRapidas(estado, inicio));
 	let enviando = $state(false);
 </script>
 
@@ -35,6 +41,7 @@
 				aria-label={quien ? `${a.texto}: ${quien}` : undefined}
 				onclick={(e) => {
 					if (a.estado === 'cancelado' && !confirm('¿Cancelar este turno? Se le avisa al cliente.')) e.preventDefault();
+					if (a.estado === 'ausente' && !confirm(`¿Marcar que ${quien || 'el cliente'} no vino? Le suma una ausencia.`)) e.preventDefault();
 				}}>{a.texto}</button
 			>
 		{/each}

@@ -48,4 +48,25 @@ export const COLORES = [
 	['#1d3557', 'Marino']
 ] as const;
 
+/**
+ * El acento de cada color principal (estrellas, bloque de acento). Antes el alta mandaba sólo el
+ * principal y todo negocio quedaba con el cian de la base, ajeno a las seis paletas. Los mismos que la
+ * migración 00035 les puso a los negocios que ya estaban.
+ */
+export const ACENTOS: Record<string, string> = {
+	'#7a3b5e': '#e9a6b8',
+	'#183c44': '#f0a98c',
+	'#1f2a24': '#d9b26a',
+	'#b4532a': '#f2c38b',
+	'#3d5a40': '#e3b48e',
+	'#1d3557': '#f4b183'
+};
+
+/** Los colores por defecto (los del handoff), para quien todavía no eligió. */
+export const PRIMARIO_POR_DEFECTO = '#183c44';
+export const ACENTO_POR_DEFECTO = '#f0a98c';
+
+/** El acento que va con un color principal (el del handoff si no es de la paleta). */
+export const acentoDe = (primario: string) => ACENTOS[primario.toLowerCase()] ?? ACENTO_POR_DEFECTO;
+
 export const ESTILO_BASE: Estilo = { plantilla: 'carta', portada: 'foto', fondo: 'crema', titulos: 'grandes', forma: 'redondos' };
