@@ -49,6 +49,7 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/p/{slug}/espera", web.Envolver(s.anotarse))
 	m := func(h web.Manejador) http.HandlerFunc { return s.Sesion.Panel(avisos.Mostrador, web.Envolver(h)) }
 	mux.HandleFunc("GET /v1/panel/espera", m(s.listar))
+	mux.HandleFunc("POST /v1/panel/espera", m(s.anotarPanel))
 	mux.HandleFunc("POST /v1/panel/espera/{id}/avisar", m(s.avisarManual))
 	mux.HandleFunc("DELETE /v1/panel/espera/{id}", m(s.borrar))
 	// Ofrecer el hueco a una persona por vez.
@@ -103,20 +104,19 @@ func zona(ctx context.Context, tx pgx.Tx) *time.Location {
 	return l
 }
 
-func (s *Servicio) anotarse(w http.ResponseWriter, r *http.Request) error {
-	var in struct {
-		ServicioID    string `json:"servicioId"`
-		ProfesionalID string `json:"profesionalId"`
-		Nombre        string `json:"nombre"`
-		Email         string `json:"email"`
-		Telefono      string `json:"telefono"`
-		Desde         string `json:"desde"`
-		Hasta         string `json:"hasta"`
-		Momento       string `json:"momento"`
-	}
-	if err := web.Leer(w, r, &in); err != nil {
-		return err
-	}
+// pedidoEspera: lo que se carga para anotarse.
+type pedidoEspera struct {
+	ServicioID    string `json:"servicioId"`
+	ProfesionalID string `json:"profesionalId"`
+	Nombre        string `json:"nombre"`
+	Email         string `json:"email"`
+	Telefono      string `json:"telefono"`
+	Desde         string `json:"desde"`
+	Hasta         string `json:"hasta"`
+	Momento       string `json:"momento"`
+}
+
+func (in *pedidoEspera) validar() error {
 	if in.Momento == "" {
 		in.Momento = "cualquiera"
 	}
@@ -125,7 +125,7 @@ func (s *Servicio) anotarse(w http.ResponseWriter, r *http.Request) error {
 	}
 	in.Nombre, in.Email, in.Telefono = strings.TrimSpace(in.Nombre), strings.ToLower(strings.TrimSpace(in.Email)), strings.TrimSpace(in.Telefono)
 	if n := utf8.RuneCountInString(in.Nombre); n < 1 || n > 80 {
-		return problema.Invalido("Falta tu nombre.", problema.Campo{Ruta: "nombre", Mensaje: "requerido"})
+		return problema.Invalido("Falta el nombre.", problema.Campo{Ruta: "nombre", Mensaje: "requerido"})
 	}
 	// El aviso sale por mail: sin email no hay a quién avisarle.
 	if !strings.Contains(in.Email, "@") || len(in.Email) > 120 {
@@ -136,6 +136,67 @@ func (s *Servicio) anotarse(w http.ResponseWriter, r *http.Request) error {
 	}
 	if in.Hasta == "" {
 		in.Hasta = in.Desde
+	}
+	return nil
+}
+
+// anotar en la lista del negocio fijado. Desde el panel (lo pidió por teléfono o WhatsApp) no se avisa
+// en la campanita: lo cargó el mismo equipo.
+func (s *Servicio) anotar(ctx context.Context, tx pgx.Tx, in pedidoEspera, desdePanel bool) (Anotado, error) {
+	var a Anotado
+	z := zona(ctx, tx)
+	d, err1 := time.ParseInLocation(time.DateOnly, in.Desde, z)
+	h, err2 := time.ParseInLocation(time.DateOnly, in.Hasta, z)
+	hoy := s.ahora().In(z).Format(time.DateOnly)
+	if err1 != nil || err2 != nil || h.Before(d) || h.Sub(d) > 31*24*time.Hour || in.Hasta < hoy {
+		return a, problema.Invalido("Elegí desde y hasta qué día (AAAA-MM-DD, hasta un mes, desde hoy).",
+			problema.Campo{Ruta: "desde", Mensaje: "rango inválido"})
+	}
+	if in.Desde < hoy {
+		in.Desde = hoy
+	}
+	var activo bool
+	var servicio string
+	if err := tx.QueryRow(ctx, "SELECT activo, nombre FROM servicios WHERE id::text = $1", in.ServicioID).Scan(&activo, &servicio); err != nil || !activo {
+		return a, problema.NoEncontrado("Ese servicio no existe o no se puede reservar.")
+	}
+	if in.ProfesionalID != "" {
+		var hace bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM profesional_servicios ps JOIN profesionales p ON p.id = ps.profesional_id
+			WHERE p.id::text = $1 AND p.activo AND ps.servicio_id::text = $2)`, in.ProfesionalID, in.ServicioID).Scan(&hace); err != nil {
+			return a, err
+		}
+		if !hace {
+			return a, problema.NoEncontrado("Ese profesional no hace ese servicio.")
+		}
+	}
+	var id string
+	if err := tx.QueryRow(ctx, `INSERT INTO espera (negocio_id, servicio_id, profesional_id, nombre, email, telefono, desde, hasta, momento)
+		VALUES (app.negocio_actual(), $1, nullif($2, '')::uuid, $3, $4, $5, $6, $7, $8) RETURNING id::text`,
+		in.ServicioID, in.ProfesionalID, in.Nombre, in.Email, in.Telefono, in.Desde, in.Hasta, in.Momento).Scan(&id); err != nil {
+		return a, err
+	}
+	if err := leer(ctx, tx, id, &a); err != nil {
+		return a, err
+	}
+	if desdePanel {
+		return a, auditoria.Anotar(ctx, tx, auditoria.Registro{Accion: "espera.anotada", Entidad: "espera", EntidadID: id})
+	}
+	rango := "el " + avisos.Fecha(d)
+	if in.Hasta != in.Desde {
+		rango = "entre el " + avisos.Fecha(d) + " y el " + avisos.Fecha(h)
+	}
+	return a, avisos.Notificar(ctx, tx, avisos.Notificacion{Tipo: avisos.NotiEspera, Titulo: in.Nombre + " se anotó en la lista de espera",
+		Texto: "Para " + servicio + ", " + rango + "."})
+}
+
+func (s *Servicio) anotarse(w http.ResponseWriter, r *http.Request) error {
+	var in pedidoEspera
+	if err := web.Leer(w, r, &in); err != nil {
+		return err
+	}
+	if err := in.validar(); err != nil {
+		return err
 	}
 	ctx := r.Context()
 	var negocio *string
@@ -153,53 +214,39 @@ func (s *Servicio) anotarse(w http.ResponseWriter, r *http.Request) error {
 	}
 	var a Anotado
 	err = s.Pool.EnNegocio(ctx, *negocio, func(tx pgx.Tx) error {
-		z := zona(ctx, tx)
-		d, err1 := time.ParseInLocation(time.DateOnly, in.Desde, z)
-		h, err2 := time.ParseInLocation(time.DateOnly, in.Hasta, z)
-		hoy := s.ahora().In(z).Format(time.DateOnly)
-		if err1 != nil || err2 != nil || h.Before(d) || h.Sub(d) > 31*24*time.Hour || in.Hasta < hoy {
-			return problema.Invalido("Elegí desde y hasta qué día (AAAA-MM-DD, hasta un mes, desde hoy).",
-				problema.Campo{Ruta: "desde", Mensaje: "rango inválido"})
-		}
-		if in.Desde < hoy {
-			in.Desde = hoy
-		}
-		var activo bool
-		var servicio string
-		if err := tx.QueryRow(ctx, "SELECT activo, nombre FROM servicios WHERE id::text = $1", in.ServicioID).Scan(&activo, &servicio); err != nil || !activo {
-			return problema.NoEncontrado("Ese servicio no existe o no se puede reservar.")
-		}
-		if in.ProfesionalID != "" {
-			var hace bool
-			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM profesional_servicios ps JOIN profesionales p ON p.id = ps.profesional_id
-				WHERE p.id::text = $1 AND p.activo AND ps.servicio_id::text = $2)`, in.ProfesionalID, in.ServicioID).Scan(&hace); err != nil {
-				return err
-			}
-			if !hace {
-				return problema.NoEncontrado("Ese profesional no hace ese servicio.")
-			}
-		}
-		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO espera (negocio_id, servicio_id, profesional_id, nombre, email, telefono, desde, hasta, momento)
-			VALUES (app.negocio_actual(), $1, nullif($2, '')::uuid, $3, $4, $5, $6, $7, $8) RETURNING id::text`,
-			in.ServicioID, in.ProfesionalID, in.Nombre, in.Email, in.Telefono, in.Desde, in.Hasta, in.Momento).Scan(&id); err != nil {
-			return err
-		}
-		if err := leer(ctx, tx, id, &a); err != nil {
-			return err
-		}
-		rango := "el " + avisos.Fecha(d)
-		if in.Hasta != in.Desde {
-			rango = "entre el " + avisos.Fecha(d) + " y el " + avisos.Fecha(h)
-		}
-		return avisos.Notificar(ctx, tx, avisos.Notificacion{Tipo: avisos.NotiEspera, Titulo: in.Nombre + " se anotó en la lista de espera",
-			Texto: "Para " + servicio + ", " + rango + "."})
+		var err error
+		a, err = s.anotar(ctx, tx, in, false)
+		return err
 	})
 	if err != nil {
 		return err
 	}
 	// Al cliente no le mostramos su id: no tiene nada que hacer con él.
 	web.JSON(w, http.StatusCreated, map[string]any{"servicio": a.Servicio, "desde": a.Desde, "hasta": a.Hasta, "momento": a.Momento})
+	return nil
+}
+
+// anotarPanel: la dueña o recepción anota a alguien que lo pidió por teléfono o WhatsApp (la mayoría
+// de los pedidos no llegan por la web).
+func (s *Servicio) anotarPanel(w http.ResponseWriter, r *http.Request) error {
+	var in pedidoEspera
+	if err := web.Leer(w, r, &in); err != nil {
+		return err
+	}
+	if err := in.validar(); err != nil {
+		return err
+	}
+	ctx := r.Context()
+	var a Anotado
+	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error {
+		var err error
+		a, err = s.anotar(ctx, tx, in, true)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	web.JSON(w, http.StatusCreated, a)
 	return nil
 }
 

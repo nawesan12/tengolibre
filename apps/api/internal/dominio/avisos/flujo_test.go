@@ -698,3 +698,20 @@ func TestSinEmailNoSeEncola(t *testing.T) {
 		t.Fatalf("se encolaron %d avisos para una clienta sin email", n)
 	}
 }
+
+// El panel anota en la lista de espera a quien lo pidió por teléfono (sin campanita: lo cargó el equipo).
+func TestAnotarEnEsperaDesdeElPanel(t *testing.T) {
+	e := armar(t)
+	var a espera.Anotado
+	e.panel(201, "POST", "/v1/panel/espera", map[string]any{"servicioId": e.servicio, "nombre": "Carla Ruiz",
+		"email": "carla@ejemplo.com", "telefono": "1155550099", "desde": "2026-11-02"}, &a)
+	if a.Nombre != "Carla Ruiz" || a.Desde != "2026-11-02" || a.Hasta != "2026-11-02" {
+		t.Fatalf("anotada: %+v", a)
+	}
+	e.panel(400, "POST", "/v1/panel/espera", map[string]any{"servicioId": e.servicio, "nombre": "Sin Mail", "desde": "2026-11-02"}, nil)
+	var c campanita
+	e.panel(200, "GET", "/v1/panel/campanita", nil, &c)
+	if c.SinLeer != 0 {
+		t.Fatalf("la carga del panel sumó a la campanita: %+v", c)
+	}
+}

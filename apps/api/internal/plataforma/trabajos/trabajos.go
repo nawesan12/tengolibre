@@ -174,6 +174,29 @@ func Negocios(ctx context.Context, pool *db.Pool) ([]string, error) {
 	return out, err
 }
 
+// PorNegocioDe corre fn en los negocios que devuelve consulta (una función de la base que devuelve
+// ids: los que tienen trabajo pendiente), como PorNegocio.
+func PorNegocioDe(ctx context.Context, pool *db.Pool, consulta string, fn func(negocioID string, tx pgx.Tx) error) error {
+	var ns []string
+	if err := pool.EnTx(ctx, func(tx pgx.Tx) error {
+		filas, err := tx.Query(ctx, "SELECT id::text FROM "+consulta+" AS id")
+		if err != nil {
+			return err
+		}
+		ns, err = pgx.CollectRows(filas, pgx.RowTo[string])
+		return err
+	}); err != nil {
+		return err
+	}
+	var errs []error
+	for _, n := range ns {
+		if err := pool.EnNegocio(ctx, n, func(tx pgx.Tx) error { return fn(n, tx) }); err != nil {
+			errs = append(errs, fmt.Errorf("negocio %s: %w", n, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
 // PorNegocio corre fn en cada negocio activo, cada uno en su transacción con el negocio fijado. Un
 // negocio que falla no frena a los demás: los errores se juntan.
 func PorNegocio(ctx context.Context, pool *db.Pool, fn func(negocioID string, tx pgx.Tx) error) error {

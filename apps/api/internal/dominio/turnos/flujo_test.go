@@ -466,3 +466,40 @@ func TestEmailNoSePisaDesdeLaWeb(t *testing.T) {
 		t.Fatalf("email %q, ajeno %v/%v", email, ajeno1, ajeno2)
 	}
 }
+
+// Reprogramar desde el link: el propio turno no tapa los horarios de al lado y, si se eligió
+// «Cualquiera», se ofrecen los de todas y se reasigna. Los días llenos salen abiertos.
+func TestReprogramarDesdeElLink(t *testing.T) {
+	a, _, servicio, ana, beto := armar(t)
+	// Con Ana elegida: los libres del link son los de Ana, sin contar su turno.
+	propio := reservar(a, http.StatusCreated, servicio, ana, "2026-11-02 10:00", "1111")
+	var r libresResp
+	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/t/" + propio.Codigo + "/libres?fecha=2026-11-02"}, &r)
+	horas := map[string]bool{}
+	for _, h := range r.Horarios {
+		horas[h.Hora] = true
+	}
+	if !horas["10:00"] || !horas["10:30"] {
+		t.Fatalf("el propio turno tapa sus horarios: %+v", r.Horarios)
+	}
+	// Con «Cualquiera»: Ana ocupada a las 9 con otro, el turno se puede pasar ahí y queda con Beto.
+	cualquiera := reservar(a, http.StatusCreated, servicio, "", "2026-11-02 09:30", "2222")
+	reservar(a, http.StatusCreated, servicio, ana, "2026-11-02 09:00", "3333")
+	if cualquiera.ProfesionalElegida {
+		t.Fatal("con «Cualquiera» la profesional no fue elegida")
+	}
+	var movido turnos.Turno
+	a.Esperar(200, P{Metodo: "POST", Ruta: "/v1/t/" + cualquiera.Codigo + "/reprogramar",
+		Cuerpo: map[string]any{"inicio": en("2026-11-02 09:00").Format(time.RFC3339)}}, &movido)
+	if movido.ProfesionalID == nil || *movido.ProfesionalID != beto {
+		t.Fatalf("no se reasignó: %+v", movido.ProfesionalID)
+	}
+	// /dias dice si el día está abierto aunque no quede lugar.
+	var d struct {
+		Dias []turnos.Dia `json:"dias"`
+	}
+	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/p/el-corte/dias?servicio=" + servicio + "&desde=2026-11-02&dias=2"}, &d)
+	if len(d.Dias) != 2 || !d.Dias[0].Abierto || d.Dias[1].Abierto {
+		t.Fatalf("días: %+v", d.Dias)
+	}
+}

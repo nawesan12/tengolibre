@@ -98,6 +98,8 @@ type Turno struct {
 	// EmailReserva (turnos.email_reserva): el mail con que se reservó este turno desde la web. Sólo
 	// para «Tus turnos» y los avisos: no sale en el JSON.
 	EmailReserva string `json:"-"`
+	// ProfesionalElegida: la clienta eligió a la profesional (false: «Cualquiera», se la asignamos).
+	ProfesionalElegida bool `json:"profesionalElegida"`
 	// Sólo en la respuesta de la reserva: lo que descontó el cupón y el pago que queda pendiente.
 	Descuento int64 `json:"descuento,omitempty"`
 	Pago      *Pago `json:"pago,omitempty"`
@@ -105,7 +107,7 @@ type Turno struct {
 
 const columnasTurno = `t.id::text, t.codigo, t.servicio_id::text, t.servicio, t.profesional_id::text, t.profesional,
 	c.id::text, c.nombre, c.telefono, c.email, t.inicio, t.fin, t.precio, t.estado, t.origen, t.nota, t.vence_en, t.creado_en,
-	t.serie_id::text, t.confirmado_por, t.confirmado_en, t.cambio_pedido_en, t.llamar_desde, t.llamar_motivo, t.cliente_ajeno, t.email_reserva`
+	t.serie_id::text, t.confirmado_por, t.confirmado_en, t.cambio_pedido_en, t.llamar_desde, t.llamar_motivo, t.cliente_ajeno, t.email_reserva, t.profesional_elegida`
 
 const desdeTurnos = " FROM turnos t JOIN clientes c ON c.id = t.cliente_id"
 
@@ -113,7 +115,7 @@ func escanearTurno(f pgx.Row, t *Turno) error {
 	return f.Scan(&t.ID, &t.Codigo, &t.ServicioID, &t.Servicio, &t.ProfesionalID, &t.Profesional,
 		&t.Cliente.ID, &t.Cliente.Nombre, &t.Cliente.Telefono, &t.Cliente.Email,
 		&t.Inicio, &t.Fin, &t.Precio, &t.Estado, &t.Origen, &t.Nota, &t.VenceEn, &t.CreadoEn,
-		&t.SerieID, &t.ConfirmadoPor, &t.ConfirmadoEn, &t.CambioPedidoEn, &t.LlamarDesde, &t.LlamarMotivo, &t.Ajeno, &t.EmailReserva)
+		&t.SerieID, &t.ConfirmadoPor, &t.ConfirmadoEn, &t.CambioPedidoEn, &t.LlamarDesde, &t.LlamarMotivo, &t.Ajeno, &t.EmailReserva, &t.ProfesionalElegida)
 }
 
 func leerTurno(ctx context.Context, tx pgx.Tx, donde string, arg any, bloquear bool) (Turno, error) {
@@ -267,26 +269,35 @@ type HorarioLibre struct {
 // libres de un servicio en una fecha: con un profesional, los de él; sin, la unión de todos los que
 // hacen el servicio (en el orden del negocio).
 func libres(ctx context.Context, tx pgx.Tx, c contexto, servicioID, profesionalID, fecha string, ahora time.Time) ([]HorarioLibre, error) {
+	out, _, err := libresDe(ctx, tx, c, servicioID, profesionalID, fecha, ahora, "")
+	return out, err
+}
+
+// libresDe: los libres y si el día está abierto (algún horario de atención, aunque esté lleno). sinTurno
+// deja afuera de la ocupación ese turno (reprogramar el propio: se puede mover media hora).
+func libresDe(ctx context.Context, tx pgx.Tx, c contexto, servicioID, profesionalID, fecha string, ahora time.Time, sinTurno string) ([]HorarioLibre, bool, error) {
 	srv, err := catalogo.LeerServicio(ctx, tx, servicioID)
 	if err != nil || !srv.Activo {
-		return nil, problema.NoEncontrado("Ese servicio no existe o no se puede reservar.")
+		return nil, false, problema.NoEncontrado("Ese servicio no existe o no se puede reservar.")
 	}
 	ps, err := catalogo.Profesionales(ctx, tx, true)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	out := []HorarioLibre{}
+	abierto := false
 	indice := map[string]int{}
 	for _, p := range ps {
 		if !p.Hace(srv.ID) || (profesionalID != "" && p.ID != profesionalID) {
 			continue
 		}
-		d, err := datosDelDia(ctx, tx, p, fecha, c.zona, "")
+		d, err := datosDelDia(ctx, tx, p, fecha, c.zona, sinTurno)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		for _, h := range disponibilidad.Dia(disponibilidad.Consulta{Profesional: d, Fecha: fecha, Duracion: srv.Duracion,
 			Reglas: c.reglas(), Ahora: ahora, Zona: c.zona}) {
+			abierto = true
 			if !h.Libre {
 				continue
 			}
@@ -300,7 +311,7 @@ func libres(ctx context.Context, tx pgx.Tx, c contexto, servicioID, profesionalI
 		}
 	}
 	ordenar(out)
-	return out, nil
+	return out, abierto, nil
 }
 
 func ordenar(hs []HorarioLibre) {
@@ -584,11 +595,11 @@ func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora ti
 	}
 	var id string
 	err = tx.QueryRow(ctx, `INSERT INTO turnos (negocio_id, codigo, servicio_id, servicio, profesional_id, profesional, cliente_id,
-		inicio, fin, precio, estado, origen, nota, serie_id, cliente_ajeno, email_reserva) VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-		nullif($13, '')::uuid, $14, CASE WHEN coalesce(current_setting('app.origen', true), '') = 'web' THEN $15 ELSE '' END) RETURNING id::text`,
+		inicio, fin, precio, estado, origen, nota, serie_id, cliente_ajeno, email_reserva, profesional_elegida) VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+		nullif($13, '')::uuid, $14, CASE WHEN coalesce(current_setting('app.origen', true), '') = 'web' THEN $15 ELSE '' END, $16) RETURNING id::text`,
 		codigo(), srv.ID, srv.Nombre, p.ID, p.Nombre, clienteID,
 		in.Inicio, in.Inicio.Add(time.Duration(srv.Duracion)*time.Minute), srv.Precio, estado, origen, strings.TrimSpace(in.Nota),
-		in.SerieID, ajeno, emailReserva).Scan(&id)
+		in.SerieID, ajeno, emailReserva, in.ProfesionalID != "").Scan(&id)
 	if err != nil {
 		return Turno{}, err
 	}
@@ -598,6 +609,12 @@ func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora ti
 // reprogramar mueve el turno a otro horario (y, si se pide, a otro profesional) con las mismas reglas
 // que una reserva nueva.
 func reprogramar(ctx context.Context, tx pgx.Tx, t Turno, inicio time.Time, profesionalID string, ahora time.Time, forzar bool) (Turno, error) {
+	return reprogramarCon(ctx, tx, t, inicio, profesionalID, ahora, forzar, false)
+}
+
+// reprogramarCon: cualquiera, sin profesional pedido, elige la primera libre (la clienta había tocado
+// «Cualquiera»); si no, se queda con la que tenía.
+func reprogramarCon(ctx context.Context, tx pgx.Tx, t Turno, inicio time.Time, profesionalID string, ahora time.Time, forzar, cualquiera bool) (Turno, error) {
 	if t.Estado != "pendiente" && t.Estado != "confirmado" {
 		return t, problema.Conflicto("estado", "Sólo se reprograma un turno pendiente o confirmado.")
 	}
@@ -612,7 +629,7 @@ func reprogramar(ctx context.Context, tx pgx.Tx, t Turno, inicio time.Time, prof
 	if err != nil {
 		return t, err
 	}
-	if profesionalID == "" && t.ProfesionalID != nil {
+	if profesionalID == "" && t.ProfesionalID != nil && !cualquiera {
 		profesionalID = *t.ProfesionalID
 	}
 	p, err := elegir(ctx, tx, c, srv, profesionalID, inicio, ahora, forzar, t.ID)

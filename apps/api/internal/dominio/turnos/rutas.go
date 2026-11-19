@@ -37,6 +37,7 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /v1/t/{codigo}/dispositivo", web.Envolver(s.dejarDeSeguir))
 	mux.HandleFunc("POST /v1/t/{codigo}/cancelar", web.Envolver(s.cancelarCliente))
 	mux.HandleFunc("POST /v1/t/{codigo}/reprogramar", web.Envolver(s.reprogramarCliente))
+	mux.HandleFunc("GET /v1/t/{codigo}/libres", web.Envolver(s.libresDelTurno))
 	mux.HandleFunc("GET /v1/t/{codigo}/repetir", web.Envolver(s.verRepetir))
 	mux.HandleFunc("POST /v1/t/{codigo}/repetir", web.Envolver(s.reservarRepetir))
 	// Agenda del panel.
@@ -167,6 +168,8 @@ func (s *Servicio) libresPanel(w http.ResponseWriter, r *http.Request) error {
 type Dia struct {
 	Fecha  string `json:"fecha"`
 	Libres int    `json:"libres"`
+	// Abierto: el negocio atiende ese día (con Libres 0, está lleno: se ofrece la lista de espera).
+	Abierto bool `json:"abierto"`
 }
 
 // diasPublico: para el calendario, cuántos horarios libres tiene cada día de la vista (o de los
@@ -205,11 +208,11 @@ func (s *Servicio) diasPublico(w http.ResponseWriter, r *http.Request) error {
 		}
 		for i := 0; i < n; i++ {
 			fecha := desde.AddDate(0, 0, i).Format(time.DateOnly)
-			hs, err := libres(ctx, tx, c, q.Get("servicio"), q.Get("profesional"), fecha, ahora)
+			hs, abierto, err := libresDe(ctx, tx, c, q.Get("servicio"), q.Get("profesional"), fecha, ahora, "")
 			if err != nil {
 				return err
 			}
-			out = append(out, Dia{Fecha: fecha, Libres: len(hs)})
+			out = append(out, Dia{Fecha: fecha, Libres: len(hs), Abierto: abierto})
 		}
 		return nil
 	})
@@ -507,7 +510,8 @@ func (s *Servicio) reprogramarCliente(w http.ResponseWriter, r *http.Request) er
 		if !s.ahora().Add(time.Duration(t.CancelarHastaHoras) * time.Hour).Before(t.Inicio) {
 			return problema.Conflicto("tarde", "Ya pasó el plazo para cambiar el turno online. Escribile al negocio.")
 		}
-		nuevo, err := reprogramar(ctx, tx, t.Turno, in.Inicio, in.ProfesionalID, s.ahora(), false)
+		// Con «Cualquiera» al reservar, sin profesional pedido: la primera libre (se reasigna).
+		nuevo, err := reprogramarCon(ctx, tx, t.Turno, in.Inicio, in.ProfesionalID, s.ahora(), false, !t.ProfesionalElegida)
 		if err != nil {
 			return err
 		}
@@ -830,5 +834,48 @@ func (s *Servicio) dejarDeSeguir(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+// libresDelTurno: los horarios para mover el turno del link a otra fecha. El propio turno no cuenta como
+// ocupado (antes tapaba los horarios de al lado y no se podía mover media hora) y, si la clienta había
+// tocado «Cualquiera», son los de todas las profesionales.
+func (s *Servicio) libresDelTurno(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	fecha := r.URL.Query().Get("fecha")
+	if _, err := time.Parse(time.DateOnly, fecha); err != nil {
+		return problema.Invalido("fecha va como AAAA-MM-DD.")
+	}
+	if !s.limite.Permitir("libres-turno:"+tope.IP(r), 120, time.Minute, s.ahora()) {
+		return tope.Demasiados("demasiados_pedidos", "Esperá un minuto y probá de nuevo.")
+	}
+	negocio, err := s.negocioDelTurno(ctx, r.PathValue("codigo"))
+	if err != nil {
+		return err
+	}
+	var out []HorarioLibre
+	err = s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
+		t, err := leerTurno(ctx, tx, "t.codigo = $1", r.PathValue("codigo"), false)
+		if err != nil {
+			return err
+		}
+		if t.ServicioID == nil {
+			return problema.Conflicto("sin_servicio", "El servicio de este turno ya no existe: sacá uno nuevo.")
+		}
+		c, err := cargarContexto(ctx, tx)
+		if err != nil {
+			return err
+		}
+		prof := r.URL.Query().Get("profesional")
+		if prof == "" && t.ProfesionalElegida && t.ProfesionalID != nil {
+			prof = *t.ProfesionalID
+		}
+		out, _, err = libresDe(ctx, tx, c, *t.ServicioID, prof, fecha, s.ahora(), t.ID)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	web.JSON(w, http.StatusOK, map[string]any{"horarios": out})
 	return nil
 }

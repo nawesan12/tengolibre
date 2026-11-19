@@ -173,7 +173,7 @@ func (e *Envios) Correr(ctx context.Context, ahora time.Time) (any, error) {
 		return nil, nil
 	}
 	var cola []pendiente
-	err := trabajos.PorNegocio(ctx, e.Pool, func(negocio string, tx pgx.Tx) error {
+	err := trabajos.PorNegocioDe(ctx, e.Pool, "app.negocios_con_push()", func(negocio string, tx pgx.Tx) error {
 		filas, err := tx.Query(ctx, `UPDATE notificaciones SET push = false WHERE id IN (
 				SELECT id FROM notificaciones WHERE push ORDER BY creado_en LIMIT 100 FOR UPDATE SKIP LOCKED)
 			RETURNING id::text, tipo, titulo, texto, coalesce(turno_id::text, ''), creado_en,
