@@ -1,5 +1,6 @@
 package ar.com.tengolibre.app.pantallas.espera
 
+import ar.com.tengolibre.app.pantallas.mas.AvisoPlan
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -126,6 +127,7 @@ fun ListaEspera() {
             Segmentado(listOf("esperando" to "Esperando", "avisados" to "Avisados", "vencidos" to "Vencidos"), tab, { tab = it })
         }
         Cuerpo {
+            AvisoPlan("espera", "Las personas anotadas se ven acá; ofrecer huecos (a mano o solo) vuelve cuando pases de plan.")
             if (tab == "esperando") ofertas.forEach { o ->
                 Hueco(Modifier.fillMaxWidth(), 20.dp, alinear = Alignment.TopStart) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

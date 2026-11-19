@@ -28,6 +28,7 @@ struct ListaEspera: View {
                     Segmentado(opciones: [("esperando", "Esperando"), ("avisados", "Avisados"), ("vencidos", "Vencidos")], elegido: $tab)
                 }
                 Cuerpo {
+                    AvisoPlan(funcion: "espera", detalle: "Las personas anotadas se ven acá; ofrecer huecos (a mano o solo) vuelve cuando pases de plan.")
                     if tab == "esperando" { ForEach(ofertas) { o in tarjetaOferta(o) } }
                     if cargando && espera.isEmpty {
                         ForEach(0..<3, id: \.self) { _ in Esqueleto(alto: 120, radio: 20) }

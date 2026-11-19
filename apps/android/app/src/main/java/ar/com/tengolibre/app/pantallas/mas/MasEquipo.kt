@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ar.com.tengolibre.app.app.LocalEstado
+import ar.com.tengolibre.app.app.Ruta
 import ar.com.tengolibre.app.nucleo.*
 import ar.com.tengolibre.app.pantallas.hoy.AReprogramar
 import ar.com.tengolibre.app.pantallas.hoy.PedidoDias
@@ -300,9 +301,15 @@ fun Equipo() {
     PantallaMas("Equipo y horarios", Formato.cantidad(profesionales.count { it.activo }, "profesional", "profesionales"),
         acciones = if (estado.gestiona) listOf(AccionCabecera("plus", "Sumar profesional") { nuevo = true }) else emptyList(),
         cargando = cargando, error = error, recargar = { cargar() }) {
-        val fueraDelPlan = profesionales.count { it.activo && it.enPlan == false }
-        Bloque("Quién atiende", if (fueraDelPlan > 0) "${if (fueraDelPlan == 1) "Una quedó" else "$fueraDelPlan quedaron"} fuera de tu plan: siguen acá, pero no toman turnos hasta que pases a un plan más grande o pauses a alguien."
-            else "Tocá a cada una para cargarle el horario, los servicios que hace y los días que no viene.", *profesionales.sortedBy { it.orden }.map { p -> @Composable {
+        // «Ana y Gonza quedaron fuera de tu plan…»: el mismo texto que la web (equipo/+page.svelte) e iOS.
+        val fuera = profesionales.filter { it.activo && it.enPlan == false }.map { it.nombre }
+        if (fuera.isNotEmpty()) {
+            val quienes = if (fuera.size == 1) fuera.first() else fuera.dropLast(1).joinToString(", ") + " y " + fuera.last()
+            AvisoAmbar(if (fuera.size == 1) "$quienes quedó fuera de tu plan: sigue acá, pero no toma turnos hasta que pases a un plan más grande o pauses a alguien."
+                else "$quienes quedaron fuera de tu plan: siguen acá, pero no toman turnos hasta que pases a un plan más grande o pauses a alguien.",
+                if (estado.esDuena) "Ver planes" else null) { estado.abrir(Ruta.suscripcion) }
+        }
+        Bloque("Quién atiende", "Tocá a cada una para cargarle el horario, los servicios que hace y los días que no viene.", *profesionales.sortedBy { it.orden }.map { p -> @Composable {
             Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable { nav.pila.add(DestinoMas.profesional(p.id)) }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Iniciales(p.nombre, 40.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -463,6 +470,8 @@ fun FichaProfesional(id: String, propia: Boolean = false) {
         acciones = if (estado.gestiona && x != null) listOf(AccionCabecera("pencil", "Editar datos") { datos = true }) else emptyList(),
         cargando = x == null && error.isEmpty(), error = error, recargar = { cargar() }) {
         if (x == null) return@PantallaMas
+        if (x.activo && x.enPlan == false) AvisoAmbar("Fuera de tu plan: no toma turnos ni aparece en tu página. Pausá a otra persona o pasá a un plan más grande.",
+            if (estado.esDuena) "Ver planes" else null) { estado.abrir(Ruta.suscripcion) }
         Bloque("Horario de la semana", "", *(listOf(1, 2, 3, 4, 5, 6, 0).map { d -> @Composable {
             val fr = x.horario.filter { it.dia == d }.sortedBy { it.desde }
             Renglon(NOMBRES_DIAS[d]) {
@@ -484,7 +493,7 @@ fun FichaProfesional(id: String, propia: Boolean = false) {
                 if (d.estado == "pendiente" && propia) BotonTexto("Cancelar", { alcance.launch { estado.intentar { estado.api.pedir("POST", "/v1/panel/dias-libres/${d.id}/cancelar", cuerpo = "{}".toByteArray()) }; cargar() } }, color = C.error)
             }
         } } + (if (propia && vinculada) listOf(@Composable { Box(Modifier.clickable { pedirLibres = true }) { Renglon("Pedir días libres", simbolo = "beach.umbrella") } }) else emptyList())).toTypedArray())
-        if (estado.gestiona) Bloque("", "", { RenglonInterruptor("Atiende", x.activo, { v -> alcance.launch { estado.intentar { estado.api.hacer("PATCH", "/v1/panel/profesionales/$id", Activo(v)) }; estado.version += 1 } }, "Si la pausás, no aparece para reservar") })
+        if (estado.gestiona) Bloque("", "", { RenglonInterruptor("Atiende", x.activo, { v -> alcance.launch { estado.intentar { estado.api.hacer("PATCH", "/v1/panel/profesionales/$id", Activo(v)) }; estado.version += 1 } }, if (x.activo && x.enPlan == false) "Fuera de tu plan: hoy no toma turnos" else "Si la pausás, no aparece para reservar") })
     }
     Hoja(horario, { horario = false }) { p?.let { EditorHorario(it, listo = { alcance.launch { cargar() } }, cerrar = { horario = false }) } }
     Hoja(bloquear, { bloquear = false }) { NuevoBloqueo(id, listo = { alcance.launch { cargar() } }, cerrar = { bloquear = false }) }

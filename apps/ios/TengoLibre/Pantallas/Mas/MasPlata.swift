@@ -33,6 +33,7 @@ struct Cobros: View {
 
     var body: some View {
         PantallaMas(titulo: "Pagos y señas", subtitulo: mp?.conectada == true ? "Mercado Pago conectado" : "Sin Mercado Pago", cargando: cargando, error: error, recargar: cargar) {
+            AvisoPlan(funcion: "sena", detalle: "Lo que configures queda guardado, pero las reservas entran sin seña hasta que pases de plan.")
             Bloque(titulo: "Mercado Pago", pie: "Las señas van directo a tu cuenta. Tengo Libre no cobra comisión.") {
                 if let mp, mp.conectada {
                     Renglon(titulo: mp.cuenta ?? "Cuenta conectada", detalle: mp.desde.map { "Desde el \(Formato.dia($0))" } ?? "", simbolo: "checkmark.seal.fill")
@@ -220,6 +221,7 @@ struct Membresias: View {
                     cargando: cargando, recargar: cargar) {
             Segmentado(opciones: [("activa", "Activas"), ("vencida", "Vencidas"), ("planes", "Planes")], elegido: $tab)
         } contenido: {
+            AvisoPlan(funcion: "membresias", detalle: "Las socias que ya tenés siguen usando sus visitas; para crear o cambiar planes, pasá de plan.")
             if tab == "planes" {
                 ForEach(planes.sorted { $0.orden < $1.orden }) { p in
                     Button { plan = p } label: {
@@ -446,6 +448,7 @@ struct Cupones: View {
     var body: some View {
         PantallaMas(titulo: "Cupones", subtitulo: "\(cupones.filter(\.activo).count) activos",
                     acciones: [AccionCabecera(simbolo: "plus", etiqueta: "Crear cupón") { nuevo = true }], cargando: cargando, recargar: cargar) {
+            AvisoPlan(funcion: "cupones")
             let l = cupones.filter { $0.referidoId == nil }
             if l.isEmpty {
                 VacioQueEnsena(rayas: "Sin cupones", titulo: "Creá tu primer cupón", texto: "Un código que tus clientas escriben al reservar para tener un descuento.") {
@@ -544,6 +547,7 @@ struct Referidos: View {
 
     var body: some View {
         PantallaMas(titulo: "Referidos", subtitulo: a.activo ? "Activo" : "Apagado", cargando: cargando, recargar: cargar) {
+            AvisoPlan(funcion: "referidos", detalle: "Los premios que tus clientas ya ganaron siguen valiendo; el programa no suma nuevos hasta que pases de plan.")
             Bloque(pie: "Cada clienta recibe un código para compartir. Quien reserva con él tiene el descuento, y ella también en su próximo turno.") {
                 RenglonInterruptor(titulo: "Programa de referidos", activo: $a.activo)
                 if a.activo {
@@ -589,6 +593,7 @@ struct Penalidades: View {
 
     var body: some View {
         PantallaMas(titulo: "Penalidades", subtitulo: aus.map { "\($0.ultimos30) ausencias en 30 días · \($0.penalidadesVigentes) vigentes" } ?? "", cargando: cargando, recargar: cargar) {
+            AvisoPlan(funcion: "penalidades", detalle: "Las penalidades que ya están se ven acá, pero no frenan reservas hasta que pases de plan.")
             Bloque(titulo: "Automático", pie: "Si alguien falta sin avisar esa cantidad de veces, no puede reservar por la web durante esos días.") {
                 Numerito(titulo: "Penalizar desde", valor: $aj.umbralAusencias, rango: 0...10) { $0 == 0 ? "Nunca" : "\($0) faltas" }
                 Numerito(titulo: "Durante", valor: $aj.diasPenalidad, rango: 1...365, paso: 5) { "\($0) días" }
@@ -732,6 +737,8 @@ struct SuscripcionVista: View {
     struct PlanVenta: Codable, Hashable {
         var clave: String; var nombre: String; var precio: Int; var precioAnual: Int?; var destacado: Bool?; var bajada: String?
         var profesionales: Int?; var incluye: [String]?
+        /// Lo mismo para quien compra en la tienda (sin profesionales extra, que se pagan sólo por Mercado Pago).
+        var incluyeTienda: [String]?
     }
     struct Sus: Codable { var id: String; var plan: String; var estado: String; var monto: Int; var proximoCobro: Date?; var ultimoCobro: Date?; var graciaHasta: Date?; var canceladaEn: Date?; var origen: String?
         var periodo: String? }
@@ -760,7 +767,7 @@ struct SuscripcionVista: View {
     var body: some View {
         PantallaMas(titulo: "Suscripción", subtitulo: subtitulo, cargando: s == nil && error.isEmpty, error: error, recargar: cargar) {
             if let s {
-                if let u = s.uso { bloqueUso(u, s) }
+                // Primero el estado (qué plan tenés y cómo se paga), después el uso y después los planes.
                 if let v = vigente {
                     switch v.origen {
                     case "apple": deApple(v, s)
@@ -769,9 +776,15 @@ struct SuscripcionVista: View {
                     }
                 } else {
                     estadoSinPlan(s)
-                    if estado.esDuena { planesTienda } else {
-                        Text("La suscripción la elige la dueña o el dueño del negocio.").font(Tipo.lato(14)).foregroundStyle(C.sub)
-                    }
+                }
+                if let u = s.uso, s.plan != "sin_plan" { bloqueUso(u, s) }
+                if let v = vigente {
+                    if v.origen == "apple" && estado.esDuena { planesTienda(cambio: v) }
+                    else if v.origen != "apple" { catalogoSoloLectura(s, v) }
+                } else if estado.esDuena {
+                    planesTienda(cambio: nil)
+                } else {
+                    Text("La suscripción la elige la dueña o el dueño del negocio.").font(Tipo.lato(14)).foregroundStyle(C.sub)
                 }
             }
         }
@@ -807,7 +820,7 @@ struct SuscripcionVista: View {
                 .buttonStyle(BotonContorno(alto: 52, tam: 16))
             botonRestaurar
         }
-        Text("Se renueva sola al terminar cada período. Para cambiar de plan o cancelar: Ajustes › tu nombre › Suscripciones › Tengo Libre, o el botón de arriba.")
+        Text("Se renueva sola al terminar cada período. Para cambiar de plan, elegilo abajo. Para cancelar: Ajustes › tu nombre › Suscripciones › Tengo Libre, o el botón de arriba.")
             .font(Tipo.lato(13)).foregroundStyle(C.sub)
     }
 
@@ -875,10 +888,10 @@ struct SuscripcionVista: View {
     @ViewBuilder private func bloqueUso(_ u: Uso, _ s: EstadoS) -> some View {
         let sobran = max(0, u.profesionalesActivos - u.topeProfesionales)
         let waQuedan = max(0, u.whatsappIncluidos - u.whatsappUsadosMes) + u.whatsappSaldo
-        Bloque(titulo: "Tu plan \(s.nombrePlan)", pie: sobran > 0
-               ? "\(sobran == 1 ? "La más nueva queda" : "Las \(sobran) más nuevas quedan") fuera de la agenda: no se borra nada. Pausá a alguien en Equipo o pasá a un plan más grande."
+        Bloque(titulo: "Uso del plan \(s.nombrePlan)", pie: sobran > 0
+               ? "\(sobran == 1 ? "El profesional más nuevo queda" : "Los \(sobran) profesionales más nuevos quedan") fuera de la agenda: no se borra nada. Pausá a alguien en Equipo y horarios o pasá a un plan más grande."
                : "") {
-            Renglon(titulo: "Profesionales activos", detalle: u.profesionalesActivos >= u.topeProfesionales && sobran == 0 ? "Llegaste al tope de tu plan" : "",
+            Renglon(titulo: "Profesionales activos", detalle: u.profesionalesActivos >= u.topeProfesionales && sobran == 0 ? Self.textoTope(s.plan) : "",
                     simbolo: "person.2") {
                 Text("\(u.profesionalesActivos) de \(u.topeProfesionales)").font(Tipo.lato(15, .bold)).monospacedDigit()
                     .foregroundStyle(sobran > 0 ? C.ausenteTinta : C.tinta)
@@ -891,7 +904,53 @@ struct SuscripcionVista: View {
         }
     }
 
-    @ViewBuilder private var planesTienda: some View {
+    /// «Llegaste al tope. Para sumar más, pasá a X» (en Centro, sólo «Llegaste al tope»): el mismo texto que la web.
+    static func textoTope(_ plan: String) -> String {
+        switch plan {
+        case "inicial": return "Llegaste al tope. Para sumar más, pasá a Equipo."
+        case "equipo": return "Llegaste al tope. Para sumar más, pasá a Centro."
+        default: return "Llegaste al tope de tu plan."
+        }
+    }
+
+    /// Pagada con Mercado Pago (o con la otra tienda): los planes para mirar, con el tuyo marcado. Se cambia donde se
+    /// contrató.
+    @ViewBuilder private func catalogoSoloLectura(_ s: EstadoS, _ v: Sus) -> some View {
+        Text("LOS PLANES").rotulo().padding(.horizontal, 4).padding(.top, 6)
+        ForEach(s.catalogo, id: \.clave) { plan in
+            let tuyo = plan.clave == v.plan
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(plan.nombre).font(Tipo.lato(18, .black)).tracking(-0.4)
+                        if tuyo {
+                            Text("TU PLAN").font(Tipo.lato(10, .black)).tracking(0.8).padding(.horizontal, 7).frame(height: 20)
+                                .foregroundStyle(C.petroleoHondo).background(C.menta, in: Capsule())
+                        }
+                    }
+                    Text(Self.bajada(plan)).font(Tipo.lato(13)).foregroundStyle(C.sub).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 4)
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(Formato.pesos(plan.precio)).font(Tipo.lato(18, .black)).monospacedDigit()
+                    Text("por mes").font(Tipo.lato(12)).foregroundStyle(C.sub)
+                }
+            }
+            .foregroundStyle(C.tinta).padding(16)
+            .background(C.tarjeta, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(tuyo ? C.menta : C.linea, lineWidth: tuyo ? 2 : 1))
+        }
+    }
+
+    /// La bajada de un plan con su primer «incluye», con punto final (igual que la web).
+    static func bajada(_ plan: PlanVenta, tienda: Bool = false) -> String {
+        let primero = (tienda ? plan.incluyeTienda : plan.incluye)?.first ?? plan.incluye?.first
+        return [plan.bajada, primero.map { $0 + "." }].compactMap { $0 }.joined(separator: " ")
+    }
+
+    /// Los planes de la App Store: para suscribirse o, con una suscripción de Apple, para cambiar de plan (la App Store
+    /// reemplaza la vigente: subir rige ya, bajar al renovar).
+    @ViewBuilder private func planesTienda(cambio: Sus?) -> some View {
         if !cargoTienda {
             ForEach(0..<3, id: \.self) { _ in Esqueleto(alto: 96, radio: 18) }
             Esqueleto(alto: 260, radio: 20)
@@ -900,17 +959,19 @@ struct SuscripcionVista: View {
                 Button("Reintentar") { Task { await cargarTienda() } }.buttonStyle(BotonContorno(alto: 48, tam: 15))
             }
         } else {
-            Text("1 · ELEGÍ TU PLAN").rotulo().padding(.horizontal, 4)
-            Segmentado(opciones: [("mensual", "Por mes"), ("anual", "Por año · 12 al precio de 10")], elegido: $periodo, sobrePetroleo: false)
-            if planesConProducto.isEmpty {
-                VacioQueEnsena(rayas: "Pronto", titulo: "Los planes no cargaron", texto: "La App Store no respondió. Probá de nuevo en un rato.") {
-                    Button("Reintentar") { Task { await cargarTienda() } }.buttonStyle(BotonContorno(alto: 48, tam: 15))
-                }
+            Text(cambio == nil ? "1 · ELEGÍ TU PLAN" : "CAMBIAR DE PLAN").rotulo().padding(.horizontal, 4).padding(.top, cambio == nil ? 0 : 6)
+            // El pago anual sólo si la tienda lo da (mientras no esté aprobado, se vende el mensual).
+            if hayAnual {
+                Segmentado(opciones: [("mensual", "Por mes"), ("anual", "Por año")], elegido: $periodo, sobrePetroleo: false)
+                Text(periodo == "anual" ? "12 meses al precio de 10: ahorrás 2 meses." : "Con el pago anual, 12 meses al precio de 10.")
+                    .font(Tipo.lato(12)).foregroundStyle(C.sub).padding(.horizontal, 4)
             }
-            ForEach(planesConProducto, id: \.0.clave) { plan, p in opcionPlan(plan, p) }
-            if let par = elegidoPar { incluye(par.0) }
-            Text("2 · TU SUSCRIPCIÓN").rotulo().padding(.horizontal, 4).padding(.top, 6)
-            if let par = elegidoPar { carrito(par.0, par.1) }
+            ForEach(planesConProducto, id: \.0.clave) { plan, p in opcionPlan(plan, p, actual: cambio != nil && productoActual == p.id) }
+            if let par = elegidoPar {
+                incluye(par.0)
+                Text(cambio == nil ? "2 · TU SUSCRIPCIÓN" : "EL CAMBIO").rotulo().padding(.horizontal, 4).padding(.top, 6)
+                if let c = cambio { carritoCambio(par.0, par.1, c) } else { carrito(par.0, par.1) }
+            }
             botonRestaurar
             legales
         }
@@ -918,7 +979,17 @@ struct SuscripcionVista: View {
 
     /// Los planes del catálogo (en su orden) que la App Store da en el período elegido.
     private var planesConProducto: [(PlanVenta, Product)] {
-        (s?.catalogo ?? []).compactMap { plan in Compras.producto(productos, plan: plan.clave, periodo: periodo).map { (plan, $0) } }
+        let per = hayAnual ? periodo : "mensual"
+        return (s?.catalogo ?? []).compactMap { plan in Compras.producto(productos, plan: plan.clave, periodo: per).map { (plan, $0) } }
+    }
+
+    /// Si la tienda dio algún producto anual.
+    private var hayAnual: Bool { productos.contains { Compras.venta[$0.id]?.periodo == "anual" } }
+
+    /// El producto de la suscripción de Apple vigente (para marcar «Tu plan» al cambiar).
+    private var productoActual: String? {
+        guard let v = vigente, v.origen == "apple" else { return nil }
+        return Compras.venta.first { $0.value.plan == v.plan && $0.value.periodo == (v.periodo ?? "mensual") }?.key
     }
 
     private var elegidoPar: (PlanVenta, Product)? {
@@ -926,7 +997,7 @@ struct SuscripcionVista: View {
         return ps.first { $0.0.clave == elegido } ?? ps.first { $0.0.destacado == true } ?? ps.first
     }
 
-    private func opcionPlan(_ plan: PlanVenta, _ p: Product) -> some View {
+    private func opcionPlan(_ plan: PlanVenta, _ p: Product, actual: Bool = false) -> some View {
         let on = elegidoPar?.0.clave == plan.clave
         return Button {
             withAnimation(Movimiento.tocar) { elegido = plan.clave }
@@ -938,12 +1009,15 @@ struct SuscripcionVista: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         Text(plan.nombre).font(Tipo.lato(19, .black)).tracking(-0.4)
-                        if plan.destacado == true {
+                        if actual {
+                            Text("TU PLAN").font(Tipo.lato(10, .black)).tracking(0.8).padding(.horizontal, 7).frame(height: 20)
+                                .foregroundStyle(C.petroleoHondo).background(C.menta, in: Capsule())
+                        } else if plan.destacado == true {
                             Text("EL MÁS ELEGIDO").font(Tipo.lato(10, .black)).tracking(0.8).padding(.horizontal, 7).frame(height: 20)
                                 .foregroundStyle(C.petroleoHondo).background(C.menta, in: Capsule())
                         }
                     }
-                    Text([plan.bajada, plan.incluye?.first].compactMap { $0 }.joined(separator: " ")).font(Tipo.lato(13)).foregroundStyle(C.sub)
+                    Text(Self.bajada(plan, tienda: true)).font(Tipo.lato(13)).foregroundStyle(C.sub)
                         .multilineTextAlignment(.leading)
                 }
                 Spacer(minLength: 4)
@@ -965,7 +1039,7 @@ struct SuscripcionVista: View {
     private func incluye(_ plan: PlanVenta) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text("QUÉ INCLUYE").rotulo()
-            ForEach(plan.incluye ?? [], id: \.self) { x in
+            ForEach(plan.incluyeTienda ?? plan.incluye ?? [], id: \.self) { x in
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(C.mentaTexto)
                     Text(x).font(Tipo.lato(14)).foregroundStyle(C.tinta).fixedSize(horizontal: false, vertical: true)
@@ -990,7 +1064,7 @@ struct SuscripcionVista: View {
                     .frame(width: 40, height: 40).background(C.menta, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Plan \(nombre)").font(Tipo.lato(16, .bold))
-                    Text(anual ? "Anual · 12 meses al precio de 10 · cancelás cuando quieras" : "Mensual · se renueva sola · cancelás cuando quieras")
+                    Text(anual ? "Anual · 12 meses al precio de 10 · se renueva sola" : "Mensual · se renueva sola · cancelás cuando quieras")
                         .font(Tipo.lato(12)).foregroundStyle(C.sub)
                 }
                 Spacer(minLength: 4)
@@ -1036,6 +1110,33 @@ struct SuscripcionVista: View {
         .background(C.tarjeta, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(C.linea, lineWidth: 1))
         .shadow(color: Color(hex: 0x0F2328, alfa: 0.12), radius: 20, y: 14)
+    }
+
+    /// Cambiar de plan con una suscripción de Apple: la App Store reemplaza la vigente.
+    private func carritoCambio(_ plan: PlanVenta, _ p: Product, _ v: Sus) -> some View {
+        let mismo = Compras.venta[p.id]?.plan == v.plan && Compras.venta[p.id]?.periodo == (v.periodo ?? "mensual")
+        let sube = Compras.sube(de: productoActual, a: p.id)
+        return VStack(alignment: .leading, spacing: 12) {
+            if mismo {
+                Text("Ya tenés este plan.").font(Tipo.lato(14)).foregroundStyle(C.sub)
+            } else {
+                fila("Pasás a", "\(plan.nombre) · \(p.displayPrice) \(Compras.venta[p.id]?.periodo == "anual" ? "por año" : "por mes")")
+                fila("Cuándo", sube ? "ya, la App Store cobra la diferencia" : "cuando termine lo que ya pagaste")
+                Button {
+                    Task { await comprar(p) }
+                } label: {
+                    HStack(spacing: 8) {
+                        if comprando == p.id { ProgressView().tint(C.petroleoHondo) } else { Image(systemName: "apple.logo") }
+                        Text(comprando == p.id ? "Abriendo la App Store…" : "Cambiar a \(plan.nombre)")
+                    }
+                }
+                .buttonStyle(BotonMenta(alto: 56, conSombra: true))
+                .disabled(comprando != nil)
+            }
+        }
+        .foregroundStyle(C.tinta).padding(18).frame(maxWidth: .infinity, alignment: .leading)
+        .background(C.tarjeta, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(C.linea, lineWidth: 1))
     }
 
     private func fila(_ a: String, _ b: String) -> some View {
@@ -1099,7 +1200,7 @@ struct SuscripcionVista: View {
     private func cargar() async {
         do { s = try await estado.api.get("/v1/panel/suscripcion"); error = "" }
         catch let e as ErrorApi { error = e.detalle } catch { self.error = "Probá de nuevo." }
-        if vigente == nil && estado.esDuena && !cargoTienda { await cargarTienda() }
+        if (vigente == nil || vigente?.origen == "apple") && estado.esDuena && !cargoTienda { await cargarTienda() }
     }
 
     private func cargarTienda() async {

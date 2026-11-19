@@ -34,6 +34,17 @@ enum Compras {
 
     enum Resultado { case listo, cancelado, pendiente }
 
+    private static let rango = ["inicial": 1, "equipo": 2, "centro": 3]
+
+    /// Si pasar del producto `de` al `a` es subir (un plan más grande, o el mismo pagado por año). Igual que Android.
+    static func sube(de: String?, a: String) -> Bool {
+        guard let nuevo = venta[a] else { return false }
+        let viejo = de.flatMap { venta[$0] }
+        let rDe = viejo.flatMap { rango[$0.plan] } ?? 0
+        let rA = rango[nuevo.plan] ?? 0
+        return rA > rDe || (rA == rDe && nuevo.periodo == "anual" && viejo?.periodo == "mensual")
+    }
+
     /// Este Apple ID ya paga la suscripción de otro negocio: comprar acá la cambiaría de plan, no sumaría otra.
     static let yaPagaOtro = ErrorApi(estado: 409, codigo: "otro_negocio_tienda", titulo: "Este Apple ID ya paga otro negocio",
                                      detalle: "Para pagar este negocio, usá otro Apple ID en la App Store o pagá desde la web.")

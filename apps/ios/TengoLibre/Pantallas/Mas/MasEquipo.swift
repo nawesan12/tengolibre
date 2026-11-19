@@ -338,6 +338,14 @@ struct Equipo: View {
     @Environment(Estado.self) private var estado
     @State private var profesionales: [Profesional] = []
     private var fueraDelPlan: Int { profesionales.filter { $0.activo && $0.enPlan == false }.count }
+    /// «Ana y Gonza quedaron fuera de tu plan…»: el mismo texto que la web (equipo/+page.svelte).
+    private var textoFueraDelPlan: String {
+        let n = profesionales.filter { $0.activo && $0.enPlan == false }.map(\.nombre)
+        let quienes = n.count <= 1 ? (n.first ?? "") : n.dropLast().joined(separator: ", ") + " y " + (n.last ?? "")
+        return n.count == 1
+            ? "\(quienes) quedó fuera de tu plan: sigue acá, pero no toma turnos hasta que pases a un plan más grande o pauses a alguien."
+            : "\(quienes) quedaron fuera de tu plan: siguen acá, pero no toman turnos hasta que pases a un plan más grande o pauses a alguien."
+    }
     @State private var miembros: [Miembro] = []
     @State private var invitaciones: [InvitacionEquipo] = []
     @State private var servicios: [Servicio] = []
@@ -350,9 +358,10 @@ struct Equipo: View {
         PantallaMas(titulo: "Equipo y horarios", subtitulo: Formato.cantidad(profesionales.filter(\.activo).count, "profesional", "profesionales"),
                     acciones: estado.gestiona ? [AccionCabecera(simbolo: "plus", etiqueta: "Sumar profesional") { nuevo = true }] : [],
                     cargando: cargando, error: error, recargar: cargar) {
-            Bloque(titulo: "Quién atiende", pie: fueraDelPlan > 0
-                   ? "\(fueraDelPlan == 1 ? "Una quedó" : "\(fueraDelPlan) quedaron") fuera de tu plan: siguen acá, pero no toman turnos hasta que pases a un plan más grande o pauses a alguien."
-                   : "Tocá a cada una para cargarle el horario, los servicios que hace y los días que no viene.") {
+            if fueraDelPlan > 0 {
+                AvisoAmbar(texto: textoFueraDelPlan, boton: estado.esDuena ? "Ver planes" : nil) { estado.abrir(.suscripcion) }
+            }
+            Bloque(titulo: "Quién atiende", pie: "Tocá a cada una para cargarle el horario, los servicios que hace y los días que no viene.") {
                 ForEach(profesionales.sorted { $0.orden < $1.orden }) { p in
                     NavigationLink(value: DestinoMas.profesional(p.id)) {
                         HStack(spacing: 12) {
@@ -557,6 +566,10 @@ struct FichaProfesional: View {
                     acciones: estado.gestiona && p != nil ? [AccionCabecera(simbolo: "pencil", etiqueta: "Editar datos") { datos = true }] : [],
                     cargando: p == nil && error.isEmpty, error: error, recargar: cargar) {
             if let p {
+                if p.activo && p.enPlan == false {
+                    AvisoAmbar(texto: "Fuera de tu plan: no toma turnos ni aparece en tu página. Pausá a otra persona o pasá a un plan más grande.",
+                               boton: estado.esDuena ? "Ver planes" : nil) { estado.abrir(.suscripcion) }
+                }
                 Bloque(titulo: "Horario de la semana") {
                     ForEach([1, 2, 3, 4, 5, 6, 0], id: \.self) { d in
                         let fr = p.horario.filter { $0.dia == d }.sorted { $0.desde < $1.desde }
@@ -602,7 +615,7 @@ struct FichaProfesional: View {
                 }
                 if estado.gestiona {
                     Bloque {
-                        RenglonInterruptor(titulo: "Atiende", detalle: "Si la pausás, no aparece para reservar", activo: Binding(get: { p.activo }, set: { v in Task { await patch(["activo": v]) } }))
+                        RenglonInterruptor(titulo: "Atiende", detalle: p.activo && p.enPlan == false ? "Fuera de tu plan: hoy no toma turnos" : "Si la pausás, no aparece para reservar", activo: Binding(get: { p.activo }, set: { v in Task { await patch(["activo": v]) } }))
                     }
                 }
             }

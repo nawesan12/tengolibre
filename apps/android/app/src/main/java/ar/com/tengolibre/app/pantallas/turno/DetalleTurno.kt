@@ -467,7 +467,7 @@ fun ColumnScope.Reprogramar(turno: Turno, listo: (Turno) -> Unit, cerrar: () -> 
         TextoRotulo("Día")
         Box(Modifier.fillMaxWidth().tarjeta().padding(12.dp)) { CalendarioMes(fecha, { fecha = it }, minimo = hoy) }
         TextoRotulo("Con quién")
-        val aptas = profesionales.filter { it.activo && (turno.servicioId == null || it.servicios.isEmpty() || turno.servicioId in it.servicios) }
+        val aptas = profesionales.filter { it.activo && it.enPlan != false && (turno.servicioId == null || it.servicios.isEmpty() || turno.servicioId in it.servicios) }
         Row(Modifier.fillMaxWidth().tarjeta().heightIn(min = 52.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Texto("Profesional", Tipo.lato(16f), C.tinta, Modifier.weight(1f))
             SelectorMenu(aptas.map { Pair<String?, String>(it.id, it.nombre) }, profesional, { profesional = it }, "Profesional")

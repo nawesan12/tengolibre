@@ -177,6 +177,7 @@ fun Reportes() {
 
     PantallaMas("Reportes", "${Formato.dia(ins(rango.first))} al ${Formato.dia(ins(rango.second))}", cargando = r == null && error.isEmpty(), error = error, recargar = { cargar() },
         abajo = { Segmentado(listOf("semana" to "7 días", "mes" to "Este mes", "trimestre" to "90 días"), periodo, { periodo = it }) }) {
+        AvisoPlan("reportes_completos", "Lo básico de tus turnos se ve igual; el reporte mensual, las ausencias y las horas muertas vienen con ese plan.")
         val x = r ?: return@PantallaMas
         val a = antes
         val cifras = listOf(
@@ -493,6 +494,7 @@ fun Plantillas() {
     LaunchedEffect(Unit) { cargar() }
     @Serializable data class Cuerpo(val estilo: JsonObject)
     PantallaMas("Plantillas", PLANTILLAS.firstOrNull { it.first == valor("plantilla") }?.second.orEmpty(), volver = "Más", cargando = cargando, recargar = { cargar() }) {
+        AvisoPlan("plantillas", "Podés mirarlas; tu página se ve con la de por defecto hasta que pases de plan.")
         PLANTILLAS.forEach { (k, t, d) ->
             val on = valor("plantilla") == k
             Row(Modifier.fillMaxWidth().tarjeta().then(if (on) Modifier.border(2.dp, C.menta, RoundedCornerShape(Radio.tarjeta)) else Modifier)
@@ -532,6 +534,7 @@ fun DominioVista() {
     suspend fun cargar() { try { d = estado.api.get("/v1/panel/dominio"); error = "" } catch (e: ErrorApi) { error = e.detalle } catch (e: Exception) { error = "Probá de nuevo." } }
     LaunchedEffect(Unit) { cargar() }
     PantallaMas("Dominio propio", d?.dominio?.nombre ?: "Usá tu propia dirección", cargando = d == null && error.isEmpty(), error = error, recargar = { cargar() }) {
+        AvisoPlan("dominio", "Tu dominio queda guardado; mientras tanto, quien entre por ahí va a tu página en Tengo Libre.")
         val dom = d?.dominio
         if (dom != null) {
             val ok = dom.estado == "verificado"
@@ -832,6 +835,7 @@ fun Sucursales() {
     }
     LaunchedEffect(Unit) { cargar() }
     PantallaMas("Sucursales", "Varios locales, una sola mirada", cargando = g == null && error.isEmpty(), error = error, recargar = { cargar() }) {
+        AvisoPlan("sucursales")
         val x = g ?: return@PantallaMas
         x.grupos.forEach { gr ->
             Bloque(gr.nombre, totales[gr.id]?.let { "Este mes: ${it.atendidos} atendidos · ${Formato.pesos(it.ingresos)}" } ?: "", *(gr.sucursales.map { s -> @Composable {

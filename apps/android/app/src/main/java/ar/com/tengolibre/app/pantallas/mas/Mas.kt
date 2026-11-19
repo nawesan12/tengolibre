@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
@@ -44,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import ar.com.tengolibre.app.BuildConfig
 import ar.com.tengolibre.app.app.LocalEstado
+import ar.com.tengolibre.app.app.Ruta
 import ar.com.tengolibre.app.nucleo.ErrorApi
 import ar.com.tengolibre.app.nucleo.Web
 import ar.com.tengolibre.app.pantallas.buscar.CampoBuscar
@@ -435,5 +437,44 @@ fun ColumnScope.HojaBorrarCuenta(cerrar: () -> Unit) {
                 .clickable(enabled = coincide && !borrando) { borrar() },
             horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
         ) { Texto(if (borrando) "Borrando…" else "Borrar mi cuenta", Tipo.lato(17f, Peso.Black), androidx.compose.ui.graphics.Color.White, lineas = 1) }
+    }
+}
+
+// MARK: - Lo que el plan no trae
+
+private val queViene = mapOf(
+    "sena" to "La seña con Mercado Pago viene", "espera" to "La lista de espera viene", "membresias" to "Las membresías vienen",
+    "cupones" to "Los cupones vienen", "referidos" to "Los referidos vienen", "penalidades" to "Las penalidades por ausencias vienen",
+    "reportes_completos" to "Los reportes completos vienen", "sucursales" to "Las sucursales vienen", "dominio" to "El dominio propio viene",
+    "plantillas" to "Las plantillas de página vienen", "csv" to "Exportar en CSV viene",
+)
+val nombresPlan = mapOf("inicial" to "Inicial", "equipo" to "Equipo", "centro" to "Centro")
+
+/** Arriba de una pantalla cuya función el plan que rige no trae: lo dice antes de completar un formulario (el servidor
+ *  igual lo frena), sin esconder nada, con el botón a Suscripción. Clon de AvisoPlan (Mas.swift) y AvisoPlan.svelte. */
+@Composable
+fun AvisoPlan(funcion: String, detalle: String = "Podés ver lo que ya está; para crear o cambiar, pasá de plan.") {
+    val estado = LocalEstado.current
+    val plan = estado.acceso?.viene?.get(funcion) ?: return
+    val nombre = nombresPlan[plan] ?: return
+    val que = queViene[funcion] ?: return
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.pagoFondo).padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+            Icono("crown.fill", 16f, C.pagoTinta)
+            Texto("$que con $nombre. $detalle", Tipo.lato(14f), C.pagoTinta, Modifier.weight(1f))
+        }
+        if (estado.esDuena) BotonContorno("Pasar a $nombre", { estado.abrir(Ruta.suscripcion) }, alto = 42.dp, tam = 15f)
+    }
+}
+
+/** Un aviso ámbar con su botón (fuera del plan, topes): clon de AvisoAmbar (Mas.swift). */
+@Composable
+fun AvisoAmbar(texto: String, boton: String? = null, simbolo: String = "crown.fill", accion: () -> Unit = {}) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.pagoFondo).padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+            Icono(simbolo, 16f, C.pagoTinta)
+            Texto(texto, Tipo.lato(14f), C.pagoTinta, Modifier.weight(1f))
+        }
+        if (boton != null) BotonContorno(boton, accion, alto = 42.dp, tam = 15f)
     }
 }

@@ -80,7 +80,7 @@ final class ApiDePrueba: URLProtocol {
             return [
                 "/v1/auth/persona": "{\"clerkId\": \"u1\", \"email\": \"laura@lumi.test\", \"nombre\": \"Laura Díaz\", \"foto\": \"\"}",
                 "/v1/yo": "{\"negocios\": [{\"id\": \"n1\", \"slug\": \"lumi\", \"nombre\": \"Lumi Estética\", \"rol\": \"duenio\"}]}",
-                "/v1/panel/acceso": "{\"bloqueado\": false, \"pruebaHasta\": \"\(iso(20000))\", \"diasDePrueba\": 14, \"conSuscripcion\": false}",
+                "/v1/panel/acceso": "{\"bloqueado\": false, \"pruebaHasta\": \"\(iso(20000))\", \"diasDePrueba\": 14, \"conSuscripcion\": false, \"plan\": \"equipo\", \"funciones\": [\"sena\", \"espera\", \"membresias\", \"cupones\", \"referidos\", \"penalidades\", \"reportes_completos\"], \"viene\": {\"sucursales\": \"centro\", \"dominio\": \"centro\", \"plantillas\": \"centro\", \"csv\": \"centro\"}}",
                 "/v1/panel/campanita/sin-leer": "{\"sinLeer\": 2}",
                 "/v1/panel/campanita": """
                 {"sinLeer": 2, "notificaciones": [{"id": "x1", "tipo": "reserva", "titulo": "Nueva reserva", "texto": "Martina · hoy", "turnoId": "t1", "creadoEn": "\(iso(-3))", "nueva": true},
@@ -159,11 +159,29 @@ final class ApiDePrueba: URLProtocol {
                 "/v1/panel/push/preferencias": "{\"rol\": \"duenio\", \"porDefecto\": true, \"apagados\": [], \"tipos\": [{\"tipo\": \"reserva\", \"nombre\": \"Reservas nuevas\", \"activo\": true}]}",
                 "/v1/panel/suscripcion": """
                 {"bloqueado": false, "pruebaHasta": "\(iso(4000))", "diasDePrueba": 3, "conSuscripcion": false, "plan": "equipo", "nombrePlan": "Equipo",
-                 "catalogo": [{"clave": "inicial", "nombre": "Inicial", "precio": 6900, "precioAnual": 69000, "incluye": ["Hasta 5 profesionales"]},
-                  {"clave": "equipo", "nombre": "Equipo", "precio": 14900, "precioAnual": 149000, "destacado": true, "incluye": ["Hasta 12 profesionales"]},
-                  {"clave": "centro", "nombre": "Centro", "precio": 29900, "precioAnual": 299000, "incluye": ["Hasta 25 profesionales"]}],
-                 "uso": {"profesionalesActivos": 3, "topeProfesionales": 12, "whatsappIncluidos": 0, "whatsappUsadosMes": 0, "whatsappSaldo": 0, "cupoIA": 400},
-                 "suscripcion": null}
+                 "catalogo": [{"clave": "inicial", "nombre": "Inicial", "precio": 6900, "precioAnual": 69000, "destacado": false,
+                 "bajada": "Para un negocio chico.", "incluye": ["Hasta 5 profesionales", "Link propio y reservas por la web",
+                 "Recordatorios por mail y en el celular, sin límite", "Ficha de cada cliente y caja", "Asistente: 100 respuestas al mes", "1 sucursal"],
+                 "profesionales": 5, "sucursales": 1, "whatsappIncluidos": 0, "cupoIA": 100, "funciones": [], "incluyeTienda": ["Hasta 5 profesionales",
+                 "Link propio y reservas por la web", "Recordatorios por mail y en el celular, sin límite", "Ficha de cada cliente y caja",
+                 "Asistente: 100 respuestas al mes", "1 sucursal"]}, {"clave": "equipo", "nombre": "Equipo", "precio": 14900, "precioAnual": 149000,
+                 "destacado": true, "bajada": "Cuando suma gente y le empiezan a faltar a los turnos.", "incluye": ["Hasta 12 profesionales",
+                 "Todo lo de Inicial", "Seña con Mercado Pago al reservar", "Lista de espera que ofrece el hueco sola", "Membresías, cupones y referidos",
+                 "Penalidades por ausencias", "Reportes completos", "Asistente: 400 respuestas al mes"], "profesionales": 12, "sucursales": 1,
+                 "whatsappIncluidos": 0, "cupoIA": 400, "funciones": ["sena", "espera", "membresias", "cupones", "referidos", "penalidades",
+                 "reportes_completos"], "incluyeTienda": ["Hasta 12 profesionales", "Todo lo de Inicial", "Seña con Mercado Pago al reservar",
+                 "Lista de espera que ofrece el hueco sola", "Membresías, cupones y referidos", "Penalidades por ausencias", "Reportes completos",
+                 "Asistente: 400 respuestas al mes"]}, {"clave": "centro", "nombre": "Centro", "precio": 29900, "precioAnual": 299000, "destacado": false,
+                 "bajada": "Para equipos grandes o con más de un local.", "incluye": ["Hasta 25 profesionales (cada uno extra, $1.900 por mes)",
+                 "Todo lo de Equipo", "Hasta 3 sucursales juntas, cada una con su plan", "Dominio propio y plantillas de página",
+                 "150 recordatorios por WhatsApp incluidos por mes", "Reportes con exportación CSV", "Asistente: 1.500 respuestas al mes"],
+                 "profesionales": 25, "sucursales": 3, "whatsappIncluidos": 150, "cupoIA": 1500, "funciones": ["sena", "espera", "membresias", "cupones",
+                 "referidos", "penalidades", "reportes_completos", "sucursales", "dominio", "plantillas", "csv"], "incluyeTienda": ["Hasta 25 profesionales",
+                 "Todo lo de Equipo", "Hasta 3 sucursales juntas, cada una con su plan", "Dominio propio y plantillas de página",
+                 "150 recordatorios por WhatsApp incluidos por mes", "Reportes con exportación CSV", "Asistente: 1.500 respuestas al mes"]}],
+                 "extras": {"precioProfesional": 1900, "packWhatsApp": {"cantidad": 100, "precio": 5900}, "mesesAnual": 10, "diasDePrueba": 14},
+                 "cupoIA": 400, "uso": {"profesionalesActivos": 2, "topeProfesionales": 12, "profesionalesExtra": 0, "whatsappIncluidos": 0,
+                 "whatsappUsadosMes": 0, "whatsappSaldo": 0, "cupoIA": 400}, "suscripcion": null}
                 """,
                 "/v1/panel/buscar": "{\"clientes\": [{\"id\": \"c1\", \"nombre\": \"Sofía Méndez\", \"telefono\": \"1144712290\", \"email\": \"\"}], \"turnos\": [], \"servicios\": []}",
             ]

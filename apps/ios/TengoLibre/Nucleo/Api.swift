@@ -111,7 +111,8 @@ final class Api: @unchecked Sendable {
         if e.sinSesion, token != nil, let alPerderSesion {
             await alPerderSesion()
         }
-        if h.statusCode == 402 || h.statusCode == 403, token != nil, ruta.hasPrefix("/v1/panel/"), let alNegarAcceso {
+        // Un tope del plan no cambia el rol ni el sólo lectura: no hace falta volver a pedirlos.
+        if h.statusCode == 402 || h.statusCode == 403, !e.topePlan, token != nil, ruta.hasPrefix("/v1/panel/"), let alNegarAcceso {
             await alNegarAcceso()
         }
         throw e

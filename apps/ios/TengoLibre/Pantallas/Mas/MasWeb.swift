@@ -34,6 +34,7 @@ struct Reportes: View {
         PantallaMas(titulo: "Reportes", subtitulo: "\(Formato.dia(rango.0)) al \(Formato.dia(rango.1))", cargando: r == nil && error.isEmpty, error: error, recargar: cargar) {
             Segmentado(opciones: [("semana", "7 días"), ("mes", "Este mes"), ("trimestre", "90 días")], elegido: $periodo)
         } contenido: {
+            AvisoPlan(funcion: "reportes_completos", detalle: "Lo básico de tus turnos se ve igual; el reporte mensual, las ausencias y las horas muertas vienen con ese plan.")
             if let r {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                     cifra("Ingresos", Formato.pesos(r.resumen.ingresos), antes.map { cambio(r.resumen.ingresos, $0.resumen.ingresos) }).entrada(0)
@@ -382,6 +383,7 @@ struct Plantillas: View {
 
     var body: some View {
         PantallaMas(titulo: "Plantillas", subtitulo: Self.plantillas.first { $0.0 == valor("plantilla") }?.1 ?? "", volver: "Más", cargando: cargando, recargar: cargar) {
+            AvisoPlan(funcion: "plantillas", detalle: "Podés mirarlas; tu página se ve con la de por defecto hasta que pases de plan.")
             ForEach(Self.plantillas, id: \.0) { p in
                 let on = valor("plantilla") == p.0
                 Button { estilo["plantilla"] = .texto(p.0) } label: {
@@ -445,6 +447,7 @@ struct DominioVista: View {
 
     var body: some View {
         PantallaMas(titulo: "Dominio propio", subtitulo: d?.dominio?.nombre ?? "Usá tu propia dirección", cargando: d == nil && error.isEmpty, error: error, recargar: cargar) {
+            AvisoPlan(funcion: "dominio", detalle: "Tu dominio queda guardado; mientras tanto, quien entre por ahí va a tu página en Tengo Libre.")
             if let dom = d?.dominio {
                 Bloque {
                     Renglon(titulo: dom.nombre, detalle: dom.estado == "verificado" ? "Funcionando" : (dom.detalle.isEmpty ? "Esperando que configures el DNS" : dom.detalle),
@@ -844,6 +847,7 @@ struct Sucursales: View {
 
     var body: some View {
         PantallaMas(titulo: "Sucursales", subtitulo: "Varios locales, una sola mirada", cargando: g == nil && error.isEmpty, error: error, recargar: cargar) {
+            AvisoPlan(funcion: "sucursales")
             if let g {
                 ForEach(g.grupos) { gr in
                     Bloque(titulo: gr.nombre, pie: totales[gr.id].map { "Este mes: \($0.atendidos) atendidos · \(Formato.pesos($0.ingresos))" } ?? "") {

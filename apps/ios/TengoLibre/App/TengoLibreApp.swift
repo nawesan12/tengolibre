@@ -100,6 +100,10 @@ final class Delegado: NSObject, UIApplicationDelegate, UNUserNotificationCenterD
             UNNotificationAction(identifier: "AVISAR", title: "Avisar a la lista", options: [.authenticationRequired, .foreground], icon: UNNotificationActionIcon(systemImageName: "megaphone")),
             UNNotificationAction(identifier: "CARGAR", title: "Cargar un turno", options: [.foreground], icon: UNNotificationActionIcon(systemImageName: "plus"))
         ], intentIdentifiers: []),
+        // La misma cancelación cuando el plan no trae lista de espera (push.Categoria en la API): sin «Avisar a la lista».
+        UNNotificationCategory(identifier: "TL_CANCELO_SIN_LISTA", actions: [
+            UNNotificationAction(identifier: "CARGAR", title: "Cargar un turno", options: [.foreground], icon: UNNotificationActionIcon(systemImageName: "plus"))
+        ], intentIdentifiers: []),
         UNNotificationCategory(identifier: "TL_HUECO", actions: [
             UNNotificationAction(identifier: "AVISAR", title: "Avisar a la lista", options: [.authenticationRequired, .foreground], icon: UNNotificationActionIcon(systemImageName: "megaphone"))
         ], intentIdentifiers: []),

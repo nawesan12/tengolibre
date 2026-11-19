@@ -96,6 +96,8 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     var acceso by mutableStateOf<Acceso?>(null)
     var sinLeer by mutableIntStateOf(0)
     var toast by mutableStateOf<Toast?>(null)
+    /** Sube para cerrar las hojas abiertas (Hoja lo escucha): un aviso de tope lleva a Suscripción, que está debajo. */
+    var cerrarHojas by mutableStateOf(0)
     var rutaPendiente by mutableStateOf<Ruta?>(null)
     /** Una invitación al equipo para aceptar: la abre Raiz, en cualquier fase (espera al ingreso si hace falta). */
     var invitacionPendiente by mutableStateOf<String?>(null)
@@ -412,7 +414,11 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         // Algo que el plan no incluye o un tope (402 tope_plan): el detalle dice a qué plan pasar, y el botón lleva a
         // Suscripción para cambiarlo.
         if (x.topePlan) {
-            avisar(Toast("arrow.up", x.titulo, x.detalle, accion = "Ver planes", error = true)) { abrir(Ruta.suscripcion) }
+            avisar(Toast("arrow.up", x.titulo, x.detalle, accion = "Ver planes", error = true)) {
+                cerrarHojas += 1
+                delay(400)
+                abrir(Ruta.suscripcion)
+            }
             return
         }
         avisar(Toast(if (x.sinConexion) "icloud.slash" else "exclamationmark", if (x.sinConexion) "Sin conexión" else x.titulo, x.detalle, error = true))

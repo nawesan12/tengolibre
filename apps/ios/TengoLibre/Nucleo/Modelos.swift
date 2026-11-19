@@ -36,6 +36,10 @@ struct Acceso: Codable, Equatable {
     var pruebaHasta: Date?
     var diasDePrueba: Int
     var conSuscripcion: Bool
+    /// El plan que rige, lo que trae y, de lo que no trae, con qué plan viene (AvisoPlan).
+    var plan: String?
+    var funciones: [String]?
+    var viene: [String: String]?
 }
 
 struct ClienteDelTurno: Codable, Equatable, Hashable {

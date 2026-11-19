@@ -124,7 +124,7 @@ fun ColumnScope.NuevoTurno(inicio: NuevoTurnoInicio, cerrar: () -> Unit) {
     val hoy = Formato.enArgentina(Instant.now()).toLocalDate()
     val esHoy = fecha == hoy
     val diaInst = fecha.atStartOfDay(Formato.zona).toInstant()
-    val pros = profesionales.filter { it.activo && (servicio == null || it.servicios.isEmpty() || servicio in it.servicios) }
+    val pros = profesionales.filter { it.activo && it.enPlan != false && (servicio == null || it.servicios.isEmpty() || servicio in it.servicios) }
     val inicioElegido: Instant? = if (sobreturno) Dia.fecha(diaInst, horaSobreturno) else elegido?.inicio
     val conQuien = profesional?.let { p -> profesionales.firstOrNull { it.id == p }?.nombre }
         ?: elegido?.profesionales?.firstOrNull()?.let { id -> profesionales.firstOrNull { it.id == id }?.nombre } ?: ""

@@ -558,7 +558,7 @@ struct Reprogramar: View {
                 }
                 Section("Con quién") {
                     Picker("Profesional", selection: $profesional) {
-                        ForEach(profesionales.filter { $0.activo && (turno.servicioId == nil || $0.servicios.isEmpty || $0.servicios.contains(turno.servicioId!)) }) { p in
+                        ForEach(profesionales.filter { $0.activo && $0.enPlan != false && (turno.servicioId == nil || $0.servicios.isEmpty || $0.servicios.contains(turno.servicioId!)) }) { p in
                             Text(p.nombre).tag(Optional(p.id))
                         }
                     }

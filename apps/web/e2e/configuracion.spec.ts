@@ -273,7 +273,7 @@ test('membresías, referidos y dominio, sin desbordar en el teléfono', async ({
 	await page.getByRole('button', { name: 'Conectar' }).click();
 	// El dominio propio viene con Centro: en la prueba (rige Equipo) lo dice y lleva a cambiar de plan.
 	await expect(page.getByRole('alert')).toContainText('plan Centro');
-	await expect(page.getByRole('alert').getByRole('link', { name: 'Cambiar de plan' })).toHaveAttribute('href', '/panel/suscripcion#planes');
+	await expect(page.getByRole('alert').getByRole('link', { name: 'Pasar a Centro' })).toHaveAttribute('href', '/panel/suscripcion?plan=centro#planes');
 	await sinDesborde();
 
 	for (const ruta of ['/panel/equipo', '/panel/mi-web', '/panel/configuracion', '/panel/pagos', '/panel/suscripcion', '/panel/cupones', '/panel/auditoria']) {

@@ -4,6 +4,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -49,6 +52,13 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
+/** El aviso de arriba (toast) dibujado adentro de una hoja: la hoja es otra ventana y el de la raíz queda debajo, sin
+ *  verse ni poder tocarse. Lo provee Raiz con el toast de Estado. */
+val LocalCapaToast = staticCompositionLocalOf<(@Composable BoxScope.() -> Unit)?> { null }
+
+/** Sube cada vez que hay que cerrar las hojas abiertas (por ejemplo, para ir a Suscripción desde un aviso de tope). */
+val LocalCerrarHojas = compositionLocalOf { 0 }
+
 /** Las alturas de una hoja (presentationDetents en iOS). */
 enum class Altura { media, grande }
 
@@ -67,6 +77,11 @@ fun Hoja(
     estadoVisible.targetState = visible
     if (!estadoVisible.currentState && !estadoVisible.targetState && estadoVisible.isIdle) return
     val tema = LocalPaleta.current
+    val capaToast = LocalCapaToast.current
+    // Un pedido de cerrar las hojas que llega con esta abierta la cierra (el valor de cuando se abrió no cuenta).
+    val pedidoCierre = LocalCerrarHojas.current
+    val pedidoAlAbrir = remember(visible) { pedidoCierre }
+    LaunchedEffect(pedidoCierre) { if (visible && pedidoCierre != pedidoAlAbrir) alCerrar() }
     Dialog(onDismissRequest = alCerrar, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnClickOutside = false)) {
         (LocalView.current.parent as? DialogWindowProvider)?.window?.setDimAmount(0f)
         CompositionLocalProvider(LocalPaleta provides tema) {
@@ -109,6 +124,7 @@ fun Hoja(
                         }
                     }
                 }
+                capaToast?.invoke(this)
             }
         }
     }

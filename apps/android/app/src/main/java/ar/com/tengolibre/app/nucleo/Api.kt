@@ -97,7 +97,8 @@ class Api(val base: String, var token: String? = null, val http: OkHttpClient = 
         val e = ErrorApi(codigo, p.code ?: "interno", p.title ?: "Algo salió mal",
             p.issues?.firstOrNull()?.message ?: p.detail ?: p.title ?: "Probá de nuevo en un rato.", p.restantes, reintentar?.toIntOrNull())
         if (e.sinSesion && token != null) alPerderSesion?.invoke()
-        if ((codigo == 402 || codigo == 403) && token != null && ruta.startsWith("/v1/panel/")) alNegarAcceso?.invoke()
+        // Un tope del plan no cambia el rol ni el sólo lectura: no hace falta volver a pedirlos.
+        if ((codigo == 402 || codigo == 403) && !e.topePlan && token != null && ruta.startsWith("/v1/panel/")) alNegarAcceso?.invoke()
         throw e
     }
 

@@ -382,6 +382,7 @@ struct HojaEdicion<Contenido: View>: View {
     var accion: () async -> Bool
     @ViewBuilder var contenido: Contenido
     @Environment(\.dismiss) private var cerrar
+    @Environment(Estado.self) private var estado
     @State private var guardando = false
     @State private var confirmarBorrar = false
 
@@ -418,7 +419,27 @@ struct HojaEdicion<Contenido: View>: View {
                 }
             }
         }
+        // El toast de Raiz queda debajo de la hoja: acá se ve el aviso (un tope al sumar, un error al guardar).
+        .overlay(alignment: .top) { ToastDeHoja() }
+        // «Ver planes» en un aviso de tope cierra la hoja y abre Suscripción.
+        .onChange(of: estado.cerrarHojas) { _, _ in cerrar() }
         .presentationCornerRadius(Radio.hoja)
+    }
+}
+
+/// El toast de Estado dibujado arriba de una hoja (las hojas tapan el de Raiz).
+struct ToastDeHoja: View {
+    @Environment(Estado.self) private var estado
+    var body: some View {
+        ZStack {
+            if let t = estado.toast {
+                VistaToast(t: t) { estado.tocarToast() }
+                    .padding(.top, 6)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .onTapGesture { estado.tocarToast() }
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: estado.toast)
     }
 }
 
@@ -607,5 +628,61 @@ struct HojaBorrarCuenta: View {
             self.error = (error as? ErrorApi)?.detalle ?? ErrorApi.desconocido.detalle
             Haptico.error()
         }
+    }
+}
+
+// MARK: - Lo que el plan no trae
+
+/// Arriba de una pantalla cuya función el plan que rige no trae: lo dice antes de completar un formulario (el servidor
+/// igual lo frena), sin esconder nada, con el botón a Suscripción. El mismo texto que la web (AvisoPlan.svelte) y que
+/// Android (AvisoPlan en Mas.kt).
+struct AvisoPlan: View {
+    var funcion: String
+    var detalle = "Podés ver lo que ya está; para crear o cambiar, pasá de plan."
+    @Environment(Estado.self) private var estado
+
+    static let queViene: [String: String] = [
+        "sena": "La seña con Mercado Pago viene", "espera": "La lista de espera viene", "membresias": "Las membresías vienen",
+        "cupones": "Los cupones vienen", "referidos": "Los referidos vienen", "penalidades": "Las penalidades por ausencias vienen",
+        "reportes_completos": "Los reportes completos vienen", "sucursales": "Las sucursales vienen", "dominio": "El dominio propio viene",
+        "plantillas": "Las plantillas de página vienen", "csv": "Exportar en CSV viene",
+    ]
+    static let nombres = ["inicial": "Inicial", "equipo": "Equipo", "centro": "Centro"]
+
+    var body: some View {
+        if let plan = estado.acceso?.viene?[funcion], let nombre = Self.nombres[plan], let que = Self.queViene[funcion] {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "crown.fill").font(.system(size: 16, weight: .bold)).padding(.top, 1)
+                    Text("\(que) con \(nombre). \(detalle)").font(Tipo.lato(14)).fixedSize(horizontal: false, vertical: true)
+                }
+                if estado.esDuena {
+                    Button("Pasar a \(nombre)") { estado.abrir(.suscripcion) }
+                        .buttonStyle(BotonContorno(alto: 42, tam: 15))
+                }
+            }
+            .foregroundStyle(C.pagoTinta).padding(14).frame(maxWidth: .infinity, alignment: .leading)
+            .background(C.pagoFondo, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .accessibilityElement(children: .contain)
+        }
+    }
+}
+
+/// Un aviso ámbar con su botón (fuera del plan, topes): el mismo en Equipo, en la ficha y donde haga falta.
+struct AvisoAmbar: View {
+    var texto: String
+    var boton: String? = nil
+    var simbolo = "crown.fill"
+    var accion: () -> Void = {}
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: simbolo).font(.system(size: 16, weight: .bold)).padding(.top, 1)
+                Text(texto).font(Tipo.lato(14)).fixedSize(horizontal: false, vertical: true)
+            }
+            if let boton { Button(boton, action: accion).buttonStyle(BotonContorno(alto: 42, tam: 15)) }
+        }
+        .foregroundStyle(C.pagoTinta).padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(C.pagoFondo, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }

@@ -120,10 +120,20 @@ object Compras {
         // Si esta cuenta de Google ya paga otro negocio, se avisa antes de abrir la compra.
         if (vigentes(c).any { deOtro(it, negocio) }) throw yaPagaOtro
         val e = CompletableDeferred<Pair<BillingResult, List<Purchase>?>>().also { esperando = it }
-        val params = BillingFlowParams.newBuilder()
+        val armado = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(listOf(BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(p.detalle).setOfferToken(p.oferta).build()))
             .setObfuscatedAccountId(negocio)
-            .build()
+        // Cambiar de plan (o de período): Play no deja pasar de un producto a otro desde su pantalla de suscripciones; lo
+        // lanza la app reemplazando la compra vigente. Subir cobra ya la diferencia por el tiempo que queda; bajar rige
+        // cuando termina lo pagado. La API lo concilia por linkedPurchaseToken.
+        val actual = vigentes(c).firstOrNull { !deOtro(it, negocio) && it.products.none { id -> id == p.id } }
+        if (actual != null) {
+            val modo = if (sube(actual.products.firstOrNull { it in productos }, p.id)) BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.WITH_TIME_PRORATION
+                else BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.DEFERRED
+            armado.setSubscriptionUpdateParams(BillingFlowParams.SubscriptionUpdateParams.newBuilder()
+                .setOldPurchaseToken(actual.purchaseToken).setSubscriptionReplacementMode(modo).build())
+        }
+        val params = armado.build()
         val inicio = c.launchBillingFlow(actividad, params)
         if (inicio.responseCode != BillingClient.BillingResponseCode.OK) {
             esperando = null
@@ -138,6 +148,25 @@ object Compras {
         if (compra.purchaseState == Purchase.PurchaseState.PENDING) return Resultado.pendiente
         registrar(compra, estado)
         return Resultado.listo
+    }
+
+    private val rango = mapOf("inicial" to 1, "equipo" to 2, "centro" to 3)
+
+    /** Si pasar del producto `de` al `a` es subir (un plan más grande, o el mismo pagado por año). */
+    fun sube(de: String?, a: String): Boolean {
+        val planDe = de?.let { venta[it]?.first ?: productos[it] }
+        val periodoDe = de?.let { venta[it]?.second } ?: "mensual"
+        val (planA, periodoA) = venta[a] ?: return false
+        val rDe = planDe?.let { rango[it] } ?: 0
+        val rA = rango[planA] ?: 0
+        return rA > rDe || (rA == rDe && periodoA == "anual" && periodoDe == "mensual")
+    }
+
+    /** El producto de Play de la suscripción vigente de esta cuenta para el negocio (null: no hay). */
+    suspend fun productoVigente(ctx: Context, negocio: String): String? {
+        if (ModoPrueba.activo) return null
+        val c = conectado(ctx) ?: return null
+        return vigentes(c).firstOrNull { !deOtro(it, negocio) }?.products?.firstOrNull { it in productos }
     }
 
     /** Play dice que la cuenta ya tiene el plan: si es de este negocio se registra (quedó sin mandar a la API); si es de

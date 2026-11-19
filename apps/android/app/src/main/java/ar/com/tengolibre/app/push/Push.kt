@@ -149,6 +149,8 @@ object Push {
                 b.addAction(accionProtegida("Avisar a la lista", accion(ctx, "AVISAR", turnoId, negocio, id)))
                 b.addAction(0, "Cargar un turno", abrir(ctx, "nuevo", negocio, tipo, id + 1))
             }
+            // Sin lista de espera en el plan (push.Categoria en la API): sólo «Cargar un turno».
+            "TL_CANCELO_SIN_LISTA" -> b.addAction(0, "Cargar un turno", abrir(ctx, "nuevo", negocio, tipo, id + 1))
             "TL_HUECO" -> b.addAction(accionProtegida("Avisar a la lista", accion(ctx, "AVISAR", turnoId, negocio, id)))
             "TL_RESENA" -> b.addAction(NotificationCompat.Action.Builder(0, "Responder", accion(ctx, "RESPONDER", turnoId, negocio, id))
                 .addRemoteInput(RemoteInput.Builder("respuesta").setLabel("Gracias por…").build()).setAllowGeneratedReplies(false)

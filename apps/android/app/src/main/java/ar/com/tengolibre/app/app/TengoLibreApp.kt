@@ -1,5 +1,9 @@
 package ar.com.tengolibre.app.app
 
+import ar.com.tengolibre.app.tema.LocalCerrarHojas
+import ar.com.tengolibre.app.tema.LocalCapaToast
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -45,6 +49,22 @@ val LocalEstado = staticCompositionLocalOf<Estado> { error("Falta el Estado") }
 @Composable
 fun Raiz() {
     val estado = LocalEstado.current
+    // El mismo toast se dibuja también adentro de las hojas (son otra ventana): ahí es donde se suma un profesional, un
+    // cupón o una socia, y el aviso de tope tiene que verse.
+    val capaToast: @Composable BoxScope.() -> Unit = {
+        AnimatedVisibility(
+            estado.toast != null, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 6.dp),
+            enter = slideInVertically(Movimiento.entrar()) { -it } + fadeIn(), exit = slideOutVertically(Movimiento.entrar()) { -it } + fadeOut(),
+        ) {
+            estado.toast?.let { t -> VistaToast(t) { estado.tocarToast() } }
+        }
+    }
+    CompositionLocalProvider(LocalCapaToast provides capaToast, LocalCerrarHojas provides estado.cerrarHojas) { RaizAdentro(capaToast) }
+}
+
+@Composable
+private fun RaizAdentro(capaToast: @Composable BoxScope.() -> Unit) {
+    val estado = LocalEstado.current
     Box(Modifier.fillMaxSize()) {
         AnimatedContent(estado.fase, transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(250)) }, label = "fase") { fase ->
             when (fase) {
@@ -59,12 +79,7 @@ fun Raiz() {
         // La barra de estado, petróleo como la cabecera (la hora en blanco): el contenido que sube con el scroll pasa
         // por debajo, nunca por detrás de la hora.
         Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(C.cabecera))
-        AnimatedVisibility(
-            estado.toast != null, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 6.dp),
-            enter = slideInVertically(Movimiento.entrar()) { -it } + fadeIn(), exit = slideOutVertically(Movimiento.entrar()) { -it } + fadeOut(),
-        ) {
-            estado.toast?.let { t -> VistaToast(t) { estado.tocarToast() } }
-        }
+        capaToast()
     }
     // Las invitaciones valen en cualquier fase: se abren arriba de todo.
     val invitacion = if (estado.persona == null || estado.fase == Estado.Fase.arrancando) null else estado.invitacionPendiente

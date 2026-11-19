@@ -77,6 +77,8 @@ final class Estado {
     var acceso: Acceso?
     var sinLeer = 0
     var toast: Toast?
+    /// Sube para cerrar las hojas abiertas (HojaEdicion lo escucha): un aviso de tope lleva a Suscripción, que está debajo.
+    var cerrarHojas = 0
     var rutaPendiente: Ruta?
     /// Una invitación al equipo para aceptar: la abre Raiz, en cualquier fase (espera al ingreso si hace falta).
     var invitacionPendiente: String?
@@ -367,6 +369,8 @@ final class Estado {
         // botón lleva a Suscripción para cambiarlo.
         if x.topePlan {
             avisar(Toast(simbolo: "arrow.up", titulo: x.titulo, texto: x.detalle, accion: "Ver planes", error: true)) { [weak self] in
+                self?.cerrarHojas += 1
+                try? await Task.sleep(for: .milliseconds(400))
                 self?.abrir(.suscripcion)
             }
             return

@@ -41,7 +41,7 @@ struct NuevoTurno: View {
     @State private var tiembla = 0
 
     private var serv: Servicio? { servicios.first { $0.id == servicio } }
-    private var pros: [Profesional] { profesionales.filter { $0.activo && (servicio == nil || $0.servicios.isEmpty || $0.servicios.contains(servicio!)) } }
+    private var pros: [Profesional] { profesionales.filter { $0.activo && $0.enPlan != false && (servicio == nil || $0.servicios.isEmpty || $0.servicios.contains(servicio!)) } }
     private var esHoy: Bool { Formato.diaISO(fecha) == Formato.diaISO(Date()) }
 
     /// El inicio elegido: un horario libre, o día y hora del sobreturno.
