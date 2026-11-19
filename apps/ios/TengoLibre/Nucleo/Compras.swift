@@ -1,21 +1,35 @@
 import Foundation
 import StoreKit
 
-/// La suscripción desde el iPhone (StoreKit 2): los planes son suscripciones mensuales de la App Store
-/// (grupo «Tengo Libre»). Cada compra lleva el id del negocio (appAccountToken) y su transacción
+/// La suscripción desde el iPhone (StoreKit 2): los planes son suscripciones de la App Store, mensuales
+/// y anuales (grupo «Tengo Libre»; el anual cobra 10 meses y vale 12). Cada compra lleva el id del negocio (appAccountToken) y su transacción
 /// firmada va a la API (`POST /v1/panel/suscripcion/apple`), que además recibe las renovaciones y
 /// cancelaciones directo de la App Store. Desde la web se sigue pagando con Mercado Pago.
 @MainActor
 enum Compras {
-    static let productos: [String: String] = [
-        "ar.com.tengolibre.inicial.mensual": "inicial",
-        "ar.com.tengolibre.completo.mensual": "completo"
+    /// Los productos que se venden: plan y período (los mismos ids en Google Play y en la API).
+    static let venta: [String: (plan: String, periodo: String)] = [
+        "ar.com.tengolibre.inicial.mensual": ("inicial", "mensual"),
+        "ar.com.tengolibre.inicial.anual": ("inicial", "anual"),
+        "ar.com.tengolibre.equipo.mensual": ("equipo", "mensual"),
+        "ar.com.tengolibre.equipo.anual": ("equipo", "anual"),
+        "ar.com.tengolibre.centro.mensual": ("centro", "mensual"),
+        "ar.com.tengolibre.centro.anual": ("centro", "anual")
     ]
+
+    /// Todos los que se reconocen (para restaurar y registrar): los de venta y el «completo» de
+    /// antes, que ya no se vende y la API lee como Equipo.
+    static let productos: [String: String] = venta.mapValues { $0.plan }.merging(["ar.com.tengolibre.completo.mensual": "equipo"]) { a, _ in a }
 
     /// Los planes de la App Store, del más barato al más caro (vacío si la tienda no los da).
     static func planes() async -> [Product] {
-        let p = (try? await Product.products(for: Array(productos.keys))) ?? []
+        let p = (try? await Product.products(for: Array(venta.keys))) ?? []
         return p.sorted { $0.price < $1.price }
+    }
+
+    /// El producto de un plan y período, si la tienda lo dio.
+    static func producto(_ productos: [Product], plan: String, periodo: String) -> Product? {
+        productos.first { venta[$0.id]?.plan == plan && venta[$0.id]?.periodo == periodo }
     }
 
     enum Resultado { case listo, cancelado, pendiente }

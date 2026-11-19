@@ -43,7 +43,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -634,13 +633,19 @@ fun ColumnScope.EditarEtiqueta(inicial: EtiquetaConUso, listo: () -> Unit, cerra
  *  Sin suscripción, los planes de Google Play con su precio, la renovación automática y los términos. */
 @Composable
 fun SuscripcionVista() {
-    @Serializable data class PlanVenta(val clave: String, val nombre: String = "", val precio: Int = 0)
+    /** Un plan como lo vende la API (planes): precios, topes y lo que incluye, la única fuente. */
+    @Serializable data class PlanVenta(val clave: String, val nombre: String = "", val precio: Int = 0, val precioAnual: Int = 0, val destacado: Boolean = false,
+        val bajada: String = "", val profesionales: Int = 0, val incluye: List<String> = emptyList())
     @Serializable data class Sus(val id: String, val plan: String = "", val estado: String = "", val monto: Int = 0, val proximoCobro: FechaApi? = null, val ultimoCobro: FechaApi? = null,
-        val graciaHasta: FechaApi? = null, val canceladaEn: FechaApi? = null, val origen: String? = null)
+        val graciaHasta: FechaApi? = null, val canceladaEn: FechaApi? = null, val origen: String? = null, val periodo: String? = null)
+    /** Lo que lleva el negocio contra los topes del plan que rige. */
+    @Serializable data class Uso(val profesionalesActivos: Int = 0, val topeProfesionales: Int = 0, val whatsappIncluidos: Int = 0, val whatsappUsadosMes: Int = 0,
+        val whatsappSaldo: Int = 0, val cupoIA: Int = 0)
     @Serializable data class EstadoS(val bloqueado: Boolean = false, val pruebaHasta: FechaApi? = null, val diasDePrueba: Int = 0, val conSuscripcion: Boolean = false, val plan: String = "",
         val nombrePlan: String = "", val catalogo: List<PlanVenta> = emptyList(), val suscripcion: Sus? = null,
-        /** Respuestas con IA por mes del asistente (las mismas en todos los planes). */
-        val cupoIA: Int = 0)
+        /** Respuestas con IA por mes del asistente con el plan que rige. */
+        val cupoIA: Int = 0,
+        val uso: Uso? = null)
     val estado = LocalEstado.current
     val contexto = LocalContext.current
     val alcance = rememberCoroutineScope()
@@ -650,15 +655,9 @@ fun SuscripcionVista() {
     var cargoTienda by remember { mutableStateOf(false) }
     var comprando by remember { mutableStateOf<String?>(null) }
     var restaurando by remember { mutableStateOf(false) }
+    /** El plan elegido (vacío: el destacado) y el período. */
     var elegido by remember { mutableStateOf("") }
-
-    /** Qué trae cada plan (las mismas filas que la web). */
-    val filas = listOf(
-        Triple("Turnos online y agenda", "Sí", "Sí"), Triple("Recordatorios por mail", "Sí", "Sí"), Triple("Profesionales", "Hasta 2", "Sin límite"),
-        Triple("Señas y pagos con Mercado Pago", "No", "Sí"), Triple("Membresías, cupones y referidos", "No", "Sí"), Triple("Reportes", "Básicos", "Completos"),
-        Triple("Dominio propio y plantillas", "No", "Sí"), Triple("Integraciones con IA", "No", "Sí"), Triple("Sucursales", "No", "Sí"),
-    )
-    val descripcion = mapOf("inicial" to "Para empezar: turnos online, agenda y recordatorios, hasta 2 profesionales.", "completo" to "Todo Tengo Libre: señas, membresías, reportes, IA y sin límite de equipo.")
+    var periodo by remember { mutableStateOf("mensual") }
     val vigente = s?.suscripcion?.takeIf { it.estado in listOf("autorizada", "pausada") }
 
     suspend fun cargarTienda() { cargoTienda = false; productos = Compras.planes(contexto); cargoTienda = true }
@@ -674,7 +673,11 @@ fun SuscripcionVista() {
         comprando = p.id
         try {
             when (Compras.comprar(act, p, estado)) {
-                Compras.Resultado.listo -> { Haptico.exito(); estado.avisar("¡Listo! Ya tenés el plan ${p.nombre}", "Gracias por sumarte a Tengo Libre."); cargar() }
+                Compras.Resultado.listo -> {
+                    Haptico.exito()
+                    estado.avisar("¡Listo! Ya tenés el plan ${Compras.venta[p.id]?.first?.let { Formato.mayuscula(it) } ?: p.nombre}", "Gracias por sumarte a Tengo Libre.")
+                    cargar()
+                }
                 Compras.Resultado.pendiente -> estado.avisar("La compra quedó pendiente", "Cuando Google Play la apruebe, se activa sola.")
                 Compras.Resultado.cancelado -> {}
             }
@@ -711,9 +714,30 @@ fun SuscripcionVista() {
         return fila
     }
 
+    /** Lo que lleva el negocio contra los topes: profesionales activos y recordatorios por WhatsApp. */
+    @Composable fun bloqueUso(u: Uso, x: EstadoS) {
+        val sobran = maxOf(0, u.profesionalesActivos - u.topeProfesionales)
+        val waQuedan = maxOf(0, u.whatsappIncluidos - u.whatsappUsadosMes) + u.whatsappSaldo
+        val pie = if (sobran > 0) "${if (sobran == 1) "La más nueva queda" else "Las $sobran más nuevas quedan"} fuera de la agenda: no se borra nada. Pausá a alguien en Equipo o pasá a un plan más grande." else ""
+        Bloque("Tu plan ${x.nombrePlan}", pie,
+            {
+                Renglon("Profesionales activos", if (u.profesionalesActivos >= u.topeProfesionales && sobran == 0) "Llegaste al tope de tu plan" else "", "person.2") {
+                    Texto("${u.profesionalesActivos} de ${u.topeProfesionales}", Tipo.lato(15f, Peso.Bold, numeros = true), if (sobran > 0) C.ausenteTinta else C.tinta)
+                }
+            },
+            {
+                Renglon("Recordatorios por WhatsApp",
+                    if (u.whatsappIncluidos > 0) "${u.whatsappIncluidos} por mes con tu plan" else if (u.whatsappSaldo > 0) "De packs, no vencen" else "Salen por mail y en el celular", "message") {
+                    Texto(if (u.whatsappIncluidos > 0 || u.whatsappSaldo > 0) "$waQuedan" else "—", Tipo.lato(15f, Peso.Bold, numeros = true), C.tinta)
+                }
+            },
+        )
+    }
+
     val subtitulo = s?.let { x -> if (vigente != null) "Plan ${x.nombrePlan} · ${origenTexto(vigente.origen)}" else if (x.bloqueado) "La prueba terminó" else "Prueba gratis · quedan ${x.diasDePrueba} días" } ?: ""
     PantallaMas("Suscripción", subtitulo, cargando = s == null && error.isEmpty(), error = error, recargar = { cargar() }) {
         val x = s ?: return@PantallaMas
+        x.uso?.let { bloqueUso(it, x) }
         val v = vigente
         if (v != null) when (v.origen) {
             "google" -> {
@@ -724,7 +748,7 @@ fun SuscripcionVista() {
                     filaIA(x)?.let { add(it) }
                 }.toTypedArray())
                 if (estado.esDuena) { BotonContorno("Cambiar o cancelar en Google Play", { administrar() }, alto = 52.dp, tam = 16f, simbolo = "gearshape"); botonRestaurar() }
-                Texto("Se renueva sola cada mes. Para cambiar de plan o cancelar: Play Store › tu perfil › Pagos y suscripciones › Suscripciones › Tengo Libre, o el botón de arriba.", Tipo.lato(13f), C.sub)
+                Texto("Se renueva sola al terminar cada período. Para cambiar de plan o cancelar: Play Store › tu perfil › Pagos y suscripciones › Suscripciones › Tengo Libre, o el botón de arriba.", Tipo.lato(13f), C.sub)
             }
             "apple" -> {
                 Bloque("Tu plan", "", *buildList<@Composable () -> Unit> {
@@ -748,59 +772,65 @@ fun SuscripcionVista() {
             Column(Modifier.fillMaxWidth().tarjeta().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Texto(if (x.bloqueado) "Tu prueba terminó" else "Estás en la prueba gratis", Tipo.lato(22f, Peso.Black), C.tinta)
                 Texto(if (x.bloqueado) "Podés ver todo, pero para cargar o cambiar turnos hace falta un plan. Tu página sigue tomando reservas."
-                    else "Hasta el ${x.pruebaHasta?.let { Formato.fechaLarga(it) }.orEmpty()} tenés todo el plan Completo.", Tipo.lato(15f), C.sub)
+                    else "Hasta el ${x.pruebaHasta?.let { Formato.fechaLarga(it) }.orEmpty()} tenés el plan ${x.nombrePlan}.", Tipo.lato(15f), C.sub)
                 if (x.suscripcion?.estado == "cancelada" && x.suscripcion.origen == "google") Texto("Tu suscripción de Google Play venció o se canceló.", Tipo.lato(14f, Peso.Bold), C.ausenteTinta)
             }
-            // En la prueba también anda el asistente (con el cupo del plan Completo).
+            // En la prueba también anda el asistente (con el cupo del plan que rige).
             if (!x.bloqueado) filaIA(x)?.let { Bloque("", "", it) }
             if (!estado.esDuena) Texto("La suscripción la elige la dueña o el dueño del negocio.", Tipo.lato(14f), C.sub)
-            else if (!cargoTienda) { repeat(2) { Esqueleto(96.dp, 18.dp) }; Esqueleto(260.dp, 20.dp) }
+            else if (!cargoTienda) { repeat(3) { Esqueleto(96.dp, 18.dp) }; Esqueleto(260.dp, 20.dp) }
             else if (productos.isEmpty()) VacioQueEnsena("Pronto", "Los planes no cargaron", "Google Play no respondió. Probá de nuevo en un rato.") {
                 BotonContorno("Reintentar", { alcance.launch { cargarTienda() } }, alto = 48.dp, tam = 15f)
             } else {
-                val p = productos.firstOrNull { it.id == elegido } ?: productos.firstOrNull { Compras.productos[it.id] == "completo" } ?: productos.first()
+                // Los planes del catálogo (en su orden) que Google Play da en el período elegido.
+                val pares = x.catalogo.mapNotNull { plan -> Compras.producto(productos, plan.clave, periodo)?.let { plan to it } }
                 Box(Modifier.padding(horizontal = 4.dp)) { TextoRotulo("1 · ELEGÍ TU PLAN") }
-                productos.forEach { q ->
-                    val clave = Compras.productos[q.id].orEmpty()
-                    val on = p.id == q.id
+                Segmentado(listOf("mensual" to "Por mes", "anual" to "Por año · 12 al precio de 10"), periodo, { periodo = it }, sobrePetroleo = false)
+                val par = pares.firstOrNull { it.first.clave == elegido } ?: pares.firstOrNull { it.first.destacado } ?: pares.firstOrNull()
+                if (par == null) VacioQueEnsena("Pronto", "Los planes no cargaron", "Google Play no respondió. Probá de nuevo en un rato.") {
+                    BotonContorno("Reintentar", { alcance.launch { cargarTienda() } }, alto = 48.dp, tam = 15f)
+                }
+                if (par != null) {
+                val (planElegido, p) = par
+                val anual = periodo == "anual"
+                pares.forEach { (plan, q) ->
+                    val on = planElegido.clave == plan.clave
                     Row(
                         Modifier.fillMaxWidth()
                             .sombra(RoundedCornerShape(18.dp), if (on) hex(0x17805A, 0.25f) else Color.Transparent, 14.dp, y = 10.dp)
                             .clip(RoundedCornerShape(18.dp)).background(C.tarjeta).border(2.dp, if (on) C.menta else C.linea, RoundedCornerShape(18.dp))
-                            .clickable { elegido = q.id; Haptico.seleccion() }.padding(16.dp),
+                            .clickable { elegido = plan.clave; Haptico.seleccion() }.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Icono(if (on) "largecircle.fill.circle" else "circle", 24f, if (on) C.mentaTexto else C.sub)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Texto(q.nombre.ifEmpty { Formato.mayuscula(clave) }, Tipo.lato(19f, Peso.Black), C.tinta, tracking = (-0.4).sp)
-                                if (clave == "completo") Box(Modifier.height(20.dp).clip(CircleShape).background(C.menta).padding(horizontal = 7.dp), contentAlignment = Alignment.Center) {
-                                    Texto("RECOMENDADO", Tipo.lato(10f, Peso.Black), C.petroleoHondo, tracking = 0.8.sp)
+                                Texto(plan.nombre, Tipo.lato(19f, Peso.Black), C.tinta, tracking = (-0.4).sp)
+                                if (plan.destacado) Box(Modifier.height(20.dp).clip(CircleShape).background(C.menta).padding(horizontal = 7.dp), contentAlignment = Alignment.Center) {
+                                    Texto("EL MÁS ELEGIDO", Tipo.lato(10f, Peso.Black), C.petroleoHondo, tracking = 0.8.sp)
                                 }
                             }
-                            Texto(descripcion[clave] ?: q.descripcion, Tipo.lato(13f), C.sub)
+                            Texto(listOfNotNull(plan.bajada.ifEmpty { null }, plan.incluye.firstOrNull()).joinToString(" "), Tipo.lato(13f), C.sub)
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Texto(q.precio, Tipo.lato(20f, Peso.Black, numeros = true), C.tinta)
-                            Texto("por mes", Tipo.lato(12f), C.sub)
+                            Texto(if (anual) "por año" else "por mes", Tipo.lato(12f), C.sub)
                         }
                     }
                 }
-                val col = if (Compras.productos[p.id] == "completo") 2 else 1
+                // Qué incluye el plan elegido, como lo dice la API (nada que no exista).
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.fondo).padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     TextoRotulo("QUÉ INCLUYE")
-                    filas.forEach { f ->
-                        val valor = if (col == 1) f.second else f.third
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icono(if (valor == "No") "minus.circle" else "checkmark.circle.fill", 17f, if (valor == "No") C.linea else C.mentaTexto)
-                            Texto(f.first, Tipo.lato(14f).copy(textDecoration = if (valor == "No") TextDecoration.LineThrough else null), if (valor == "No") C.sub else C.tinta, Modifier.weight(1f))
-                            if (valor != "Sí" && valor != "No") Texto(valor, Tipo.lato(13f, Peso.Bold), C.sub)
+                    planElegido.incluye.forEach { f ->
+                        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icono("checkmark.circle.fill", 17f, C.mentaTexto)
+                            Texto(f, Tipo.lato(14f), C.tinta, Modifier.weight(1f))
                         }
                     }
                 }
                 Box(Modifier.padding(start = 4.dp, end = 4.dp, top = 6.dp)) { TextoRotulo("2 · TU SUSCRIPCIÓN") }
                 // El «carrito»: el plan, cuándo y cuánto se cobra, el medio de pago y el total de hoy.
-                val nombre = p.nombre.ifEmpty { Formato.mayuscula(Compras.productos[p.id].orEmpty()) }
+                val nombre = planElegido.nombre
                 val dia = Formato.enArgentina(Instant.now()).dayOfMonth
                 val quedanPrueba = x.pruebaHasta?.isAfter(Instant.now()) ?: false
                 Column(Modifier.fillMaxWidth().sombra(RoundedCornerShape(22.dp), hex(0x0F2328, 0.12f), 20.dp, y = 14.dp).clip(RoundedCornerShape(22.dp)).background(C.tarjeta)
@@ -809,14 +839,14 @@ fun SuscripcionVista() {
                         Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(C.menta), contentAlignment = Alignment.Center) { Icono("crown.fill", 18f, C.petroleoHondo) }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Texto("Plan $nombre", Tipo.lato(16f, Peso.Bold), C.tinta)
-                            Texto("Mensual · se renueva sola · cancelás cuando quieras", Tipo.lato(12f), C.sub)
+                            Texto(if (anual) "Anual · 12 meses al precio de 10 · cancelás cuando quieras" else "Mensual · se renueva sola · cancelás cuando quieras", Tipo.lato(12f), C.sub)
                         }
                         Texto(p.precio, Tipo.lato(17f, Peso.Black, numeros = true), C.tinta)
                     }
                     Troquel(vertical = false)
                     Column(Modifier.padding(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                         fila("Primer cobro", "hoy, al confirmar")
-                        fila("Después", "${p.precio} cada mes, el día $dia")
+                        fila("Después", if (anual) "${p.precio} cada año" else "${p.precio} cada mes, el día $dia")
                         fila("Medio de pago", "tu cuenta de Google Play")
                         if (quedanPrueba) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.pagoFondo).padding(10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icono("info.circle", 15f, C.pagoTinta)
@@ -830,9 +860,10 @@ fun SuscripcionVista() {
                     }
                     BotonMenta(if (comprando == p.id) "Abriendo Google Play…" else "Pagar ${p.precio} con Google Play", { comprar(p) }, alto = 56.dp, habilitado = comprando == null)
                 }
+                }
                 botonRestaurar()
                 Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Texto("La suscripción se cobra a tu cuenta de Google Play al confirmar y se renueva sola cada mes, al mismo precio, salvo que la canceles antes del fin del período. Se administra y cancela en Play Store › Pagos y suscripciones › Suscripciones.", Tipo.lato(12f), C.sub)
+                    Texto("La suscripción se cobra a tu cuenta de Google Play al confirmar y se renueva sola al terminar cada período (un mes o un año, según elijas), al mismo precio, salvo que la canceles antes del fin del período. Se administra y cancela en Play Store › Pagos y suscripciones › Suscripciones.", Tipo.lato(12f), C.sub)
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Texto("Términos de uso", Tipo.lato(12f, Peso.Bold), C.mentaTexto, Modifier.clickable { estado.abrirPestana("https://tengolibre.com.ar/terminos") })
                         Texto("Privacidad", Tipo.lato(12f, Peso.Bold), C.mentaTexto, Modifier.clickable { estado.abrirPestana("https://tengolibre.com.ar/privacidad") })

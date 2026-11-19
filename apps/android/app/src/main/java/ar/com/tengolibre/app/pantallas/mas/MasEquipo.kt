@@ -300,7 +300,9 @@ fun Equipo() {
     PantallaMas("Equipo y horarios", Formato.cantidad(profesionales.count { it.activo }, "profesional", "profesionales"),
         acciones = if (estado.gestiona) listOf(AccionCabecera("plus", "Sumar profesional") { nuevo = true }) else emptyList(),
         cargando = cargando, error = error, recargar = { cargar() }) {
-        Bloque("Quién atiende", "Tocá a cada una para cargarle el horario, los servicios que hace y los días que no viene.", *profesionales.sortedBy { it.orden }.map { p -> @Composable {
+        val fueraDelPlan = profesionales.count { it.activo && it.enPlan == false }
+        Bloque("Quién atiende", if (fueraDelPlan > 0) "${if (fueraDelPlan == 1) "Una quedó" else "$fueraDelPlan quedaron"} fuera de tu plan: siguen acá, pero no toman turnos hasta que pases a un plan más grande o pauses a alguien."
+            else "Tocá a cada una para cargarle el horario, los servicios que hace y los días que no viene.", *profesionales.sortedBy { it.orden }.map { p -> @Composable {
             Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable { nav.pila.add(DestinoMas.profesional(p.id)) }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Iniciales(p.nombre, 40.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -308,6 +310,7 @@ fun Equipo() {
                     Texto(resumenHorario(p), Tipo.lato(13f), C.sub, lineas = 1)
                 }
                 if (!p.activo) Texto("Pausada", Tipo.lato(12f, Peso.Bold), C.sub)
+                else if (p.enPlan == false) Texto("Fuera de tu plan", Tipo.lato(12f, Peso.Bold), C.ausenteTinta)
                 Icono("chevron.right", 13f, C.sub)
             }
         } }.toTypedArray())

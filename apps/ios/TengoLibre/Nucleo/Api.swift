@@ -13,6 +13,8 @@ struct ErrorApi: Error, Equatable {
 
     var sinConexion: Bool { codigo == "sin_conexion" }
     var sinSesion: Bool { estado == 401 && codigo == "sin_sesion" }
+    /// 402 tope_plan: lo pedido no está en el plan o se llegó al tope (el detalle dice a qué plan pasar).
+    var topePlan: Bool { codigo == "tope_plan" }
 
     static let sinRed = ErrorApi(estado: 0, codigo: "sin_conexion", titulo: "Sin conexión",
                                  detalle: "No hay internet. Revisá la conexión y probá de nuevo.")

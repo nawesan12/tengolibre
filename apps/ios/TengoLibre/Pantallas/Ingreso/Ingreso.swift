@@ -216,8 +216,8 @@ struct Alta: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Abrí tu negocio en Tengo Libre").font(Tipo.lato(30, .black)).tracking(-0.8).padding(.top, 40)
-                // La prueba es de 7 días (cobros: now() + 7 days), como dice la web.
-                Text(Formato.sinViudas("7 días gratis. Después lo terminás de armar desde Más: servicios, equipo y horarios.")).font(Tipo.lato(16)).foregroundStyle(C.sub)
+                // La prueba es de 14 días con Equipo (planes.DiasDePrueba), como dice la web.
+                Text(Formato.sinViudas("14 días gratis con el plan Equipo. Después lo terminás de armar desde Más: servicios, equipo y horarios.")).font(Tipo.lato(16)).foregroundStyle(C.sub)
                 Bloque {
                     RenglonCampo(titulo: "Nombre del negocio", texto: $nombre, placeholder: "Lumi Estética")
                     RenglonCampo(titulo: "Tu link", texto: $campoSlug, placeholder: "lumi", teclado: .URL)

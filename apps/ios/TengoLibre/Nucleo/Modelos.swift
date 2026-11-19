@@ -152,6 +152,8 @@ struct Profesional: Codable, Identifiable, Equatable, Hashable {
     var nombre: String
     var especialidad: String
     var activo: Bool
+    /// Activo y dentro del tope del plan: sólo esos toman turnos (bajar de plan no borra a nadie).
+    var enPlan: Bool?
     var orden: Int
     var servicios: [String]
     var horario: [Franja]

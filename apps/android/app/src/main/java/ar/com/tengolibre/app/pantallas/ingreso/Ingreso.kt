@@ -266,8 +266,8 @@ fun Alta() {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Texto("Abrí tu negocio en Tengo Libre", Tipo.lato(30f, Peso.Black), C.tinta, Modifier.padding(top = 40.dp), tracking = (-0.8).sp)
-        // La prueba es de 7 días (cobros: now() + 7 days), como dice la web.
-        Texto("7 días gratis. Después lo terminás de armar desde Más: servicios, equipo y horarios.", Tipo.lato(16f), C.sub)
+        // La prueba es de 14 días con Equipo (planes.DiasDePrueba), como dice la web.
+        Texto("14 días gratis con el plan Equipo. Después lo terminás de armar desde Más: servicios, equipo y horarios.", Tipo.lato(16f), C.sub)
         Bloque(
             "", "",
             { RenglonCampo("Nombre del negocio", nombre, { nombre = it; if (!slugTocado) slug = aSlug(it) }, "Lumi Estética") },

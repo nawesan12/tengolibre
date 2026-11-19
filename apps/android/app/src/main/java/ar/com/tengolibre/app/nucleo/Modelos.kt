@@ -138,6 +138,8 @@ data class Profesional(
     val nombre: String = "",
     val especialidad: String = "",
     val activo: Boolean = true,
+    /** Activo y dentro del tope del plan: sólo esos toman turnos (bajar de plan no borra a nadie). */
+    val enPlan: Boolean? = null,
     val orden: Int = 0,
     val servicios: List<String> = emptyList(),
     val horario: List<Franja> = emptyList(),

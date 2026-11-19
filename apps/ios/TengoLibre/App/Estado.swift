@@ -363,6 +363,14 @@ final class Estado {
         // Salir de una pantalla mientras guarda cancela la tarea: no es un error para mostrar (igual que Android).
         if e is CancellationError { return }
         let x = e as? ErrorApi ?? .desconocido
+        // Algo que el plan no incluye o un tope (402 tope_plan): el detalle dice a qué plan pasar, y el
+        // botón lleva a Suscripción para cambiarlo.
+        if x.topePlan {
+            avisar(Toast(simbolo: "arrow.up", titulo: x.titulo, texto: x.detalle, accion: "Ver planes", error: true)) { [weak self] in
+                self?.abrir(.suscripcion)
+            }
+            return
+        }
         avisar(Toast(simbolo: x.sinConexion ? "icloud.slash" : "exclamationmark", titulo: x.sinConexion ? "Sin conexión" : x.titulo,
                      texto: x.detalle, error: true))
     }

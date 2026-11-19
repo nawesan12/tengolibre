@@ -728,11 +728,21 @@ struct EditarEtiqueta: View {
 /// Android, con Google Play (se administra allá, y acá no se compra otra). Sin
 /// suscripción, los planes de la App Store con su precio, la renovación automática y los términos.
 struct SuscripcionVista: View {
-    struct PlanVenta: Codable, Hashable { var clave: String; var nombre: String; var precio: Int }
-    struct Sus: Codable { var id: String; var plan: String; var estado: String; var monto: Int; var proximoCobro: Date?; var ultimoCobro: Date?; var graciaHasta: Date?; var canceladaEn: Date?; var origen: String? }
+    /// Un plan como lo vende la API (planes): precios, topes y lo que incluye, la única fuente.
+    struct PlanVenta: Codable, Hashable {
+        var clave: String; var nombre: String; var precio: Int; var precioAnual: Int?; var destacado: Bool?; var bajada: String?
+        var profesionales: Int?; var incluye: [String]?
+    }
+    struct Sus: Codable { var id: String; var plan: String; var estado: String; var monto: Int; var proximoCobro: Date?; var ultimoCobro: Date?; var graciaHasta: Date?; var canceladaEn: Date?; var origen: String?
+        var periodo: String? }
+    /// Lo que lleva el negocio contra los topes del plan que rige.
+    struct Uso: Codable, Hashable {
+        var profesionalesActivos: Int; var topeProfesionales: Int; var whatsappIncluidos: Int; var whatsappUsadosMes: Int; var whatsappSaldo: Int; var cupoIA: Int
+    }
     struct EstadoS: Codable { var bloqueado: Bool; var pruebaHasta: Date?; var diasDePrueba: Int; var conSuscripcion: Bool; var plan: String; var nombrePlan: String; var catalogo: [PlanVenta]; var suscripcion: Sus?
-        /// Respuestas con IA por mes del asistente (las mismas en todos los planes).
-        var cupoIA: Int? }
+        /// Respuestas con IA por mes del asistente con el plan que rige.
+        var cupoIA: Int?
+        var uso: Uso? }
     @Environment(Estado.self) private var estado
     @State private var s: EstadoS?
     @State private var error = ""
@@ -741,20 +751,16 @@ struct SuscripcionVista: View {
     @State private var comprando: String?
     @State private var administrar = false
     @State private var restaurando = false
+    /// El plan elegido (vacío: el destacado) y el período.
     @State private var elegido = ""
-
-    /// Qué trae cada plan (las mismas filas que la web).
-    private let filas: [(String, String, String)] = [
-        ("Turnos online y agenda", "Sí", "Sí"), ("Recordatorios por mail", "Sí", "Sí"), ("Profesionales", "Hasta 2", "Sin límite"),
-        ("Señas y pagos con Mercado Pago", "No", "Sí"), ("Membresías, cupones y referidos", "No", "Sí"), ("Reportes", "Básicos", "Completos"),
-        ("Dominio propio y plantillas", "No", "Sí"), ("Integraciones con IA", "No", "Sí"), ("Sucursales", "No", "Sí")
-    ]
+    @State private var periodo = "mensual"
 
     private var vigente: Sus? { s?.suscripcion.flatMap { ["autorizada", "pausada"].contains($0.estado) ? $0 : nil } }
 
     var body: some View {
         PantallaMas(titulo: "Suscripción", subtitulo: subtitulo, cargando: s == nil && error.isEmpty, error: error, recargar: cargar) {
             if let s {
+                if let u = s.uso { bloqueUso(u, s) }
                 if let v = vigente {
                     switch v.origen {
                     case "apple": deApple(v, s)
@@ -801,7 +807,7 @@ struct SuscripcionVista: View {
                 .buttonStyle(BotonContorno(alto: 52, tam: 16))
             botonRestaurar
         }
-        Text("Se renueva sola cada mes. Para cambiar de plan o cancelar: Ajustes › tu nombre › Suscripciones › Tengo Libre, o el botón de arriba.")
+        Text("Se renueva sola al terminar cada período. Para cambiar de plan o cancelar: Ajustes › tu nombre › Suscripciones › Tengo Libre, o el botón de arriba.")
             .font(Tipo.lato(13)).foregroundStyle(C.sub)
     }
 
@@ -843,14 +849,14 @@ struct SuscripcionVista: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(s.bloqueado ? "Tu prueba terminó" : "Estás en la prueba gratis").font(Tipo.lato(22, .black))
             Text(s.bloqueado ? "Podés ver todo, pero para cargar o cambiar turnos hace falta un plan. Tu página sigue tomando reservas."
-                 : "Hasta el \(s.pruebaHasta.map { Formato.fechaLarga($0) } ?? "") tenés todo el plan Completo.")
+                 : "Hasta el \(s.pruebaHasta.map { Formato.fechaLarga($0) } ?? "") tenés el plan \(s.nombrePlan).")
                 .font(Tipo.lato(15)).foregroundStyle(C.sub)
             if s.suscripcion?.estado == "cancelada", s.suscripcion?.origen == "apple" {
                 Text("Tu suscripción de la App Store venció o se canceló.").font(Tipo.lato(14, .bold)).foregroundStyle(C.ausenteTinta)
             }
         }
         .foregroundStyle(C.tinta).padding(16).frame(maxWidth: .infinity, alignment: .leading).tarjeta()
-        // En la prueba también anda el asistente (con el cupo del plan Completo).
+        // En la prueba también anda el asistente (con el cupo del plan que rige).
         if !s.bloqueado, (s.cupoIA ?? 0) > 0 {
             Bloque { filaIA(s) }
         }
@@ -863,9 +869,31 @@ struct SuscripcionVista: View {
         }
     }
 
+    // MARK: Uso del plan
+
+    /// Lo que lleva el negocio contra los topes: profesionales activos y recordatorios por WhatsApp.
+    @ViewBuilder private func bloqueUso(_ u: Uso, _ s: EstadoS) -> some View {
+        let sobran = max(0, u.profesionalesActivos - u.topeProfesionales)
+        let waQuedan = max(0, u.whatsappIncluidos - u.whatsappUsadosMes) + u.whatsappSaldo
+        Bloque(titulo: "Tu plan \(s.nombrePlan)", pie: sobran > 0
+               ? "\(sobran == 1 ? "La más nueva queda" : "Las \(sobran) más nuevas quedan") fuera de la agenda: no se borra nada. Pausá a alguien en Equipo o pasá a un plan más grande."
+               : "") {
+            Renglon(titulo: "Profesionales activos", detalle: u.profesionalesActivos >= u.topeProfesionales && sobran == 0 ? "Llegaste al tope de tu plan" : "",
+                    simbolo: "person.2") {
+                Text("\(u.profesionalesActivos) de \(u.topeProfesionales)").font(Tipo.lato(15, .bold)).monospacedDigit()
+                    .foregroundStyle(sobran > 0 ? C.ausenteTinta : C.tinta)
+            }
+            Renglon(titulo: "Recordatorios por WhatsApp",
+                    detalle: u.whatsappIncluidos > 0 ? "\(u.whatsappIncluidos) por mes con tu plan" : (u.whatsappSaldo > 0 ? "De packs, no vencen" : "Salen por mail y en el celular"),
+                    simbolo: "message") {
+                Text(u.whatsappIncluidos > 0 || u.whatsappSaldo > 0 ? "\(waQuedan)" : "—").font(Tipo.lato(15, .bold)).monospacedDigit()
+            }
+        }
+    }
+
     @ViewBuilder private var planesTienda: some View {
         if !cargoTienda {
-            ForEach(0..<2, id: \.self) { _ in Esqueleto(alto: 96, radio: 18) }
+            ForEach(0..<3, id: \.self) { _ in Esqueleto(alto: 96, radio: 18) }
             Esqueleto(alto: 260, radio: 20)
         } else if productos.isEmpty {
             VacioQueEnsena(rayas: "Pronto", titulo: "Los planes no cargaron", texto: "La App Store no respondió. Probá de nuevo en un rato.") {
@@ -873,29 +901,35 @@ struct SuscripcionVista: View {
             }
         } else {
             Text("1 · ELEGÍ TU PLAN").rotulo().padding(.horizontal, 4)
-            ForEach(productos, id: \.id) { p in opcionPlan(p) }
-            if let p = elegidoProducto { incluye(p) }
+            Segmentado(opciones: [("mensual", "Por mes"), ("anual", "Por año · 12 al precio de 10")], elegido: $periodo, sobrePetroleo: false)
+            if planesConProducto.isEmpty {
+                VacioQueEnsena(rayas: "Pronto", titulo: "Los planes no cargaron", texto: "La App Store no respondió. Probá de nuevo en un rato.") {
+                    Button("Reintentar") { Task { await cargarTienda() } }.buttonStyle(BotonContorno(alto: 48, tam: 15))
+                }
+            }
+            ForEach(planesConProducto, id: \.0.clave) { plan, p in opcionPlan(plan, p) }
+            if let par = elegidoPar { incluye(par.0) }
             Text("2 · TU SUSCRIPCIÓN").rotulo().padding(.horizontal, 4).padding(.top, 6)
-            if let p = elegidoProducto { carrito(p) }
+            if let par = elegidoPar { carrito(par.0, par.1) }
             botonRestaurar
             legales
         }
     }
 
-    private static let descripcion: [String: String] = [
-        "inicial": "Para empezar: turnos online, agenda y recordatorios, hasta 2 profesionales.",
-        "completo": "Todo Tengo Libre: señas, membresías, reportes, IA y sin límite de equipo."
-    ]
-
-    private var elegidoProducto: Product? {
-        productos.first { $0.id == elegido } ?? productos.first { Compras.productos[$0.id] == "completo" } ?? productos.first
+    /// Los planes del catálogo (en su orden) que la App Store da en el período elegido.
+    private var planesConProducto: [(PlanVenta, Product)] {
+        (s?.catalogo ?? []).compactMap { plan in Compras.producto(productos, plan: plan.clave, periodo: periodo).map { (plan, $0) } }
     }
 
-    private func opcionPlan(_ p: Product) -> some View {
-        let clave = Compras.productos[p.id] ?? ""
-        let on = elegidoProducto?.id == p.id
+    private var elegidoPar: (PlanVenta, Product)? {
+        let ps = planesConProducto
+        return ps.first { $0.0.clave == elegido } ?? ps.first { $0.0.destacado == true } ?? ps.first
+    }
+
+    private func opcionPlan(_ plan: PlanVenta, _ p: Product) -> some View {
+        let on = elegidoPar?.0.clave == plan.clave
         return Button {
-            withAnimation(Movimiento.tocar) { elegido = p.id }
+            withAnimation(Movimiento.tocar) { elegido = plan.clave }
             Haptico.seleccion()
         } label: {
             HStack(alignment: .center, spacing: 12) {
@@ -903,18 +937,19 @@ struct SuscripcionVista: View {
                     .foregroundStyle(on ? C.mentaTexto : C.sub)
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
-                        Text(p.displayName.isEmpty ? Formato.mayuscula(clave) : p.displayName).font(Tipo.lato(19, .black)).tracking(-0.4)
-                        if clave == "completo" {
-                            Text("RECOMENDADO").font(Tipo.lato(10, .black)).tracking(0.8).padding(.horizontal, 7).frame(height: 20)
+                        Text(plan.nombre).font(Tipo.lato(19, .black)).tracking(-0.4)
+                        if plan.destacado == true {
+                            Text("EL MÁS ELEGIDO").font(Tipo.lato(10, .black)).tracking(0.8).padding(.horizontal, 7).frame(height: 20)
                                 .foregroundStyle(C.petroleoHondo).background(C.menta, in: Capsule())
                         }
                     }
-                    Text(Self.descripcion[clave] ?? p.description).font(Tipo.lato(13)).foregroundStyle(C.sub).multilineTextAlignment(.leading)
+                    Text([plan.bajada, plan.incluye?.first].compactMap { $0 }.joined(separator: " ")).font(Tipo.lato(13)).foregroundStyle(C.sub)
+                        .multilineTextAlignment(.leading)
                 }
                 Spacer(minLength: 4)
                 VStack(alignment: .trailing, spacing: 0) {
                     Text(p.displayPrice).font(Tipo.lato(20, .black)).monospacedDigit()
-                    Text("por mes").font(Tipo.lato(12)).foregroundStyle(C.sub)
+                    Text(periodo == "anual" ? "por año" : "por mes").font(Tipo.lato(12)).foregroundStyle(C.sub)
                 }
             }
             .foregroundStyle(C.tinta).padding(16)
@@ -926,28 +961,27 @@ struct SuscripcionVista: View {
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 
-    private func incluye(_ p: Product) -> some View {
-        let col = Compras.productos[p.id] == "completo" ? 2 : 1
-        return VStack(alignment: .leading, spacing: 7) {
+    /// Qué incluye el plan elegido, como lo dice la API (nada que no exista).
+    private func incluye(_ plan: PlanVenta) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
             Text("QUÉ INCLUYE").rotulo()
-            ForEach(filas, id: \.0) { f in
-                let v = col == 1 ? f.1 : f.2
-                HStack(spacing: 8) {
-                    Image(systemName: v == "No" ? "minus.circle" : "checkmark.circle.fill").foregroundStyle(v == "No" ? C.linea : C.mentaTexto)
-                    Text(f.0).font(Tipo.lato(14)).foregroundStyle(v == "No" ? C.sub : C.tinta).strikethrough(v == "No", color: C.sub)
+            ForEach(plan.incluye ?? [], id: \.self) { x in
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(C.mentaTexto)
+                    Text(x).font(Tipo.lato(14)).foregroundStyle(C.tinta).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
-                    if v != "Sí" && v != "No" { Text(v).font(Tipo.lato(13, .bold)).foregroundStyle(C.sub) }
                 }
             }
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
         .background(C.fondo, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .animation(Movimiento.tocar, value: p.id)
+        .animation(Movimiento.tocar, value: plan.clave)
     }
 
     /// El «carrito»: el plan, cuándo y cuánto se cobra, el medio de pago y el total de hoy.
-    private func carrito(_ p: Product) -> some View {
-        let nombre = p.displayName.isEmpty ? Formato.mayuscula(Compras.productos[p.id] ?? "") : p.displayName
+    private func carrito(_ plan: PlanVenta, _ p: Product) -> some View {
+        let nombre = plan.nombre
+        let anual = periodo == "anual"
         let dia = Formato.calendario.component(.day, from: Date())
         let quedanPrueba = (s?.pruebaHasta).map { $0 > Date() } ?? false
         return VStack(alignment: .leading, spacing: 0) {
@@ -956,7 +990,8 @@ struct SuscripcionVista: View {
                     .frame(width: 40, height: 40).background(C.menta, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Plan \(nombre)").font(Tipo.lato(16, .bold))
-                    Text("Mensual · se renueva sola · cancelás cuando quieras").font(Tipo.lato(12)).foregroundStyle(C.sub)
+                    Text(anual ? "Anual · 12 meses al precio de 10 · cancelás cuando quieras" : "Mensual · se renueva sola · cancelás cuando quieras")
+                        .font(Tipo.lato(12)).foregroundStyle(C.sub)
                 }
                 Spacer(minLength: 4)
                 Text(p.displayPrice).font(Tipo.lato(17, .black)).monospacedDigit()
@@ -965,7 +1000,7 @@ struct SuscripcionVista: View {
             Troquel(vertical: false)
             VStack(spacing: 9) {
                 fila("Primer cobro", "hoy, al confirmar")
-                fila("Después", "\(p.displayPrice) cada mes, el día \(dia)")
+                fila("Después", anual ? "\(p.displayPrice) cada año" : "\(p.displayPrice) cada mes, el día \(dia)")
                 fila("Medio de pago", "tu cuenta de Apple")
                 if quedanPrueba {
                     HStack(alignment: .top, spacing: 8) {
@@ -1028,7 +1063,7 @@ struct SuscripcionVista: View {
 
     private var legales: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("La suscripción se cobra a tu cuenta de Apple al confirmar y se renueva sola cada mes, al mismo precio, salvo que la canceles al menos 24 horas antes del fin del período. Se administra y cancela en Ajustes › tu nombre › Suscripciones.")
+            Text("La suscripción se cobra a tu cuenta de Apple al confirmar y se renueva sola al terminar cada período (un mes o un año, según elijas), al mismo precio, salvo que la canceles al menos 24 horas antes del fin del período. Se administra y cancela en Ajustes › tu nombre › Suscripciones.")
                 .font(Tipo.lato(12)).foregroundStyle(C.sub)
             HStack(spacing: 16) {
                 Link("Términos de uso", destination: URL(string: "https://tengolibre.com.ar/terminos")!)
@@ -1049,7 +1084,7 @@ struct SuscripcionVista: View {
             switch try await Compras.comprar(p, estado: estado) {
             case .listo:
                 Haptico.exito()
-                estado.avisar("¡Listo! Ya tenés el plan \(p.displayName)", texto: "Gracias por sumarte a Tengo Libre.")
+                estado.avisar("¡Listo! Ya tenés el plan \(Compras.venta[p.id].map { Formato.mayuscula($0.plan) } ?? p.displayName)", texto: "Gracias por sumarte a Tengo Libre.")
                 await cargar()
             case .pendiente:
                 estado.avisar("La compra quedó pendiente", texto: "Cuando la App Store la apruebe, se activa sola.")

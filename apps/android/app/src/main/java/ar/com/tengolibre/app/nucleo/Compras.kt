@@ -25,15 +25,28 @@ import kotlinx.serialization.Serializable
 
 // Clon de Nucleo/Compras.swift con Play Billing.
 
-/** La suscripción desde el teléfono (Play Billing): los planes son suscripciones mensuales de Google Play con los
- *  mismos ids que en la App Store. Cada compra lleva el id del negocio (obfuscatedAccountId) y su token va a la API
+/** La suscripción desde el teléfono (Play Billing): los planes son suscripciones de Google Play, mensuales y anuales
+ *  (el anual cobra 10 meses y vale 12), con los mismos ids que en la App Store. Cada compra lleva el id del negocio (obfuscatedAccountId) y su token va a la API
  *  (`POST /v1/panel/suscripcion/google`), que además recibe las renovaciones y cancelaciones por RTDN. Desde la web
  *  se sigue pagando con Mercado Pago. */
 object Compras {
-    val productos = mapOf(
-        "ar.com.tengolibre.inicial.mensual" to "inicial",
-        "ar.com.tengolibre.completo.mensual" to "completo",
+    /** Los productos que se venden: plan y período (los mismos ids en la App Store y en la API). */
+    val venta = mapOf(
+        "ar.com.tengolibre.inicial.mensual" to ("inicial" to "mensual"),
+        "ar.com.tengolibre.inicial.anual" to ("inicial" to "anual"),
+        "ar.com.tengolibre.equipo.mensual" to ("equipo" to "mensual"),
+        "ar.com.tengolibre.equipo.anual" to ("equipo" to "anual"),
+        "ar.com.tengolibre.centro.mensual" to ("centro" to "mensual"),
+        "ar.com.tengolibre.centro.anual" to ("centro" to "anual"),
     )
+
+    /** Todos los que se reconocen (para restaurar y registrar): los de venta y el «completo» de antes, que ya no se
+     *  vende y la API lee como Equipo. */
+    val productos: Map<String, String> = venta.mapValues { it.value.first } + ("ar.com.tengolibre.completo.mensual" to "equipo")
+
+    /** El plan de un período, si la tienda lo dio. */
+    fun producto(planes: List<Plan>, plan: String, periodo: String): Plan? =
+        planes.firstOrNull { venta[it.id]?.first == plan && venta[it.id]?.second == periodo }
 
     enum class Resultado { listo, cancelado, pendiente }
 
@@ -74,7 +87,7 @@ object Compras {
     suspend fun planes(ctx: Context): List<Plan> {
         if (ModoPrueba.activo) return emptyList()
         val c = conectado(ctx) ?: return emptyList()
-        val p = QueryProductDetailsParams.newBuilder().setProductList(productos.keys.map {
+        val p = QueryProductDetailsParams.newBuilder().setProductList(venta.keys.map {
             QueryProductDetailsParams.Product.newBuilder().setProductId(it).setProductType(BillingClient.ProductType.SUBS).build()
         }).build()
         val r = runCatching { c.queryProductDetails(p) }.getOrNull() ?: return emptyList()

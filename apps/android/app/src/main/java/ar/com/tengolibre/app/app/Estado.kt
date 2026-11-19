@@ -409,6 +409,12 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
         // Salir de una pantalla mientras guarda cancela la tarea: no es un error para mostrar (igual que iOS).
         if (e is kotlinx.coroutines.CancellationException) return
         val x = e as? ErrorApi ?: ErrorApi.desconocido
+        // Algo que el plan no incluye o un tope (402 tope_plan): el detalle dice a qué plan pasar, y el botón lleva a
+        // Suscripción para cambiarlo.
+        if (x.topePlan) {
+            avisar(Toast("arrow.up", x.titulo, x.detalle, accion = "Ver planes", error = true)) { abrir(Ruta.suscripcion) }
+            return
+        }
         avisar(Toast(if (x.sinConexion) "icloud.slash" else "exclamationmark", if (x.sinConexion) "Sin conexión" else x.titulo, x.detalle, error = true))
     }
 

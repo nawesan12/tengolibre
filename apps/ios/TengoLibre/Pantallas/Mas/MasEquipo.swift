@@ -337,6 +337,7 @@ struct EditarProducto: View {
 struct Equipo: View {
     @Environment(Estado.self) private var estado
     @State private var profesionales: [Profesional] = []
+    private var fueraDelPlan: Int { profesionales.filter { $0.activo && $0.enPlan == false }.count }
     @State private var miembros: [Miembro] = []
     @State private var invitaciones: [InvitacionEquipo] = []
     @State private var servicios: [Servicio] = []
@@ -349,7 +350,9 @@ struct Equipo: View {
         PantallaMas(titulo: "Equipo y horarios", subtitulo: Formato.cantidad(profesionales.filter(\.activo).count, "profesional", "profesionales"),
                     acciones: estado.gestiona ? [AccionCabecera(simbolo: "plus", etiqueta: "Sumar profesional") { nuevo = true }] : [],
                     cargando: cargando, error: error, recargar: cargar) {
-            Bloque(titulo: "Quién atiende", pie: "Tocá a cada una para cargarle el horario, los servicios que hace y los días que no viene.") {
+            Bloque(titulo: "Quién atiende", pie: fueraDelPlan > 0
+                   ? "\(fueraDelPlan == 1 ? "Una quedó" : "\(fueraDelPlan) quedaron") fuera de tu plan: siguen acá, pero no toman turnos hasta que pases a un plan más grande o pauses a alguien."
+                   : "Tocá a cada una para cargarle el horario, los servicios que hace y los días que no viene.") {
                 ForEach(profesionales.sorted { $0.orden < $1.orden }) { p in
                     NavigationLink(value: DestinoMas.profesional(p.id)) {
                         HStack(spacing: 12) {
@@ -360,6 +363,7 @@ struct Equipo: View {
                             }
                             Spacer()
                             if !p.activo { Text("Pausada").font(Tipo.lato(12, .bold)).foregroundStyle(C.sub) }
+                            else if p.enPlan == false { Text("Fuera de tu plan").font(Tipo.lato(12, .bold)).foregroundStyle(C.ausenteTinta) }
                             Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(C.sub)
                         }
                         .foregroundStyle(C.tinta).padding(.horizontal, 16).frame(minHeight: 64)

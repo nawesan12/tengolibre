@@ -33,6 +33,8 @@ data class ErrorApi(
     val reintentarEn: Int? = null,
 ) : Exception(detalle) {
     val sinConexion: Boolean get() = codigo == "sin_conexion"
+    /** 402 tope_plan: lo pedido no está en el plan o se llegó al tope (el detalle dice a qué plan pasar). */
+    val topePlan: Boolean get() = codigo == "tope_plan"
     val sinSesion: Boolean get() = estado == 401 && codigo == "sin_sesion"
 
     companion object {
