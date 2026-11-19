@@ -1,5 +1,6 @@
-<!-- La tira de días (handoff v2): uno al lado del otro, con scroll de costado; los días sin lugar,
-	tachados y sin link. Cada día es un link real (funciona sin JavaScript). -->
+<!-- La tira de días (handoff v2): uno al lado del otro, con scroll de costado. Los días cerrados,
+	tachados y sin link; los abiertos pero llenos, con borde punteado y link (ahí está la lista de
+	espera). Cada día es un link real (funciona sin JavaScript). -->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { tiraDia } from './calendario.ts';
@@ -12,9 +13,10 @@
 		chica = false
 	}: { dias: Dia[]; href: (fecha: string) => string; elegida?: string; chica?: boolean } = $props();
 
-	const etiqueta = (f: string, libres: number) => {
+	const etiqueta = (f: string, libres: number, abierto = false) => {
 		const txt = new Date(f + 'T12:00:00Z').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
-		return libres ? `${txt}: ${libres} ${libres === 1 ? 'horario libre' : 'horarios libres'}` : `${txt}: sin lugar`;
+		if (libres) return `${txt}: ${libres} ${libres === 1 ? 'horario libre' : 'horarios libres'}`;
+		return abierto ? `${txt}: sin lugar, anotate en la lista de espera` : `${txt}: cerrado`;
 	};
 
 	// El día elegido, a la vista (si está más allá del borde).
@@ -32,10 +34,19 @@
 			<a
 				class="dia"
 				href={href(d.fecha)}
-				data-sveltekit-reset="false"
+				data-sveltekit-noscroll
 				aria-label={etiqueta(d.fecha, d.libres)}
 				aria-current={d.fecha === elegida ? 'date' : undefined}
 				data-fecha={d.fecha}><span class="dow">{t.dow}</span><span class="num">{t.numero}</span></a
+			>
+		{:else if d.abierto}
+			<a
+				class="dia completo"
+				href={href(d.fecha)}
+				data-sveltekit-noscroll
+				aria-label={etiqueta(d.fecha, 0, true)}
+				aria-current={d.fecha === elegida ? 'date' : undefined}
+				data-fecha={d.fecha}><span class="dow">{t.dow}</span><span class="num">{t.numero}</span><span class="marca-lleno">lleno</span></a
 			>
 		{:else}
 			<span class="dia lleno" aria-label={etiqueta(d.fecha, 0)} data-fecha={d.fecha}><span class="dow">{t.dow}</span><span class="num">{t.numero}</span></span>
@@ -102,5 +113,21 @@
 	}
 	.lleno .num {
 		text-decoration: line-through;
+	}
+	/* Abierto pero sin lugar: se puede tocar (lista de espera), no se tacha. */
+	.completo {
+		background: transparent;
+		color: var(--w-sub2, var(--w-sub));
+		box-shadow: none;
+		outline: 1.5px dashed var(--w-line);
+		outline-offset: -1.5px;
+	}
+	.completo[aria-current] {
+		outline-color: currentColor;
+	}
+	.marca-lleno {
+		font: 700 9px var(--tl-font);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
 	}
 </style>

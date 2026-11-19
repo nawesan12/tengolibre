@@ -33,7 +33,9 @@ export const load: LayoutServerLoad = async (event) => {
 		}
 		throw e;
 	}
-	if (negocios.length === 0) redirect(303, '/empezar');
+	// Sin negocio (una clienta que ingresó, o alguien que todavía no lo armó): Mi cuenta, con «Tus turnos»
+	// y el botón para crear uno. Antes caía directo en el paso 1 del alta.
+	if (negocios.length === 0) redirect(303, '/mi-cuenta');
 	let negocio = negocios.find((n) => n.id === locals.negocio);
 	if (!negocio) {
 		negocio = negocios[0];

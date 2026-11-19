@@ -65,7 +65,7 @@
 	</form>
 {/if}
 
-<form method="GET" role="search" class="buscar" data-sveltekit-reset="false">
+<form method="GET" role="search" class="buscar" data-sveltekit-noscroll>
 	<label class="caja">
 		<Icono nombre="search" tam={22} />
 		<span class="visualmente-oculto">Buscar clientes</span>

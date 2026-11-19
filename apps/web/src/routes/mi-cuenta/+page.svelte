@@ -25,7 +25,7 @@
 			{/if}
 			<span class="quien">
 				<h1>{primerNombre ? `Hola, ${primerNombre}` : 'Hola'}</h1>
-				<span class="mail tl-num">{p.email}</span>
+				<span class="mail tl-num" title={p.email}>{p.email}</span>
 			</span>
 			<form method="POST" action="/salir"><button class="salir">Salir</button></form>
 		</header>
@@ -40,7 +40,8 @@
 								<span class="cuando tl-num"><b>{hora(t.inicio, t.zonaHoraria)}</b><small>{fecha(t.inicio, t.zonaHoraria)}</small></span>
 								<span class="que">
 									<b>{t.negocio}</b>
-									<small>{[t.servicio, t.profesional].filter(Boolean).join(' · ')}{t.estado !== 'confirmado' ? ` · ${ESTADOS[t.estado] ?? t.estado}` : ''}</small>
+									<small>{[t.servicio, t.profesional].filter(Boolean).join(' · ')}</small>
+									{#if t.estado !== 'confirmado'}<span class="estado-t">{t.estado === 'pendiente' ? 'Reservado' : (ESTADOS[t.estado] ?? t.estado)}</span>{/if}
 								</span>
 								<Icono nombre="chevron_right" tam={22} />
 							</a>
@@ -52,9 +53,7 @@
 
 		<section aria-labelledby="tus-negocios" class="seccion">
 			<h2 id="tus-negocios" class="tl-rotulo rotulo">Tus negocios</h2>
-			{#if data.negocios.length === 0}
-				<p class="vacio">Todavía no tenés un negocio. Creá el tuyo y probalo 7&nbsp;días gratis.</p>
-			{/if}
+
 			<ul class="negocios">
 				{#each data.negocios as n, i (n.id)}
 					{@const estado = estadoDeAcceso(n.acceso, n.rol)}
@@ -87,8 +86,8 @@
 				<li class="crear-li">
 					<a class="crear" href="/empezar">
 						<Icono nombre="add_business" lleno tam={28} />
-						<b>Crear otro negocio</b>
-						<span>Con 7 días gratis</span>
+						<b>{data.negocios.length ? 'Crear otro negocio' : 'Crear mi negocio'}</b>
+						<span>Probalo 7&nbsp;días gratis</span>
 					</a>
 				</li>
 			</ul>
@@ -162,10 +161,25 @@
 		font-weight: 700;
 		letter-spacing: -0.05em;
 	}
+	/* El email en un renglón: cortado en cualquier letra no se leía. Completo en el title. */
 	.mail {
+		display: block;
+		max-width: 100%;
 		font-size: 13px;
 		color: var(--tl-sub);
-		overflow-wrap: anywhere;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.estado-t {
+		align-self: flex-start;
+		margin-top: 4px;
+		padding: 2px 8px;
+		border-radius: 999px;
+		background: #fff4e0;
+		color: #7a4a00;
+		font-size: 12px;
+		font-weight: 700;
 	}
 	.salir {
 		min-height: 48px;
@@ -189,10 +203,6 @@
 		margin: 8px 0 0;
 		font-size: 12px;
 		color: var(--tl-sub);
-	}
-	.vacio {
-		margin: 0;
-		color: var(--tl-sub-2);
 	}
 	.negocios {
 		list-style: none;

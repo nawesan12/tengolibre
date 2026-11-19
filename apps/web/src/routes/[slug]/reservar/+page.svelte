@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { afterNavigate, invalidateAll } from '$app/navigation';
 	import { navigating, page } from '$app/state';
 	import { dia as diaDe, pesos } from '#lib/formato.ts';
 	import Icono from '#lib/ui/Icono.svelte';
@@ -75,6 +76,54 @@
 	const guardar = (k: 'nombre' | 'telefono' | 'email' | 'nota') => (e: Event) => {
 		borrador[k] = (e.currentTarget as HTMLInputElement).value;
 	};
+	// «el sábado 21» o «entre el sábado 21 y el lunes 23».
+	function rangoEspera(desde: string, hasta: string) {
+		const d = fechaLarga(desde).toLowerCase();
+		return !hasta || hasta === desde ? `el ${d}` : `entre el ${d} y el ${fechaLarga(hasta).toLowerCase()}`;
+	}
+	// Al elegir el horario, «Tus datos» a la vista (antes cada toque llevaba la página arriba de todo).
+	afterNavigate(({ from }) => {
+		if (data.paso !== 'datos' || !from || from.url.searchParams.get('inicio') === page.url.searchParams.get('inicio')) return;
+		const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches;
+		document.getElementById('t-p4')?.scrollIntoView({ block: 'start', behavior: quieto ? 'auto' : 'smooth' });
+	});
+	// La reserva recuerda a la clienta en este navegador (nunca en el servidor: borrador es de módulo y en
+	// SSR sería compartido). «¿No sos vos?» lo borra.
+	const CLAVE = 'tl-clienta';
+	let recordada = $state(false);
+	onMount(() => {
+		try {
+			const g = JSON.parse(localStorage.getItem(CLAVE) ?? 'null') as Partial<Record<'nombre' | 'telefono' | 'email', string>> | null;
+			if (g && !borrador.nombre && !borrador.telefono && !borrador.email) {
+				borrador.nombre = g.nombre ?? '';
+				borrador.telefono = g.telefono ?? '';
+				borrador.email = g.email ?? '';
+				recordada = !!(g.nombre || g.telefono || g.email);
+			}
+		} catch {
+			/* sin almacenamiento: no pasa nada */
+		}
+	});
+	function recordar() {
+		try {
+			localStorage.setItem(CLAVE, JSON.stringify({ nombre: borrador.nombre, telefono: borrador.telefono, email: borrador.email }));
+		} catch {
+			/* sin almacenamiento */
+		}
+	}
+	function olvidar() {
+		try {
+			localStorage.removeItem(CLAVE);
+		} catch {
+			/* sin almacenamiento */
+		}
+		borrador.nombre = borrador.telefono = borrador.email = '';
+		recordada = false;
+		for (const id of ['r-nombre', 'r-telefono', 'r-email']) {
+			const el = document.getElementById(id) as HTMLInputElement | null;
+			if (el) el.value = '';
+		}
+	}
 	const etiquetaPlan = (plan: string) => (/^plan\b/i.test(plan) ? `Usar mi ${plan}` : `Usar mi membresía ${plan}`);
 </script>
 
@@ -90,12 +139,16 @@
 	{#if form && 'anotado' in form && form.anotado}
 		<p class="aviso-w verde" role="status">
 			<Icono nombre="hourglass_top" tam={20} lleno />
-			<span>¡Listo! Te anotamos en la lista de espera para {form.anotado.servicio}. Si se libera un lugar, te lo ofrecemos a vos&nbsp;primero.</span>
+			<span
+				>{sinViuda(
+					`¡Listo! Te anotamos para ${rangoEspera(form.anotado.desde, form.anotado.hasta)}. Si se libera un lugar, te llega un mail con el link para tomarlo.`
+				)}</span
+			>
 		</p>
 	{:else}
 		<p class="aviso-w verde">
 			<Icono nombre="hourglass_top" tam={20} lleno />
-			<span>Anotate en la lista de espera: si alguien cancela, te ofrecemos el lugar a vos primero, con 30 minutos para&nbsp;tomarlo.</span>
+			<span>Anotate en la lista de espera: si alguien cancela, te avisamos por mail y el lugar es tuyo si lo tomás a&nbsp;tiempo.</span>
 		</p>
 		<!-- Sólo se abre solo (sin cerrar lo que la persona abrió antes de que cargue la página). -->
 		<details class="espera" {...abierto(enEspera)}>
@@ -115,7 +168,6 @@
 				<input type="hidden" name="servicioId" value={data.servicio?.id} />
 				<input type="hidden" name="profesionalId" value={data.profesionalId} />
 				{#if form && 'enEspera' in form && form.error}<p class="aviso-w rojo" role="alert"><Icono nombre="error" tam={20} lleno /><span>{form.error}</span></p>{/if}
-				<AvisoDatos negocio={n.nombre} para="espera" />
 				<label class="campo-w">Nombre <input name="nombre" required maxlength="80" autocomplete="name" value={v.nombre ?? borrador.nombre} /></label>
 				<label class="campo-w">Email <input name="email" type="email" required maxlength="120" autocomplete="email" value={v.email ?? borrador.email} /></label>
 				<label class="campo-w">Teléfono (opcional) <input name="telefono" type="tel" maxlength="30" autocomplete="tel" value={v.telefono ?? borrador.telefono} /></label>
@@ -129,6 +181,7 @@
 					<label class="campo-w">Desde <input name="desde" type="date" required min={hoy} value={v.desde ?? desde} /></label>
 					<label class="campo-w">Hasta <input name="hasta" type="date" required min={hoy} value={v.hasta ?? hasta} /></label>
 				</div>
+				<AvisoDatos negocio={n.nombre} para="espera" />
 				<button class="boton-reserva" disabled={anotando}>{anotando ? 'Anotando…' : 'Anotarme'}</button>
 			</form>
 		</details>
@@ -136,7 +189,7 @@
 {/snippet}
 
 {#snippet hueco(href: string, h: string, texto: string)}
-	<a class="hueco-w" {href} data-sveltekit-reset="false"><b class="tl-num">{h}</b><span>{texto}</span><Icono nombre="arrow_forward" tam={18} /></a>
+	<a class="hueco-w" {href} data-sveltekit-noscroll><b class="tl-num">{h}</b><span>{texto}</span><Icono nombre="arrow_forward" tam={18} /></a>
 {/snippet}
 
 <main>
@@ -176,7 +229,7 @@
 						{#if data.servicios.length === 0}<p class="sub">Este negocio todavía no cargó&nbsp;servicios.</p>{/if}
 						<div class="opciones">
 							{#each data.servicios as s (s.id)}
-								<a class="opcion" href={ir('profesional', { servicio: s.id })} data-sveltekit-reset="false"
+								<a class="opcion" href={ir('profesional', { servicio: s.id })} data-sveltekit-noscroll
 									>{#if s.foto}<img src={s.foto} alt="" width="28" height="28" loading="lazy" />{/if}{s.nombre}</a
 								>
 							{/each}
@@ -192,9 +245,9 @@
 							<span class="texto">{sinViuda(`Con ${data.profesionales[0].nombre}, que es quien lo hace.`)}</span>
 						{:else}
 							<div class="opciones">
-								<a class="opcion" href={ir('dia', { profesional: CUALQUIERA })} data-sveltekit-reset="false" aria-current={data.profesionalId === CUALQUIERA ? 'true' : undefined}>Cualquiera</a>
+								<a class="opcion" href={ir('dia', { profesional: CUALQUIERA })} data-sveltekit-noscroll aria-current={data.profesionalId === CUALQUIERA ? 'true' : undefined}>Cualquiera</a>
 								{#each data.profesionales as p (p.id)}
-									<a class="opcion" href={ir('dia', { profesional: p.id })} data-sveltekit-reset="false" aria-current={data.profesionalId === p.id ? 'true' : undefined}>
+									<a class="opcion" href={ir('dia', { profesional: p.id })} data-sveltekit-noscroll aria-current={data.profesionalId === p.id ? 'true' : undefined}>
 										{#if p.foto}<img src={p.foto} alt="" width="28" height="28" />{/if}{p.nombre}
 									</a>
 								{/each}
@@ -225,7 +278,7 @@
 							{:else if data.horarios.length}
 								{#if data.ocupado}
 									<div class="estado" role="alert">
-										<span class="kicker tl-num">PASO 04 · CUÁNDO</span>
+										<span class="kicker tl-num">PASO 03 · CUÁNDO</span>
 										<h3 class="titulo-estado">Las {data.ocupado} se ocuparon&nbsp;recién</h3>
 										<p class="texto">Tus datos quedan guardados. Estos siguen libres, cerca de lo que&nbsp;elegiste:</p>
 										{#each cerca as h (h.inicio)}
@@ -262,8 +315,10 @@
 							class="form-w"
 							use:enhance={({ action, cancel }) => {
 								if (enviando || aplicando) return cancel();
-								if (action.searchParams.has('/reservar')) enviando = true;
-								else aplicando = true;
+								if (action.searchParams.has('/reservar')) {
+									enviando = true;
+									recordar();
+								} else aplicando = true;
 								return async ({ update, result }) => {
 									await update({ reset: false });
 									// Se ocupó mientras completaba: se vuelve a pedir la agenda (y lo cargado queda en el borrador).
@@ -289,7 +344,6 @@
 							{:else if form && 'error' in form && form.error && !('enEspera' in form) && form.codigo !== 'horario_ocupado'}
 								<p class="aviso-w rojo" role="alert"><Icono nombre="error" tam={20} lleno /><span>{form.error}</span></p>
 							{/if}
-							<AvisoDatos negocio={n.nombre} />
 							{#if data.membresia}
 								<label class="socio">
 									<input type="checkbox" name="usarMembresia" value="1" bind:checked={usar} />
@@ -306,6 +360,11 @@
 								</div>
 							{/if}
 							{#if !conMembresia}
+								{#if recordada}
+									<p class="recordada chico sub">
+										Te recordamos de la última vez. <button type="button" class="olvidar" onclick={olvidar}>¿No sos vos? Borrar</button>
+									</p>
+								{/if}
 								<label class="visualmente-oculto" for="r-nombre">Nombre y apellido</label>
 								<input
 									id="r-nombre"
@@ -348,7 +407,7 @@
 									aria-invalid={!!form?.campos?.['cliente.email']}
 									aria-describedby="ayuda-contacto"
 								/>
-								<span id="ayuda-contacto" class="chico sub">Teléfono o email: con uno alcanza. Ahí te llega la&nbsp;confirmación.</span>
+								<span id="ayuda-contacto" class="chico sub">Teléfono o email: con uno alcanza. Con email te llega el&nbsp;comprobante.</span>
 							{/if}
 							<details {...abierto(!!(cupon || v.cupon || v.referido || v.nota || v.nacimiento || data.referido || form?.campos?.["cliente.nacimiento"]))}>
 								<summary class="extra">
@@ -384,6 +443,7 @@
 								</div>
 							</details>
 
+							<AvisoDatos negocio={n.nombre} />
 							<div class="ticket">
 								<div class="ticket-arriba">
 									<div class="renglon"><span>{data.servicio.nombre}</span><span class="tl-num">{pesos(precio)}</span></div>
@@ -412,7 +472,10 @@
 
 				{#snippet barra()}
 					<span class="barra-texto">
-						{#if listo && data.horario}
+						{#if form && 'anotado' in form && form.anotado}
+							<b>Te anotamos en la lista</b>
+							<span>Si se libera, te llega un&nbsp;mail</span>
+						{:else if listo && data.horario}
 							<b>{diaCorto(data.fecha)} · {data.horario.hora}</b>
 							<span>{conMembresia ? 'Con tu membresía' : sena > 0 && sena < total ? `Total ${pesos(total)} · seña ${pesos(sena)}` : `Total ${pesos(total)}`}</span>
 						{:else if data.servicio}
@@ -423,7 +486,9 @@
 							<span>{data.servicios.length} {data.servicios.length === 1 ? 'servicio' : 'servicios'} para&nbsp;elegir</span>
 						{/if}
 					</span>
-					{#if listo}
+					{#if form && 'anotado' in form && form.anotado}
+						<a class="boton-reserva" href={ir('dia', conProf)} data-sveltekit-noscroll>Ver otros días</a>
+					{:else if listo}
 						<button class="boton-reserva" form="f-reserva" disabled={enviando || aplicando}>{textoBoton}</button>
 					{:else}
 						<button class="boton-reserva" type="button" disabled>Reservar</button>
@@ -437,6 +502,23 @@
 <style>
 	.sub {
 		color: var(--w-sub);
+	}
+	.recordada {
+		margin: 0;
+	}
+	.olvidar {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: inherit;
+		font: inherit;
+		font-weight: 700;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+	/* El campo enfocado no queda debajo de la barra fija de abajo. */
+	:global(.entrada) {
+		scroll-margin-bottom: 104px;
 	}
 	.chico {
 		font-size: 13px;

@@ -166,7 +166,7 @@
 		{#if vivo && puedeActuar}
 			<section class="bloque" id="reprogramar" aria-labelledby="t-reprogramar">
 				<h2 id="t-reprogramar" class="tl-rotulo rot">Reprogramar</h2>
-				<form method="GET" class="elegir" data-sveltekit-reset="false" aria-label="Día y profesional para reprogramar">
+				<form method="GET" class="elegir" data-sveltekit-noscroll aria-label="Día y profesional para reprogramar">
 					<label class="campo">Día <input type="date" name="fecha" value={data.fecha} onchange={(e) => e.currentTarget.form?.requestSubmit()} /></label>
 					<label class="campo">
 						Profesional

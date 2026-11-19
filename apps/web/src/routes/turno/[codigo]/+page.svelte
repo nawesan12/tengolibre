@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { enhance, type SubmitFunction } from '$app/forms';
 	import { page } from '$app/state';
 	import { DIAS, ESTADOS, dia, fecha, hora, pesos } from '#lib/formato.ts';
@@ -16,7 +17,9 @@
 	const base = $derived(`/turno/${t.codigo}`);
 	const tm = $derived(tema(completar(data.web?.estilo), data.web?.colorPrimario, data.web?.colorAcento));
 	const vars = $derived(variables(tm));
-	const activo = $derived(['pendiente', 'confirmado', 'pendiente_pago'].includes(t.estado));
+	// Con la seña vencida, el turno ya no está guardado: no es «activo» para la clienta.
+	const vencido = $derived(!!data.vencido);
+	const activo = $derived(!vencido && ['pendiente', 'confirmado', 'pendiente_pago'].includes(t.estado));
 	const cancelado = $derived(t.estado === 'cancelado');
 	const cambiado = $derived(page.url.searchParams.has('cambiado'));
 	const f = $derived(dia(t.inicio, z));
@@ -46,7 +49,40 @@
 		atendido: 'task_alt',
 		ausente: 'person_off'
 	};
-	const sello = $derived(cancelado ? 'CANCELADO' : sena > 0 ? 'SEÑA OK' : t.conMembresia ? 'MEMBRESÍA' : '');
+	const sello = $derived(cancelado ? 'CANCELADO' : vencido ? 'VENCIDO' : sena > 0 ? 'SEÑA OK' : t.conMembresia ? 'MEMBRESÍA' : '');
+	// Para la clienta, «pendiente» es «Reservado» (Pendiente parecía que faltaba que lo aceptaran).
+	const estadoTexto = $derived(vencido ? 'Vencido' : t.estado === 'pendiente' ? 'Reservado' : (ESTADOS[t.estado] ?? t.estado));
+	// «Confirmo que voy» sólo cerca del turno (48 h antes) y nunca recién reservado ni mientras cambia o cancela.
+	const pedirConfirmar = $derived(
+		t.estado === 'pendiente' && !data.nuevo && !data.cambiar && !data.cancelar && Date.parse(t.inicio) - Date.now() <= 48 * 3_600_000
+	);
+	// Sin email no le llega el comprobante: se lo puede mandar por WhatsApp o copiar el link.
+	const sinEmail = $derived(!t.cliente.email);
+	const linkTurno = $derived(`${page.url.origin}/turno/${t.codigo}`);
+	let linkCopiado = $state(false);
+	async function copiarTurno() {
+		try {
+			await navigator.clipboard.writeText(linkTurno);
+			linkCopiado = true;
+			setTimeout(() => (linkCopiado = false), 2500);
+		} catch {
+			linkCopiado = false;
+		}
+	}
+	// «Agendar»: en Android abre Google Calendar (un .ics descargado queda en Descargas); en el resto, el .ics.
+	const fechaG = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+	let agendar = $state('');
+	onMount(() => {
+		if (!/Android/i.test(navigator.userAgent)) return;
+		const q = new URLSearchParams({
+			action: 'TEMPLATE',
+			text: `${t.servicio} en ${n.nombre}`,
+			dates: `${fechaG(t.inicio)}/${fechaG(t.fin)}`,
+			location: [n.direccion, n.ciudad].filter(Boolean).join(', '),
+			details: `${t.profesional ? `Con ${t.profesional}. ` : ''}Para cambiarlo o cancelarlo: ${linkTurno}`
+		});
+		agendar = `https://calendar.google.com/calendar/render?${q}`;
+	});
 	const minutosQuedan = $derived(t.venceEn ? Math.max(0, Math.round((Date.parse(t.venceEn) - Date.now()) / 60000)) : null);
 	let nueva = $state('');
 	// Mientras va un pedido (pagar, confirmar, cancelar, repetir…), todos los botones quedan quietos: nada de dobles.
@@ -94,6 +130,23 @@
 
 		{#if data.nuevo && activo && t.estado !== 'pendiente_pago'}
 			<p class="aviso-w tinte" role="status"><Icono nombre="celebration" lleno /><span>¡Listo! Guardá este link: desde acá lo cambiás o lo&nbsp;cancelás.</span></p>
+			{#if sinEmail}
+				<!-- Sin email no le llega nada: que se lleve el link ahora. -->
+				<div class="dos">
+					<a class="boton-w" href={compartirWhatsapp(`Mi turno en ${n.nombre}: ${linkTurno}`)} target="_blank" rel="noopener"
+						><Icono nombre="chat" tam={20} lleno />Mandármelo por WhatsApp</a
+					>
+					<button type="button" class="boton-w" onclick={copiarTurno}><Icono nombre="content_copy" tam={20} />{linkCopiado ? 'Copiado' : 'Copiar link'}</button>
+				</div>
+			{/if}
+		{/if}
+		{#if vencido}
+			<section class="estado" aria-labelledby="t-vencido">
+				<span class="kicker ambar tl-num">SEÑA VENCIDA</span>
+				<h2 id="t-vencido">Se venció el tiempo para pagar la&nbsp;seña</h2>
+				<p class="texto">{sinViuda(`El horario del ${cuandoCorto} quedó libre. Si todavía querés ir, elegí otro horario.`)}</p>
+				<a class="cta" href={reservarDeNuevo + `&fecha=${f}`}>Volver a reservar</a>
+			</section>
 		{/if}
 		{#if cambiado && activo}<p class="aviso-w tinte" role="status"><Icono nombre="event_repeat" lleno /><span>Cambiamos tu turno al nuevo&nbsp;horario.</span></p>{/if}
 		{#if data.pago && mensajesPago[data.pago]}
@@ -102,7 +155,7 @@
 		{#if form && 'confirmado' in form}<p class="aviso-w tinte" role="status"><Icono nombre="check_circle" lleno /><span>¡Gracias! Le avisamos a {n.nombre} que&nbsp;venís.</span></p>{/if}
 		{#if form?.error}<p class="aviso-w rojo" role="alert"><Icono nombre="error" lleno /><span>{form.error}</span></p>{/if}
 
-		{#if t.estado === 'pendiente_pago'}
+		{#if t.estado === 'pendiente_pago' && !vencido}
 			{#if data.pago === 'error'}
 				<section class="estado" aria-labelledby="t-pago">
 					<span class="kicker ambar tl-num">ESPERANDO PAGO</span>
@@ -156,7 +209,7 @@
 				{#if data.opcionesRepetir.length > 1}
 					<div class="fechas" role="group" aria-label="Otras fechas">
 						{#each data.opcionesRepetir as o (o.inicio)}
-							<a class="fecha-op tl-num" href={`${base}?repetir=${o.fecha}`} data-sveltekit-reset="false" aria-current={o.fecha === e.fecha ? 'true' : undefined}>{diaCorto(o.fecha)}</a>
+							<a class="fecha-op tl-num" href={`${base}?repetir=${o.fecha}`} data-sveltekit-noscroll aria-current={o.fecha === e.fecha ? 'true' : undefined}>{diaCorto(o.fecha)}</a>
 						{/each}
 					</div>
 				{/if}
@@ -178,7 +231,7 @@
 				<div class="talon-cab">
 					{@render logo(34)}
 					<b>{n.nombre}</b>
-					<span class="estado-pastilla"><Icono nombre={ICONOS[t.estado] ?? 'info'} tam={15} lleno />{ESTADOS[t.estado] ?? t.estado}</span>
+					<span class="estado-pastilla"><Icono nombre={vencido ? 'timer_off' : (ICONOS[t.estado] ?? 'info')} tam={15} lleno />{estadoTexto}</span>
 				</div>
 				<div class="cuando">
 					<span class="tl-num">{diaCorto(f)} · {mesCorto(f)}</span>
@@ -194,7 +247,7 @@
 						<span class="con-icono ok"><Icono nombre="paid" tam={18} lleno />Seña pagada</span><span class="tl-num">{pesos(sena)}</span>
 					{:else if t.conMembresia}
 						<span class="con-icono ok"><Icono nombre="card_membership" tam={18} lleno />Con tu membresía</span><span class="tl-num">1 visita</span>
-					{:else if falta}
+					{:else if falta && !vencido}
 						<span class="con-icono ambar-txt"><Icono nombre="hourglass_top" tam={18} lleno />Falta la seña</span><span class="tl-num">{pesos(falta)}</span>
 					{:else}
 						<span class="con-icono"><Icono nombre="payments" tam={18} lleno />Precio</span><span class="tl-num">{pesos(t.precio)}</span>
@@ -204,7 +257,7 @@
 					<div class="renglon"><span class="sub">En el local</span><b class="tl-num">{pesos(t.precio - sena)}</b></div>
 				{/if}
 				<div class="renglon raya codigo">
-					{#if t.referencia}
+					{#if t.referencia && !cancelado && !vencido}
 						<b class="tl-num">{t.referencia}</b><span class="sub chico">mostralo al llegar</span>
 					{:else}
 						<span>A nombre de <b>{t.cliente.nombre}</b></span>
@@ -214,7 +267,7 @@
 		</section>
 
 		{#if activo}
-			{#if t.estado === 'pendiente'}
+			{#if pedirConfirmar}
 				<form method="POST" action="?/confirmar" use:enhance={enviar('confirmar')} class="pila">
 					<button class="cta" disabled={!!enviando}>{enviando === 'confirmar' ? 'Confirmando…' : 'Confirmo que voy'}</button>
 				</form>
@@ -222,7 +275,11 @@
 				<span class="confirmado"><Icono nombre="check_circle" tam={18} lleno />Confirmaste{t.confirmadoPor === 'whatsapp' ? ' por WhatsApp' : ''} · <span class="tl-num">{hora(t.confirmadoEn, z)}</span></span>
 			{/if}
 			<div class="dos">
-				<a class="boton-w" href={`${base}/turno.ics`} download="turno.ics"><Icono nombre="calendar_add_on" tam={20} lleno />Agendar</a>
+				{#if agendar}
+					<a class="boton-w" href={agendar} target="_blank" rel="noopener"><Icono nombre="calendar_add_on" tam={20} lleno />Agendar</a>
+				{:else}
+					<a class="boton-w" href={`${base}/turno.ics`} download="turno.ics"><Icono nombre="calendar_add_on" tam={20} lleno />Agendar</a>
+				{/if}
 				{#if mapa}<a class="boton-w" href={mapa} target="_blank" rel="noopener"><Icono nombre="directions" tam={20} lleno />Cómo llegar</a>{/if}
 			</div>
 
@@ -342,6 +399,7 @@
 		{/if}
 
 		<a class="hecho" href={`/${n.slug}`}>Ver {n.nombre}</a>
+		<a class="hecho chico" href="/mi-cuenta">Mis turnos</a>
 	</main>
 </div>
 

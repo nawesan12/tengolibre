@@ -95,9 +95,19 @@
 		const v = alt && x.alternativa ? x.alternativa.inicio : x.inicio;
 		usar = { ...usar, [x.inicio]: usar[x.inicio] === v ? '' : v };
 	};
+	// El día va con espacios duros: «nov» no queda sola en el último renglón.
+	const diaDuro = (f: string) => nombreDia(f).replaceAll(' ', '\u00a0');
 	const resumen = $derived(
-		[servicio?.nombre, profNombre ? `con ${primerNombre(profNombre)}` : '', `${nombreDia(data.fecha)}${horaElegida && !sobreturno ? ` ${horaElegida}` : ''}`].filter(Boolean).join(' · ')
+		[
+			servicio?.nombre ?? 'Elegí el servicio',
+			profNombre ? `con ${primerNombre(profNombre)}` : '',
+			`${diaDuro(data.fecha)}${horaElegida && !sobreturno ? `\u00a0${horaElegida}` : ''}`
+		]
+			.filter(Boolean)
+			.join(' · ')
 	);
+	// Lo que de verdad le llega: sin email, ningún aviso (no se promete lo que no sale).
+	const avisoPie = $derived(email.trim() ? 'Le llega la confirmación por\u00a0mail.' : 'Sin email no le llega ningún\u00a0aviso.');
 </script>
 
 <svelte:head><title>Nuevo turno · Panel</title></svelte:head>
@@ -121,7 +131,7 @@
 				<span class="tl-rotulo rot">Servicio</span>
 				<div class="chips">
 					{#each data.servicios as s (s.id)}
-						<a class="chip" class:on={s.id === data.servicio} href={enlace({ servicio: s.id, profesional: '' })} data-sveltekit-reset="false" data-sveltekit-replacestate>{s.nombre}</a>
+						<a class="chip" class:on={s.id === data.servicio} href={enlace({ servicio: s.id, profesional: '' })} data-sveltekit-replacestate data-sveltekit-noscroll>{s.nombre}</a>
 					{/each}
 				</div>
 				{#if servicio}<span class="nota tl-num">{servicio.duracion} min · {pesos(servicio.precio)}</span>{/if}
@@ -130,18 +140,18 @@
 			<section class="sec">
 				<span class="tl-rotulo rot">Con quién y cuándo</span>
 				<div class="chips">
-					<a class="chip" class:on={!data.profesional} href={enlace({ profesional: '' })} data-sveltekit-reset="false" data-sveltekit-replacestate>Cualquiera</a>
+					<a class="chip" class:on={!data.profesional} href={enlace({ profesional: '' })} data-sveltekit-replacestate data-sveltekit-noscroll>Cualquiera</a>
 					{#each data.profesionales as p (p.id)}
-						<a class="chip" class:on={p.id === data.profesional} href={enlace({ profesional: p.id })} data-sveltekit-reset="false" data-sveltekit-replacestate>{p.nombre}</a>
+						<a class="chip" class:on={p.id === data.profesional} href={enlace({ profesional: p.id })} data-sveltekit-replacestate data-sveltekit-noscroll>{p.nombre}</a>
 					{/each}
 				</div>
 				<div class="dias">
 					{#each dias as d (d)}
-						<a class="dia" class:on={d === data.fecha} href={enlace({ fecha: d })} data-sveltekit-reset="false" data-sveltekit-replacestate>
+						<a class="dia" class:on={d === data.fecha} href={enlace({ fecha: d })} data-sveltekit-replacestate data-sveltekit-noscroll>
 							<span>{d === dia() ? 'hoy' : dow(d)}</span><b class="tl-num">{d.slice(8)}</b>
 						</a>
 					{/each}
-					<form method="GET" class="otro-dia" data-sveltekit-reset="false">
+					<form method="GET" class="otro-dia" data-sveltekit-noscroll>
 						{#each Object.entries({ servicio: data.servicio, profesional: data.profesional, cliente: data.cliente.id }) as [k, v] (k)}
 							{#if v}<input type="hidden" name={k} value={v} />{/if}
 						{/each}
@@ -172,7 +182,9 @@
 				<section class="sec">
 					<span class="tl-rotulo rot">Horario del {nombreDia(data.fecha)}</span>
 					{#if !sobreturno}
-						{#if data.errorLibres}
+						{#if !data.servicio}
+							<p class="nota">Elegí el servicio para ver los horarios&nbsp;libres.</p>
+						{:else if data.errorLibres}
 							<p class="aviso error">{data.errorLibres}</p>
 						{:else if data.horarios.length === 0}
 							<p class="nota">No quedan horarios libres{servicio ? ` de ${servicio.nombre}` : ''} ese día. Probá otro día u otro profesional, o cargalo como&nbsp;sobreturno.</p>
@@ -285,14 +297,14 @@
 		<footer class="pie">
 			<span class="res">
 				<b class="tl-num">{cada > 0 && previa ? `${aceptadas.length} turnos · ${resumen}` : resumen}</b>
-				Le llega la confirmación por&nbsp;mail.
+				{avisoPie}
 			</span>
 			{#if cada > 0 && !previa}
 				<button class="reservar" form="form-nuevo" name="paso" value="previa" disabled={enviando}>Ver las fechas</button>
 			{:else if cada > 0}
 				<button class="reservar" form="form-nuevo" name="paso" value="reservar" disabled={enviando || aceptadas.length === 0}>Reservar los {aceptadas.length}</button>
 			{:else}
-				<button class="reservar" form="form-nuevo" disabled={enviando}>Reservar turno</button>
+				<button class="reservar" form="form-nuevo" disabled={enviando || !data.servicio}>Reservar turno</button>
 			{/if}
 		</footer>
 	{/if}

@@ -148,7 +148,7 @@
 	<h1>Turnos</h1>
 	<nav class="tira" aria-label="Días">
 		{#each tira as d (d.d)}
-			<a href={enlace({ fecha: d.d })} class="dia {d.tipo}" aria-current={d.tipo === 'on' ? 'date' : undefined} aria-label={d.aria} data-sveltekit-reset="false">
+			<a href={enlace({ fecha: d.d })} class="dia {d.tipo}" aria-current={d.tipo === 'on' ? 'date' : undefined} aria-label={d.aria} data-sveltekit-noscroll>
 				<span class="dow">{d.dow}</span><b class="tl-num">{d.n}</b><span class="k tl-num">{d.k}</span>
 			</a>
 		{/each}
@@ -263,11 +263,11 @@
 {/if}
 
 {#if cancelOcultos > 0}
-	<a class="ver-cancelados" href={enlace({ cancelados: true })} data-sveltekit-reset="false">
+	<a class="ver-cancelados" href={enlace({ cancelados: true })} data-sveltekit-noscroll>
 		<Icono nombre="visibility" tam={18} />Mostrar {cancelOcultos}&nbsp;{cancelOcultos === 1 ? 'cancelado' : 'cancelados'}
 	</a>
 {:else if f.cancelados}
-	<a class="ver-cancelados" href={enlace({ cancelados: false })} data-sveltekit-reset="false"><Icono nombre="visibility_off" tam={18} />Ocultar los cancelados</a>
+	<a class="ver-cancelados" href={enlace({ cancelados: false })} data-sveltekit-noscroll><Icono nombre="visibility_off" tam={18} />Ocultar los cancelados</a>
 {/if}
 
 {#if caja}<Caja t={caja} productos={data.productos} alCerrar={() => (caja = null)} />{/if}

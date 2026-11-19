@@ -25,22 +25,27 @@ export const load: PageServerLoad = async ({ params, url, fetch, setHeaders }) =
 		opcional(api.get<{ sugerencias: Sugerencia[] }>(`/v1/t/${c}/sugerencias`), { sugerencias: [] })
 	]);
 
-	// Reprogramar: el mismo servicio y profesional, en otro día y horario (las mismas reglas que cancelar).
-	const puedeCambiar = turno.puedeCancelar && !!turno.servicioId && ACTIVOS.includes(turno.estado);
+	// La seña venció sin pagarse: el horario ya no está guardado (la API lo deja en pendiente_pago hasta
+	// que alguien lo toque). No se ofrece pagar, agendar, cambiar ni cancelar: volver a reservar.
+	const vencido = turno.estado === 'pendiente_pago' && !!turno.venceEn && new Date(turno.venceEn).getTime() <= Date.now();
+	// Reprogramar: el mismo servicio, en otro día y horario (las mismas reglas que cancelar). Con la
+	// profesional elegida, la misma; con «Cualquiera», todas.
+	const puedeCambiar = !vencido && turno.puedeCancelar && !!turno.servicioId && ACTIVOS.includes(turno.estado);
 	const cambiar = puedeCambiar && url.searchParams.has('cambiar');
 	let fecha = esFecha(url.searchParams.get('fecha')) ? url.searchParams.get('fecha')! : '';
 	let dias: Dia[] = [];
 	let horarios: Horario[] = [];
 	if (cambiar) {
 		const q = new URLSearchParams({ servicio: turno.servicioId! });
-		if (turno.profesionalId) q.set('profesional', turno.profesionalId);
+		if (turno.profesionalId && turno.profesionalElegida !== false) q.set('profesional', turno.profesionalId);
 		const slug = turno.negocio.slug;
 		dias = (await opcional(api.get<{ dias: Dia[] }>(`/v1/p/${slug}/dias?${q}`), { dias: [] })).dias;
 		// Sin día elegido: el primero con lugar (las horas se ven de una, como en el diseño).
 		if (!fecha) fecha = dias.find((d) => d.libres > 0)?.fecha ?? '';
 		if (fecha) {
-			q.set('fecha', fecha);
-			horarios = (await opcional(api.get<{ horarios: Horario[] }>(`/v1/p/${slug}/libres?${q}`), { horarios: [] })).horarios;
+			// Los del propio turno: no cuenta como ocupado (se puede mover media hora) y, con «Cualquiera»,
+			// son los de todas.
+			horarios = (await opcional(api.get<{ horarios: Horario[] }>(`/v1/t/${c}/libres?fecha=${fecha}`), { horarios: [] })).horarios;
 		}
 	}
 
@@ -62,7 +67,8 @@ export const load: PageServerLoad = async ({ params, url, fetch, setHeaders }) =
 		repetir,
 		opcionesRepetir: opciones,
 		repetirElegido,
-		cancelar: activo(turno.estado) && turno.puedeCancelar && url.searchParams.has('cancelar') && !cambiar,
+		cancelar: !vencido && activo(turno.estado) && turno.puedeCancelar && url.searchParams.has('cancelar') && !cambiar,
+		vencido,
 		referido,
 		sugerencias: sugerencias.sugerencias,
 		puedeCambiar,

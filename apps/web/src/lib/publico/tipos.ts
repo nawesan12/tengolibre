@@ -97,7 +97,8 @@ export type Plan = {
 
 export type Cobro = { modo: 'sin_cobro' | 'porcentaje' | 'fija' | 'total'; senaPorcentaje: number; senaFija: number };
 
-export type Dia = { fecha: string; libres: number };
+/** abierto: el negocio atiende ese día (con libres 0, está lleno y se ofrece la lista de espera). */
+export type Dia = { fecha: string; libres: number; abierto?: boolean };
 export type Horario = { hora: string; inicio: string; profesionales: string[] };
 
 export type Pago = { monto: number; modo: string; url?: string };
@@ -116,6 +117,8 @@ export type Turno = {
 	estado: string;
 	nota: string;
 	venceEn: string | null;
+	/** false: tocó «Cualquiera» al reservar (al reprogramar se ofrecen los horarios de todas). */
+	profesionalElegida?: boolean;
 	descuento?: number;
 	pago?: Pago;
 	/** Quién confirmó (docs/api/whatsapp.md): whatsapp, web (el link o la seña) o panel. */

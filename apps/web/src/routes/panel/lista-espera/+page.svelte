@@ -34,7 +34,7 @@
 	{#if !data.prohibido}
 		<nav class="tabs" aria-label="Estado">
 			{#each TABS_ESPERA as t (t.clave)}
-				<a href={t.clave === 'esperando' ? '?' : `?tab=${t.clave}`} class:on={data.tab === t.clave} aria-current={data.tab === t.clave ? 'page' : undefined} data-sveltekit-reset="false"
+				<a href={t.clave === 'esperando' ? '?' : `?tab=${t.clave}`} class:on={data.tab === t.clave} aria-current={data.tab === t.clave ? 'page' : undefined} data-sveltekit-noscroll
 					>{t.nombre}<span class="tl-num">{cuenta[t.clave]}</span></a
 				>
 			{/each}

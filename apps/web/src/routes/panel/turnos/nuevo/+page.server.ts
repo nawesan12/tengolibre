@@ -19,7 +19,13 @@ export const load: PageServerLoad = async (event) => {
 	const api = apiDe(event);
 	const cat = await catalogo(api);
 	const servicios = cat.servicios.filter((s) => s.activo);
-	const servicio = servicios.some((s) => s.id === param(url, 'servicio')) ? param(url, 'servicio') : (servicios[0]?.id ?? '');
+	// Sin servicio en la URL arranca sin servicio, como el handoff (nvVacio: srv null): con el primero
+	// elegido de antemano era fácil reservar el equivocado. Con uno solo, es ése.
+	const servicio = servicios.some((s) => s.id === param(url, 'servicio'))
+		? param(url, 'servicio')
+		: servicios.length === 1
+			? servicios[0].id
+			: '';
 	const profesionales = cat.profesionales.filter((p) => p.activo && (!servicio || p.servicios.includes(servicio)));
 	const profesional = profesionales.some((p) => p.id === param(url, 'profesional')) ? param(url, 'profesional') : '';
 	const fecha = esDia(param(url, 'fecha')) ? param(url, 'fecha') : dia();
