@@ -538,6 +538,19 @@ func TestWhatsAppTopeDelPlan(t *testing.T) {
 	if avisos != 1 {
 		t.Fatalf("avisos sin cupo: %d", avisos)
 	}
+	// El aviso salió con Equipo (sin incluidos): ofrece el pack o pasar a Centro.
+	var texto string
+	e.Fila("SELECT texto FROM notificaciones WHERE negocio_id = $1::uuid AND tipo = 'whatsapp_sin_cupo'", []any{e.negocio}, &texto)
+	if !strings.Contains(texto, "pasá a Centro") {
+		t.Fatalf("aviso sin cupo: %q", texto)
+	}
+	// Con Centro, el del mes que viene no le ofrece pasar a Centro.
+	e.Fila("DELETE FROM notificaciones WHERE negocio_id = $1::uuid AND tipo = 'whatsapp_sin_cupo'", []any{e.negocio})
+	e.correr(e.tj.Recordatorios)
+	e.Fila("SELECT texto FROM notificaciones WHERE negocio_id = $1::uuid AND tipo = 'whatsapp_sin_cupo'", []any{e.negocio}, &texto)
+	if strings.Contains(texto, "Centro") || !strings.Contains(texto, "pack") {
+		t.Fatalf("aviso sin cupo en Centro: %q", texto)
+	}
 	// El mes que viene arranca de cero.
 	e.Ahora = en("2026-12-06 10:00")
 	e.reservar("2026-12-07 10:00", "Lola Fernández", "11 3456-7890")

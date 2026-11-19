@@ -156,7 +156,15 @@ func conCupo(ctx context.Context, tx pgx.Tx, ahora time.Time, pendientes int) (b
 		return false, err
 	}
 	return false, avisos.Notificar(ctx, tx, avisos.Notificacion{Tipo: NotiSinWhatsApp, Titulo: "Los recordatorios por WhatsApp no están saliendo",
-		Texto: "No te quedan recordatorios por WhatsApp este mes. Siguen saliendo por mail y en el celular. Comprá un pack de 100 o pasá a Centro desde Suscripción."})
+		Texto: textoSinWhatsApp(ctx, tx, ahora)})
+}
+
+// textoSinWhatsApp: a quien ya tiene Centro no se le ofrece pasar a Centro, y los packs no son «del mes».
+func textoSinWhatsApp(ctx context.Context, tx pgx.Tx, ahora time.Time) string {
+	if v, err := planes.Leer(ctx, tx, ahora); err == nil && v.WhatsAppIncluidos > 0 {
+		return "Usaste los recordatorios por WhatsApp de este mes. Siguen saliendo por mail y en el celular. Comprá un pack de 100 desde Suscripción."
+	}
+	return "Se terminaron tus recordatorios por WhatsApp. Siguen saliendo por mail y en el celular. Comprá un pack de 100 o pasá a Centro desde Suscripción."
 }
 
 // Confirmaciones encola, en los negocios que la prendieron, la confirmación de los turnos de mañana
