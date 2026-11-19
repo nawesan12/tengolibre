@@ -95,6 +95,12 @@
 				texto: `¿Pasar a ${p.nombre} con pago ${periodo}? Empieza ${finPagado ? `el ${fechaConAnio(finPagado)}, cuando vence lo que ya pagaste` : 'con el próximo cobro'}: ${pesos(despues)} ${cada}. Hasta ahí seguís con ${actual.nombre}.`
 			};
 		const antes = mesDe(actual, extrasActuales) * meses;
+		// Sin nada cobrado todavía (la prueba): no hay diferencia que pagar, cambia el monto del primer cobro.
+		if (!s.ultimoCobro)
+			return {
+				sube: false,
+				texto: `¿Pasar a ${p.nombre}? Todavía no se cobró nada: el primer cobro${finPagado ? `, el ${fechaConAnio(finPagado)},` : ''} ya es de ${p.nombre}, ${pesos(despues)} ${cada}.`
+			};
 		if (despues > antes)
 			return {
 				sube: true,
