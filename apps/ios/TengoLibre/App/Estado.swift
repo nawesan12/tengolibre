@@ -413,8 +413,9 @@ final class Estado {
         let hex = datos.map { String(format: "%02x", $0) }.joined()
         guard hex != tokenPush else { return }
         tokenPush = hex
-        // Sin sesión (en el alta o afuera) igual se dejan de seguir los turnos viejos: no pide sesión.
-        guard api.token != nil else { await dejarDeSeguirTodos(); return }
+        // Sin sesión (afuera) igual se dejan de seguir los turnos viejos: no pide sesión. El token no se
+        // guarda: al entrar llega el mismo y tiene que registrarse.
+        guard api.token != nil else { await dejarDeSeguirTodos(); tokenPush = nil; return }
         struct Cuerpo: Encodable { var plataforma = "ios"; var token: String; var entorno: String; var modelo: String; var version: String }
         let entorno = Self.entornoPush
         let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""

@@ -446,8 +446,9 @@ class Estado(api: Api? = null, private val alcance: CoroutineScope = CoroutineSc
     suspend fun registrarTokenPush(token: String) {
         if (token == tokenPush) return
         tokenPush = token
-        // Sin sesión (en el alta o afuera) igual se dejan de seguir los turnos viejos: no pide sesión.
-        if (api.token == null) { dejarDeSeguirTodos(); return }
+        // Sin sesión (afuera) igual se dejan de seguir los turnos viejos: no pide sesión. El token no se guarda:
+        // al entrar llega el mismo y tiene que registrarse.
+        if (api.token == null) { dejarDeSeguirTodos(); tokenPush = null; return }
         runCatching { api.hacer("POST", "/v1/yo/dispositivos", Dispositivo(token = token, modelo = Build.MODEL ?: "Android", version = BuildConfig.VERSION_NAME)) }
         dejarDeSeguirTodos()
     }
