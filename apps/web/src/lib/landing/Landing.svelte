@@ -5,6 +5,8 @@
 	Las clases evitan los nombres globales de app.css (.boton, .tarjeta, .campo…).
 -->
 <script lang="ts">
+	import catalogo from '#lib/planes-catalogo.json';
+	import { sinViuda } from '#lib/publico/textos.ts';
 	import { page } from '$app/state';
 	import Icono from '#lib/ui/Icono.svelte';
 	import Qr from '#lib/alta/Qr.svelte';
@@ -84,45 +86,17 @@
 		{ n: 'Consultorios', s: 'Recepción y varios profesionales', foto: 'recepcion.jpg', r: 'consultorio' }
 	];
 
-	// Los planes del 19/11/2026 (apps/api/internal/dominio/planes es la fuente: si cambia allá, acá).
-	const precios = [
-		{
-			n: 'Inicial',
-			precio: '$\u00a06.900',
-			para: 'Para un negocio chico.',
-			inc: ['Hasta 5 profesionales', 'Link propio y reservas por la web', 'Recordatorios por mail y en el celular, sin límite', 'Ficha de cada cliente y caja', 'Asistente: 100 respuestas al mes'],
-			clase: 'crema'
-		},
-		{
-			n: 'Equipo',
-			precio: '$\u00a014.900',
-			para: 'Cuando suma gente y le empiezan a faltar a los turnos.',
-			inc: [
-				'Hasta 12 profesionales',
-				'Todo lo de Inicial',
-				'Seña con Mercado Pago al reservar',
-				'Lista de espera que ofrece el hueco sola',
-				'Membresías, cupones y referidos',
-				'Asistente: 400 respuestas al mes'
-			],
-			clase: 'oscuro',
-			tag: 'EL MÁS ELEGIDO'
-		},
-		{
-			n: 'Centro',
-			precio: '$\u00a029.900',
-			para: 'Para equipos grandes o con más de un local.',
-			inc: [
-				'Hasta 25 profesionales (cada uno extra, $\u00a01.900)',
-				'Todo lo de Equipo',
-				'Hasta 3 sucursales',
-				'Dominio propio y plantillas de página',
-				'150 recordatorios por WhatsApp incluidos',
-				'Asistente: 1.500 respuestas al mes'
-			],
-			clase: 'crema'
-		}
-	];
+	// Los planes salen de planes-catalogo.json, que un test de la API mantiene igual a planes.go (la
+	// fuente de precios y de lo que incluye cada plan): la landing no promete nada distinto al panel.
+	const CLASES: Record<string, string> = { inicial: 'crema', equipo: 'oscuro', centro: 'crema' };
+	const precios = catalogo.planes.map((p) => ({
+		n: p.nombre,
+		precio: '$\u00a0' + p.precio.toLocaleString('es-AR'),
+		para: sinViuda(p.bajada),
+		inc: p.incluye.map(sinViuda),
+		clase: CLASES[p.clave] ?? 'crema',
+		tag: p.destacado ? 'EL MÁS ELEGIDO' : undefined
+	}));
 
 	const faq = [
 		['¿Mis clientes tienen que bajarse una\u00a0app?', 'No. Reservan desde tu página en el navegador, sin crear cuenta. Les llega el comprobante por mail.'],
@@ -230,7 +204,7 @@
 		<div class="hero-marco">
 			<div class="hero-caja">
 				<a class="pestana" href="/empezar">
-					<span class="rotulo">7 DÍAS GRATIS · SIN TARJETA</span>
+					<span class="rotulo">{catalogo.diasDePrueba} DÍAS GRATIS · SIN TARJETA</span>
 					<span class="pestana-cta">Empezar ahora<Icono nombre="arrow_forward" tam={26} /></span>
 				</a>
 				<div class="hero">
@@ -429,7 +403,7 @@
 			</article>
 		</div>
 		<div class="centro">
-			<a class="pastilla menta grande sombra" href="/empezar">Probalo 14 días gratis<Icono nombre="arrow_forward" tam={22} /></a>
+			<a class="pastilla menta grande sombra" href="/empezar">Probalo {catalogo.diasDePrueba}&nbsp;días gratis<Icono nombre="arrow_forward" tam={22} /></a>
 		</div>
 	</section>
 
@@ -451,8 +425,8 @@
 	<section id="precios" class="seccion">
 		<div class="titulo-centro" use:aparecer>
 			<span class="rotulo verde">PRECIOS</span>
-			<h2 class="h2">14 días con Equipo. Después&nbsp;elegís.</h2>
-			<p class="sub">Precios finales, sin comisión por turno. Pagando el año, 12 meses al precio de&nbsp;10.</p>
+			<h2 class="h2">{catalogo.diasDePrueba} días con Equipo. Después&nbsp;elegís.</h2>
+			<p class="sub">Precios finales, sin comisión por turno. Pagando el año, 12 meses al precio de&nbsp;{catalogo.mesesAnual}.</p>
 		</div>
 		<div class="planes">
 			{#each precios as p, i (p.n)}
@@ -507,7 +481,7 @@
 			<div class="pie-arriba">
 				<div class="pie-tit">
 					<h2>¿Tenés un hueco? <span>Llenalo.</span></h2>
-					<span>14 días gratis, sin tarjeta. En 5 minutos tenés tu&nbsp;página.</span>
+					<span>{catalogo.diasDePrueba} días gratis, sin tarjeta. En 5 minutos tenés tu&nbsp;página.</span>
 				</div>
 				<div class="pie-cta">
 					<a class="pastilla menta grande sombra" href="/empezar">Empezar gratis<Icono nombre="arrow_forward" tam={22} /></a>
@@ -529,7 +503,10 @@
 			</div>
 			<div class="legal">
 				<span>© {anio} Tengo Libre · Hecho en Argentina</span>
-				<span><a href="https://www.argentina.gob.ar/produccion/defensadelconsumidor">Defensa del consumidor</a></span>
+				<span
+					><a href="/terminos">Términos</a> · <a href="/privacidad">Privacidad</a> · <a href="/arrepentimiento">Botón de arrepentimiento</a> ·
+					<a href="https://www.argentina.gob.ar/produccion/defensadelconsumidor">Defensa del consumidor</a></span
+				>
 			</div>
 		</div>
 		<img class="logo-gigante" src="/marca/logotipo_horizontal_negativo.svg" alt="" aria-hidden="true" />
@@ -537,7 +514,7 @@
 
 	<div class="barra" class:visible={barra} aria-hidden={!barra}>
 		<img src="/marca/simbolo_una_tinta_blanco.svg" alt="" width="22" height="22" />
-		<span>14 días gratis, sin tarjeta</span>
+		<span>{catalogo.diasDePrueba} días gratis, sin tarjeta</span>
 		<a class="pastilla menta media" href="/empezar" tabindex={barra ? 0 : -1}>Empezar</a>
 	</div>
 </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AvisoPlan from '#lib/configuracion/AvisoPlan.svelte';
 	import '#lib/gestion/gestion.css';
 	import { enhance } from '$app/forms';
 	import { fecha, hora } from '#lib/formato.ts';
@@ -31,6 +32,7 @@
 	</div>
 
 	<Mensaje {form} que="dominio" />
+	<AvisoPlan acceso={data.acceso} funcion="dominio" detalle={"Tu dominio queda guardado; mientras tanto, quien entre por ahí va a tu página en Tengo\u00a0Libre."} />
 
 	<ol class="pasos">
 		<!-- 1. Elegir el dominio -->

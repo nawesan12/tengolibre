@@ -3,6 +3,7 @@ import { apiDe } from '#lib/server/api.ts';
 import { accion } from '#lib/configuracion/acciones.server.ts';
 import {
 	SUSCRIPCION_CAMBIAR,
+	SUSCRIPCION_CONCILIAR,
 	SUSCRIPCION_EXTRAS,
 	SUSCRIPCION_PAGAR,
 	SUSCRIPCION_REACTIVAR,
@@ -25,6 +26,8 @@ export type PlanVenta = {
 	cupoIA: number;
 	funciones: string[];
 	incluye: string[];
+	/** Lo mismo para quien compra en la tienda del teléfono (sin profesionales extra). */
+	incluyeTienda?: string[];
 };
 export type Extras = { precioProfesional: number; packWhatsApp: { cantidad: number; precio: number }; mesesAnual: number; diasDePrueba: number };
 export type Uso = {
@@ -51,7 +54,12 @@ export type Suscripcion = {
 	origen?: 'mercadopago' | 'apple' | 'google';
 	periodo?: 'mensual' | 'anual';
 	profesionalesExtra?: number;
+	/** Una baja ya pedida: rige desde el próximo cobro (hasta ahí, lo que ya se pagó). */
+	planSiguiente?: string | null;
+	extrasSiguiente?: number | null;
 };
+/** Una subida de plan con la diferencia todavía sin pagar (link de la última hora). */
+export type Subida = { plan: string; profesionalesExtra: number; hoy: number; despues: number; link: string; vence: string };
 export type Estado = {
 	bloqueado: boolean;
 	pruebaHasta: string | null;
@@ -65,16 +73,31 @@ export type Estado = {
 	cupoIA?: number;
 	extras: Extras;
 	uso: Uso;
+	subida?: Subida | null;
 };
 
 export const load: PageServerLoad = async (event) => {
+	const resultado = event.url.searchParams.get('resultado');
+	// Volviendo de pagar un pack o una subida de plan: se acredita ya, sin esperar el aviso de Mercado
+	// Pago (si no llegó, igual).
+	if (resultado === 'whatsapp' || resultado === 'subida')
+		await apiDe(event)
+			.post(SUSCRIPCION_CONCILIAR)
+			.catch(() => null);
 	const estado = await apiDe(event).get<Estado>('/v1/panel/suscripcion');
 	// Cancelada con el mes pago, la API la deja «pausada» hasta el próximo cobro (con canceladaEn):
 	// para la pantalla es una cancelada que todavía anda, no un cobro fallido.
 	const s = estado.suscripcion;
 	if (s?.estado === 'pausada' && s.canceladaEn) estado.suscripcion = { ...s, estado: 'cancelada', proximoCobro: s.graciaHasta ?? s.proximoCobro };
-	const resultado = event.url.searchParams.get('resultado');
-	return { estado, vuelta: resultado === 'vuelta', vueltaWhatsApp: resultado === 'whatsapp' };
+	const pedido = event.url.searchParams.get('plan');
+	return {
+		estado,
+		vuelta: resultado === 'vuelta',
+		vueltaWhatsApp: resultado === 'whatsapp',
+		vueltaSubida: resultado === 'subida',
+		// «Pasar a Centro» desde un aviso de tope: el carrito abre con ese plan elegido.
+		planPedido: pedido && estado.catalogo.some((p) => p.clave === pedido) ? pedido : null
+	};
 };
 
 export const actions: Actions = {
@@ -94,21 +117,30 @@ export const actions: Actions = {
 		accion('cancelar', 'Cancelamos la suscripción.', () => apiDe(event).post('/v1/panel/suscripcion/cancelar')),
 	// Ver #lib/gestion/api-cobros.ts: cambiar de plan, pagar la cuota que falló, cambiar la tarjeta y
 	// reactivar una cancelada. Los tres últimos llevan a Mercado Pago.
+	// Subir de plan (o sumar extras) lleva a pagar la diferencia por lo que queda del período: el plan
+	// nuevo rige cuando se acredita. Bajar rige desde el próximo cobro. Cambiar de período es un alta
+	// nueva que empieza cuando vence lo pagado. La API decide y, si hay que pagar, devuelve la url.
 	cambiar: async (event) => {
 		const f = await event.request.formData();
-		const r = await accion('suscribir', 'Cambiamos tu plan: el precio nuevo rige desde el próximo cobro.', () =>
-			apiDe(event).post<{ url?: string }>(SUSCRIPCION_CAMBIAR, { plan: String(f.get('plan') ?? ''), periodo: String(f.get('periodo') ?? '') || undefined })
+		const r = await accion('cambiar', 'Listo: lo que ya pagaste lo seguís usando, y el cambio rige desde el próximo cobro.', () =>
+			apiDe(event).post<{ url?: string; planSiguiente?: string | null; plan?: string }>(SUSCRIPCION_CAMBIAR, {
+				plan: String(f.get('plan') ?? ''),
+				periodo: String(f.get('periodo') ?? '') || undefined
+			})
 		);
-		// Cambiar de período es un alta nueva en Mercado Pago.
 		if ('ok' in r && r.ok && r.datos?.url) redirect(303, r.datos.url, { external: true });
+		if ('ok' in r && r.ok && !r.datos?.planSiguiente) r.mensaje = 'Listo: tu plan ya cambió.';
 		return r;
 	},
 	extras: async (event) => {
 		const f = await event.request.formData();
 		const cantidad = Math.max(0, Math.min(100, Math.trunc(Number(f.get('cantidad') ?? 0)) || 0));
-		return accion('extras', 'Listo: el tope de profesionales ya cambió y el precio nuevo rige desde el próximo cobro.', () =>
-			apiDe(event).put(SUSCRIPCION_EXTRAS, { cantidad })
+		const r = await accion('extras', 'Listo: los profesionales extra que sacaste se dejan de cobrar desde el próximo cobro.', () =>
+			apiDe(event).put<{ url?: string; extrasSiguiente?: number | null }>(SUSCRIPCION_EXTRAS, { cantidad })
 		);
+		if ('ok' in r && r.ok && r.datos?.url) redirect(303, r.datos.url, { external: true });
+		if ('ok' in r && r.ok && r.datos?.extrasSiguiente == null) r.mensaje = 'Listo: el tope de profesionales ya cambió.';
+		return r;
 	},
 	whatsapp: async (event) => irAMercadoPago(event, 'whatsapp', SUSCRIPCION_WHATSAPP),
 	pagar: async (event) => irAMercadoPago(event, 'pagar', SUSCRIPCION_PAGAR),

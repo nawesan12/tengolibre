@@ -2,7 +2,7 @@ import { fail, type ActionFailure } from '@sveltejs/kit';
 import { ErrorApi } from './api.ts';
 
 /** Lo que devuelve una acción que falló: el mensaje y los errores por campo, para el formulario. */
-export type FallaForm = { error: string; codigo: string; campos: Record<string, string> };
+export type FallaForm = { error: string; codigo: string; campos: Record<string, string>; plan?: string };
 
 /**
  * Corre una acción que habla con la API: un ErrorApi vuelve como fail() con el estado de la API,
@@ -15,7 +15,12 @@ export async function intentar<T>(
 		return { ok: true, datos: await fn() };
 	} catch (e) {
 		if (e instanceof ErrorApi)
-			return fail(e.estado >= 400 && e.estado < 600 ? e.estado : 400, { error: e.message, codigo: e.codigo, campos: e.campos });
+			return fail(e.estado >= 400 && e.estado < 600 ? e.estado : 400, {
+				error: e.message,
+				codigo: e.codigo,
+				campos: e.campos,
+				...(e.plan ? { plan: e.plan } : {})
+			});
 		throw e;
 	}
 }

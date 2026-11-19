@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AvisoPlan from '#lib/configuracion/AvisoPlan.svelte';
 	import '#lib/gestion/gestion.css';
 	import { enhance } from '$app/forms';
 	import { instanteComoDia } from '#lib/configuracion/dinero.ts';
@@ -39,6 +40,7 @@
 			<h1 class="g-titulo">Cupones</h1>
 		</div>
 	</div>
+	<AvisoPlan acceso={data.acceso} funcion="cupones" />
 
 	<div class="grilla">
 		<section class="g-bloque sin-pad" aria-labelledby="t-cupones">

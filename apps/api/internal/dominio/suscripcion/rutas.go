@@ -42,6 +42,8 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 		w.WriteHeader(http.StatusNoContent)
 		return nil
 	})))
+	// El botón de arrepentimiento: público, sin sesión.
+	mux.HandleFunc("POST /v1/arrepentimiento", web.Envolver(s.arrepentirse))
 	// La App Store (apple.go): la compra desde el iPhone y sus notificaciones.
 	s.RutasApple(mux)
 	s.RutasGoogle(mux)

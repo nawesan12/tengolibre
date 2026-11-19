@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AvisoPlan from '#lib/configuracion/AvisoPlan.svelte';
 	import '#lib/gestion/gestion.css';
 	import { enhance } from '$app/forms';
 	import { fecha, pesos } from '#lib/formato.ts';
@@ -41,6 +42,7 @@
 			<span class="palabra" aria-hidden="true">{activo ? 'Activo' : 'Apagado'}</span>
 		</label>
 	</div>
+	<AvisoPlan acceso={data.acceso} funcion="referidos" detalle={"Los premios que tus clientes ya ganaron siguen valiendo; el programa no suma nuevos hasta que pases de\u00a0plan."} />
 	<p class="g-bajada">
 		Cada cliente pide su código desde el link de su turno y lo comparte. Quien lo usa reserva, y quien lo compartió se lleva un&nbsp;premio.
 	</p>

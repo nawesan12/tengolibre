@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '#lib/gestion/gestion.css';
+	import { linkPlanes, nombrePlan } from '#lib/planes.ts';
 	import { goto } from '$app/navigation';
 	import { pesos } from '#lib/formato.ts';
 	import MapaCalor from '#lib/gestion/reportes/MapaCalor.svelte';
@@ -56,7 +57,13 @@
 		{/if}
 	</div>
 
-	{#if data.error}
+	{#if data.tope}
+		<p class="g-aviso ambar" role="status">
+			<span class="icono" aria-hidden="true">workspace_premium</span>
+			<span>{data.error}</span>
+			<a class="g-boton" href={linkPlanes(data.tope)}>Pasar a {nombrePlan(data.tope)}</a>
+		</p>
+	{:else if data.error}
 		<p class="aviso error" role="alert">{data.error}</p>
 	{/if}
 

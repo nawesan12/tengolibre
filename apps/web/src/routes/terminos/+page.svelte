@@ -2,7 +2,7 @@
 	import Legal from '#lib/legal/Legal.svelte';
 </script>
 
-<Legal titulo="Términos de uso" actualizado="18 de noviembre de 2026">
+<Legal titulo="Términos de uso" actualizado="19 de noviembre de 2026">
 	<p>Al usar Tengo Libre (la web, el panel o la app) aceptás estos términos.</p>
 
 	<h2>El servicio</h2>
@@ -11,20 +11,44 @@
 		equipo. Hacemos lo posible para que esté siempre andando, pero puede haber cortes o errores.
 	</p>
 
-	<h2>Prueba y suscripción</h2>
+	<h2>Prueba, planes y cobros</h2>
 	<ul>
-		<li>Cada negocio nuevo tiene una prueba gratis. Después, para seguir cargando y cambiando turnos hace falta una suscripción mensual.</li>
+		<li>Cada negocio nuevo tiene 14 días de prueba gratis con el plan Equipo, sin tarjeta. Después, para seguir haciendo cambios hace falta un plan.</li>
 		<li>
-			La suscripción se puede pagar con Mercado Pago (desde la web) o con la App Store (desde el iPhone). Se renueva sola cada mes hasta que
-			la cancelés.
+			Hay tres planes (Inicial, Equipo y Centro), con precio final en pesos por mes, impuestos incluidos y sin comisión por turno. Lo que incluye cada
+			uno está en la página de precios y en el panel, en Suscripción.
 		</li>
 		<li>
-			<b>Desde el iPhone</b>: el cobro lo hace Apple a tu cuenta de Apple al confirmar la compra. Se renueva automáticamente salvo que la
-			canceles al menos 24 horas antes del fin del período, desde Ajustes › tu nombre › Suscripciones. Rigen además los
-			<a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" rel="noopener">términos de Apple</a>.
+			<b>Mensual o anual</b>: el pago mensual se renueva solo cada mes; el anual cobra 10 meses de una vez, vale 12 y se renueva solo cada año, hasta
+			que lo cancelés.
 		</li>
-		<li><b>Desde la web</b>: el cobro lo hace Mercado Pago. Se cancela desde el panel, en Suscripción.</li>
-		<li>Sin suscripción, el panel queda en sólo lectura y tu página sigue tomando reservas.</li>
+		<li>
+			<b>Cambiar de plan</b>: subir de plan cobra en el momento la diferencia por los días que faltan del período ya pago y el plan nuevo rige apenas
+			se acredita. Bajar de plan rige desde el próximo cobro: hasta ahí seguís usando lo que ya pagaste.
+		</li>
+		<li>
+			<b>Bajar de plan no borra nada</b>: lo que el plan nuevo no incluye queda guardado, en sólo lectura o fuera de la agenda (por ejemplo, los
+			profesionales que superan el tope), hasta que vuelvas a subir o liberes lugar.
+		</li>
+		<li>
+			<b>Recordatorios por WhatsApp</b>: Centro trae 150 por mes. Fuera de eso se compran packs de 100 por $5.900, con un pago único que no se renueva;
+			lo que no se usa no vence. Un recordatorio que no llega a salir vuelve a tu saldo.
+		</li>
+		<li><b>Profesionales extra</b> (sólo con Centro, pagando con Mercado Pago): $1.900 por mes cada uno arriba de 25.</li>
+		<li>
+			<b>Desde la web</b> el cobro lo hace Mercado Pago, con débito automático; se cancela desde el panel, en Suscripción. Si cancelás con el período
+			pago, seguís con todo hasta que vence.
+		</li>
+		<li>
+			<b>Desde el iPhone o Android</b>: el cobro lo hace Apple o Google a tu cuenta al confirmar la compra. Se renueva automáticamente salvo que la
+			canceles al menos 24 horas antes del fin del período, desde la tienda. Rigen además los
+			<a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" rel="noopener">términos de Apple</a> y los de Google Play.
+		</li>
+		<li>Sin plan, el panel queda en sólo lectura y tu página sigue tomando reservas.</li>
+		<li>
+			<b>Arrepentimiento</b>: podés revocar lo que contrataste en línea dentro de los 10 días, sin costo, desde el
+			<a href="/arrepentimiento">botón de arrepentimiento</a>.
+		</li>
 	</ul>
 
 	<h2>Lo que cada uno pone</h2>

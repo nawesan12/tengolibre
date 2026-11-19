@@ -74,6 +74,9 @@ export type Pagina = {
 	resenas: Resumen;
 	/** Supuesto (contrato.ts): el horario de atención del negocio. Sin eso no se muestra. */
 	horarioAtencion?: FranjaAtencion[];
+	/** Lo que el plan del negocio trae para la página: la lista de espera y el campo de cupón. */
+	espera?: boolean;
+	cupones?: boolean;
 };
 
 export type ResenaPublica = {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AvisoPlan from '#lib/configuracion/AvisoPlan.svelte';
 	import '#lib/gestion/gestion.css';
 	import { enhance } from '$app/forms';
 	import { pesos } from '#lib/formato.ts';
@@ -41,6 +42,7 @@
 				<p class="g-nota">Juntá los negocios de los que sos dueña o dueño para ver un reporte en común y compararlos entre&nbsp;sí.</p>
 			{/if}
 		</div>
+		<AvisoPlan acceso={data.acceso} funcion="sucursales" />
 		{#if form?.error}<p class="aviso error" role="alert">{form.error}</p>{/if}
 
 		{#if data.grupos.length > 1}

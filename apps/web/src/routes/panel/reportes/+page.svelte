@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import AvisoPlan from '#lib/configuracion/AvisoPlan.svelte';
+	import { linkPlanes, nombrePlan, vieneCon } from '#lib/planes.ts';
 	import '#lib/gestion/gestion.css';
 	import { dia, pesos } from '#lib/formato.ts';
 	import { lunesDe } from '#lib/operacion/fechas.ts';
@@ -7,6 +10,9 @@
 	import HorasMuertas from '#lib/gestion/reportes/HorasMuertas.svelte';
 
 	let { data, form } = $props();
+	// Exportar en CSV viene con Centro: con otro plan el link lleva a los planes (no a un error).
+	const csvCon = $derived(vieneCon(data.acceso, 'csv'));
+	const mensualCon = $derived(vieneCon(data.acceso, 'reportes_completos'));
 	const r = $derived(data.reporte);
 	const hoy = dia();
 	const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -75,9 +81,13 @@
 				{/each}
 			</nav>
 		{/if}
-		<a class="g-boton mensual" href="/panel/reportes/mensual"><span class="icono" aria-hidden="true">description</span>Reporte mensual</a>
+		<a class="g-boton mensual" href="/panel/reportes/mensual"
+			><span class="icono" aria-hidden="true">description</span>Reporte mensual{#if mensualCon}<span class="g-pildora ambar">{nombrePlan(mensualCon)}</span>{/if}</a
+		>
 	</div>
+	<AvisoPlan acceso={data.acceso} funcion="reportes_completos" detalle={"Lo básico de tus turnos se ve igual; el reporte mensual, las ausencias y las horas muertas vienen con ese\u00a0plan."} />
 
+	{#if page.url.searchParams.get('tope') === 'csv'}<AvisoPlan acceso={data.acceso} funcion="csv" detalle={'Pasá de plan para bajar tus reportes en\u00a0CSV.'} />{/if}
 	{#if data.error}<p class="aviso error" role="alert">{data.error}</p>{/if}
 
 	{#if !r && !data.error}
@@ -148,7 +158,13 @@
 		<section class="g-bloque dias" aria-labelledby="t-dias">
 			<div class="g-bloque-cabeza">
 				<h2 class="pregunta" id="t-dias">¿Qué días se llena y qué días sobra&nbsp;lugar?</h2>
-				<a class="g-accion chica" href={`/panel/reportes/csv/turnos?${rango}`} download data-sveltekit-reload>CSV <span class="icono" aria-hidden="true">arrow_downward</span></a>
+				{#if csvCon}
+					<a class="g-accion chica" href={linkPlanes(csvCon)} title="Exportar en CSV viene con {nombrePlan(csvCon)}"
+						>CSV <span class="g-pildora ambar">{nombrePlan(csvCon)}</span></a
+					>
+				{:else}
+					<a class="g-accion chica" href={`/panel/reportes/csv/turnos?${rango}`} download data-sveltekit-reload>CSV <span class="icono" aria-hidden="true">arrow_downward</span></a>
+				{/if}
 			</div>
 			{#if r.porDia.length === 0}
 				<p class="g-nota">Sin días en el&nbsp;período.</p>
@@ -192,7 +208,13 @@
 			<section class="g-bloque" aria-labelledby="t-vuelven">
 				<div class="g-bloque-cabeza">
 					<h2 class="pregunta" id="t-vuelven">¿Vuelven?</h2>
+					{#if csvCon}
+					<a class="g-accion chica" href={linkPlanes(csvCon)} title="Exportar en CSV viene con {nombrePlan(csvCon)}"
+						>CSV <span class="g-pildora ambar">{nombrePlan(csvCon)}</span></a
+					>
+				{:else}
 					<a class="g-accion chica" href={`/panel/reportes/csv/clientes?${rango}`} download data-sveltekit-reload>CSV <span class="icono" aria-hidden="true">arrow_downward</span></a>
+				{/if}
 				</div>
 				{#if vuelven === null}
 					<p class="g-nota">Sin clientes en el&nbsp;período.</p>

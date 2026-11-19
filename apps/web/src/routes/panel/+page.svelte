@@ -99,6 +99,18 @@
 				hueco: true
 			});
 		}
+		// Bajó de plan y sobran profesionales: no toman turnos (no se borró nada). Sólo para la dueña.
+		const fuera = rol === 'duenio' ? data.hoy.profesionales.filter((p) => p.activo && p.enPlan === false) : [];
+		if (fuera.length) {
+			out.push({
+				num: String(fuera.length),
+				color: '#7a4a00',
+				titulo: fuera.length === 1 ? `${primerNombre(fuera[0].nombre)} no toma turnos` : 'profesionales no toman turnos',
+				sub: `Quedaron fuera de tu plan (llega a ${data.hoy.profesionales.filter((p) => p.activo && p.enPlan !== false).length})`,
+				boton: 'Ver planes',
+				href: '/panel/suscripcion#planes'
+			});
+		}
 		if (data.paraLlamar.length) {
 			const p = data.paraLlamar[0];
 			out.push({

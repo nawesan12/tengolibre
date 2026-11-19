@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AvisoPlan from '#lib/configuracion/AvisoPlan.svelte';
 	import '#lib/gestion/gestion.css';
 	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
@@ -155,6 +156,7 @@
 					<h2 id="t-estilo" class="g-bloque-titulo">Ajustá el estilo</h2>
 					<span class="g-nota">Se combina con cualquier plantilla</span>
 				</div>
+		<AvisoPlan acceso={data.acceso} funcion="plantillas" detalle={"Podés mirarlas; tu página se ve con la de por defecto hasta que pases de\u00a0plan."} />
 				{#each AJUSTES as a (a.k)}
 					<div class="ajuste">
 						<span class="ajuste-nombre"><b id="aj-{a.k}">{a.t}</b><span>{a.s}</span></span>

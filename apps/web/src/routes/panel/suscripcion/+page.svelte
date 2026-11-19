@@ -4,7 +4,8 @@
 	import { pesos, ZONA } from '#lib/formato.ts';
 	import { confirmar } from '#lib/configuracion/formularios.ts';
 	import Mensaje from '#lib/configuracion/Mensaje.svelte';
-	import { diasHasta, fechaLarga } from '#lib/gestion/cobros/formato.ts';
+	import { diasHasta, fechaConAnio, fechaLarga } from '#lib/gestion/cobros/formato.ts';
+	import { DIAS_DE_PRUEBA } from '#lib/planes.ts';
 	import type { PlanVenta } from './+page.server.ts';
 
 	let { data, form } = $props();
@@ -25,41 +26,87 @@
 	// El carrito: el plan elegido (por defecto, el destacado), el período, cuánto se paga hoy, cuándo
 	// es el primer cobro y cuánto después. Los precios salen de la API.
 	const destacado = $derived(e.catalogo.find((p) => p.destacado)?.clave ?? e.catalogo[0]?.clave);
+	// «Pasar a Centro» desde un aviso de tope abre con ese plan elegido (?plan=centro).
 	let elegidoA = $state<string | null>(null);
-	const elegido = $derived(elegidoA ?? destacado);
-	let periodo = $state<'mensual' | 'anual'>('mensual');
+	const elegido = $derived(elegidoA ?? data.planPedido ?? destacado);
+	// El período: el de la suscripción si hay una (para cambiar de mensual a anual o al revés).
+	let periodoA = $state<'mensual' | 'anual' | null>(null);
+	const periodo = $derived(periodoA ?? s?.periodo ?? 'mensual');
 	const plan = $derived(e.catalogo.find((p) => p.clave === elegido) ?? e.catalogo[0]);
 	const precioDe = (p: PlanVenta) => (periodo === 'anual' ? p.precioAnual : p.precio);
 	const ahorro = $derived(plan.precio * 12 - plan.precioAnual);
 	const conPrueba = $derived(!!e.pruebaHasta && new Date(e.pruebaHasta).getTime() > Date.now());
 	const primerCobro = $derived(conPrueba ? new Date(e.pruebaHasta!) : new Date());
 	const fechaCorta = (d: Date) => new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long', timeZone: ZONA }).format(d);
-	const PRUEBA = $derived(e.extras?.diasDePrueba ?? 14);
-	const planRango = (clave: string) => e.catalogo.findIndex((p) => p.clave === clave);
+	const PRUEBA = $derived(e.extras?.diasDePrueba ?? DIAS_DE_PRUEBA);
 	const nombreDe = (clave: string) => e.catalogo.find((p) => p.clave === clave)?.nombre ?? clave;
 
 	// Qué incluye cada plan, fila por fila (ícono + palabra en cada celda), armado con lo que dice la
 	// API de cada plan: nada que no exista.
+	// Cada celda dice si viene en el plan (tilde), si se paga aparte (otro ícono, en gris) o si no está.
+	// Los finales llevan espacio duro: nada de una palabra sola en el último renglón.
+	type Celda = { texto: string; tipo: 'si' | 'aparte' | 'no' };
 	const tiene = (p: PlanVenta, f: string) => p.funciones.includes(f);
-	const siNo = (b: boolean) => (b ? 'Sí' : 'No');
-	const FILAS = $derived<{ que: string; valor: (p: PlanVenta) => string }[]>([
-		{ que: 'Profesionales', valor: (p) => `Hasta ${p.profesionales}` + (p.clave === 'centro' ? ` (+${pesos(e.extras.precioProfesional)} c/u)` : '') },
-		{ que: 'Link propio y reservas por la web', valor: () => 'Sí' },
-		{ que: 'Recordatorios por mail y en el celular', valor: () => 'Sin límite' },
-		{ que: 'Ficha de cada cliente y caja', valor: () => 'Sí' },
+	const si = (texto = 'Sí'): Celda => ({ texto, tipo: 'si' });
+	const siNo = (b: boolean): Celda => (b ? si() : { texto: 'No', tipo: 'no' });
+	const NB = '\u00a0';
+	const FILAS = $derived<{ que: string; valor: (p: PlanVenta) => Celda }[]>([
+		{
+			que: 'Profesionales',
+			valor: (p) => si(`Hasta${NB}${p.profesionales}` + (p.clave === 'centro' ? ` (+${pesos(e.extras.precioProfesional)}${NB}c/u)` : ''))
+		},
+		{ que: 'Link propio y reservas por la web', valor: () => si() },
+		{ que: 'Recordatorios por mail y en el celular', valor: () => si(`Sin${NB}límite`) },
+		{ que: 'Ficha de cada cliente y caja', valor: () => si() },
 		{ que: 'Seña con Mercado Pago al reservar', valor: (p) => siNo(tiene(p, 'sena')) },
 		{ que: 'Lista de espera que ofrece el hueco sola', valor: (p) => siNo(tiene(p, 'espera')) },
 		{ que: 'Membresías, cupones y referidos', valor: (p) => siNo(tiene(p, 'membresias')) },
 		{ que: 'Penalidades por ausencias', valor: (p) => siNo(tiene(p, 'penalidades')) },
-		{ que: 'Reportes', valor: (p) => (tiene(p, 'csv') ? 'Completos y CSV' : tiene(p, 'reportes_completos') ? 'Completos' : 'Resumen') },
-		{ que: 'Sucursales', valor: (p) => `${p.sucursales}` },
+		{
+			que: 'Reportes',
+			valor: (p) => si(tiene(p, 'csv') ? `Completos y${NB}CSV` : tiene(p, 'reportes_completos') ? 'Completos' : 'Resumen')
+		},
+		{ que: 'Sucursales', valor: (p) => si(p.sucursales > 1 ? `Hasta${NB}${p.sucursales}, cada una con su${NB}plan` : `${p.sucursales}`) },
 		{ que: 'Dominio propio y plantillas de página', valor: (p) => siNo(tiene(p, 'dominio')) },
 		{
 			que: 'Recordatorios por WhatsApp',
-			valor: (p) => (p.whatsappIncluidos ? `${p.whatsappIncluidos} por\u00a0mes` : `Packs de ${e.extras.packWhatsApp.cantidad}`)
+			valor: (p) =>
+				p.whatsappIncluidos
+					? si(`${p.whatsappIncluidos} por${NB}mes`)
+					: { texto: `Aparte: ${e.extras.packWhatsApp.cantidad} por${NB}${pesos(e.extras.packWhatsApp.precio)}`, tipo: 'aparte' }
 		},
-		{ que: 'Asistente con IA', valor: (p) => `${p.cupoIA.toLocaleString('es-AR')} respuestas por\u00a0mes` }
+		{ que: 'Asistente con IA', valor: (p) => si(`${p.cupoIA.toLocaleString('es-AR')} respuestas por${NB}mes`) }
 	]);
+	const ICONO_CELDA = { si: 'check_circle', aparte: 'add_circle', no: 'remove' } as const;
+
+	// Cambiar de plan con la suscripción activa: qué pasa, en pesos y con fecha (patrón carrito).
+	const finPagado = $derived(s?.proximoCobro ?? null);
+	function cambioDe(p: PlanVenta) {
+		if (!s) return { texto: '', sube: false };
+		const actual = e.catalogo.find((x) => x.clave === s.plan) ?? p;
+		const extrasActuales = s.plan === 'centro' ? (s.profesionalesExtra ?? 0) : 0;
+		const mesDe = (x: PlanVenta, ex: number) => x.precio + (x.clave === 'centro' ? ex * e.extras.precioProfesional : 0);
+		const meses = periodo === 'anual' ? e.extras.mesesAnual : 1;
+		const despues = mesDe(p, p.clave === 'centro' ? extrasActuales : 0) * meses;
+		const cada = periodo === 'anual' ? 'por año' : 'por mes';
+		if (periodo !== (s.periodo ?? 'mensual'))
+			return {
+				sube: false,
+				texto: `¿Pasar a ${p.nombre} con pago ${periodo}? Empieza ${finPagado ? `el ${fechaConAnio(finPagado)}, cuando vence lo que ya pagaste` : 'con el próximo cobro'}: ${pesos(despues)} ${cada}. Hasta ahí seguís con ${actual.nombre}.`
+			};
+		const antes = mesDe(actual, extrasActuales) * meses;
+		if (despues > antes)
+			return {
+				sube: true,
+				texto: `¿Pasar a ${p.nombre}? Hoy pagás la diferencia por los días que faltan${finPagado ? ` hasta el ${fechaConAnio(finPagado)}` : ''} y ${p.nombre} rige apenas se acredite. Después, ${pesos(despues)} ${cada}.`
+			};
+		return {
+			sube: false,
+			texto:
+				`¿Pasar a ${p.nombre}? Seguís con ${actual.nombre}${finPagado ? ` hasta el ${fechaConAnio(finPagado)}` : ''} (ya está pago) y desde ahí ${pesos(despues)} ${cada}.` +
+				' No se borra nada: lo que el plan nuevo no incluye queda guardado, en sólo lectura.'
+		};
+	}
 
 	// Lo que lleva el negocio contra los topes del plan que rige.
 	const u = $derived(e.uso);
@@ -72,16 +119,17 @@
 		s ? (e.catalogo.find((p) => p.clave === 'centro')!.precio + extras * e.extras.precioProfesional) * (s.periodo === 'anual' ? e.extras.mesesAnual : 1) : 0
 	);
 
-	// La semana de prueba: lo que pasó, hoy y lo que queda.
+	// Los días de prueba en una sola tira: lo que pasó, hoy y lo que queda. Rótulos sólo en hoy y en el
+	// último día (con 14 días, los nombres de la semana se repetían).
 	const semana = $derived.by(() => {
 		if (!e.pruebaHasta) return [];
 		const fin = new Date(e.pruebaHasta).getTime();
 		const inicio = fin - PRUEBA * DIA;
 		const hoy = Math.min(PRUEBA - 1, Math.max(0, Math.floor((Date.now() - inicio) / DIA)));
-		const f = new Intl.DateTimeFormat('es-AR', { weekday: 'short', timeZone: ZONA });
+		const f = new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'short', timeZone: ZONA });
 		return Array.from({ length: PRUEBA }, (_, i) => ({
-			nombre: f.format(new Date(inicio + i * DIA + DIA / 2)).replace('.', '').toUpperCase(),
-			cuando: i < hoy ? 'paso' : i === hoy ? 'hoy' : 'falta'
+			cuando: i < hoy ? 'paso' : i === hoy ? 'hoy' : 'falta',
+			rotulo: i === hoy ? 'Hoy' : i === PRUEBA - 1 ? f.format(new Date(fin - DIA / 2)).replace('.', '') : ''
 		}));
 	});
 
@@ -125,10 +173,27 @@
 			<span>Volviste de Mercado Pago. Apenas se acredite el pago, los recordatorios se suman a tu saldo (puede tardar unos&nbsp;minutos).</span>
 		</p>
 	{/if}
+	{#if data.vueltaSubida && !e.subida}
+		<p class="g-aviso" role="status">
+			<span class="icono lleno" aria-hidden="true">info</span>
+			<span>Volviste de Mercado Pago. Apenas se acredite la diferencia, tu plan nuevo empieza a regir (puede tardar unos&nbsp;minutos).</span>
+		</p>
+	{/if}
+	{#if e.subida && esDuenio}
+		<p class="g-aviso ambar" role="status">
+			<span class="icono" aria-hidden="true">hourglass_top</span>
+			<span
+				>Falta pagar {pesos(e.subida.hoy)} para pasar a {nombreDe(e.subida.plan)}: es la diferencia por los días que quedan. Después,
+				{pesos(e.subida.despues)}&nbsp;{s?.periodo === 'anual' ? 'por año' : 'por mes'}.</span
+			>
+			<a class="g-boton" href={e.subida.link} rel="noopener">Pagar {pesos(e.subida.hoy)}</a>
+		</p>
+	{/if}
 	<Mensaje {form} que="cancelar" />
 	<Mensaje {form} que="pagar" />
 	<Mensaje {form} que="whatsapp" />
 	<Mensaje {form} que="extras" />
+	<Mensaje {form} que="cambiar" />
 
 	{#if enPrueba}
 		<section class="prueba" aria-labelledby="t-prueba">
@@ -137,9 +202,9 @@
 				<p class="prueba-texto">
 					Elegí un plan antes de esa fecha y no se corta nada. Si no elegís, el panel queda en sólo lectura y tu página sigue tomando&nbsp;reservas.
 				</p>
-				<ol class="dias" aria-hidden="true">
+				<ol class="dias" aria-hidden="true" style:--dias={semana.length}>
 					{#each semana as d, i (i)}
-						<li class={d.cuando}><span class="raya"></span>{d.nombre}</li>
+						<li class={d.cuando}><span class="raya"></span>{#if d.rotulo}<span class="rotulo-dia">{d.rotulo}</span>{/if}</li>
 					{/each}
 				</ol>
 			</div>
@@ -207,9 +272,28 @@
 				</p>
 			{:else}
 				<p class="g-nota">
-					{#if s.proximoCobro}Próximo cobro el {fechaLarga(s.proximoCobro)}: {pesos(s.monto)}.{:else}{pesos(s.monto)} por {s.periodo === 'anual' ? 'año' : 'mes'}, con débito automático.{/if}
-					{#if s.periodo === 'anual'}Pago anual: 12 meses al precio de {e.extras.mesesAnual}.{/if}
+					{s.periodo === 'anual' ? 'Pago anual' : 'Pago mensual'}.
+					{#if s.proximoCobro}Próximo cobro el {fechaConAnio(s.proximoCobro, s.periodo === 'anual')}: {pesos(s.monto)}&nbsp;{s.periodo === 'anual'
+							? 'por año'
+							: 'por mes'}.{:else}{pesos(s.monto)} por {s.periodo === 'anual' ? 'año' : 'mes'}, con débito&nbsp;automático.{/if}
+					{#if s.periodo === 'anual'}12 meses al precio de&nbsp;{e.extras.mesesAnual}.{/if}
 				</p>
+				{#if s.planSiguiente}
+					<div class="g-aviso ambar">
+						<span class="icono" aria-hidden="true">event_upcoming</span>
+						<span
+							>Pediste pasar a {nombreDe(s.planSiguiente)}{#if s.planSiguiente === 'centro' && s.extrasSiguiente}&nbsp;con {s.extrasSiguiente} extra{/if}. Rige
+							desde el próximo cobro{#if s.proximoCobro}&nbsp;({fechaConAnio(s.proximoCobro)}){/if}; hasta ahí seguís con {e.nombrePlan}, que ya
+							está&nbsp;pago.</span
+						>
+						{#if esDuenio}
+							<form method="POST" action="?/cambiar" use:enhance>
+								<input type="hidden" name="plan" value={s.plan} />
+								<button class="g-boton">Seguir con {nombreDe(s.plan)}</button>
+							</form>
+						{/if}
+					</div>
+				{/if}
 			{/if}
 			{#if esDuenio && !deTienda}
 				<div class="fila acciones">
@@ -250,6 +334,19 @@
 		<section class="g-bloque sin-pad planes" aria-labelledby="t-planes">
 			<h2 id="t-planes" class="visualmente-oculto">Planes</h2>
 			<div class="pad"><Mensaje {form} que="suscribir" /></div>
+			<div class="periodos arriba" role="radiogroup" aria-label="Cómo pagás">
+				<label class:on={periodo === 'mensual'}
+					><input type="radio" name="periodo-vista" value="mensual" checked={periodo === 'mensual'} onchange={() => (periodoA = 'mensual')} />Por mes</label
+				>
+				<label class:on={periodo === 'anual'}
+					><input type="radio" name="periodo-vista" value="anual" checked={periodo === 'anual'} onchange={() => (periodoA = 'anual')} />Por año</label
+				>
+			</div>
+			<p class="ahorro-anual">
+				{periodo === 'anual'
+					? `12 meses al precio de ${e.extras.mesesAnual}: ahorrás 2\u00a0meses.`
+					: `Con el pago anual, 12 meses al precio de\u00a0${e.extras.mesesAnual}.`}
+			</p>
 			<table class="comparar">
 				<thead>
 					<tr>
@@ -258,7 +355,7 @@
 							<th scope="col" class:rec={p.destacado}>
 								{#if p.destacado}<span class="recomendado">El más elegido</span>{/if}
 								<span class="plan-nombre">{p.nombre}</span>
-								<span class="plan-precio"><b class="num">{pesos(p.precio)}</b> por&nbsp;mes</span>
+								<span class="plan-precio"><b class="num">{pesos(precioDe(p))}</b><span class="por">{periodo === 'anual' ? 'por año' : 'por mes'}</span></span>
 							</th>
 						{/each}
 					</tr>
@@ -269,9 +366,9 @@
 							<th scope="row">{f.que}</th>
 							{#each e.catalogo as p (p.clave)}
 								{@const v = f.valor(p)}
-								<td class:rec={p.destacado} class:no={v === 'No'}>
-									<span class="icono lleno" aria-hidden="true">{v === 'No' ? 'remove' : 'check_circle'}</span>
-									<span class="solo-tel">{p.nombre}:&nbsp;</span>{v}
+								<td class:rec={p.destacado} class:no={v.tipo === 'no'} class:aparte={v.tipo === 'aparte'}>
+									<span class="icono lleno" aria-hidden="true">{ICONO_CELDA[v.tipo]}</span>
+									<span class="solo-tel">{p.nombre}:&nbsp;</span>{v.texto}
 								</td>
 							{/each}
 						</tr>
@@ -283,19 +380,15 @@
 							<td class="que"></td>
 							{#each e.catalogo as p (p.clave)}
 								<td class:rec={p.destacado}>
-									{#if s?.plan === p.clave}
+									{#if s?.plan === p.clave && periodo === (s?.periodo ?? 'mensual')}
 										<span class="g-pildora actual"><span class="icono lleno" aria-hidden="true">check_circle</span>Tu plan</span>
 									{:else}
-										<form
-											method="POST"
-											action="?/cambiar"
-											use:enhance={confirmar(
-												`¿Pasarte al plan ${p.nombre}? El precio nuevo rige desde el próximo cobro.` +
-													(planRango(p.clave) < planRango(s?.plan ?? '') ? ' No se borra nada: lo que tu plan nuevo no incluye queda guardado, en sólo lectura.' : '')
-											)}
-										>
+										{@const c = cambioDe(p)}
+										<!-- Sin enhance cuando hay que pagar: la respuesta es una redirección a Mercado Pago. -->
+										<form method="POST" action="?/cambiar" use:enhance={confirmar(c.texto)}>
 											<input type="hidden" name="plan" value={p.clave} />
-											<button class="g-cta claro">Cambiar a {p.nombre}</button>
+											<input type="hidden" name="periodo" value={periodo} />
+											<button class="g-cta claro">{s?.plan === p.clave ? (periodo === 'anual' ? 'Pagar por año' : 'Pagar por mes') : `Pasar a ${p.nombre}`}</button>
 										</form>
 									{/if}
 								</td>
@@ -308,13 +401,6 @@
 				<div class="carrito" id="elegir">
 					<fieldset class="opciones">
 						<legend class="rotulo">1 · Elegí tu plan</legend>
-						<div class="periodos" role="radiogroup" aria-label="Cómo pagás">
-							<label class:on={periodo === 'mensual'}><input type="radio" name="periodo-vista" value="mensual" bind:group={periodo} />Por mes</label>
-							<label class:on={periodo === 'anual'}
-								><input type="radio" name="periodo-vista" value="anual" bind:group={periodo} />Por año
-								<small>12 meses al precio de {e.extras.mesesAnual}</small></label
-							>
-						</div>
 						{#each e.catalogo as p (p.clave)}
 							<label class="opcion" class:on={elegido === p.clave}>
 								<input type="radio" name="plan-vista" value={p.clave} checked={elegido === p.clave} onchange={() => (elegidoA = p.clave)} />
@@ -341,6 +427,16 @@
 							</span>
 							<b class="num">{pesos(precioDe(plan))}</b>
 						</div>
+						{#if u && u.profesionalesActivos > plan.profesionales + (plan.clave === 'centro' ? (u.profesionalesExtra ?? 0) : 0)}
+							{@const quedan = u.profesionalesActivos - plan.profesionales}
+							<p class="g-aviso ambar aviso-carrito">
+								<span class="icono" aria-hidden="true">group</span>
+								<span
+									>Tenés {u.profesionalesActivos} profesionales activos: con {plan.nombre}, {quedan === 1 ? '1 deja' : `${quedan} dejan`} de tomar turnos (no se
+									borra&nbsp;nada).</span
+								>
+							</p>
+						{/if}
 						<dl class="cuentas">
 							{#if conPrueba}
 								<div><dt>Prueba gratis</dt><dd class="menta">hasta el {fechaCorta(primerCobro)}</dd></div>
@@ -372,7 +468,7 @@
 						</form>
 						<p class="letra-chica">
 							{conPrueba ? `No se cobra nada hasta que termine la prueba. ` : ''}Te lleva a Mercado Pago para cargar el medio de pago. Precios finales en pesos, con
-							impuestos incluidos y sin comisión por turno. <a href="/terminos">Términos</a> · <a href="/privacidad">Privacidad</a>
+							impuestos incluidos y sin comisión por turno. <a href="/terminos">Términos</a> · <a href="/privacidad">Privacidad</a> · <a href="/arrepentimiento">Arrepentimiento</a>
 						</p>
 					</section>
 				</div>
@@ -382,9 +478,9 @@
 		</section>
 
 		<div class="g-col lado">
-			{#if u}
+			{#if u && e.plan !== 'sin_plan'}
 				<section class="g-bloque grande" aria-labelledby="t-uso">
-					<h2 id="t-uso" class="g-bloque-titulo">Tu plan {e.nombrePlan}</h2>
+					<h2 id="t-uso" class="g-bloque-titulo">Uso del plan {e.nombrePlan}</h2>
 					<div class="uso">
 						<div class="uso-fila">
 							<span>Profesionales activos</span>
@@ -393,11 +489,11 @@
 						<span class="barra" class:llena={pctProfes >= 100} aria-hidden="true"><span style:width="{pctProfes}%"></span></span>
 						{#if sobran > 0}
 							<p class="g-nota alerta">
-								{sobran === 1 ? 'La más nueva queda' : `Las ${sobran} más nuevas quedan`} fuera de la agenda (no se borra nada). Desactivá a alguien en Equipo o pasá a
-								un plan más&nbsp;grande.
+								{sobran === 1 ? 'El profesional más nuevo queda' : `Los ${sobran} profesionales más nuevos quedan`} fuera de la agenda (no se borra nada). Pausá a alguien
+								desde <a href="/panel/equipo">Equipo</a> o pasá a un plan más&nbsp;grande.
 							</p>
 						{:else if u.profesionalesActivos >= u.topeProfesionales && e.plan !== 'centro'}
-							<p class="g-nota">Llegaste al tope. Para sumar más, pasá a {nombreDe(e.plan === 'inicial' ? 'equipo' : 'centro')}.</p>
+							<p class="g-nota">Llegaste al tope. Para sumar más, pasá a&nbsp;{nombreDe(e.plan === 'inicial' ? 'equipo' : 'centro')}.</p>
 						{/if}
 					</div>
 					<div class="uso">
@@ -424,7 +520,11 @@
 								<input id="extras" class="g-entrada extras" name="cantidad" type="number" min="0" max="100" inputmode="numeric" value={extras}
 									oninput={(ev) => (extrasA = Math.max(0, Math.min(100, Number(ev.currentTarget.value) || 0)))} />
 							</label>
-							<p class="g-nota">Con {extras} extra: hasta {25 + extras} profesionales por {pesos(montoConExtras)} {s.periodo === 'anual' ? 'por año' : 'por mes'}.</p>
+							<p class="g-nota">
+								Con {extras} extra: hasta {25 + extras} profesionales, {pesos(montoConExtras)}&nbsp;{s.periodo === 'anual' ? 'por año' : 'por mes'}.
+								{#if extras > (s.profesionalesExtra ?? 0)}Hoy pagás la diferencia por lo que queda del período y el tope sube cuando se&nbsp;acredita.{:else if extras <
+										(s.profesionalesExtra ?? 0)}Los que sacás se dejan de cobrar desde el próximo&nbsp;cobro.{/if}
+							</p>
 							<button class="g-accion" disabled={extras === (s.profesionalesExtra ?? 0)}>Guardar</button>
 						</form>
 					{/if}
@@ -443,10 +543,15 @@
 				<h2 id="t-cobros" class="g-bloque-titulo">Cobros</h2>
 				<p class="g-nota">
 					{#if s?.ultimoCobro}
-						El último cobro fue el {fechaLarga(s.ultimoCobro)}: {pesos(s.monto)}.
-						{#if s.proximoCobro && s.estado === 'autorizada'}El próximo, el {fechaLarga(s.proximoCobro)}.{/if}
+						El último cobro fue el {fechaConAnio(s.ultimoCobro, s.periodo === 'anual')}.
+						{#if s.proximoCobro && s.estado === 'autorizada'}El próximo, el {fechaConAnio(s.proximoCobro, s.periodo === 'anual')}: {pesos(s.monto)}&nbsp;{s.periodo ===
+							'anual'
+								? 'por año'
+								: 'por mes'}.{/if}
+					{:else if conPrueba}
+						Todavía no hay cobros. El primero va a ser el {fechaLarga(e.pruebaHasta!)}, cuando termine la&nbsp;prueba.
 					{:else}
-						Todavía no hay cobros. El primero va a ser el día que elijas el plan, y después cada mes ese mismo&nbsp;día.
+						Todavía no hay cobros. El primero va a ser el día que elijas el plan, y después cada mes (o cada año, con el pago anual) ese mismo&nbsp;día.
 					{/if}
 				</p>
 			</section>
@@ -529,10 +634,6 @@
 		opacity: 0;
 		pointer-events: none;
 	}
-	.periodos small {
-		font-weight: 400;
-		font-size: 12px;
-	}
 	.titulo {
 		flex: 0 1 auto;
 	}
@@ -573,8 +674,20 @@
 		margin: 4px 0 0;
 		padding: 0;
 		display: grid;
-		grid-template-columns: repeat(7, minmax(0, 1fr));
-		gap: 4px;
+		grid-template-columns: repeat(var(--dias, 14), minmax(0, 1fr));
+		gap: 3px;
+	}
+	.dias li {
+		position: relative;
+		padding-bottom: 16px;
+	}
+	.rotulo-dia {
+		position: absolute;
+		bottom: 0;
+		white-space: nowrap;
+	}
+	.dias li:last-child .rotulo-dia {
+		right: 0;
 	}
 	.dias li {
 		display: flex;
@@ -894,6 +1007,7 @@
 	.comparar {
 		width: 100%;
 		border-collapse: collapse;
+		table-layout: fixed;
 	}
 	.comparar th,
 	.comparar td {
@@ -910,8 +1024,8 @@
 		font-weight: 400;
 		color: var(--tl-sub);
 	}
-	thead th:not(.que) {
-		width: 30%;
+	thead th.que {
+		width: max(150px, 22%);
 	}
 	thead th.rec {
 		background: #f3fbf7;
@@ -987,11 +1101,39 @@
 		clip: rect(0 0 0 0);
 		white-space: nowrap;
 	}
+	/* El botón ocupa su columna y el texto puede ir en dos renglones (nunca desborda la tabla). */
 	tfoot .g-cta {
+		width: 100%;
 		min-height: 46px;
-		padding: 0 14px;
+		padding: 6px 12px;
 		font-size: 14px;
-		white-space: nowrap;
+		line-height: 1.2;
+		white-space: normal;
+		text-wrap: balance;
+		justify-content: center;
+		text-align: center;
+	}
+	.periodos.arriba {
+		max-width: 360px;
+		margin: 16px 18px 0;
+	}
+	.ahorro-anual {
+		margin: 6px 18px 0;
+		font-size: 12px;
+		color: var(--tl-sub);
+	}
+	.aviso-carrito {
+		margin: 0 0 4px;
+	}
+	tbody td.aparte {
+		color: #5e6b68;
+	}
+	.comparar th,
+	.comparar td {
+		text-wrap: pretty;
+	}
+	.plan-precio .por {
+		display: block;
 	}
 	.actual {
 		height: 46px;
@@ -1072,6 +1214,9 @@
 		thead th {
 			width: auto !important;
 			padding: 14px 8px 10px;
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-end;
 		}
 		.plan-precio b {
 			font-size: 17px;
@@ -1101,7 +1246,13 @@
 		tfoot .g-cta {
 			min-height: 48px;
 			font-size: 13px;
-			padding: 0 6px;
+			padding: 6px 10px;
+		}
+		.periodos.arriba {
+			margin: 14px 14px 0;
+		}
+		.ahorro-anual {
+			margin: 6px 14px 0;
 		}
 	}
 </style>

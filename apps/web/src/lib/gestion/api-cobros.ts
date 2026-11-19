@@ -33,3 +33,5 @@ export const SUSCRIPCION_TARJETA = '/v1/panel/suscripcion/tarjeta';
 export const SUSCRIPCION_REACTIVAR = '/v1/panel/suscripcion/reactivar';
 export const SUSCRIPCION_EXTRAS = '/v1/panel/suscripcion/extras';
 export const SUSCRIPCION_WHATSAPP = '/v1/panel/suscripcion/whatsapp';
+/** La vuelta de Mercado Pago de un pack o de una subida de plan: acredita lo pagado aunque el aviso no llegue. */
+export const SUSCRIPCION_CONCILIAR = '/v1/panel/suscripcion/conciliar';

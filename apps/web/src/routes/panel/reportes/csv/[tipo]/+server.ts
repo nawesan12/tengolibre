@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import { apiDe } from '#lib/server/api.ts';
 import { esDia } from '#lib/operacion/fechas.ts';
 import type { RequestHandler } from './$types';
@@ -20,7 +20,9 @@ export const GET: RequestHandler = async (event) => {
 	const res = await apiDe(event).crudo(`/v1/panel/reportes/${tipo}.csv?${q}`, { headers: { accept: 'text/csv' } });
 	if (res.status === 403) error(403, 'Las descargas son para quien gestiona el negocio.');
 	if (!res.ok || !res.body) {
-		const p = (await res.json().catch(() => null)) as { detail?: string } | null;
+		const p = (await res.json().catch(() => null)) as { detail?: string; code?: string } | null;
+		// No está en el plan: a Reportes con el aviso de tope, no a una página de error.
+		if (res.status === 402 && p?.code === 'tope_plan') redirect(303, '/panel/reportes?tope=csv');
 		error(res.status >= 400 && res.status < 600 ? res.status : 502, p?.detail ?? 'No pudimos armar el archivo.');
 	}
 	return new Response(res.body, {

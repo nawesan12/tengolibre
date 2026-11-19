@@ -17,6 +17,9 @@
 
 	let { data, form } = $props();
 	const n = $derived(data.negocio);
+	// Lo que el plan del negocio trae: sin lista de espera no se ofrece anotarse; sin cupones, el campo
+	// no aparece (salvo un cupón ya escrito, como el premio de un referido).
+	const conEspera = $derived(data.pagina.espera !== false);
 	const base = $derived(`/${n.slug}/reservar`);
 	// Las acciones van a la misma URL con lo elegido: sin JavaScript, si fallan, la página vuelve al mismo paso.
 	const accion = (nombre: string) => {
@@ -35,6 +38,7 @@
 	const cupon = $derived(form && 'cupon' in form ? form.cupon : null);
 	const precio = $derived(data.servicio?.precio ?? 0);
 	const descuento = $derived(cupon?.valido ? Math.min(cupon.descuento ?? 0, precio) : 0);
+	const conCupon = $derived(data.pagina.cupones !== false || !!v.cupon || !!cupon);
 	const total = $derived(precio - descuento);
 	const enEspera = $derived(!!form && ('anotado' in form || ('enEspera' in form && form.enEspera)));
 	const sinDias = $derived(data.paso === 'dia' && data.dias.every((d) => d.libres === 0));
@@ -267,9 +271,13 @@
 						{#if sinDias}
 							<span class="kicker tl-num">SIN LUGAR</span>
 							<h3 class="titulo-estado">No quedan lugares en los próximos&nbsp;días</h3>
-							{@render espera(hoy, sumarDias(hoy, 14), 'Anotarme en la lista de espera')}
+							{#if conEspera}
+								{@render espera(hoy, sumarDias(hoy, 14), 'Anotarme en la lista de espera')}
+							{:else}
+								<p class="texto">Volvé a mirar en unos días: se van abriendo lugares&nbsp;nuevos.</p>
+							{/if}
 						{:else}
-							<TiraDias dias={data.dias} elegida={data.fecha} href={aDia} />
+							<TiraDias dias={data.dias} elegida={data.fecha} href={aDia} espera={conEspera} />
 							{#if buscando}
 								<span class="chico sub">Buscando horarios…</span>
 								<div class="esqueletos" aria-hidden="true">
@@ -298,7 +306,9 @@
 										['Lo más cerca', nombreProf(data.cercano.horario.profesionales)].filter(Boolean).join(', ')
 									)}
 								{/if}
-								{@render espera(data.fecha < hoy ? hoy : data.fecha, data.fecha < hoy ? hoy : data.fecha, `Anotarme para el ${fechaLarga(data.fecha < hoy ? hoy : data.fecha).split(' ')[0].toLowerCase()}`)}
+								{#if conEspera}
+									{@render espera(data.fecha < hoy ? hoy : data.fecha, data.fecha < hoy ? hoy : data.fecha, `Anotarme para el ${fechaLarga(data.fecha < hoy ? hoy : data.fecha).split(' ')[0].toLowerCase()}`)}
+								{/if}
 							{/if}
 						{/if}
 					</section>
@@ -411,15 +421,17 @@
 							{/if}
 							<details {...abierto(!!(cupon || v.cupon || v.referido || v.nota || v.nacimiento || data.referido || form?.campos?.["cliente.nacimiento"]))}>
 								<summary class="extra">
-									<Icono nombre="sell" tam={18} lleno />Cupón, nota o código de referido
+									<Icono nombre="sell" tam={18} lleno />{conCupon ? 'Cupón, nota o código de referido' : 'Código de referido o cumpleaños'}
 									{#if descuento > 0}<span class="ok tl-num">− {pesos(descuento)}</span>{/if}
 								</summary>
 								<div class="form-w extra-cuerpo">
-									<div class="fila-cupon">
-										<label class="visualmente-oculto" for="r-cupon">Cupón</label>
-										<input id="r-cupon" class="entrada cupon" name="cupon" maxlength="40" autocomplete="off" autocapitalize="characters" placeholder="Cupón" value={v.cupon ?? ''} />
-										<button class="aplicar" formaction={accion('cupon')} formnovalidate disabled={enviando || aplicando}>{aplicando ? 'Aplicando…' : 'Aplicar'}</button>
-									</div>
+									{#if conCupon}
+										<div class="fila-cupon">
+											<label class="visualmente-oculto" for="r-cupon">Cupón</label>
+											<input id="r-cupon" class="entrada cupon" name="cupon" maxlength="40" autocomplete="off" autocapitalize="characters" placeholder="Cupón" value={v.cupon ?? ''} />
+											<button class="aplicar" formaction={accion('cupon')} formnovalidate disabled={enviando || aplicando}>{aplicando ? 'Aplicando…' : 'Aplicar'}</button>
+										</div>
+									{/if}
 									{#if cupon}
 										<p class={cupon.valido ? 'aviso-w verde' : 'aviso-w rojo'} role="status">
 											<Icono nombre={cupon.valido ? 'check_circle' : 'error'} tam={20} lleno />

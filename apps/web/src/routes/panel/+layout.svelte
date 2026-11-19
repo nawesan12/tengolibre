@@ -188,7 +188,7 @@
 			{:else if avisoPrueba && data.acceso}
 				<div class="aviso-prueba" role="status">
 					<b class="tl-num">{data.acceso.diasDePrueba === 1 ? '1 día' : `${data.acceso.diasDePrueba} días`}</b>
-					<span class="crece-txt">de prueba. Elegí un plan para no perder los&nbsp;cambios.</span>
+					<span class="crece-txt">de prueba. Elegí un plan para seguir haciendo cambios. No se borra&nbsp;nada.</span>
 					<a href="/panel/suscripcion">Ver planes</a>
 				</div>
 			{/if}

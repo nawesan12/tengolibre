@@ -5,7 +5,16 @@ import { dia } from '#lib/formato.ts';
 import type { Anotado, Notificacion, Profesional, Turno } from '#lib/operacion/tipos.ts';
 import type { LayoutServerLoad } from './$types';
 
-export type Acceso = { bloqueado: boolean; pruebaHasta: string | null; diasDePrueba: number; conSuscripcion: boolean };
+export type Acceso = {
+	bloqueado: boolean;
+	pruebaHasta: string | null;
+	diasDePrueba: number;
+	conSuscripcion: boolean;
+	/** El plan que rige, lo que trae y con qué plan viene lo que no trae (AvisoPlan). */
+	plan?: string;
+	funciones?: string[];
+	viene?: Record<string, string>;
+};
 
 /**
  * El panel exige sesión y un negocio. El negocio elegido vive en una cookie; si no es de la persona

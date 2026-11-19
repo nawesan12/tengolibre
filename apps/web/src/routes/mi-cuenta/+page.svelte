@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { DIAS_DE_PRUEBA } from '#lib/planes.ts';
 	import { ESTADOS, ROLES, fecha, hora } from '#lib/formato.ts';
 	import Icono from '#lib/ui/Icono.svelte';
 	import Logo from '#lib/ui/Logo.svelte';
@@ -87,7 +88,7 @@
 					<a class="crear" href="/empezar">
 						<Icono nombre="add_business" lleno tam={28} />
 						<b>{data.negocios.length ? 'Crear otro negocio' : 'Crear mi negocio'}</b>
-						<span>Probalo 7&nbsp;días gratis</span>
+						<span>Probalo {DIAS_DE_PRUEBA}&nbsp;días gratis</span>
 					</a>
 				</li>
 			</ul>

@@ -21,6 +21,15 @@ export const fechaCorta = (i: string) => sinPunto(corto.format(new Date(i)));
 /** «martes 3 de noviembre». */
 export const fechaLarga = (i: string) => largo.format(new Date(i)).replace(',', '');
 
+const largoConAnio = new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: ZONA });
+const anio = new Intl.DateTimeFormat('es-AR', { year: 'numeric', timeZone: ZONA });
+
+/** «martes 3 de noviembre», con el año si no es el de hoy o si se pide (el pago anual): «lunes 25 de octubre de 2027». */
+export function fechaConAnio(i: string, siempre = false, ahora = new Date()) {
+	if (!siempre && anio.format(new Date(i)) === anio.format(ahora)) return fechaLarga(i);
+	return largoConAnio.format(new Date(i)).replace(',', '');
+}
+
 /** «octubre». */
 export const nombreMes = (i: string | Date) => mes.format(new Date(i));
 

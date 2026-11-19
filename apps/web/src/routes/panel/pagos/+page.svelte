@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AvisoPlan from '#lib/configuracion/AvisoPlan.svelte';
 	import '#lib/gestion/gestion.css';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
@@ -95,6 +96,7 @@
 			</form>
 		{/if}
 	</div>
+	<AvisoPlan acceso={data.acceso} funcion="sena" detalle={"Lo que configures queda guardado, pero las reservas entran sin seña hasta que pases de\u00a0plan."} />
 
 	<Mensaje {form} que="mercadopago" />
 	{#if !c.disponible}

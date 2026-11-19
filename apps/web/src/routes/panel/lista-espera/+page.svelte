@@ -3,6 +3,7 @@
 	los días que le sirven y, si hay un hueco que le sirve, el horario sugerido + Avisar / Quitar.
 -->
 <script lang="ts">
+	import AvisoPlan from '#lib/configuracion/AvisoPlan.svelte';
 	import { page } from '$app/state';
 	import { accion } from '#lib/operacion/ui.ts';
 	import { enhance } from '$app/forms';
@@ -41,6 +42,7 @@
 		</nav>
 	{/if}
 </div>
+<AvisoPlan acceso={data.acceso} funcion="espera" detalle={"Las personas anotadas se ven acá; ofrecer huecos (a mano o solo) vuelve cuando pases de\u00a0plan."} />
 
 {#if data.prohibido}
 	<SinPermiso que="la lista de espera" />

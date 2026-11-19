@@ -13,13 +13,15 @@ export class ErrorApi extends Error {
 		public estado: number,
 		public codigo: string,
 		message: string,
-		public campos: Record<string, string> = {}
+		public campos: Record<string, string> = {},
+		/** Con tope_plan: el plan que lo habilita (inicial, equipo, centro). */
+		public plan?: string
 	) {
 		super(message);
 	}
 }
 
-type Problema = { detail?: string; title?: string; code?: string; issues?: { path: string; message: string }[] };
+type Problema = { detail?: string; title?: string; code?: string; plan?: string; issues?: { path: string; message: string }[] };
 
 export type Persona = { clerkId: string; email: string; nombre: string; foto: string };
 export type NegocioDeLaPersona = { id: string; slug: string; nombre: string; rol: string };
@@ -61,7 +63,8 @@ export class Api {
 				res.status,
 				json?.code ?? 'error',
 				json?.detail ?? json?.title ?? 'No pudimos completar el pedido.',
-				campos
+				campos,
+				json?.plan || undefined
 			);
 		}
 		return json as T;

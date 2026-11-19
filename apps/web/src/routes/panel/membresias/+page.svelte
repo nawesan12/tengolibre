@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AvisoPlan from '#lib/configuracion/AvisoPlan.svelte';
 	import '#lib/gestion/gestion.css';
 	import { enhance } from '$app/forms';
 	import { tick } from 'svelte';
@@ -91,6 +92,7 @@
 		<h1 class="g-titulo">Membresías y&nbsp;cupones</h1>
 		{#if esGestion}<button type="button" class="g-boton oscuro" onclick={abrirNuevoPlan}>Nuevo plan</button>{/if}
 	</div>
+	<AvisoPlan acceso={data.acceso} funcion="membresias" detalle={"Los socios que ya tenés siguen usando sus visitas; para crear o cambiar planes, pasá de\u00a0plan."} />
 
 	<section aria-labelledby="t-planes" class="g-col">
 		<h2 id="t-planes" class="visualmente-oculto">Planes</h2>

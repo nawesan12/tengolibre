@@ -11,7 +11,10 @@
 	import { horasSemana, horasTexto } from '#lib/gestion/equipo/semana.ts';
 
 	let { data, form } = $props();
-	const fueraDelPlan = $derived(data.profesionales.filter((p) => p.activo && p.enPlan === false).length);
+	const fuera = $derived(data.profesionales.filter((p) => p.activo && p.enPlan === false));
+	const fueraDelPlan = $derived(fuera.length);
+	// Con un aviso de tope a la vista (se quiso sumar a alguien), no se repite el de fuera del plan.
+	const hayTope = $derived(form?.codigo === 'tope_plan');
 	const esDuenio = $derived(data.negocio.rol === 'duenio');
 	const pendientes = $derived((data.invitaciones ?? []).filter((i) => !i.aceptadaEn));
 	const primero = $derived(data.profesionales[0]);
@@ -35,15 +38,16 @@
 				<p class="g-nota">Todavía no cargaste profesionales: sin al menos uno no se pueden reservar&nbsp;turnos.</p>
 			</div>
 		{/if}
-		{#if fueraDelPlan > 0}
-			<p class="g-aviso ambar" role="status">
-				<span class="icono" aria-hidden="true">info</span>
+		{#if fueraDelPlan > 0 && !hayTope}
+			<div class="g-aviso ambar" role="status">
+				<span class="icono" aria-hidden="true">workspace_premium</span>
 				<span
-					>{fueraDelPlan === 1 ? 'Un profesional quedó' : `${fueraDelPlan} profesionales quedaron`} fuera de tu plan: siguen acá, pero no toman turnos hasta que pases a
-					un plan más grande o pauses a&nbsp;alguien.</span
+					>{#each fuera as p, i (p.id)}{i > 0 ? (i === fueraDelPlan - 1 ? ' y ' : ', ') : ''}<a href={`/panel/profesionales/${p.id}`}>{p.nombre}</a>{/each}
+					{fueraDelPlan === 1 ? 'quedó fuera de tu plan: sigue acá, pero no toma turnos' : 'quedaron fuera de tu plan: siguen acá, pero no toman turnos'} hasta
+					que pases a un plan más grande o pauses a&nbsp;alguien.</span
 				>
 				<a class="g-boton" href="/panel/suscripcion#planes">Ver planes</a>
-			</p>
+			</div>
 		{/if}
 		<ListaEquipo profesionales={data.profesionales} />
 

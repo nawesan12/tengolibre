@@ -21,10 +21,17 @@ export const load: PageServerLoad = async (event) => {
 				.then((r) => Object.fromEntries(r.profesionales.filter((p) => p.foto).map((p) => [p.id, p.foto as string])))
 				.catch(() => ({}) as Record<string, string>)
 		]);
-		return { reporte, fotos, error: '', mesActual: dia().slice(0, 7) };
+		return { reporte, fotos, error: '', tope: null as string | null, mesActual: dia().slice(0, 7) };
 	} catch (e) {
 		if (e instanceof ErrorApi && e.estado < 500)
-			return { reporte: null, fotos: {} as Record<string, string>, error: e.message, mesActual: dia().slice(0, 7) };
+			return {
+				reporte: null,
+				fotos: {} as Record<string, string>,
+				error: e.message,
+				// Un tope del plan no es una falla: la página lo muestra con el botón para cambiar de plan.
+				tope: e.codigo === 'tope_plan' ? (e.plan ?? 'equipo') : null,
+				mesActual: dia().slice(0, 7)
+			};
 		throw e;
 	}
 };

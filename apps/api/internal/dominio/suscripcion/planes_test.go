@@ -550,3 +550,16 @@ func TestElPlanSeVeAntesDelTope(t *testing.T) {
 		t.Fatalf("acceso con Equipo: %+v", a)
 	}
 }
+
+func TestBotonDeArrepentimiento(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.Esperar(400, cobrosprueba.P{Metodo: "POST", Ruta: "/v1/arrepentimiento", Cuerpo: map[string]string{"email": "no-es-mail"}}, nil)
+	var r struct {
+		Codigo string `json:"codigo"`
+	}
+	e.Esperar(201, cobrosprueba.P{Metodo: "POST", Ruta: "/v1/arrepentimiento", Cuerpo: map[string]string{"email": "ana@ejemplo.com",
+		"negocio": "el-corte", "detalle": "Me arrepentí del pack"}}, &r)
+	if len(r.Codigo) != 8 {
+		t.Fatalf("código: %+v", r)
+	}
+}

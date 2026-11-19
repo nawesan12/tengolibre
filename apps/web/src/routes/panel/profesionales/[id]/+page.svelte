@@ -261,7 +261,15 @@
 			<div class="g-cabeza">
 				<h1 class="g-titulo">{p.nombre}</h1>
 				{#if !p.activo}<span class="g-pildora ambar"><span class="icono" aria-hidden="true">pause_circle</span>Pausado</span>{/if}
+				{#if p.activo && p.enPlan === false}<span class="g-pildora ambar"><span class="icono" aria-hidden="true">workspace_premium</span>Fuera de tu plan</span>{/if}
 			</div>
+			{#if p.activo && p.enPlan === false}
+				<div class="g-aviso ambar" role="status">
+					<span class="icono" aria-hidden="true">workspace_premium</span>
+					<span>Fuera de tu plan: no toma turnos ni aparece en tu página. Pausá a otra persona o pasá a un plan más&nbsp;grande.</span>
+					{#if esGestion}<a class="g-boton" href="/panel/suscripcion#planes">Ver planes</a>{/if}
+				</div>
+			{/if}
 			{#if page.url.searchParams.has('nuevo')}
 				<p class="g-aviso" role="status">
 					<span class="icono" aria-hidden="true">check_circle</span>
@@ -497,7 +505,7 @@
 							</label>
 						{/if}
 						<label class="g-campo g-ancho">Sobre su trabajo <textarea name="bio" rows="3" maxlength="1000">{p.bio}</textarea></label>
-						<label class="g-check g-ancho"><input type="checkbox" name="activo" checked={p.activo} /> Se le pueden reservar turnos</label>
+						<label class="g-check g-ancho"><input type="checkbox" name="activo" checked={p.activo} /> Atiende (si lo destildás, queda pausado y no se le reservan&nbsp;turnos)</label>
 						<div class="g-ancho acciones">
 							<button class="g-boton menta">Guardar datos</button>
 						</div>

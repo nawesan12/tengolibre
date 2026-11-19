@@ -142,6 +142,20 @@ END
 $$;
 -- +goose StatementEnd
 
+-- Botón de arrepentimiento (Res. SC 424/2020): cualquiera puede pedir la revocación de lo que contrató
+-- en línea (suscripción, pack, subida de plan) sin entrar a su cuenta. Se guarda con un código para
+-- seguirlo; lo atiende la plataforma (no tiene datos de clientes de los negocios).
+CREATE TABLE auth.arrepentimientos (
+	id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+	codigo text NOT NULL UNIQUE CHECK (codigo ~ '^[A-Z0-9]{8}$'),
+	email text NOT NULL CHECK (length(email) BETWEEN 3 AND 254),
+	negocio text NOT NULL DEFAULT '' CHECK (length(negocio) <= 120),
+	detalle text NOT NULL DEFAULT '' CHECK (length(detalle) <= 1000),
+	creado_en timestamptz NOT NULL DEFAULT now(),
+	atendido_en timestamptz
+);
+GRANT INSERT ON auth.arrepentimientos TO tengolibre_app;
+
 -- La purga de negocios cerrados archiva también lo que el negocio le pagó a Tengo Libre aparte de la
 -- suscripción: los packs de WhatsApp y las diferencias por subir de plan.
 ALTER TABLE auth.cobros_archivados DROP CONSTRAINT cobros_archivados_origen_check,
@@ -367,6 +381,7 @@ DROP TRIGGER whatsapp_devolver_saldo ON whatsapp_mensajes;
 DROP FUNCTION app.whatsapp_devolver_saldo();
 ALTER TABLE whatsapp_mensajes DROP COLUMN desde_saldo;
 DROP FUNCTION app.negocios_con_ordenes_pendientes(timestamptz);
+DROP TABLE auth.arrepentimientos;
 DROP TABLE suscripcion_subidas;
 DROP TABLE whatsapp_packs;
 ALTER TABLE negocios NO FORCE ROW LEVEL SECURITY;

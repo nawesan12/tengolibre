@@ -10,13 +10,14 @@
 		dias,
 		href,
 		elegida = '',
-		chica = false
-	}: { dias: Dia[]; href: (fecha: string) => string; elegida?: string; chica?: boolean } = $props();
+		chica = false,
+		espera = true
+	}: { dias: Dia[]; href: (fecha: string) => string; elegida?: string; chica?: boolean; espera?: boolean } = $props();
 
 	const etiqueta = (f: string, libres: number, abierto = false) => {
 		const txt = new Date(f + 'T12:00:00Z').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 		if (libres) return `${txt}: ${libres} ${libres === 1 ? 'horario libre' : 'horarios libres'}`;
-		return abierto ? `${txt}: sin lugar, anotate en la lista de espera` : `${txt}: cerrado`;
+		return abierto ? `${txt}: sin lugar${espera ? ', anotate en la lista de espera' : ''}` : `${txt}: cerrado`;
 	};
 
 	// El día elegido, a la vista (si está más allá del borde).

@@ -3,6 +3,7 @@
 	cuánto falta y «Levantar»; las levantadas, apagadas; y las reglas de ausencias.
 -->
 <script lang="ts">
+	import AvisoPlan from '#lib/configuracion/AvisoPlan.svelte';
 	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
 	import Icono from '#lib/ui/Icono.svelte';
@@ -25,6 +26,7 @@
 <svelte:head><title>Penalidades · Clientes · Panel</title></svelte:head>
 
 <Cabecera titulo="Penalidades" rotulo="Clientes" volver={{ href: '/panel/clientes', texto: 'Clientes' }} />
+<AvisoPlan acceso={data.acceso} funcion="penalidades" detalle={"Las penalidades que ya están se ven acá, pero no frenan reservas hasta que pases de\u00a0plan."} />
 
 {#if form?.error}<p class="aviso error" role="alert">{form.error}</p>{/if}
 {#if marcados !== null}<p class="aviso" role="status">Se marcaron {marcados}&nbsp;{marcados === 1 ? 'turno' : 'turnos'} como no&nbsp;vino.</p>{/if}
