@@ -292,9 +292,13 @@ struct DetalleTurno: View {
 
     private var acciones: some View {
         VStack(spacing: 10) {
+            // «Atendido» (y cobrar) desde que empieza, como el talón y la web.
+            let empezo = turno.inicio <= Date()
             if turno.estado == "pendiente" || turno.estado == "pendiente_pago" {
                 Button { Task { await cambiar("confirmado") } } label: { Label("Confirmar el turno", systemImage: "checkmark.circle") }
                     .buttonStyle(BotonMenta())
+            } else if !empezo && turno.estado != "atendido" {
+                EmptyView()
             } else if turno.estado != "cancelado" && caja?.estado != "cobrado" && estado.vePrecios {
                 Button { cobrar = true } label: { Label(turno.estado == "atendido" ? "Cobrar" : "Marcar atendido y cobrar", systemImage: "checkmark.circle") }
                     .buttonStyle(BotonMenta())
@@ -304,7 +308,7 @@ struct DetalleTurno: View {
             }
             if turno.estado != "cancelado" {
                 HStack(spacing: 8) {
-                    if EstadoTurno.puedePasar(turno.estado, "ausente") && turno.estado != "ausente" && turno.inicio <= Date() {
+                    if EstadoTurno.puedePasar(turno.estado, "ausente") && turno.estado != "ausente" && empezo {
                         Button { Task { await cambiar("ausente") } } label: { Label("Ausente", systemImage: "person.slash") }
                     }
                     Button { mover = true } label: { Label("Mover", systemImage: "calendar.badge.clock") }

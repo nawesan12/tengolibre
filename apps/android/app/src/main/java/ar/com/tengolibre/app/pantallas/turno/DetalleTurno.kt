@@ -324,13 +324,16 @@ fun DetalleTurno(turnoInicial: Turno, cerrar: () -> Unit) {
             Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(C.hoja)) {
                 Box(Modifier.fillMaxWidth().height(1.dp).background(C.linea))
                 Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // «Atendido» (y cobrar) desde que empieza, como el talón y la web.
+                    val empezo = !turno.inicio.isAfter(java.time.Instant.now())
                     when {
                         turno.estado == "pendiente" || turno.estado == "pendiente_pago" -> BotonMenta("Confirmar el turno", { cambiar("confirmado") }, simbolo = "checkmark.circle")
+                        !empezo && turno.estado != "atendido" -> {}
                         turno.estado != "cancelado" && caja?.estado != "cobrado" && estado.vePrecios -> BotonMenta(if (turno.estado == "atendido") "Cobrar" else "Marcar atendido y cobrar", { cobrar = true }, simbolo = "checkmark.circle")
                         turno.estado != "atendido" && turno.estado != "cancelado" -> BotonMenta("Marcar atendido", { cambiar("atendido") }, simbolo = "checkmark.circle")
                     }
                     if (turno.estado != "cancelado") Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (EstadoTurno.puedePasar(turno.estado, "ausente") && turno.estado != "ausente" && !turno.inicio.isAfter(java.time.Instant.now())) Box(Modifier.weight(1f)) { BotonContorno("Ausente", { cambiar("ausente") }, alto = 48.dp, tam = 14f, simbolo = "person.slash") }
+                        if (EstadoTurno.puedePasar(turno.estado, "ausente") && turno.estado != "ausente" && empezo) Box(Modifier.weight(1f)) { BotonContorno("Ausente", { cambiar("ausente") }, alto = 48.dp, tam = 14f, simbolo = "person.slash") }
                         Box(Modifier.weight(1f)) { BotonContorno("Mover", { mover = true }, alto = 48.dp, tam = 14f, simbolo = "calendar.badge.clock") }
                         Box(Modifier.weight(1f)) { BotonContorno("Cancelar", { confirmarCancelar = true }, alto = 48.dp, tam = 14f, simbolo = "calendar.badge.minus") }
                     }
