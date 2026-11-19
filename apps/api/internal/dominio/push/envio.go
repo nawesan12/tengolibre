@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/apns"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/fcm"
@@ -100,6 +101,22 @@ type Aviso struct {
 	// De quién es (el profesional del turno, o el de una notificación del equipo): a un profesional le
 	// llega sólo lo suyo, como en la campanita.
 	profTurno, profNoti string
+	// SinLista: el plan que rige no trae la lista de espera; el aviso no ofrece «Avisar a la lista».
+	SinLista bool
+}
+
+// Categoria: las acciones del aviso. Sin lista de espera en el plan, la cancelación ofrece sólo
+// «Cargar un turno» y el hueco no ofrece nada (se abre al tocarlo).
+func Categoria(a Aviso) string {
+	if a.SinLista {
+		switch a.Tipo {
+		case "cancelacion":
+			return "TL_CANCELO_SIN_LISTA"
+		case "espera":
+			return ""
+		}
+	}
+	return CategoriasAPNs[a.Tipo]
 }
 
 // PayloadAPNs arma el JSON de APNs: aps.alert con título y cuerpo, sonido, thread-id por negocio y,
@@ -120,21 +137,21 @@ func PayloadAPNs(a Aviso) []byte {
 		Ruta    string `json:"ruta"`
 		Negocio string `json:"negocio"`
 		Tipo    string `json:"tipo,omitempty"`
-	}{aps{alerta{a.Titulo, a.Cuerpo}, "default", "negocio-" + a.Negocio, CategoriasAPNs[a.Tipo]}, a.Ruta, a.Negocio, a.Tipo})
+	}{aps{alerta{a.Titulo, a.Cuerpo}, "default", "negocio-" + a.Negocio, Categoria(a)}, a.Ruta, a.Negocio, a.Tipo})
 	return b
 }
 
 // DatosFCM: lo que va en data del aviso de Android (sólo datos: la app arma la notificación con las
 // acciones de su categoría, las mismas que en el iPhone).
 func DatosFCM(a Aviso) map[string]string {
-	return map[string]string{"ruta": a.Ruta, "negocio": a.Negocio, "tipo": a.Tipo, "categoria": CategoriasAPNs[a.Tipo]}
+	return map[string]string{"ruta": a.Ruta, "negocio": a.Negocio, "tipo": a.Tipo, "categoria": Categoria(a)}
 }
 
 // CategoriasAPNs: las acciones de cada aviso en el iPhone (UNNotificationCategory de la app, handoff
 // de iOS › Avisos push). Los tipos sin categoría se abren al tocarlos y nada más.
 var CategoriasAPNs = map[string]string{
 	"reserva":     "TL_RESERVA", // Confirmar · Ver turno
-	"cancelacion": "TL_CANCELO", // Avisar a la lista · Cargar un turno
+	"cancelacion": "TL_CANCELO", // Avisar a la lista · Cargar un turno (TL_CANCELO_SIN_LISTA: sólo Cargar un turno)
 	"espera":      "TL_HUECO",   // Avisar a la lista
 	"resena":      "TL_RESENA",  // Responder (con texto)
 }
@@ -203,6 +220,13 @@ func (e *Envios) Correr(ctx context.Context, ahora time.Time) (any, error) {
 		filas.Close()
 		if err := filas.Err(); err != nil || len(avisos) == 0 {
 			return err
+		}
+		lista, err := planes.Tiene(ctx, tx, ahora, planes.Espera)
+		if err != nil {
+			return err
+		}
+		for i := range avisos {
+			avisos[i].SinLista = !lista
 		}
 		// push_preferencias tiene RLS: el LEFT JOIN trae sólo lo elegido en este negocio.
 		filas, err = tx.Query(ctx, `SELECT d.plataforma, d.token, d.entorno, '', '', m.rol, p.apagados,

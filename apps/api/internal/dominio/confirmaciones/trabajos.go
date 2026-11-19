@@ -96,9 +96,10 @@ func encolar(ctx context.Context, tx pgx.Tx, tipo string, c candidato, ahora tim
 		}
 		desdeSaldo = saldo
 	}
+	// desde_saldo: si no llega a salir (se descarta o falla), la unidad vuelve al saldo (00038).
 	tag, err := tx.Exec(ctx, `INSERT INTO whatsapp_mensajes (negocio_id, turno_id, tipo, para, token, clave, datos, estado,
-		ultimo_error, proximo_intento, creado_en) VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, nullif($8, ''), $9, $9)
-		ON CONFLICT (negocio_id, clave) DO NOTHING`, c.ID, tipo, para, avisos.Token(), clave, datos, estado, motivo, ahora)
+		ultimo_error, proximo_intento, creado_en, desde_saldo) VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, nullif($8, ''), $9, $9, $10)
+		ON CONFLICT (negocio_id, clave) DO NOTHING`, c.ID, tipo, para, avisos.Token(), clave, datos, estado, motivo, ahora, desdeSaldo)
 	if err == nil && tag.RowsAffected() == 0 && desdeSaldo {
 		err = planes.DevolverWhatsApp(ctx, tx)
 	}
@@ -136,11 +137,33 @@ func leerAjustesNegocio(ctx context.Context, tx pgx.Tx) (ajustesNegocio, error) 
 	return ajustesNegocio{a, zonaDe(zona)}, nil
 }
 
+// NotiSinWhatsApp: la campanita avisa, una vez por mes, que los recordatorios por WhatsApp no salen
+// porque no queda cupo (ni incluidos ni packs). Siguen saliendo por mail y push.
+const NotiSinWhatsApp = "whatsapp_sin_cupo"
+
+// conCupo: si al negocio fijado le queda algún WhatsApp automático. Sin cupo, avisa a la campanita
+// (una vez por mes) y la corrida no recorre los turnos: los vuelve a mirar la próxima, por si compran
+// un pack mientras el turno siga en la ventana.
+func conCupo(ctx context.Context, tx pgx.Tx, ahora time.Time, pendientes int) (bool, error) {
+	n, err := planes.WhatsAppDisponibles(ctx, tx, ahora)
+	if err != nil || n > 0 || pendientes == 0 {
+		return n > 0, err
+	}
+	desde := planes.InicioDeMes(ahora)
+	var avisado bool
+	if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM notificaciones WHERE tipo = $1 AND creado_en >= $2)", NotiSinWhatsApp, desde).
+		Scan(&avisado); err != nil || avisado {
+		return false, err
+	}
+	return false, avisos.Notificar(ctx, tx, avisos.Notificacion{Tipo: NotiSinWhatsApp, Titulo: "Los recordatorios por WhatsApp no están saliendo",
+		Texto: "No te quedan recordatorios por WhatsApp este mes. Siguen saliendo por mail y en el celular. Comprá un pack de 100 o pasá a Centro desde Suscripción."})
+}
+
 // Confirmaciones encola, en los negocios que la prendieron, la confirmación de los turnos de mañana
 // desde la hora elegida (y hasta las 21). No se le pregunta a quien ya confirmó solo (por WhatsApp,
 // desde su link o pagando la seña).
 func (t *Trabajos) Confirmaciones(ctx context.Context, ahora time.Time) (any, error) {
-	encolados := 0
+	encolados, sinCupo := 0, 0
 	err := trabajos.PorNegocio(ctx, t.Pool, func(_ string, tx pgx.Tx) error {
 		a, err := leerAjustesNegocio(ctx, tx)
 		if err != nil || !a.Confirmacion {
@@ -156,6 +179,12 @@ func (t *Trabajos) Confirmaciones(ctx context.Context, ahora time.Time) (any, er
 		if err != nil {
 			return err
 		}
+		if ok, err := conCupo(ctx, tx, ahora, len(cs)); err != nil || !ok {
+			if len(cs) > 0 {
+				sinCupo++
+			}
+			return err
+		}
 		for _, c := range cs {
 			ok, err := encolar(ctx, tx, "confirmacion", c, ahora)
 			if err != nil {
@@ -167,7 +196,7 @@ func (t *Trabajos) Confirmaciones(ctx context.Context, ahora time.Time) (any, er
 		}
 		return nil
 	})
-	return map[string]int{"encolados": encolados}, err
+	return map[string]int{"encolados": encolados, "sinCupo": sinCupo}, err
 }
 
 // Ventana del recordatorio: la misma que la del mail (avisos.Trabajos.Recordatorios).
@@ -179,7 +208,7 @@ const (
 // Recordatorios encola el recordatorio por WhatsApp de los turnos que empiezan en unas 24 horas, en
 // los negocios que lo prendieron y no tienen la confirmación (que ya hace de recordatorio).
 func (t *Trabajos) Recordatorios(ctx context.Context, ahora time.Time) (any, error) {
-	encolados := 0
+	encolados, sinCupo := 0, 0
 	err := trabajos.PorNegocio(ctx, t.Pool, func(_ string, tx pgx.Tx) error {
 		a, err := leerAjustesNegocio(ctx, tx)
 		if err != nil || !a.Recordatorio || a.Confirmacion {
@@ -187,6 +216,12 @@ func (t *Trabajos) Recordatorios(ctx context.Context, ahora time.Time) (any, err
 		}
 		cs, err := candidatos(ctx, tx, "recordatorio", ahora.Add(recordatorioDesde), ahora.Add(recordatorioHasta), ahora, "")
 		if err != nil {
+			return err
+		}
+		if ok, err := conCupo(ctx, tx, ahora, len(cs)); err != nil || !ok {
+			if len(cs) > 0 {
+				sinCupo++
+			}
 			return err
 		}
 		for _, c := range cs {
@@ -200,7 +235,7 @@ func (t *Trabajos) Recordatorios(ctx context.Context, ahora time.Time) (any, err
 		}
 		return nil
 	})
-	return map[string]int{"encolados": encolados}, err
+	return map[string]int{"encolados": encolados, "sinCupo": sinCupo}, err
 }
 
 // SinRespuesta marca para llamar los turnos cuya confirmación salió hace más de las horas del

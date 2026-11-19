@@ -112,7 +112,7 @@ func correr() error {
 	cob := &cobros.Servicio{Pool: app, Sesion: ses, Cifra: cifra, Sitio: cfg.Sitio,
 		Aplicacion:     mercadopago.Aplicacion{ID: cfg.MPAppID, Secreto: cfg.MPSecreto},
 		SecretoWebhook: cfg.MPSecretoWebhook, Escritura: sus.Escritura, OtrosAvisos: sus.Receptores(), Avisar: av.Avisar,
-		OrdenesPlataforma: sus.RecibirOrdenPlataforma}
+		OrdenesPlataforma: sus.RecibirOrdenPlataforma, UsuarioPlataforma: mercadopago.UsuarioDeToken(cfg.MPTokenPlataforma)}
 	pro := &promos.Servicio{Pool: app, Sesion: ses, Escritura: sus.Escritura}
 	mem := &membresias.Servicio{Pool: app, Sesion: ses, Escritura: sus.Escritura}
 	// El orden de Extras importa: membresía, después cupón, y el cobro último (sobre el precio final).

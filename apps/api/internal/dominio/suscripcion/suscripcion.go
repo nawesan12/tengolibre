@@ -150,14 +150,18 @@ func LeerCobros(ctx context.Context, tx pgx.Tx, ahora time.Time, a *Acceso) erro
 const vigenteSQL = `((s.estado = 'autorizada' AND (s.origen NOT IN ('apple', 'google') OR s.proximo_cobro > $1::timestamptz - interval '1 day'))
 	OR (s.estado = 'pausada' AND (s.gracia_hasta IS NULL OR s.gracia_hasta > $1)))`
 
+// pagadaSQL: una suscripción cuyo plan ya rige. Un alta que reemplaza a otra (cambio de período) y
+// todavía no cobró nada no da su plan: empieza cuando vence lo que ya se pagó (ConciliarCobro).
+const pagadaSQL = `(s.ultimo_cobro IS NOT NULL OR s.reemplaza IS NULL OR s.origen <> 'mercadopago')`
+
 // recalcularPlan deja negocios.plan como dicen las suscripciones que siguen valiendo (de cualquier
 // origen: Mercado Pago, App Store, Google Play), la de mejor plan; sin ninguna, sin_plan. Se llama
 // al dar de baja una: si quedaba otra vigente (pasó del iPhone a la web), el negocio no se queda sin
 // plan por la que se fue.
 func recalcularPlan(ctx context.Context, tx pgx.Tx, ahora time.Time) error {
-	_, err := tx.Exec(ctx, `UPDATE negocios SET plan = coalesce((SELECT s.plan FROM suscripciones s WHERE `+vigenteSQL+`
+	_, err := tx.Exec(ctx, `UPDATE negocios SET plan = coalesce((SELECT s.plan FROM suscripciones s WHERE `+vigenteSQL+` AND `+pagadaSQL+`
 			ORDER BY CASE s.plan WHEN 'centro' THEN 3 WHEN 'equipo' THEN 2 ELSE 1 END DESC, s.creado_en DESC LIMIT 1), 'sin_plan'),
-		profesionales_extra = coalesce((SELECT s.profesionales_extra FROM suscripciones s WHERE `+vigenteSQL+` AND s.plan = 'centro'
+		profesionales_extra = coalesce((SELECT s.profesionales_extra FROM suscripciones s WHERE `+vigenteSQL+` AND `+pagadaSQL+` AND s.plan = 'centro'
 			ORDER BY s.creado_en DESC LIMIT 1), 0)
 		WHERE id = app.negocio_actual()`, ahora)
 	return err
@@ -250,12 +254,20 @@ type Suscripcion struct {
 	// Periodo: mensual o anual (10 meses que valen 12). ProfesionalesExtra: los que suma Centro.
 	Periodo            string `json:"periodo"`
 	ProfesionalesExtra int    `json:"profesionalesExtra"`
+	// PlanSiguiente y ExtrasSiguiente: una baja de plan (o de extras) ya pedida, que rige desde el
+	// próximo cobro (hasta ahí se usa lo que ya se pagó). Monto ya es lo que se va a cobrar.
+	PlanSiguiente   *string `json:"planSiguiente"`
+	ExtrasSiguiente *int    `json:"extrasSiguiente"`
+	// Reemplaza: el alta nueva (cambio de período o de tarjeta) que reemplaza a otra ya pagada.
+	Reemplaza *string `json:"-"`
 }
 
-const columnas = `id::text, plan, estado, monto, link, proximo_cobro, ultimo_cobro, gracia_hasta, cancelada_en, creado_en, origen, periodo, profesionales_extra`
+const columnas = `id::text, plan, estado, monto, link, proximo_cobro, ultimo_cobro, gracia_hasta, cancelada_en, creado_en, origen, periodo,
+	profesionales_extra, plan_siguiente, extras_siguiente, reemplaza::text`
 
 func escanear(f pgx.Row, x *Suscripcion) error {
-	return f.Scan(&x.ID, &x.Plan, &x.Estado, &x.Monto, &x.Link, &x.ProximoCobro, &x.UltimoCobro, &x.GraciaHasta, &x.CanceladaEn, &x.CreadoEn, &x.Origen, &x.Periodo, &x.ProfesionalesExtra)
+	return f.Scan(&x.ID, &x.Plan, &x.Estado, &x.Monto, &x.Link, &x.ProximoCobro, &x.UltimoCobro, &x.GraciaHasta, &x.CanceladaEn, &x.CreadoEn,
+		&x.Origen, &x.Periodo, &x.ProfesionalesExtra, &x.PlanSiguiente, &x.ExtrasSiguiente, &x.Reemplaza)
 }
 
 // vigente: la última autorizada, pausada o pendiente, en ese orden (un alta que reemplaza a otra

@@ -99,6 +99,9 @@ func correr() error {
 	lista := append(tj.Lista(env), rs.Trabajo(), ps.Trabajo(), ps.TrabajoTurnos(), es.Trabajo(), rec.Trabajo(), reportes.TrabajoMensual(app),
 		// Las cuentas borradas: a los 30 días, sus datos personales.
 		cuenta.Trabajo(app))
+	// Las órdenes de la plataforma (packs de WhatsApp y subidas de plan) que siguen pendientes: si el
+	// aviso de Mercado Pago no llegó, lo pagado igual se acredita.
+	lista = append(lista, (&suscripcion.Servicio{Pool: app, TokenPlataforma: cfg.MPTokenPlataforma, Sitio: cfg.Sitio}).TrabajoOrdenes())
 	// Los negocios cerrados hace 90 días, con sus clientes: sólo con TENGOLIBRE_PURGA_NEGOCIOS=1.
 	if cfg.PurgaNegocios {
 		lista = append(lista, cuenta.TrabajoNegocios(app, cfg.Archivos))

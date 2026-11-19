@@ -24,7 +24,9 @@ import (
 // marcaPack va en la referencia de la orden: <negocio>-wa-<azar>.
 const marcaPack = "-wa-"
 
-// comprarPack crea la orden del pack y devuelve el link de pago ({"url"}).
+// comprarPack crea la orden del pack y devuelve el link de pago ({"packId", "url"}). Si ya hay una
+// pendiente de las últimas 24 horas con link, devuelve esa: un doble clic no arma dos órdenes (que se
+// podían pagar las dos) y no se acumulan órdenes contra Mercado Pago.
 func (s *Servicio) comprarPack(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	if r.ContentLength != 0 {
@@ -39,10 +41,19 @@ func (s *Servicio) comprarPack(w http.ResponseWriter, r *http.Request) error {
 	negocio := sesion.De(ctx).NegocioID
 	ref := negocio + marcaPack + mercadopago.Azar()
 	var id string
+	var link *string
 	err := s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
-		// Un checkout que se abandonó queda cancelado: no se acumulan pendientes.
-		if _, err := tx.Exec(ctx, `UPDATE whatsapp_packs SET estado = 'cancelado' WHERE estado = 'pendiente' AND creado_en < $1`,
-			s.ahora().Add(-24*time.Hour)); err != nil {
+		// En fila por negocio: dos pedidos a la vez no arman dos órdenes.
+		if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext('pack:' || app.negocio_actual()::text))"); err != nil {
+			return err
+		}
+		desde := s.ahora().Add(-24 * time.Hour)
+		if _, err := tx.Exec(ctx, `UPDATE whatsapp_packs SET estado = 'cancelado' WHERE estado = 'pendiente' AND creado_en < $1`, desde); err != nil {
+			return err
+		}
+		err := tx.QueryRow(ctx, `SELECT id::text, link FROM whatsapp_packs WHERE estado = 'pendiente' AND creado_en >= $1
+			ORDER BY creado_en DESC LIMIT 1`, desde).Scan(&id, &link)
+		if err == nil || !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
 		return tx.QueryRow(ctx, `INSERT INTO whatsapp_packs (negocio_id, referencia, cantidad, monto, creado_en)
@@ -50,6 +61,10 @@ func (s *Servicio) comprarPack(w http.ResponseWriter, r *http.Request) error {
 	})
 	if err != nil {
 		return err
+	}
+	if link != nil {
+		web.JSON(w, http.StatusCreated, map[string]string{"packId": id, "url": *link})
+		return nil
 	}
 	o := mercadopago.NuevaOrden(ref, "Tengo Libre — 100 recordatorios por WhatsApp", planes.PackWhatsAppPrecio)
 	o.ExpirationTime = mercadopago.Duracion(24 * time.Hour)
@@ -59,7 +74,7 @@ func (s *Servicio) comprarPack(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return errorMP(err)
 	}
-	err = s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
+	err = s.Pool.EnNegocio(context.WithoutCancel(ctx), negocio, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, "UPDATE whatsapp_packs SET mp_orden = $2, link = $3 WHERE id = $1", id, c.ID, c.CheckoutURL)
 		return err
 	})
@@ -70,28 +85,17 @@ func (s *Servicio) comprarPack(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// RecibirOrdenPlataforma es el receptor de una orden de la cuenta de la plataforma (el webhook de
-// cobros la pasa acá cuando el vendedor no es un negocio conectado).
-func (s *Servicio) RecibirOrdenPlataforma(ctx context.Context, a mercadopago.Aviso) error {
-	return s.ConciliarPack(ctx, a.ID())
-}
-
-// ConciliarPack trae la orden con el token de la plataforma (el aviso no es la fuente de verdad) y,
-// si es un pack pagado, lo acredita una sola vez.
-func (s *Servicio) ConciliarPack(ctx context.Context, orden string) error {
-	if s.TokenPlataforma == "" || orden == "" {
-		return nil
-	}
-	o, err := s.cliente().LeerOrden(ctx, s.TokenPlataforma, orden)
-	if err != nil {
-		return noEncontradoEsNada(err)
-	}
+// conciliarPack: si la orden es un pack pagado, lo acredita una sola vez (aunque ya se hubiera dado
+// por abandonado). Si Mercado Pago la devolvió o hubo un contracargo, el pack pasa a devuelto y se
+// descuenta del saldo lo que quede (lo ya mandado no se puede sacar).
+func (s *Servicio) conciliarPack(ctx context.Context, o mercadopago.OrdenLeida) error {
 	negocio := negocioDeReferencia(o.ExternalReference)
 	if negocio == "" || !strings.Contains(o.ExternalReference, marcaPack) {
 		return nil
 	}
 	t, ok := o.Relevante()
 	pagado := ok && t.Status == "processed" && mercadopago.Pesos(mercadopago.LeerImporte(o.TotalPaidAmount)) >= planes.PackWhatsAppPrecio
+	devuelto := ok && (t.Status == "refunded" || t.Status == "charged_back")
 	return s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
 		var id, estado string
 		var cantidad int
@@ -100,8 +104,21 @@ func (s *Servicio) ConciliarPack(ctx context.Context, orden string) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
-		if err != nil || estado == "acreditado" || !pagado {
+		if err != nil {
 			return err
+		}
+		if devuelto && estado == "acreditado" {
+			if _, err := tx.Exec(ctx, "UPDATE whatsapp_packs SET estado = 'devuelto' WHERE id = $1", id); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, "UPDATE negocios SET whatsapp_saldo = greatest(whatsapp_saldo - $1, 0) WHERE id = app.negocio_actual()", cantidad); err != nil {
+				return err
+			}
+			return auditoria.Anotar(ctx, tx, auditoria.Registro{Accion: "suscripcion.pack_whatsapp_devuelto", Entidad: "whatsapp_pack", EntidadID: id,
+				Detalle: map[string]any{"cantidad": cantidad, "orden": o.ID, "estado": t.Status}})
+		}
+		if estado == "acreditado" || estado == "devuelto" || !pagado {
+			return nil
 		}
 		if _, err := tx.Exec(ctx, "UPDATE whatsapp_packs SET estado = 'acreditado', acreditado_en = $2, mp_orden = coalesce(mp_orden, $3) WHERE id = $1",
 			id, s.ahora(), o.ID); err != nil {

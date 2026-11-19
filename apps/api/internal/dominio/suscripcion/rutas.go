@@ -34,6 +34,14 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	// Profesionales extra de Centro y packs de WhatsApp (extras.go).
 	mux.HandleFunc("PUT /v1/panel/suscripcion/extras", ses.Panel([]string{sesion.Duenio}, web.Envolver(s.extras)))
 	mux.HandleFunc("POST /v1/panel/suscripcion/whatsapp", ses.Panel([]string{sesion.Duenio}, web.Envolver(s.comprarPack)))
+	// La vuelta de Mercado Pago (packs y subidas de plan): acredita lo pagado aunque el aviso no llegue.
+	mux.HandleFunc("POST /v1/panel/suscripcion/conciliar", ses.Panel([]string{sesion.Duenio}, web.Envolver(func(w http.ResponseWriter, r *http.Request) error {
+		if err := s.conciliar(r.Context(), sesion.De(r.Context()).NegocioID); err != nil {
+			return err
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return nil
+	})))
 	// La App Store (apple.go): la compra desde el iPhone y sus notificaciones.
 	s.RutasApple(mux)
 	s.RutasGoogle(mux)
@@ -97,6 +105,8 @@ func (s *Servicio) leer(w http.ResponseWriter, r *http.Request) error {
 		CupoIA      int          `json:"cupoIA"`
 		Uso         Uso          `json:"uso"`
 		Suscripcion *Suscripcion `json:"suscripcion"`
+		// Subida: una subida de plan con la diferencia todavía sin pagar (link de la última hora).
+		Subida *SubidaPendiente `json:"subida"`
 	}
 	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error {
 		var err error
@@ -109,7 +119,10 @@ func (s *Servicio) leer(w http.ResponseWriter, r *http.Request) error {
 		if out.Uso, err = LeerUso(ctx, tx, s.ahora()); err != nil {
 			return err
 		}
-		out.Suscripcion, err = ultima(ctx, tx)
+		if out.Suscripcion, err = ultima(ctx, tx); err != nil {
+			return err
+		}
+		out.Subida, err = leerSubidaPendiente(ctx, tx, s.ahora())
 		return err
 	})
 	if err != nil {
@@ -209,14 +222,7 @@ func (s *Servicio) suscribir(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	u, err := s.alta(ctx, plan, periodo, 0, diasGratis, nil)
-	if err != nil {
-		return err
-	}
-	var id string
-	err = s.Pool.EnNegocio(ctx, ses.NegocioID, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, "SELECT id::text FROM suscripciones WHERE link = $1 ORDER BY creado_en DESC LIMIT 1", u).Scan(&id)
-	})
+	id, u, err := s.alta(ctx, plan, periodo, 0, diasGratis, nil)
 	if err != nil {
 		return err
 	}
@@ -348,10 +354,11 @@ func (s *Servicio) ConciliarPreaprobacion(ctx context.Context, id string) error 
 		}
 	}()
 	return s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
-		var subID, plan string
-		var cancelada, proximo *time.Time
-		err := tx.QueryRow(ctx, `SELECT id::text, plan, cancelada_en, proximo_cobro FROM suscripciones
-			WHERE mp_id = $1 OR referencia = $2 FOR UPDATE`, p.ID, p.ExternalReference).Scan(&subID, &plan, &cancelada, &proximo)
+		var subID, plan, estado string
+		var cancelada, proximo, ultimo *time.Time
+		var reemplaza *string
+		err := tx.QueryRow(ctx, `SELECT id::text, plan, estado, cancelada_en, proximo_cobro, ultimo_cobro, reemplaza::text FROM suscripciones
+			WHERE mp_id = $1 OR referencia = $2 FOR UPDATE`, p.ID, p.ExternalReference).Scan(&subID, &plan, &estado, &cancelada, &proximo, &ultimo, &reemplaza)
 		if errors.Is(err, pgx.ErrNoRows) {
 			s.log().Warn("suscripcion: aviso de una que no conocemos", "preapproval", p.ID)
 			return nil
@@ -361,6 +368,14 @@ func (s *Servicio) ConciliarPreaprobacion(ctx context.Context, id string) error 
 		}
 		switch p.Status {
 		case "authorized":
+			if estado == "cancelada" {
+				// Un checkout que se había dado por abandonado (o una ya dada de baja) no revive: si no, quedaban
+				// dos suscripciones cobrando. Se cancela en Mercado Pago y se avisa por si cobró algo.
+				s.log().Error("suscripcion: se autorizó una suscripción ya cancelada; se cancela en Mercado Pago (revisar y devolver si cobró)",
+					"negocio", negocio, "preapproval", p.ID)
+				viejaMP = &p.ID
+				return nil
+			}
 			if _, err := tx.Exec(ctx, `UPDATE suscripciones SET estado = 'autorizada', mp_id = $2, email = coalesce(nullif($3, ''), email),
 				proximo_cobro = coalesce($4, proximo_cobro), gracia_hasta = NULL, actualizado_en = now() WHERE id = $1`,
 				subID, p.ID, p.PayerEmail, p.NextPaymentDate); err != nil {
@@ -368,6 +383,11 @@ func (s *Servicio) ConciliarPreaprobacion(ctx context.Context, id string) error 
 			}
 			if viejaMP, err = reemplazar(ctx, tx, subID, ahora); err != nil {
 				return err
+			}
+			// Un alta que reemplaza a otra ya pagada (cambio de período o de tarjeta) empieza cuando vence lo
+			// pagado: su plan rige desde su primer cobro (ConciliarCobro), no antes.
+			if reemplaza != nil && ultimo == nil {
+				return nil
 			}
 			return ponerPlan(ctx, tx, subID)
 		case "paused":
@@ -418,8 +438,12 @@ func (s *Servicio) ConciliarCobro(ctx context.Context, id string) error {
 	}
 	ahora := s.ahora()
 	return s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
-		var subID, plan string
-		err := tx.QueryRow(ctx, "SELECT id::text, plan FROM suscripciones WHERE mp_id = $1 FOR UPDATE", c.PreapprovalID).Scan(&subID, &plan)
+		var subID, plan, periodo string
+		var extras int
+		var siguiente *string
+		var extrasSiguiente *int
+		err := tx.QueryRow(ctx, `SELECT id::text, plan, periodo, profesionales_extra, plan_siguiente, extras_siguiente FROM suscripciones
+			WHERE mp_id = $1 FOR UPDATE`, c.PreapprovalID).Scan(&subID, &plan, &periodo, &extras, &siguiente, &extrasSiguiente)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -438,6 +462,26 @@ func (s *Servicio) ConciliarCobro(ctx context.Context, id string) error {
 			if tag.RowsAffected() == 0 {
 				s.log().Error("suscripcion: cobro aprobado de una suscripción cancelada o vencida; revisar y devolver", "negocio", negocio, "cobro", id)
 				return nil
+			}
+			// Una baja de plan programada rige desde este cobro (el monto ya era el nuevo).
+			if siguiente != nil {
+				plan = *siguiente
+			}
+			if extrasSiguiente != nil {
+				extras = *extrasSiguiente
+			}
+			// Lo cobrado manda: si Mercado Pago cobró menos que el plan (un cambio de monto que no llegó), rige
+			// el plan que alcanza con lo que se pagó, y se avisa para revisarlo.
+			if cobrado := int64(math.Round(c.TransactionAmount)); c.TransactionAmount > 0 {
+				if p, ok := planes.De(plan); ok && cobrado < p.PrecioDe(periodo, extras) {
+					s.log().Error("suscripcion: Mercado Pago cobró menos que el plan; rige el plan que alcanza", "negocio", negocio, "cobro", id,
+						"cobrado", cobrado, "plan", plan, "esperado", p.PrecioDe(periodo, extras))
+					plan, extras = planQueAlcanza(periodo, cobrado), 0
+				}
+			}
+			if _, err := tx.Exec(ctx, `UPDATE suscripciones SET plan = $2, profesionales_extra = $3, plan_siguiente = NULL, extras_siguiente = NULL,
+				actualizado_en = now() WHERE id = $1`, subID, plan, extras); err != nil {
+				return err
 			}
 			return ponerPlan(ctx, tx, subID)
 		case "rejected", "cancelled":
@@ -465,4 +509,15 @@ func ponerPlan(ctx context.Context, tx pgx.Tx, id string) error {
 	_, err := tx.Exec(ctx, `UPDATE negocios n SET plan = s.plan, profesionales_extra = CASE WHEN s.plan = 'centro' THEN s.profesionales_extra ELSE 0 END
 		FROM suscripciones s WHERE s.id = $1 AND n.id = app.negocio_actual()`, id)
 	return err
+}
+
+// planQueAlcanza: el plan más alto que se paga con lo cobrado en el período (Inicial si ninguno).
+func planQueAlcanza(periodo string, cobrado int64) string {
+	clave := planes.Planes[0].Clave
+	for _, p := range planes.Planes {
+		if p.PrecioDe(periodo, 0) <= cobrado {
+			clave = p.Clave
+		}
+	}
+	return clave
 }

@@ -60,6 +60,9 @@ type Servicio struct {
 	// OrdenesPlataforma: las órdenes de la cuenta de la plataforma (los packs de WhatsApp, en
 	// suscripcion). Una orden cuyo vendedor no es un negocio conectado va acá.
 	OrdenesPlataforma mercadopago.Receptor
+	// UsuarioPlataforma: el usuario de Mercado Pago de la cuenta de la plataforma (0: no se sabe). Una
+	// orden suya va a OrdenesPlataforma aunque esa cuenta también esté conectada a un negocio (una demo).
+	UsuarioPlataforma int64
 	// Avisar como en turnos (el pago confirma el turno). nil: no se avisa.
 	Avisar func(ctx context.Context, negocioID, turnoID, evento string)
 	// CancelarTurno: lo que corre al cancelar un turno, como en turnos (turnos.Servicio.AlCancelar: la

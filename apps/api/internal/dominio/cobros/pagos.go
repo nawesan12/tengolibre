@@ -265,12 +265,16 @@ func (s *Servicio) recibirPago(ctx context.Context, a mercadopago.Aviso) error {
 
 // recibirOrden: aviso del tópico order (evento «Order (Mercado Pago)»).
 func (s *Servicio) recibirOrden(ctx context.Context, a mercadopago.Aviso) error {
+	if s.OrdenesPlataforma != nil && s.UsuarioPlataforma != 0 && a.Usuario() == s.UsuarioPlataforma {
+		return s.OrdenesPlataforma(ctx, a)
+	}
 	negocio, err := s.negocioDe(ctx, a)
 	if err != nil {
 		return err
 	}
 	if negocio == nil {
-		// No es de un negocio conectado: puede ser de la cuenta de la plataforma (un pack de WhatsApp).
+		// No es de un negocio conectado: puede ser de la cuenta de la plataforma (un pack de WhatsApp o
+		// la diferencia de una subida de plan).
 		if s.OrdenesPlataforma != nil {
 			return s.OrdenesPlataforma(ctx, a)
 		}

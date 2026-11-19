@@ -13,6 +13,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/cobros/cobrosprueba"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/suscripcion"
+	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago/mpfalso"
 )
 
@@ -260,6 +261,27 @@ func TestSenaSoloConEquipo(t *testing.T) {
 	}
 }
 
+// cobro aprueba un cobro del preapproval id por monto (lo que manda Mercado Pago cada período).
+func cobro(e *cobrosprueba.Entorno, id, cobroID string, monto int64, proximo time.Time) {
+	e.T.Helper()
+	e.MP.Autorizar(id, "authorized", &proximo)
+	c := mercadopago.CobroAutorizado{PreapprovalID: id, TransactionAmount: float64(monto)}
+	c.Payment.Status = "approved"
+	e.MP.Cobros[cobroID] = c
+	if s := e.Avisar("subscription_authorized_payment", cobroID); s != 200 {
+		e.T.Fatalf("aviso del cobro: %d", s)
+	}
+}
+
+func preapproval(url string) string { return strings.TrimPrefix(url, "https://mp.falso/suscripcion/") }
+
+type respuestaCambio struct {
+	suscripcion.Suscripcion
+	URL     string `json:"url"`
+	Hoy     int64  `json:"hoy"`
+	Despues int64  `json:"despues"`
+}
+
 func TestAnualCentroYExtras(t *testing.T) {
 	e := cobrosprueba.Armar(t)
 	var alta struct {
@@ -268,46 +290,175 @@ func TestAnualCentroYExtras(t *testing.T) {
 	e.Panel(400, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "centro", "periodo": "bienal"}, nil)
 	e.Panel(400, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "completo"}, nil)
 	e.Panel(201, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "centro", "periodo": "anual"}, &alta)
-	id := strings.TrimPrefix(alta.URL, "https://mp.falso/suscripcion/")
+	id := preapproval(alta.URL)
 	// Anual: 10 meses (299.000) cada 12.
 	if e.MP.Montos[id] != 299000 || e.MP.Frecuencias[id] != 12 {
 		t.Fatalf("anual: %d cada %d meses", e.MP.Montos[id], e.MP.Frecuencias[id])
 	}
-	proximo := e.Ahora.AddDate(1, 0, 0)
-	e.MP.Autorizar(id, "authorized", &proximo)
+	finPrueba := e.Ahora.AddDate(0, 0, 14)
+	e.MP.Autorizar(id, "authorized", &finPrueba)
 	e.Avisar("subscription_preapproval", id)
-	s := leer(e)
-	if s.Plan != "centro" || s.Suscripcion.Periodo != "anual" || s.Suscripcion.Monto != 299000 {
-		t.Fatalf("centro anual: %+v %+v", s.Acceso, s.Suscripcion)
+	// Suscripto a Centro durante la prueba, sin nada cobrado: rige Equipo (la prueba es con Equipo).
+	if s := leer(e); s.Plan != "equipo" || s.Suscripcion.Plan != "centro" || s.Suscripcion.Periodo != "anual" {
+		t.Fatalf("centro anual en la prueba: %+v %+v", s.Acceso, s.Suscripcion)
 	}
-	// Extras: 2 profesionales más ($1.900 c/u por mes): el anual pasa a 10 × 33.700.
-	var x suscripcion.Suscripcion
+	// Cancelarla antes del primer cobro no deja Centro gratis.
+	// (Con el primer cobro, Centro rige aunque quede prueba.)
+	proximo := e.Ahora.AddDate(1, 0, 0)
+	cobro(e, id, "7001", 299000, proximo)
+	if s := leer(e); s.Plan != "centro" || s.Suscripcion.Monto != 299000 {
+		t.Fatalf("centro anual cobrado: %+v %+v", s.Acceso, s.Suscripcion)
+	}
+	// Extras: 2 profesionales más ($1.900 c/u por mes). Con el año recién pagado se cobra ya la
+	// diferencia por lo que queda (2 × 1.900 × 10 = 38.000) y el tope sube recién cuando se acredita.
+	var x respuestaCambio
 	e.Panel(400, "PUT", "/v1/panel/suscripcion/extras", map[string]int{"cantidad": -1}, nil)
 	e.Panel(200, "PUT", "/v1/panel/suscripcion/extras", map[string]int{"cantidad": 2}, &x)
-	if x.ProfesionalesExtra != 2 || x.Monto != 337000 || e.MP.Montos[id] != 337000 {
+	if x.URL == "" || x.Hoy != 38000 || x.Despues != 337000 || e.MP.Montos[id] != 299000 {
 		t.Fatalf("extras: %+v %d", x, e.MP.Montos[id])
 	}
-	var u struct {
-		Uso suscripcion.Uso `json:"uso"`
+	uso := func() suscripcion.Uso {
+		var u struct {
+			Uso suscripcion.Uso `json:"uso"`
+		}
+		e.Panel(200, "GET", "/v1/panel/suscripcion", nil, &u)
+		return u.Uso
 	}
-	e.Panel(200, "GET", "/v1/panel/suscripcion", nil, &u)
-	if u.Uso.TopeProfesionales != 27 || u.Uso.WhatsAppIncluidos != 150 || u.Uso.CupoIA != 1500 {
-		t.Fatalf("uso con Centro y extras: %+v", u.Uso)
+	if u := uso(); u.TopeProfesionales != 25 {
+		t.Fatalf("sin pagar la diferencia el tope no sube: %+v", u)
 	}
-	// Bajar a Equipo (mismo período): el monto baja, los extras se van y el tope vuelve a 12.
+	ref := strings.TrimPrefix(x.URL, "https://mp.falso/checkout/")
+	orden := e.MP.PagarOrden(ref, "processed", "accredited", 38000, 31)
+	mpfalso.Avisar(e.Handler, "order", orden, 999, e.Ahora)
+	if u := uso(); u.TopeProfesionales != 27 || u.WhatsAppIncluidos != 150 || u.CupoIA != 1500 || e.MP.Montos[id] != 337000 {
+		t.Fatalf("uso con Centro y extras: %+v %d", u, e.MP.Montos[id])
+	}
+	// Bajar a Equipo (mismo período): el monto del preapproval baja ya, pero Centro (pagado) sigue
+	// hasta el próximo cobro.
 	e.Panel(200, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "equipo"}, &x)
-	if x.Plan != "equipo" || x.Monto != 149000 || x.ProfesionalesExtra != 0 || e.MP.Montos[id] != 149000 {
+	if x.Plan != "centro" || x.PlanSiguiente == nil || *x.PlanSiguiente != "equipo" || x.Monto != 149000 || e.MP.Montos[id] != 149000 {
 		t.Fatalf("a equipo: %+v", x)
 	}
+	if s := leer(e); s.Plan != "centro" {
+		t.Fatalf("lo pagado se usa entero: %+v", s.Acceso)
+	}
+	// Arrepentirse: volver a Centro deshace la baja (sin cobrar nada).
+	x = respuestaCambio{}
+	e.Panel(200, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "centro"}, &x)
+	if x.PlanSiguiente != nil || x.Monto != 337000 || e.MP.Montos[id] != 337000 || x.URL != "" {
+		t.Fatalf("deshacer la baja: %+v", x)
+	}
+	e.Panel(200, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "equipo"}, &x)
+	// El cobro del año siguiente es el de Equipo: ahí rige.
+	e.Ahora = proximo.Add(time.Hour)
+	cobro(e, id, "7002", 149000, proximo.AddDate(1, 0, 0))
+	if s := leer(e); s.Plan != "equipo" || s.Suscripcion.Plan != "equipo" || s.Suscripcion.PlanSiguiente != nil || s.Suscripcion.ProfesionalesExtra != 0 {
+		t.Fatalf("equipo desde el cobro: %+v %+v", s.Acceso, s.Suscripcion)
+	}
 	e.Panel(409, "PUT", "/v1/panel/suscripcion/extras", map[string]int{"cantidad": 1}, nil)
-	// Pasar a mensual: un alta nueva que empieza cuando vence lo pagado y reemplaza a la anual.
-	var nueva struct {
+	// Pasar a mensual: un alta nueva que empieza cuando vence lo pagado y reemplaza a la anual. Su
+	// plan rige desde su primer cobro.
+	var nueva respuestaCambio
+	e.Panel(200, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "centro", "periodo": "mensual"}, &nueva)
+	nid := preapproval(nueva.URL)
+	if e.MP.Montos[nid] != 29900 || e.MP.Frecuencias[nid] != 1 || nueva.Hoy != 0 {
+		t.Fatalf("mensual nueva: %d cada %d", e.MP.Montos[nid], e.MP.Frecuencias[nid])
+	}
+	fin := proximo.AddDate(1, 0, 0)
+	e.MP.Autorizar(nid, "authorized", &fin)
+	e.Avisar("subscription_preapproval", nid)
+	if s := leer(e); s.Plan != "equipo" || e.MP.Preaprobacion[id].Status != "cancelled" {
+		t.Fatalf("pasar a Centro mensual no da Centro antes de cobrarlo: %+v", s.Acceso)
+	}
+	// Cancelar antes del primer cobro: sigue lo pagado (Equipo) hasta que vence; nunca Centro.
+	e.Panel(204, "POST", "/v1/panel/suscripcion/cancelar", nil, nil)
+	if s := leer(e); s.Plan != "equipo" || s.Bloqueado {
+		t.Fatalf("cancelada antes del primer cobro: %+v", s.Acceso)
+	}
+}
+
+// Subir de plan a mitad de mes cobra ya la diferencia; sin pagarla no cambia nada. Subir, usar y
+// bajar antes del cobro ya no deja usar Centro pagando Inicial.
+func TestSubirCobraLaDiferencia(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.SQL("UPDATE negocios SET prueba_hasta = NULL")
+	var alta struct {
 		URL string `json:"url"`
 	}
-	e.Panel(200, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "equipo", "periodo": "mensual"}, &nueva)
-	nid := strings.TrimPrefix(nueva.URL, "https://mp.falso/suscripcion/")
-	if e.MP.Montos[nid] != 14900 || e.MP.Frecuencias[nid] != 1 {
-		t.Fatalf("mensual nueva: %d cada %d", e.MP.Montos[nid], e.MP.Frecuencias[nid])
+	e.Panel(201, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "inicial"}, &alta)
+	id := preapproval(alta.URL)
+	cobro(e, id, "8001", 6900, e.Ahora.AddDate(0, 1, 0))
+	// Pasaron 10 días de 30: quedan 20 (2/3 del mes). Inicial → Centro: (29.900 − 6.900) × 2/3.
+	e.Ahora = e.Ahora.AddDate(0, 0, 10)
+	var x respuestaCambio
+	e.Panel(200, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "centro"}, &x)
+	if want := int64(15334); x.Hoy != want || x.Despues != 29900 || x.URL == "" {
+		t.Fatalf("subida: %+v (esperado hoy %d)", x, want)
+	}
+	if s := leer(e); s.Plan != "inicial" || e.MP.Montos[id] != 6900 {
+		t.Fatalf("sin pagar la diferencia: %+v %d", s.Acceso, e.MP.Montos[id])
+	}
+	// Bajar sin haber pagado: no hay nada que bajar (sigue Inicial) y la orden vieja queda cancelada.
+	e.Panel(409, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "inicial"}, nil)
+	// Dos pedidos a la vez no se pisan: mientras uno está en curso, el otro espera.
+	e.SQL("UPDATE suscripciones SET cambiando_hasta = $1 WHERE mp_id = $2", e.Ahora.Add(time.Minute), id)
+	var p tope
+	e.Panel(409, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "equipo"}, &p)
+	if p.Codigo != "cambio_en_curso" {
+		t.Fatalf("en curso: %+v", p)
+	}
+	e.SQL("UPDATE suscripciones SET cambiando_hasta = NULL WHERE mp_id = $1", id)
+	// Pagar la diferencia: Centro rige ya y el preapproval cobra Centro desde el próximo mes.
+	ref := strings.TrimPrefix(x.URL, "https://mp.falso/checkout/")
+	orden := e.MP.PagarOrden(ref, "processed", "accredited", x.Hoy, 41)
+	mpfalso.Avisar(e.Handler, "order", orden, 999, e.Ahora)
+	mpfalso.Avisar(e.Handler, "order", orden, 999, e.Ahora)
+	if s := leer(e); s.Plan != "centro" || s.Suscripcion.Monto != 29900 || e.MP.Montos[id] != 29900 {
+		t.Fatalf("subida pagada: %+v %+v", s.Acceso, s.Suscripcion)
+	}
+	// Bajar a Inicial: Centro pagado sigue hasta el cobro; el cobro es de Inicial y ahí baja.
+	e.Panel(200, "POST", "/v1/panel/suscripcion/cambiar", map[string]string{"plan": "inicial"}, &x)
+	if s := leer(e); s.Plan != "centro" || e.MP.Montos[id] != 6900 {
+		t.Fatalf("baja programada: %+v %d", s.Acceso, e.MP.Montos[id])
+	}
+	e.Ahora = e.Ahora.AddDate(0, 0, 21)
+	cobro(e, id, "8002", 6900, e.Ahora.AddDate(0, 1, 0))
+	if s := leer(e); s.Plan != "inicial" {
+		t.Fatalf("después del cobro: %+v", s.Acceso)
+	}
+	// Si Mercado Pago cobra menos que el plan (un cambio de monto que no llegó), rige lo que se pagó.
+	e.SQL("UPDATE suscripciones SET plan = 'centro', monto = 29900 WHERE mp_id = $1", id)
+	e.SQL("UPDATE negocios SET plan = 'centro' WHERE id = $1", e.Negocio)
+	cobro(e, id, "8003", 14900, e.Ahora.AddDate(0, 2, 0))
+	if s := leer(e); s.Plan != "equipo" {
+		t.Fatalf("cobró menos: %+v", s.Acceso)
+	}
+}
+
+// Un checkout abandonado se cancela también en Mercado Pago, y si igual lo autorizan no revive.
+func TestCheckoutAbandonadoNoQuedaCobrando(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.SQL("UPDATE negocios SET prueba_hasta = NULL")
+	var a, b struct {
+		URL string `json:"url"`
+	}
+	e.Panel(201, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "equipo"}, &a)
+	e.Panel(201, "POST", "/v1/panel/suscripcion", map[string]string{"plan": "centro", "periodo": "anual"}, &b)
+	viejo, nuevo := preapproval(a.URL), preapproval(b.URL)
+	if e.MP.Preaprobacion[viejo].Status != "cancelled" {
+		t.Fatalf("el abandonado sigue en Mercado Pago: %s", e.MP.Preaprobacion[viejo].Status)
+	}
+	proximo := e.Ahora.AddDate(1, 0, 0)
+	cobro(e, nuevo, "9101", 299000, proximo)
+	// Alguien igual autoriza el link viejo: no revive y se cancela en Mercado Pago.
+	e.MP.Autorizar(viejo, "authorized", &proximo)
+	e.Avisar("subscription_preapproval", viejo)
+	var n int
+	err := e.Bases.App.EnNegocio(context.Background(), e.Negocio, func(tx pgx.Tx) error {
+		return tx.QueryRow(context.Background(), "SELECT count(*) FROM suscripciones WHERE estado = 'autorizada'").Scan(&n)
+	})
+	if err != nil || n != 1 || e.MP.Preaprobacion[viejo].Status != "cancelled" {
+		t.Fatalf("autorizadas: %d, vieja en MP: %s (%v)", n, e.MP.Preaprobacion[viejo].Status, err)
 	}
 }
 
@@ -337,10 +488,35 @@ func TestPackDeWhatsApp(t *testing.T) {
 	if s := mpfalso.Avisar(e.Handler, "order", orden, 999, e.Ahora); s != 200 || saldo() != 0 {
 		t.Fatalf("rechazada: %d %d", s, saldo())
 	}
+	// Un doble clic no arma otra orden: devuelve la pendiente.
+	var c2 struct {
+		URL string `json:"url"`
+	}
+	e.Panel(201, "POST", "/v1/panel/suscripcion/whatsapp", nil, &c2)
+	if c2.URL != c.URL {
+		t.Fatalf("otra orden: %q %q", c2.URL, c.URL)
+	}
+	// Pagada sin que llegue el aviso: la vuelta de Mercado Pago la concilia igual.
 	e.MP.PagarOrden(ref, "processed", "accredited", 5900, 2)
+	e.Panel(204, "POST", "/v1/panel/suscripcion/conciliar", nil, nil)
 	mpfalso.Avisar(e.Handler, "order", orden, 999, e.Ahora)
 	mpfalso.Avisar(e.Handler, "order", orden, 999, e.Ahora)
 	if saldo() != 100 {
 		t.Fatalf("pagada: %d", saldo())
+	}
+	// Un recordatorio del saldo que no sale (el turno se cancela) vuelve al saldo.
+	turno := e.Reservar(201, "09:00", "1155550000", nil)
+	e.SQL(`INSERT INTO whatsapp_mensajes (negocio_id, turno_id, tipo, para, token, clave, datos, estado, proximo_intento, desde_saldo)
+		VALUES ($1, $2, 'recordatorio', '+5491155550000', 'tokendeprueba000001', 'r:1', '{}', 'pendiente', now(), true)`, e.Negocio, turno.ID)
+	e.SQL("UPDATE negocios SET whatsapp_saldo = whatsapp_saldo - 1 WHERE id = $1", e.Negocio)
+	e.SQL("UPDATE whatsapp_mensajes SET estado = 'descartado' WHERE clave = 'r:1'")
+	if saldo() != 100 {
+		t.Fatalf("el descartado vuelve al saldo: %d", saldo())
+	}
+	// Una devolución (o un contracargo) saca el pack del saldo.
+	e.MP.OrdenesID[orden].Pagos[len(e.MP.OrdenesID[orden].Pagos)-1].Status = "refunded"
+	mpfalso.Avisar(e.Handler, "order", orden, 999, e.Ahora)
+	if saldo() != 0 {
+		t.Fatalf("devuelto: %d", saldo())
 	}
 }

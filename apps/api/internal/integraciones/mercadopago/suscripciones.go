@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -80,6 +81,8 @@ type CobroAutorizado struct {
 	ID            int64  `json:"id"`
 	PreapprovalID string `json:"preapproval_id"`
 	Status        string `json:"status"`
+	// TransactionAmount: lo que se cobró (se coteja con el plan).
+	TransactionAmount float64 `json:"transaction_amount"`
 	Payment       struct {
 		Status string `json:"status"`
 	} `json:"payment"`
@@ -104,4 +107,18 @@ func SinEtiqueta(email string) string {
 		return base + "@" + dominio
 	}
 	return email
+}
+
+// UsuarioDeToken: el usuario de Mercado Pago de un access token de producción (APP_USR-…-<usuario>).
+// 0 si no se puede saber.
+func UsuarioDeToken(token string) int64 {
+	i := strings.LastIndex(token, "-")
+	if !strings.HasPrefix(token, "APP_USR-") || i < 0 {
+		return 0
+	}
+	n, err := strconv.ParseInt(token[i+1:], 10, 64)
+	if err != nil {
+		return 0
+	}
+	return n
 }
