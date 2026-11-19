@@ -36,13 +36,15 @@ enum Compras {
 
     private static let rango = ["inicial": 1, "equipo": 2, "centro": 3]
 
-    /// Si pasar del producto `de` al `a` es subir (un plan más grande, o el mismo pagado por año). Igual que Android.
+    /// Si pasar del producto `de` al `a` rige ya: sólo un plan más grande (un nivel más alto del grupo). En la App Store,
+    /// el mismo plan con otra duración (mensual → anual) empieza recién al renovar; en Google Play sí rige ya (por eso
+    /// Compras.kt cuenta también ese caso).
     static func sube(de: String?, a: String) -> Bool {
         guard let nuevo = venta[a] else { return false }
         let viejo = de.flatMap { venta[$0] }
         let rDe = viejo.flatMap { rango[$0.plan] } ?? 0
         let rA = rango[nuevo.plan] ?? 0
-        return rA > rDe || (rA == rDe && nuevo.periodo == "anual" && viejo?.periodo == "mensual")
+        return rA > rDe
     }
 
     /// Este Apple ID ya paga la suscripción de otro negocio: comprar acá la cambiaría de plan, no sumaría otra.

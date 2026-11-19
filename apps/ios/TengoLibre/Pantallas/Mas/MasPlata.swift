@@ -1121,7 +1121,7 @@ struct SuscripcionVista: View {
                 Text("Ya tenés este plan.").font(Tipo.lato(14)).foregroundStyle(C.sub)
             } else {
                 fila("Pasás a", "\(plan.nombre) · \(p.displayPrice) \(Compras.venta[p.id]?.periodo == "anual" ? "por año" : "por mes")")
-                fila("Cuándo", sube ? "ya, la App Store cobra la diferencia" : "cuando termine lo que ya pagaste")
+                fila("Cuándo", sube ? "ya; la App Store descuenta lo que no usaste" : "cuando termine lo que ya pagaste")
                 Button {
                     Task { await comprar(p) }
                 } label: {

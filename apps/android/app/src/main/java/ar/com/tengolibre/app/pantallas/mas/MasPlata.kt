@@ -895,7 +895,7 @@ fun SuscripcionVista() {
                         if (mismo) Texto("Ya tenés este plan.", Tipo.lato(14f), C.sub)
                         else {
                             fila("Pasás a", "${planElegido.nombre} · ${p.precio} ${if (anual) "por año" else "por mes"}")
-                            fila("Cuándo", if (sube) "ya, Google Play cobra la diferencia" else "cuando termine lo que ya pagaste")
+                            fila("Cuándo", if (sube) "ya; Google Play descuenta lo que no usaste" else "cuando termine lo que ya pagaste")
                             BotonMenta(if (comprando == p.id) "Abriendo Google Play…" else "Cambiar a ${planElegido.nombre}", { comprar(p) }, alto = 56.dp, habilitado = comprando == null)
                         }
                     }
