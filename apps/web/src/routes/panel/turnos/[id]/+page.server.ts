@@ -51,6 +51,11 @@ export const actions: Actions = {
 	cobrar,
 	/** Ya lo llamaron (whatsapp.md). */
 	llamado: async (event) => intentar(() => apiDe(event).post(`/v1/panel/turnos/${enc(event.params.id)}/llamado`)),
+	/** Pedir la seña de un turno cargado a mano: el link de Mercado Pago para mandárselo. */
+	sena: async (event) => {
+		const r = await intentar(() => apiDe(event).post<{ monto: number; modo: string; url: string }>(`/v1/panel/turnos/${enc(event.params.id)}/sena`));
+		return 'ok' in r ? { sena: r.datos } : r;
+	},
 	/** Turno fijo: cancela éste y los que siguen de la serie (turno-fijo.md). */
 	cancelarSiguientes: async (event) =>
 		intentar(() => apiDe(event).post<{ cancelados: string[] }>(`/v1/panel/turnos/${enc(event.params.id)}/cancelar-siguientes`)),

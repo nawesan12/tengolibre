@@ -119,6 +119,23 @@
 			{:else}
 				<div class="linea"><span>Precio</span><b class="tl-num">{pesos(t.precio)}</b></div>
 			{/if}
+			<!-- Pedir seña: para los turnos que llegaron por teléfono o WhatsApp (la web ya la cobra al reservar). -->
+			{#if puedeActuar && t.origen === 'panel' && (t.estado === 'pendiente' || t.estado === 'confirmado') && Date.parse(t.inicio) > Date.now() && t.precio > 0}
+				{#if form && 'sena' in form && form.sena}
+					{@const s = form.sena}
+					<div class="sena-lista" role="status">
+						<span>Seña de <b class="tl-num">{pesos(s.monto)}</b>: mandale el link para que la pague.</span>
+						<div class="sena-botones">
+							{#if wa}<a class="sec" href={`${wa}?text=${encodeURIComponent(`Para confirmar tu turno, pagá la seña acá: ${s.url}`)}`} target="_blank" rel="noopener">WhatsApp</a>{/if}
+							<button type="button" class="sec" onclick={() => navigator.clipboard?.writeText(s.url)}>Copiar link</button>
+						</div>
+					</div>
+				{:else}
+					<form method="POST" action={accion(page.url, 'sena')} use:enhance={trabajar}>
+						<button class="cobrar-b" disabled={enviando}><Icono nombre="payments" tam={18} />{enviando ? 'Armando el link…' : 'Pedir seña'}</button>
+					</form>
+				{/if}
+			{/if}
 			{#if t.estado === 'pendiente_pago'}
 				<div class="linea ambar"><span class="ic"><Icono nombre="hourglass_top" tam={18} />Esperando la seña{t.venceEn ? ` hasta las ${hora(t.venceEn)}` : ''}</span></div>
 			{/if}
@@ -717,5 +734,17 @@
 		align-items: center;
 		font-size: 13px;
 		color: var(--tl-sub);
+	}
+	.sena-lista {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		margin-top: 8px;
+		font-size: 14px;
+	}
+	.sena-botones {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
 	}
 </style>

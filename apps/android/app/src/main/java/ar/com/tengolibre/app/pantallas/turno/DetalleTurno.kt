@@ -130,6 +130,20 @@ fun DetalleTurno(turnoInicial: Turno, cerrar: () -> Unit) {
     }
     LaunchedEffect(Unit) { cargar() }
 
+    /** Arma el link de Mercado Pago por la seña y abre el menú de compartir (WhatsApp, copiar…). */
+    fun pedirSena() {
+        alcance.launch {
+            try {
+                val s = estado.api.enviar<SenaPedida, Map<String, String>>("POST", "/v1/panel/turnos/${turno.id}/sena", emptyMap())
+                estado.compartirTexto("Para confirmar tu turno en ${estado.negocio?.nombre.orEmpty()}, pagá la seña de ${Formato.pesos(s.monto)} acá: ${s.url}")
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                estado.avisar(e)
+            }
+        }
+    }
+
     fun cambiar(nuevo: String) {
         val antes = turno.estado
         alcance.launch {
@@ -168,6 +182,9 @@ fun DetalleTurno(turnoInicial: Turno, cerrar: () -> Unit) {
         if (!lectura) {
             if (turno.estado == "atendido" || turno.estado == "ausente") add(OpcionDeMenu("Volver a confirmado", "arrow.uturn.backward") { cambiar("confirmado") })
             if (turno.serieId != null) add(OpcionDeMenu("Cancelar este y los siguientes", "repeat", destructiva = true) { confirmarSiguientes = true })
+            // Pedir seña: para los turnos que llegaron por teléfono o WhatsApp (la web ya la cobra al reservar). Como iOS.
+            if (turno.origen == "panel" && (turno.estado == "pendiente" || turno.estado == "confirmado") && turno.inicio.isAfter(java.time.Instant.now()) &&
+                turno.precio > 0 && !estado.esProfesional) add(OpcionDeMenu("Pedir seña", "creditcard") { pedirSena() })
             if (turno.llamarDesde != null) add(OpcionDeMenu("Ya la llamé", "phone.badge.checkmark") { alcance.launch { runCatching { estado.api.hacer("POST", "/v1/panel/turnos/${turno.id}/llamado") }; recargarTurno() } })
         }
         turno.cliente.id?.let { id -> add(OpcionDeMenu("Ver la ficha", "person.text.rectangle") { cerrar(); nav.pestana = Pestana.clientes; nav.pilaClientes.add(DestinoClientes.ficha(id)) }) }
@@ -471,3 +488,6 @@ fun ColumnScope.Reprogramar(turno: Turno, listo: (Turno) -> Unit, cerrar: () -> 
         }
     }
 }
+
+@kotlinx.serialization.Serializable
+data class SenaPedida(val monto: Int = 0, val url: String = "")

@@ -326,6 +326,10 @@ struct DetalleTurno: View {
             if turno.serieId != nil {
                 Button("Cancelar este y los siguientes", systemImage: "repeat", role: .destructive) { confirmarSiguientes = true }
             }
+            // Pedir seña: para los turnos que llegaron por teléfono o WhatsApp (la web ya la cobra al reservar).
+            if turno.origen == "panel", turno.estado == "pendiente" || turno.estado == "confirmado", turno.inicio > Date(), turno.precio > 0, !estado.esProfesional {
+                Button("Pedir seña", systemImage: "creditcard") { Task { await pedirSena() } }
+            }
             if turno.llamarDesde != nil {
                 Button("Ya la llamé", systemImage: "phone.badge.checkmark") {
                     Task { try? await estado.api.hacer("POST", "/v1/panel/turnos/\(turno.id)/llamado"); await recargarTurno() }
@@ -359,6 +363,22 @@ struct DetalleTurno: View {
 
     private func recargarTurno() async {
         if let t: Turno = try? await estado.api.get("/v1/panel/turnos/\(turno.id)") { turno = t }
+    }
+
+    private struct Sena: Decodable { var monto: Int; var url: String }
+
+    /// Arma el link de Mercado Pago por la seña y abre el menú de compartir (WhatsApp, copiar…).
+    private func pedirSena() async {
+        do {
+            let s: Sena = try await estado.api.enviar("POST", "/v1/panel/turnos/\(turno.id)/sena", [String: String]())
+            let texto = "Para confirmar tu turno en \(estado.negocio?.nombre ?? ""), pagá la seña de \(Formato.pesos(s.monto)) acá: \(s.url)"
+            let a = UIActivityViewController(activityItems: [texto], applicationActivities: nil)
+            var arriba = Ventana.principal()?.rootViewController
+            while let p = arriba?.presentedViewController { arriba = p }
+            arriba?.present(a, animated: true)
+        } catch {
+            estado.avisar(error)
+        }
     }
 
     private func cambiar(_ nuevo: String) async {

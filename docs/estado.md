@@ -14,8 +14,9 @@ Antes de desplegar:
 - `GOMEMLIMIT` ya está en `infra/vps/compose.yml` (api 100 MiB, worker 48 MiB): hace falta `docker compose up -d api worker`.
 - No poner `ANTHROPIC_API_KEY` hasta modificar la inscripción en la AAIP. Con la clave puesta, cada dueña decide (asistente › «Prender la IA»).
 - Decidido y documentado: la API sigue mandando los push `tipo=cliente` (las builds publicadas todavía los usan);
-  sacarlos cuando las nuevas reemplacen a las viejas. «Pedir seña» para un turno cargado a mano quedó afuera
-  (ver el informe de la revisión).
+  sacarlos cuando las nuevas reemplacen a las viejas.
+- Nuevo: «Pedir seña» de un turno cargado a mano (`POST /v1/panel/turnos/{id}/sena`, web y apps) y «Anotar a
+  alguien» en la lista de espera (`POST /v1/panel/espera`, web; en las apps, pendiente).
 - Compilar las apps en GitHub (íconos de Android regenerados con `herramientas/simbolos.sh`).
 
 ## 18/11/2026: asistente con IA (rama asistente-claude, sin desplegar; migración 00031)

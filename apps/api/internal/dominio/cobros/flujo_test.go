@@ -465,3 +465,37 @@ func TestDevolucionTotalCancelaComoSiempre(t *testing.T) {
 		t.Fatalf("el cupón no volvió: %d usos", usos)
 	}
 }
+
+// Pedir la seña de un turno cargado a mano (llegó por WhatsApp): el panel arma el link, el turno no se
+// mueve de estado y, al pagarse, queda confirmado con la seña.
+func TestPedirSenaDesdeElPanel(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	var tu turnos.Turno
+	e.Panel(201, "POST", "/v1/panel/turnos", map[string]any{"servicioId": e.Servicio, "inicio": cobrosprueba.En("2026-11-02 10:00").Format(time.RFC3339),
+		"cliente": map[string]string{"nombre": "Rosa", "telefono": "7777"}}, &tu)
+	// Sin Mercado Pago conectado no se puede.
+	e.Panel(409, "POST", "/v1/panel/turnos/"+tu.ID+"/sena", nil, nil)
+	e.ConectarMP()
+	var s cobros.Sena
+	e.Panel(200, "POST", "/v1/panel/turnos/"+tu.ID+"/sena", nil, &s)
+	if !strings.HasPrefix(s.URL, "https://mp.falso/checkout/") || s.Monto <= 0 {
+		t.Fatalf("seña pedida: %+v", s)
+	}
+	// Pedirla otra vez da el mismo link; el turno sigue como estaba.
+	var otra cobros.Sena
+	e.Panel(200, "POST", "/v1/panel/turnos/"+tu.ID+"/sena", nil, &otra)
+	if otra.URL != s.URL || e.Turno(tu.ID).Estado != tu.Estado {
+		t.Fatalf("otra vez: %+v, estado %s", otra, e.Turno(tu.ID).Estado)
+	}
+	ref := strings.TrimPrefix(s.URL, "https://mp.falso/checkout/")
+	aprobada := e.MP.PagarOrden(ref, "processed", "accredited", s.Monto, 2001)
+	if c := e.Avisar("order", aprobada); c != 200 {
+		t.Fatalf("aviso: %d", c)
+	}
+	if x := e.Turno(tu.ID); x.Estado != "confirmado" {
+		t.Fatalf("pagada: %+v", x)
+	}
+	if ev := e.Avisos[tu.ID]; len(ev) == 0 || ev[len(ev)-1] != "pagado" {
+		t.Fatalf("avisos: %v", ev)
+	}
+}

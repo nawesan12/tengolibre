@@ -33,6 +33,8 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	// Pagos. Devolver tampoco se bloquea: es plata del cliente.
 	mux.HandleFunc("GET /v1/panel/pagos", g(s.listar))
 	mux.HandleFunc("POST /v1/panel/pagos/{id}/devolver", g(s.devolver))
+	// Pedir la seña de un turno cargado a mano (llegó por teléfono o WhatsApp): el link para mandárselo.
+	mux.HandleFunc("POST /v1/panel/turnos/{id}/sena", ses.Panel([]string{sesion.Duenio, sesion.Encargado, sesion.Recepcion}, s.escritura(web.Envolver(s.pedirSena))))
 	// Página pública y link del turno.
 	mux.HandleFunc("GET /v1/p/{slug}/cobro", web.Envolver(s.configPublica))
 	mux.HandleFunc("POST /v1/t/{codigo}/pagar", web.Envolver(s.pagar))

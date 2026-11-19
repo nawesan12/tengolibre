@@ -15,6 +15,8 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/turnos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
+	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/web"
 )
 
 // Config de cobro del negocio (BusinessSettings.paymentMode y deposit*).
@@ -160,10 +162,11 @@ func (s *Servicio) linkDePago(ctx context.Context, negocio, turnoID string) (str
 	var monto int64
 	var link, ordenAnterior *string
 	var vence *time.Time
+	var inicio time.Time
 	err := s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `SELECT p.referencia, p.modo, p.monto, p.link, p.mp_orden, p.estado, t.estado, t.servicio, t.codigo, t.vence_en, n.nombre
+		return tx.QueryRow(ctx, `SELECT p.referencia, p.modo, p.monto, p.link, p.mp_orden, p.estado, t.estado, t.servicio, t.codigo, t.vence_en, n.nombre, t.inicio
 			FROM pagos p JOIN turnos t ON t.id = p.turno_id JOIN negocios n ON n.id = p.negocio_id WHERE p.turno_id = $1`, turnoID).
-			Scan(&ref, &modo, &monto, &link, &ordenAnterior, &estadoPago, &estadoTurno, &servicio, &codigo, &vence, &nombre)
+			Scan(&ref, &modo, &monto, &link, &ordenAnterior, &estadoPago, &estadoTurno, &servicio, &codigo, &vence, &nombre, &inicio)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", errSinPago
@@ -175,7 +178,9 @@ func (s *Servicio) linkDePago(ctx context.Context, negocio, turnoID string) (str
 	switch {
 	case estadoPago == "aprobado" || estadoPago == "devuelto":
 		return "", errYaPagado
-	case estadoTurno != "pendiente_pago" || estadoPago == "cancelado" || (vence != nil && !vence.After(s.ahora())):
+	// Una seña pedida desde el panel (turno pendiente o confirmado) no tiene vencimiento: el lugar ya es suyo.
+	case estadoPago == "cancelado" || (estadoTurno == "pendiente_pago" && vence != nil && !vence.After(s.ahora())) ||
+		(estadoTurno != "pendiente_pago" && estadoTurno != "pendiente" && estadoTurno != "confirmado"):
 		return "", errVencido
 	case link != nil && !reintento:
 		return *link, nil
@@ -201,6 +206,10 @@ func (s *Servicio) linkDePago(ctx context.Context, negocio, turnoID string) (str
 		o.Config.Online.AutoReturn = "approved"
 	}
 	clave := "orden:" + ref
+	// La seña pedida desde el panel vence cuando empieza el turno (después, se cobra en el local).
+	if vence == nil && estadoTurno != "pendiente_pago" && inicio.After(s.ahora()) {
+		vence = &inicio
+	}
 	if vence != nil {
 		o.ExpirationTime = mercadopago.Duracion(vence.Sub(s.ahora()))
 		// La duración cambia con el reloj: va en la clave para que un reintento con otro cuerpo no choque.
@@ -444,6 +453,14 @@ func (s *Servicio) aplicar(ctx context.Context, negocio string, p observado) (tu
 			evento = "pago_de_cancelado"
 			return nil
 		}
+		if estado == "pendiente" || estado == "confirmado" {
+			// La seña que se pidió desde el panel: el turno ya tenía su lugar; queda confirmado y a la clienta
+			// le llega el comprobante.
+			evento = "pagado"
+			_, err = tx.Exec(ctx, `UPDATE turnos SET estado = 'confirmado', confirmado_por = coalesce(confirmado_por, 'web'),
+				actualizado_en = now() WHERE id = $1`, turnoID)
+			return err
+		}
 		if estado != "pendiente_pago" {
 			return nil
 		}
@@ -480,4 +497,85 @@ func nulo(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// Sena: la seña pedida desde el panel, con el link de pago para mandar.
+type Sena struct {
+	Monto int64  `json:"monto"`
+	Modo  string `json:"modo"`
+	URL   string `json:"url"`
+}
+
+// pedirSena: para un turno cargado a mano (pendiente o confirmado, que todavía no empezó), crea el pago
+// con el modo de cobro del negocio (sin modo, el 30 % recomendado) y devuelve el link de Mercado Pago.
+// Si ya había uno pendiente, el mismo link.
+func (s *Servicio) pedirSena(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	negocio := sesion.De(ctx).NegocioID
+	id := r.PathValue("id")
+	var out Sena
+	err := s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
+		ok, err := s.puedeCobrar(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return problema.Conflicto("sin_cobros", "Para pedir una seña, conectá Mercado Pago en Pagos.")
+		}
+		var estado string
+		var precio int64
+		var inicio time.Time
+		var cubierto bool
+		if err := tx.QueryRow(ctx, "SELECT estado, precio, inicio, membresia_id IS NOT NULL FROM turnos WHERE id::text = $1 FOR UPDATE", id).
+			Scan(&estado, &precio, &inicio, &cubierto); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return problema.NoEncontrado("No encontramos ese turno.")
+			}
+			return err
+		}
+		if err := sesion.TurnoPropio(ctx, tx, id); err != nil {
+			return err
+		}
+		if estado != "pendiente" && estado != "confirmado" {
+			return problema.Conflicto("estado", "Sólo se pide seña de un turno pendiente o confirmado.")
+		}
+		if !inicio.After(s.ahora()) {
+			return problema.Conflicto("tarde", "El turno ya empezó: la seña se cobra en el local.")
+		}
+		if cubierto {
+			return problema.Conflicto("membresia", "Este turno va con la membresía de la clienta: no lleva seña.")
+		}
+		var existente string
+		err = tx.QueryRow(ctx, "SELECT estado FROM pagos WHERE turno_id::text = $1", id).Scan(&existente)
+		switch {
+		case err == nil && (existente == "aprobado" || existente == "devuelto"):
+			return errYaPagado
+		case err == nil:
+			return tx.QueryRow(ctx, "SELECT monto, modo FROM pagos WHERE turno_id::text = $1", id).Scan(&out.Monto, &out.Modo)
+		case !errors.Is(err, pgx.ErrNoRows):
+			return err
+		}
+		c, err := leerConfig(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if c.Modo == "sin_cobro" {
+			c = Config{Modo: "porcentaje", SenaPorcentaje: 30}
+		}
+		out.Monto, out.Modo = Monto(precio, c), c.Modo
+		if out.Monto <= 0 {
+			return problema.Conflicto("sin_precio", "El turno no tiene precio: no hay seña para pedir.")
+		}
+		_, err = tx.Exec(ctx, `INSERT INTO pagos (negocio_id, turno_id, referencia, monto, modo) VALUES (app.negocio_actual(), $1::uuid, $2, $3, $4)`,
+			id, nuevaReferencia(), out.Monto, out.Modo)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	if out.URL, err = s.linkDePago(ctx, negocio, id); err != nil {
+		return err
+	}
+	web.JSON(w, http.StatusOK, out)
+	return nil
 }
