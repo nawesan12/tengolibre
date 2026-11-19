@@ -90,7 +90,16 @@ func (s *Servicio) lugarParaActivar(ctx context.Context, tx pgx.Tx) error {
 	sig := planes.SiguientePorProfesionales(activos + 1)
 	if sig.Clave == "" || planes.Rango(sig.Clave) <= planes.Rango(v.Clave) {
 		sig = planes.Plan{}
-		extra = "En Centro podés sumar profesionales extra ($1.900 por mes cada uno) desde Suscripción."
+		// Los extras se pagan con la suscripción por Mercado Pago: a quien paga en la tienda del teléfono
+		// no se le ofrece algo que ahí no puede comprar.
+		var tienda bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM suscripciones WHERE estado IN ('autorizada', 'pausada')
+			AND origen IN ('apple', 'google'))`).Scan(&tienda); err != nil {
+			return err
+		}
+		if !tienda {
+			extra = "En Centro podés sumar profesionales extra ($1.900 por mes cada uno) desde Suscripción."
+		}
 	}
 	return planes.ProblemaTope("profesionales activos", tope, v.Clave, sig, extra)
 }

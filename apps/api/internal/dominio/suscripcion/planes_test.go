@@ -148,7 +148,7 @@ func TestTopesDeLaBaseIgualesAPlanes(t *testing.T) {
 			if err = tx.QueryRow(context.Background(), "SELECT app.tope_profesionales(now())").Scan(&base); err != nil {
 				return err
 			}
-			if cupo, err = planes.CupoIA(context.Background(), tx, time.Now()); err != nil {
+			if cupo, _, err = planes.CupoIA(context.Background(), tx, time.Now()); err != nil {
 				return err
 			}
 			v, err = planes.Leer(context.Background(), tx, time.Now())
@@ -518,5 +518,35 @@ func TestPackDeWhatsApp(t *testing.T) {
 	mpfalso.Avisar(e.Handler, "order", orden, 999, e.Ahora)
 	if saldo() != 0 {
 		t.Fatalf("devuelto: %d", saldo())
+	}
+}
+
+// Lo que trae el plan se ve antes de completar un formulario: el acceso dice qué funciones rigen y
+// con qué plan vienen las que faltan, y la página pública no ofrece lista de espera ni cupón.
+func TestElPlanSeVeAntesDelTope(t *testing.T) {
+	e := cobrosprueba.Armar(t)
+	e.PonerPlan(e.Negocio, "inicial")
+	var a suscripcion.Acceso
+	e.Panel(200, "GET", "/v1/panel/acceso", nil, &a)
+	if a.Plan != "inicial" || len(a.Funciones) != 0 || a.Viene["cupones"] != "equipo" || a.Viene["csv"] != "centro" {
+		t.Fatalf("acceso con Inicial: %+v", a)
+	}
+	var pg struct {
+		Espera  bool `json:"espera"`
+		Cupones bool `json:"cupones"`
+	}
+	e.Esperar(200, cobrosprueba.P{Metodo: "GET", Ruta: "/v1/p/el-corte"}, &pg)
+	if pg.Espera || pg.Cupones {
+		t.Fatalf("página con Inicial: %+v", pg)
+	}
+	e.PonerPlan(e.Negocio, "equipo")
+	e.Esperar(200, cobrosprueba.P{Metodo: "GET", Ruta: "/v1/p/el-corte"}, &pg)
+	if !pg.Espera || !pg.Cupones {
+		t.Fatalf("página con Equipo: %+v", pg)
+	}
+	a = suscripcion.Acceso{}
+	e.Panel(200, "GET", "/v1/panel/acceso", nil, &a)
+	if _, ok := a.Viene["cupones"]; ok || a.Viene["dominio"] != "centro" {
+		t.Fatalf("acceso con Equipo: %+v", a)
 	}
 }

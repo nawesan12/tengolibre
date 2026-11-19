@@ -386,8 +386,9 @@ func (s *Servicio) validarCupon(w http.ResponseWriter, r *http.Request) error {
 			}
 			precio = &srv.Precio
 		}
-		if ok, err := planes.Tiene(ctx, tx, s.ahora(), planes.Cupones); err != nil || !ok {
-			return err // sin cupones en el plan: «Cupón no encontrado»
+		if ok, err := CuponDelPlan(ctx, tx, s.ahora(), in.Codigo); err != nil || !ok {
+			out.Motivo = SinCupones // sin cupones en el plan (no es que esté mal escrito)
+			return err
 		}
 		if err := liberarVencidos(ctx, tx, in.Codigo, "", s.ahora()); err != nil {
 			return err
@@ -488,13 +489,19 @@ type MiReferido struct {
 	Oculto bool `json:"oculto"`
 }
 
-func leerMiReferido(ctx context.Context, tx pgx.Tx, cliente string) (MiReferido, error) {
+func leerMiReferido(ctx context.Context, tx pgx.Tx, cliente string, ahora time.Time) (MiReferido, error) {
 	out := MiReferido{Recompensas: []Cupon{}}
 	a, err := leerReferidos(ctx, tx)
 	if err != nil {
 		return out, err
 	}
-	out.ProgramaActivo = a.Activo
+	// Sin referidos en el plan, la página no ofrece «Quiero mi código» (crearReferido lo frenaría). Los
+	// premios ya ganados se siguen mostrando y valen (CuponDelPlan).
+	prog, err := planes.Tiene(ctx, tx, ahora, planes.Referidos)
+	if err != nil {
+		return out, err
+	}
+	out.ProgramaActivo = a.Activo && prog
 	var id string
 	err = tx.QueryRow(ctx, `SELECT r.id::text, r.codigo, (SELECT count(*) FROM referido_usos u WHERE u.referido_id = r.id)
 		FROM referidos r WHERE r.cliente_id = $1`, cliente).Scan(&id, &out.Codigo, &out.Referidos)
@@ -524,10 +531,14 @@ func (s *Servicio) miReferido(w http.ResponseWriter, r *http.Request) error {
 	err := s.delTurno(r.Context(), r.PathValue("codigo"), func(tx pgx.Tx, cliente string, ajeno bool) (err error) {
 		if ajeno {
 			a, err := leerReferidos(r.Context(), tx)
-			out = MiReferido{Recompensas: []Cupon{}, ProgramaActivo: a.Activo, Oculto: true}
+			if err != nil {
+				return err
+			}
+			prog, err := planes.Tiene(r.Context(), tx, s.ahora(), planes.Referidos)
+			out = MiReferido{Recompensas: []Cupon{}, ProgramaActivo: a.Activo && prog, Oculto: true}
 			return err
 		}
-		out, err = leerMiReferido(r.Context(), tx, cliente)
+		out, err = leerMiReferido(r.Context(), tx, cliente, s.ahora())
 		return err
 	})
 	if err != nil {
@@ -571,7 +582,7 @@ func (s *Servicio) crearReferido(w http.ResponseWriter, r *http.Request) error {
 				break
 			}
 		}
-		out, err = leerMiReferido(ctx, tx, cliente)
+		out, err = leerMiReferido(ctx, tx, cliente, s.ahora())
 		return err
 	})
 	if err != nil {

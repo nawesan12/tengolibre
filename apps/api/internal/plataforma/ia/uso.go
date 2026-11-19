@@ -15,7 +15,8 @@ type Topes struct {
 	// CupoMensual: respuestas con IA por negocio y por mes (lo que promete el plan; si no promete
 	// nada, un valor conservador).
 	CupoMensual int
-	// TopeDiario: respuestas con IA por negocio y por día, para frenar abusos.
+	// TopeDiario: respuestas con IA por negocio y por día, para frenar abusos. Con CupoDe es el techo
+	// de seguridad: el tope diario de cada plan sale del plan y no lo pasa.
 	TopeDiario int
 	// PresupuestoMicro: lo que puede gastar toda la plataforma en el mes, en micro-dólares. Pasado
 	// eso la IA se apaga y queda sólo el motor propio.
@@ -35,8 +36,9 @@ type Medidor struct {
 	Pool  *db.Pool
 	Topes Topes
 	Ahora func() time.Time
-	// CupoDe: el cupo mensual del plan del negocio fijado en tx (nil: Topes.CupoMensual para todos).
-	CupoDe func(ctx context.Context, tx pgx.Tx, ahora time.Time) (int, error)
+	// CupoDe: el cupo mensual y el tope diario del plan del negocio fijado en tx (nil: los de Topes
+	// para todos). Así el cupo de un plan grande se puede usar de verdad en el mes.
+	CupoDe func(ctx context.Context, tx pgx.Tx, ahora time.Time) (mensual, diario int, err error)
 }
 
 func (m *Medidor) ahora() time.Time {
@@ -46,12 +48,16 @@ func (m *Medidor) ahora() time.Time {
 	return time.Now()
 }
 
-// cupo del negocio fijado en tx.
-func (m *Medidor) cupo(ctx context.Context, tx pgx.Tx) (int, error) {
+// cupo del negocio fijado en tx: el mensual y el diario (el del plan, sin pasar el techo de Topes).
+func (m *Medidor) cupo(ctx context.Context, tx pgx.Tx) (int, int, error) {
 	if m.CupoDe == nil {
-		return m.Topes.CupoMensual, nil
+		return m.Topes.CupoMensual, m.Topes.TopeDiario, nil
 	}
-	return m.CupoDe(ctx, tx, m.ahora())
+	mensual, diario, err := m.CupoDe(ctx, tx, m.ahora())
+	if m.Topes.TopeDiario > 0 && (diario == 0 || diario > m.Topes.TopeDiario) {
+		diario = m.Topes.TopeDiario
+	}
+	return mensual, diario, err
 }
 
 var zonaAR = func() *time.Location {
@@ -82,10 +88,10 @@ type Estado struct {
 
 // Leer cuánto lleva usado el negocio este mes y hoy.
 func (m *Medidor) Leer(ctx context.Context, negocio string) (Estado, error) {
-	e := Estado{TopeDiario: m.Topes.TopeDiario}
+	var e Estado
 	dia, mes := m.hoy()
 	err := m.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) (err error) {
-		if e.CupoMensual, err = m.cupo(ctx, tx); err != nil {
+		if e.CupoMensual, e.TopeDiario, err = m.cupo(ctx, tx); err != nil {
 			return err
 		}
 		return tx.QueryRow(ctx, `SELECT coalesce(sum(respuestas), 0)::int, coalesce(sum(respuestas) FILTER (WHERE dia = $2), 0)::int
@@ -111,7 +117,7 @@ func (m *Medidor) agotado(e Estado, gasto int64) error {
 		return &Agotado{Motivo: "mes", Mensaje: fmt.Sprintf("Ya usaste las %d respuestas con IA de este mes. Sigo contestando lo "+
 			"básico (agenda, horarios libres, mover y cancelar turnos); el mes que viene vuelve todo, o antes si pasás a un plan más grande.", e.CupoMensual)}
 	}
-	if m.Topes.TopeDiario > 0 && e.UsadasHoy >= m.Topes.TopeDiario {
+	if e.TopeDiario > 0 && e.UsadasHoy >= e.TopeDiario {
 		return &Agotado{Motivo: "dia", Mensaje: "Por hoy llegaste al tope de respuestas con IA. Sigo contestando lo básico " +
 			"(agenda, horarios libres, mover y cancelar turnos); mañana vuelve todo."}
 	}
@@ -133,11 +139,11 @@ func (m *Medidor) Reservar(ctx context.Context, negocio, ruta string) (*Reserva,
 		if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext('ia:' || $1))", negocio); err != nil {
 			return err
 		}
-		cupo, err := m.cupo(ctx, tx)
+		cupo, diario, err := m.cupo(ctx, tx)
 		if err != nil {
 			return err
 		}
-		e := Estado{CupoMensual: cupo, TopeDiario: m.Topes.TopeDiario}
+		e := Estado{CupoMensual: cupo, TopeDiario: diario}
 		if err := tx.QueryRow(ctx, `SELECT coalesce(sum(respuestas), 0)::int, coalesce(sum(respuestas) FILTER (WHERE dia = $2), 0)::int
 			FROM ia_uso WHERE dia >= $1`, mes, dia).Scan(&e.UsadasMes, &e.UsadasHoy); err != nil {
 			return err

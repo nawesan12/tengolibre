@@ -450,6 +450,11 @@ func elegirCon(ctx context.Context, tx pgx.Tx, c contexto, reglas disponibilidad
 		if err != nil {
 			return p, err
 		}
+		if pedido != "" && p.Activo && !p.EnPlan && sesion.De(ctx).ClerkID != "" {
+			// Desde el panel se pidió justo a alguien que quedó fuera del plan: decirlo, no «horario
+			// ocupado». A quien reserva en la página no se le habla del plan del negocio.
+			return p, planes.ProblemaFueraDelPlan(ctx, tx, ahora, p.Nombre)
+		}
 		if !p.TomaTurnos() || !p.Hace(srv.ID) {
 			continue
 		}
@@ -523,7 +528,7 @@ func SigueLibre(ctx context.Context, tx pgx.Tx, turnoID string, ahora time.Time)
 	if err != nil {
 		return false, err
 	}
-	if !p.Activo {
+	if !p.TomaTurnos() {
 		return false, nil
 	}
 	return libreSinAnticipacion(ctx, tx, c, p, inicio, int(fin.Sub(inicio)/time.Minute), ahora, turnoID)
@@ -637,7 +642,11 @@ func reprogramarCon(ctx context.Context, tx pgx.Tx, t Turno, inicio time.Time, p
 		return t, err
 	}
 	if profesionalID == "" && t.ProfesionalID != nil && !cualquiera {
-		profesionalID = *t.ProfesionalID
+		// Si quien la atendía quedó fuera del plan, desde el link se elige a cualquiera que tome turnos
+		// (el panel, con forzar, puede seguir usándola).
+		if actual, err := catalogo.LeerProfesional(ctx, tx, *t.ProfesionalID, false); forzar || err != nil || actual.TomaTurnos() {
+			profesionalID = *t.ProfesionalID
+		}
 	}
 	p, err := elegir(ctx, tx, c, srv, profesionalID, inicio, ahora, forzar, t.ID)
 	if err != nil {

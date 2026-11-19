@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/avisos"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/trabajos"
@@ -50,6 +51,10 @@ func EncolarMensual(ctx context.Context, pool *db.Pool, ahora time.Time) (any, e
 		}
 		var prendido bool
 		if err := tx.QueryRow(ctx, "SELECT reporte_mensual FROM ajustes WHERE negocio_id = app.negocio_actual()").Scan(&prendido); err != nil || !prendido {
+			return err
+		}
+		// El informe mensual es parte de los reportes completos (Equipo): con un plan menor no sale.
+		if ok, err := planes.Tiene(ctx, tx, ahora, planes.ReportesCompletos); err != nil || !ok {
 			return err
 		}
 		mes := MesAnterior(ahora, zona)

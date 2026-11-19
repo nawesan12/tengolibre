@@ -214,10 +214,11 @@ func (s *Servicio) AlReservar(ctx context.Context, tx pgx.Tx, r *turnos.Reserva)
 		return err
 	}
 	if r.Pedido.Cupon != "" {
-		// Cupones y referidos vienen con Equipo: con un plan más chico no se aplican.
-		if ok, err := planes.Tiene(ctx, tx, r.Ahora, planes.Cupones); err != nil || !ok {
+		// Cupones y referidos vienen con Equipo: con un plan más chico no se aplican, salvo el premio de un
+		// referido que la clienta ya ganó (bajar de plan no le saca lo que se le prometió).
+		if ok, err := CuponDelPlan(ctx, tx, r.Ahora, r.Pedido.Cupon); err != nil || !ok {
 			if err == nil {
-				err = problema.NoProcesable("cupon_invalido", "Este negocio no tiene cupones activos.")
+				err = problema.NoProcesable("cupon_invalido", SinCupones)
 			}
 			return err
 		}
@@ -302,3 +303,17 @@ func (s *Servicio) DespuesDeReservar(context.Context, string, *turnos.Turno) {}
 // AlCancelar (turnos.Extra): nada acá. Al cancelar, el trigger promos_del_turno (00029) devuelve el
 // uso del cupón y el lugar del referido, por cualquier camino que se cancele.
 func (s *Servicio) AlCancelar(context.Context, pgx.Tx, string) error { return nil }
+
+// SinCupones: lo que se le dice a quien reserva con un cupón en un negocio cuyo plan no los trae.
+const SinCupones = "Este negocio no tiene cupones activos ahora."
+
+// CuponDelPlan: si el cupón se puede usar con el plan que rige en el negocio fijado: con Cupones en
+// el plan, cualquiera; sin, sólo el premio ya ganado de un referido.
+func CuponDelPlan(ctx context.Context, tx pgx.Tx, ahora time.Time, codigo string) (bool, error) {
+	if ok, err := planes.Tiene(ctx, tx, ahora, planes.Cupones); err != nil || ok {
+		return ok, err
+	}
+	var premio bool
+	err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM cupones WHERE codigo = $1 AND activo AND referido_id IS NOT NULL)", Normalizar(codigo)).Scan(&premio)
+	return premio, err
+}

@@ -39,6 +39,9 @@ const (
 	CSV               Funcion = "csv"                // exportar reportes en CSV
 )
 
+// Todas las funciones, en orden.
+var Todas = []Funcion{Sena, Espera, Membresias, Cupones, Referidos, Penalidades, ReportesCompletos, Sucursales, Dominio, Plantillas, CSV}
+
 // Cada función, con su verbo, para los mensajes («Los cupones vienen con…»).
 var nombres = map[Funcion]string{
 	Sena: "La seña con Mercado Pago viene", Espera: "La lista de espera viene", Membresias: "Las membresías vienen",
@@ -60,11 +63,17 @@ type Plan struct {
 	Profesionales int `json:"profesionales"`
 	Sucursales    int `json:"sucursales"`
 	// WhatsAppIncluidos: recordatorios automáticos por WhatsApp por mes (fuera de eso, packs).
-	WhatsAppIncluidos int       `json:"whatsappIncluidos"`
-	CupoIA            int       `json:"cupoIA"`
-	Funciones         []Funcion `json:"funciones"`
-	// Incluye: lo que se le muestra a la persona, en orden. Nada que no exista.
-	Incluye []string `json:"incluye"`
+	WhatsAppIncluidos int `json:"whatsappIncluidos"`
+	// CupoIA: respuestas del asistente con IA por mes; TopeDiarioIA, por día (CupoIA/20, para que el
+	// cupo del mes se pueda usar en los días hábiles y un día no se coma todo).
+	CupoIA       int       `json:"cupoIA"`
+	TopeDiarioIA int       `json:"topeDiarioIA"`
+	Funciones    []Funcion `json:"funciones"`
+	// Incluye: lo que se le muestra a la persona, en orden. Nada que no exista. IncluyeTienda: lo mismo
+	// para quien compra en la App Store o Google Play (sin los profesionales extra, que se pagan sólo con
+	// la suscripción por Mercado Pago).
+	Incluye       []string `json:"incluye"`
+	IncluyeTienda []string `json:"incluyeTienda"`
 }
 
 // Lo que se cobra aparte.
@@ -87,20 +96,53 @@ var equipo = []Funcion{Sena, Espera, Membresias, Cupones, Referidos, Penalidades
 // Planes, de menor a mayor.
 var Planes = []Plan{
 	{Clave: "inicial", Nombre: "Inicial", Precio: 6900, PrecioAnual: 6900 * MesesAnual, Bajada: "Para un negocio chico.",
-		Profesionales: 5, Sucursales: 1, CupoIA: 100, Funciones: []Funcion{},
+		Profesionales: 5, Sucursales: 1, CupoIA: 100, TopeDiarioIA: 5, Funciones: []Funcion{},
 		Incluye: []string{"Hasta 5 profesionales", "Link propio y reservas por la web", "Recordatorios por mail y en el celular, sin límite",
 			"Ficha de cada cliente y caja", "Asistente: 100 respuestas al mes", "1 sucursal"}},
 	{Clave: "equipo", Nombre: "Equipo", Precio: 14900, PrecioAnual: 14900 * MesesAnual, Destacado: true,
-		Bajada: "Cuando suma gente y le empiezan a faltar a los turnos.", Profesionales: 12, Sucursales: 1, CupoIA: 400, Funciones: equipo,
+		Bajada: "Cuando suma gente y le empiezan a faltar a los turnos.", Profesionales: 12, Sucursales: 1, CupoIA: 400, TopeDiarioIA: 20, Funciones: equipo,
 		Incluye: []string{"Hasta 12 profesionales", "Todo lo de Inicial", "Seña con Mercado Pago al reservar",
 			"Lista de espera que ofrece el hueco sola", "Membresías, cupones y referidos", "Penalidades por ausencias",
 			"Reportes completos", "Asistente: 400 respuestas al mes"}},
 	{Clave: "centro", Nombre: "Centro", Precio: 29900, PrecioAnual: 29900 * MesesAnual,
-		Bajada: "Para equipos grandes o con más de un local.", Profesionales: 25, Sucursales: 3, WhatsAppIncluidos: 150, CupoIA: 1500,
+		Bajada: "Para equipos grandes o con más de un local.", Profesionales: 25, Sucursales: 3, WhatsAppIncluidos: 150, CupoIA: 1500, TopeDiarioIA: 75,
 		Funciones: append(append([]Funcion{}, equipo...), Sucursales, Dominio, Plantillas, CSV),
-		Incluye: []string{"Hasta 25 profesionales (cada uno extra, $1.900 por mes)", "Todo lo de Equipo", "Hasta 3 sucursales",
+		Incluye: []string{"Hasta 25 profesionales (cada uno extra, $1.900 por mes)", "Todo lo de Equipo", "Hasta 3 sucursales juntas, cada una con su plan",
 			"Dominio propio y plantillas de página", "150 recordatorios por WhatsApp incluidos por mes", "Reportes con exportación CSV",
 			"Asistente: 1.500 respuestas al mes"}},
+}
+
+func init() {
+	for i := range Planes {
+		p := &Planes[i]
+		p.IncluyeTienda = append([]string{}, p.Incluye...)
+		if p.Clave == "centro" {
+			p.IncluyeTienda[0] = "Hasta 25 profesionales"
+		}
+	}
+}
+
+// ProblemaFueraDelPlan: 402 tope_plan de un profesional activo que quedó fuera del plan (bajó de plan
+// y sobra): no toma turnos hasta subir de plan o pausar a otra persona.
+func ProblemaFueraDelPlan(ctx context.Context, tx pgx.Tx, ahora time.Time, nombre string) error {
+	v, err := Leer(ctx, tx, ahora)
+	if err != nil {
+		return err
+	}
+	var activos int
+	if err := tx.QueryRow(ctx, "SELECT count(*) FROM profesionales WHERE activo").Scan(&activos); err != nil {
+		return err
+	}
+	sig := SiguientePorProfesionales(activos)
+	d := fmt.Sprintf("%s quedó fuera de tu plan %s (llega hasta %d profesionales): no toma turnos.", nombre, nombreDe(v.Clave), v.TopeProfesionales())
+	if sig.Clave != "" && Rango(sig.Clave) > Rango(v.Clave) {
+		d += " Pasá a " + sig.Nombre + " o pausá a otra persona."
+	} else {
+		sig = Plan{}
+		d += " Pausá a otra persona para hacerle lugar."
+	}
+	return &problema.Problema{Estado: http.StatusPaymentRequired, Codigo: "tope_plan", Titulo: "Fuera de tu plan", Detalle: d,
+		Plan: sig.Clave, Limite: v.TopeProfesionales()}
 }
 
 // SinPlan: los topes con la prueba vencida y sin suscripción (el panel está en sólo lectura; la
@@ -292,15 +334,16 @@ func Pesos(n int64) string {
 	return "$" + b.String()
 }
 
-// CupoIA: las respuestas con IA por mes del plan que rige en el negocio fijado (sin plan: las de
-// Inicial, para que el asistente no se apague del todo en sólo lectura). Va a ia.Medidor.CupoDe.
-func CupoIA(ctx context.Context, tx pgx.Tx, ahora time.Time) (int, error) {
+// CupoIA: las respuestas con IA por mes y por día del plan que rige en el negocio fijado (sin plan:
+// las de Inicial, para que el asistente no se apague del todo en sólo lectura). Va a
+// ia.Medidor.CupoDe.
+func CupoIA(ctx context.Context, tx pgx.Tx, ahora time.Time) (mensual, diario int, err error) {
 	v, err := Leer(ctx, tx, ahora)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	if v.CupoIA == 0 {
-		return Planes[0].CupoIA, nil
+		return Planes[0].CupoIA, Planes[0].TopeDiarioIA, nil
 	}
-	return v.CupoIA, nil
+	return v.CupoIA, v.TopeDiarioIA, nil
 }

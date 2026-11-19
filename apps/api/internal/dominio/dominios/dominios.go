@@ -306,14 +306,20 @@ func (s *Servicio) quitar(w http.ResponseWriter, r *http.Request) error {
 }
 
 // SlugPorHost devuelve el slug del negocio de un host (dominio propio verificado de un negocio
-// activo; www.<dominio> es el mismo), o "" si no es de nadie.
-func SlugPorHost(ctx context.Context, pool *db.Pool, host string) (string, error) {
+// activo; www.<dominio> es el mismo), o "" si no es de nadie. redirigir: el dominio está guardado y
+// verificado pero el plan que rige ya no trae dominio propio: la web manda a la dirección de Tengo
+// Libre (tengolibre.com.ar/<slug>) en vez de servir la página ahí.
+func SlugPorHost(ctx context.Context, pool *db.Pool, host string) (slug string, redirigir bool, err error) {
+	return slugPorHost(ctx, pool, host)
+}
+
+func slugPorHost(ctx context.Context, pool *db.Pool, host string) (string, bool, error) {
 	host = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(host)), ".")
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
 	}
 	if !reDominio.MatchString(host) {
-		return "", nil
+		return "", false, nil
 	}
 	var slug *string
 	err := pool.EnTx(ctx, func(tx pgx.Tx) error {
@@ -326,34 +332,34 @@ func SlugPorHost(ctx context.Context, pool *db.Pool, host string) (string, error
 		return nil
 	})
 	if err != nil || slug == nil {
-		return "", err
+		return "", false, err
 	}
 	// El dominio propio viene con Centro: con un plan más chico queda guardado pero no sirve la
-	// página (sigue andando en la dirección de Tengo Libre) hasta volver a subir.
+	// página: la web lleva a la dirección de Tengo Libre hasta volver a subir.
 	var id *string
 	if err := pool.EnTx(ctx, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, "SELECT app.negocio_publico($1)::text", *slug).Scan(&id)
 	}); err != nil || id == nil {
-		return "", err
+		return "", false, err
 	}
 	var ok bool
 	if err := pool.EnNegocio(ctx, *id, func(tx pgx.Tx) (err error) {
 		ok, err = planes.Tiene(ctx, tx, time.Now(), planes.Dominio)
 		return err
-	}); err != nil || !ok {
-		return "", err
+	}); err != nil {
+		return "", false, err
 	}
-	return *slug, nil
+	return *slug, !ok, nil
 }
 
 func (s *Servicio) porHost(w http.ResponseWriter, r *http.Request) error {
-	slug, err := SlugPorHost(r.Context(), s.Pool, r.PathValue("host"))
+	slug, redirigir, err := SlugPorHost(r.Context(), s.Pool, r.PathValue("host"))
 	if err != nil {
 		return err
 	}
 	if slug == "" {
 		return problema.NoEncontrado("Ese dominio no es de ningún negocio.")
 	}
-	web.JSON(w, http.StatusOK, map[string]string{"slug": slug})
+	web.JSON(w, http.StatusOK, map[string]any{"slug": slug, "redirigir": redirigir})
 	return nil
 }

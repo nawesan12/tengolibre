@@ -53,9 +53,12 @@ otra persona), 409 `propuesta_resuelta`, `propuesta_vencida`, `horario_ocupado` 
 
 ## Costo y topes
 
-- Variables: `ANTHROPIC_API_KEY`, `TENGOLIBRE_IA_CUPO_MENSUAL` (respuestas con IA por negocio y mes, 150),
-  `TENGOLIBRE_IA_TOPE_DIARIO` (30), `TENGOLIBRE_IA_PRESUPUESTO_USD` (parte de Tengo Libre del presupuesto de IA del
-  mes, 20). 0 apaga ese tope.
+- El cupo de cada negocio sale de su plan (`planes.CupoIA`): por mes y por día, Inicial 100 y 5, Equipo 400 y
+  20, Centro 1.500 y 75. Variables: `ANTHROPIC_API_KEY`, `TENGOLIBRE_IA_TOPE_DIARIO` (100: techo diario de
+  seguridad que ningún plan pasa), `TENGOLIBRE_IA_PRESUPUESTO_USD` (parte de Tengo Libre del presupuesto de IA del
+  mes, 20) y `TENGOLIBRE_IA_CUPO_MENSUAL` (150: sólo el valor por defecto si no hay plan, en pruebas). 0 apaga ese
+  tope. Ojo: con 20 USD y unos USD 0,006 por respuesta alcanzan ~3.300 respuestas al mes para toda la plataforma;
+  dos negocios Centro que usen todo su cupo lo agotan (decisión de presupuesto pendiente con Nahuel).
 - Sólo cuenta lo que llega al modelo. `ia_uso` guarda por negocio, día y ruta las respuestas, las llamadas, los tokens
   (entrada, caché leído y escrito, salida) y el costo en micro-dólares.
 - Caché de prompts: herramientas (por nombre) → system fijo (breakpoint) → datos del negocio con la hora redondeada a

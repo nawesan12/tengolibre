@@ -137,18 +137,25 @@ func TestDominioPropioDePuntaAPunta(t *testing.T) {
 	if r.Dominio.Estado != "verificado" || r.Dominio.VerificadoEn == nil || r.Dominio.Detalle != "" {
 		t.Fatalf("verificado: %+v", r.Dominio)
 	}
-	var h map[string]string
+	var h map[string]any
 	for _, host := range []string{"turnos.uno.com", "TURNOS.UNO.COM:443", "www.turnos.uno.com"} {
 		a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/host/" + host}, &h)
 		if h["slug"] != "uno" {
 			t.Fatalf("%s: %v", host, h)
 		}
 	}
-	// Bajar de plan no lo borra: deja de servir la página hasta volver a Centro.
+	// Bajar de plan no lo borra: deja de servir la página (la web lleva a tengolibre.com.ar/uno) hasta
+	// volver a Centro.
 	a.PonerPlan(uno.ID, "equipo")
-	a.Esperar(404, P{Metodo: "GET", Ruta: "/v1/host/turnos.uno.com"}, nil)
+	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/host/turnos.uno.com"}, &h)
+	if h["slug"] != "uno" || h["redirigir"] != true {
+		t.Fatalf("fuera del plan: %v", h)
+	}
 	a.PonerPlan(uno.ID, "centro")
 	a.Esperar(200, P{Metodo: "GET", Ruta: "/v1/host/turnos.uno.com"}, &h)
+	if h["redirigir"] != false {
+		t.Fatalf("con Centro: %v", h)
+	}
 
 	// Otro negocio puede anotar el mismo dominio (nadie lo traba), pero no verificarlo: su token
 	// no está, y aunque estuviera, el dominio ya es de uno.

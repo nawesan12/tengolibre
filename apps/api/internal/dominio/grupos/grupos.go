@@ -281,6 +281,16 @@ func (s *Servicio) ponerGrupo(r *http.Request, grupo *string, soloSi string) err
 		return err
 	}
 	return s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
+		if grupo != nil {
+			// Sumar sucursales en fila por grupo, y el lugar se vuelve a contar acá adentro (con lo que
+			// ya escribió el pedido anterior): dos pedidos a la vez no pasan de 3.
+			if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext('grupo:' || $1))", *grupo); err != nil {
+				return err
+			}
+			if err := s.lugarEnGrupo(ctx, *grupo, negocio); err != nil {
+				return err
+			}
+		}
 		if err := comoPersona(ctx, tx, sesion.De(ctx).ClerkID); err != nil {
 			return err
 		}
@@ -341,9 +351,6 @@ func (s *Servicio) lugarEnGrupo(ctx context.Context, grupo, negocio string) erro
 func (s *Servicio) sumar(w http.ResponseWriter, r *http.Request) error {
 	id := r.PathValue("id")
 	if err := s.duenia(r.Context(), r.PathValue("negocio")); err != nil {
-		return err
-	}
-	if err := s.lugarEnGrupo(r.Context(), id, r.PathValue("negocio")); err != nil {
 		return err
 	}
 	if err := s.ponerGrupo(r, &id, ""); err != nil {

@@ -19,6 +19,7 @@ import (
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/catalogo"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/disponibilidad"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
@@ -159,6 +160,9 @@ func servicioYProfesional(ctx context.Context, tx pgx.Tx, servicioID, profesiona
 			problema.Campo{Ruta: "profesionalId", Mensaje: "requerido"})
 	}
 	p, err := catalogo.LeerProfesional(ctx, tx, profesionalID, false)
+	if err == nil && p.Activo && !p.EnPlan {
+		return srv, p, planes.ProblemaFueraDelPlan(ctx, tx, time.Now(), p.Nombre)
+	}
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && (!p.TomaTurnos() || !p.Hace(srv.ID))) {
 		return srv, p, problema.NoEncontrado("Ese profesional no existe o no hace ese servicio.")
 	}

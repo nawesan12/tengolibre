@@ -132,7 +132,9 @@ func Leer() (Config, error) {
 	if c.IACupoMensual, err = entero("TENGOLIBRE_IA_CUPO_MENSUAL", 150); err != nil {
 		return c, err
 	}
-	if c.IATopeDiario, err = entero("TENGOLIBRE_IA_TOPE_DIARIO", 30); err != nil {
+	// El cupo mensual y el diario salen del plan (planes.CupoIA): estos dos son el valor sin plan
+	// (cuando no hay CupoDe) y el techo diario de seguridad, que ningún plan pasa.
+	if c.IATopeDiario, err = entero("TENGOLIBRE_IA_TOPE_DIARIO", 100); err != nil {
 		return c, err
 	}
 	if c.IAPresupuestoUSD, err = strconv.ParseFloat(valor("TENGOLIBRE_IA_PRESUPUESTO_USD", "20"), 64); err != nil || c.IAPresupuestoUSD < 0 {

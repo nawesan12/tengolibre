@@ -17,6 +17,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/disponibilidad"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/miweb"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/resenas"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
@@ -83,12 +84,21 @@ func (s *Servicio) pagina(w http.ResponseWriter, r *http.Request) error {
 		Resenas             resenas.Resumen       `json:"resenas"`
 		// HorarioAtencion: cuándo abre el negocio, la unión de los horarios de sus profesionales activos.
 		HorarioAtencion []disponibilidad.Franja `json:"horarioAtencion"`
+		// Lo que el plan del negocio trae para la página: la lista de espera y el campo de cupón. Sin
+		// eso, la página no los ofrece (la API igual los frena).
+		Espera  bool `json:"espera"`
+		Cupones bool `json:"cupones"`
 	}
 	err = s.Pool.EnNegocio(ctx, id, func(tx pgx.Tx) error {
 		var err error
 		if out.Negocio, err = negocios.Leer(ctx, tx); err != nil {
 			return err
 		}
+		v, err := planes.Leer(ctx, tx, s.ahora())
+		if err != nil {
+			return err
+		}
+		out.Espera, out.Cupones = v.Tiene(planes.Espera), v.Tiene(planes.Cupones)
 		if out.Categorias, err = catalogo.Categorias(ctx, tx); err != nil {
 			return err
 		}
@@ -868,7 +878,11 @@ func (s *Servicio) libresDelTurno(w http.ResponseWriter, r *http.Request) error 
 		}
 		prof := r.URL.Query().Get("profesional")
 		if prof == "" && t.ProfesionalElegida && t.ProfesionalID != nil {
-			prof = *t.ProfesionalID
+			// La que eligió quedó fuera del plan (el negocio bajó de plan): se ofrecen los horarios de
+			// cualquiera, en vez de «no quedan horarios».
+			if p, err := catalogo.LeerProfesional(ctx, tx, *t.ProfesionalID, false); err == nil && p.TomaTurnos() {
+				prof = *t.ProfesionalID
+			}
 		}
 		out, _, err = libresDe(ctx, tx, c, *t.ServicioID, prof, fecha, s.ahora(), t.ID)
 		return err

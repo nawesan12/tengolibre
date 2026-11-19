@@ -200,6 +200,12 @@ func TestHorasMuertasCuponYReporteMensual(t *testing.T) {
 		t.Fatalf("ajustes: %+v", aj)
 	}
 	ctx := context.Background()
+	// Con Inicial el informe mensual (reportes completos, de Equipo) no sale.
+	a.PonerPlan(n.ID, "inicial")
+	if res, err := reportes.EncolarMensual(ctx, a.Bases.App, a.Ahora); err != nil || res.(map[string]int)["encolados"] != 0 {
+		t.Fatalf("con Inicial: %v %v", res, err)
+	}
+	a.PonerPlan(n.ID, "equipo")
 	for range 2 {
 		if _, err := reportes.EncolarMensual(ctx, a.Bases.App, a.Ahora); err != nil {
 			t.Fatal(err)

@@ -117,6 +117,11 @@ func candidatos(ctx context.Context, tx pgx.Tx, servicioID, profesionalID string
 // crearOferta arma la cola del horario y se lo ofrece a la primera. Los problemas (horario ocupado,
 // nadie esperando, ya se ofrece) salen antes de escribir nada.
 func crearOferta(ctx context.Context, tx pgx.Tx, servicioID, profesionalID string, inicio time.Time, origen string, ahora time.Time) (string, error) {
+	// La lista de espera viene con Equipo: vale para el panel, el asistente y el MCP (que no pasan por
+	// las rutas del panel).
+	if err := planes.Exigir(ctx, tx, ahora, planes.Espera); err != nil {
+		return "", err
+	}
 	if !inicio.After(ahora) {
 		return "", problema.Invalido("Ese horario ya pasó.", problema.Campo{Ruta: "inicio", Mensaje: "pasado"})
 	}
@@ -811,6 +816,26 @@ func (s *Servicio) Trabajo() trabajos.Trabajo {
 func (s *Servicio) Avanzar(ctx context.Context, ahora time.Time) (any, error) {
 	avanzadas := 0
 	err := trabajos.PorNegocio(ctx, s.Pool, func(_ string, tx pgx.Tx) error {
+		// Sin la lista de espera en el plan (bajó de plan), las ofertas abiertas se cierran en vez de
+		// pasar a la siguiente persona: no salen más mails.
+		if ok, err := planes.Tiene(ctx, tx, ahora, planes.Espera); err != nil {
+			return err
+		} else if !ok {
+			filas, err := tx.Query(ctx, "SELECT id::text FROM ofertas WHERE estado = 'ofreciendo' LIMIT 200")
+			if err != nil {
+				return err
+			}
+			ids, err := pgx.CollectRows(filas, pgx.RowTo[string])
+			if err != nil {
+				return err
+			}
+			for _, id := range ids {
+				if err := cerrar(ctx, tx, id, "caida", ahora); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
 		filas, err := tx.Query(ctx, `SELECT o.id::text FROM ofertas o WHERE o.estado = 'ofreciendo' AND (o.inicio <= $1
 			OR NOT EXISTS (SELECT 1 FROM oferta_intentos i WHERE i.oferta_id = o.id AND i.estado = 'ofrecida' AND i.vence_en > $1))
 			ORDER BY o.inicio LIMIT 200`, ahora)
@@ -838,6 +863,9 @@ func (s *Servicio) Avanzar(ctx context.Context, ahora time.Time) (any, error) {
 func (s *Servicio) Candidatos(ctx context.Context, negocioID, servicioID, profesionalID string, inicio time.Time) (int, error) {
 	var n int
 	err := s.Pool.EnNegocio(ctx, negocioID, func(tx pgx.Tx) error {
+		if err := planes.Exigir(ctx, tx, s.ahora(), planes.Espera); err != nil {
+			return err
+		}
 		cs, err := candidatos(ctx, tx, servicioID, profesionalID, inicio, zona(ctx, tx), maxCola)
 		n = len(cs)
 		return err

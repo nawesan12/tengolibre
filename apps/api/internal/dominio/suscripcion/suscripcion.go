@@ -105,8 +105,12 @@ type Acceso struct {
 	PruebaHasta    *time.Time `json:"pruebaHasta"`
 	DiasDePrueba   int        `json:"diasDePrueba"`
 	ConSuscripcion bool       `json:"conSuscripcion"`
-	// Plan que rige (app.plan_vigente): durante la prueba, Equipo (o Centro si ya lo pagó).
-	Plan string `json:"plan"`
+	// Plan que rige (app.plan_vigente): durante la prueba, Equipo (o Centro si ya lo pagó). Funciones:
+	// las que trae (las pantallas avisan antes de que se complete un formulario que el plan no
+	// permite guardar), y para cada una que no trae, el plan que la incluye (Viene).
+	Plan      string            `json:"plan"`
+	Funciones []planes.Funcion  `json:"funciones"`
+	Viene     map[string]string `json:"viene"`
 	// ProximoCobro de la suscripción autorizada (null: no hay, o Mercado Pago no lo dijo todavía).
 	// Lo completa LeerCobros (no el chequeo de escritura).
 	ProximoCobro *Cobro `json:"proximoCobro"`
@@ -186,6 +190,17 @@ func LeerAcceso(ctx context.Context, tx pgx.Tx, ahora time.Time) (Acceso, error)
 	}
 	a.Bloqueado = !enPrueba && !a.ConSuscripcion
 	a.Plan = plan
+	p, ok := planes.De(plan)
+	if !ok {
+		p = planes.SinPlan
+	}
+	a.Funciones = p.Funciones
+	a.Viene = map[string]string{}
+	for _, f := range planes.Todas {
+		if !p.Tiene(f) {
+			a.Viene[string(f)] = planes.Minimo(f).Clave
+		}
+	}
 	return a, nil
 }
 

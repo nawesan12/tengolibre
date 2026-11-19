@@ -521,13 +521,22 @@ func TestWhatsAppTopeDelPlan(t *testing.T) {
 	if saldo != 0 {
 		t.Fatalf("el saldo no bajó: %d", saldo)
 	}
-	// Centro: los incluidos del mes; ya usados los 150, vuelve a depender del saldo.
+	// Centro: los incluidos del mes; ya usados los 150, vuelve a depender del saldo. El que salió del
+	// pack no cuenta entre los incluidos (ya se pagó aparte), y los fallidos tampoco.
 	e.PonerPlan(e.negocio, "centro")
 	e.Fila(`INSERT INTO whatsapp_mensajes (negocio_id, tipo, para, token, clave, estado, proximo_intento, creado_en)
-		SELECT $1::uuid, 'recordatorio', '+5491100000000', 'tokendeprueba' || lpad(g::text, 6, '0'), 'viejo:' || g, 'enviado', $2, $2
-		FROM generate_series(1, 149) g`, []any{e.negocio, e.Ahora})
-	if r := e.correr(e.tj.Recordatorios); r["encolados"] != 0 {
+		SELECT $1::uuid, 'recordatorio', '+5491100000000', 'tokendeprueba' || lpad(g::text, 6, '0'), 'viejo:' || g,
+			CASE WHEN g > 150 THEN 'fallido' ELSE 'enviado' END, $2, $2
+		FROM generate_series(1, 152) g`, []any{e.negocio, e.Ahora})
+	if r := e.correr(e.tj.Recordatorios); r["encolados"] != 0 || r["sinCupo"] != 1 {
 		t.Fatalf("Centro con los 150 usados y sin saldo: %v", r)
+	}
+	// La campanita lo avisa una sola vez en el mes.
+	e.correr(e.tj.Recordatorios)
+	var avisos int
+	e.Fila("SELECT count(*) FROM notificaciones WHERE negocio_id = $1::uuid AND tipo = 'whatsapp_sin_cupo'", []any{e.negocio}, &avisos)
+	if avisos != 1 {
+		t.Fatalf("avisos sin cupo: %d", avisos)
 	}
 	// El mes que viene arranca de cero.
 	e.Ahora = en("2026-12-06 10:00")
