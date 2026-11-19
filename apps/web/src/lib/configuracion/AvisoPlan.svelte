@@ -11,7 +11,7 @@
 </script>
 
 {#if plan}
-	<p class="g-aviso ambar" role="status">
+	<p class="g-aviso ambar">
 		<span class="icono" aria-hidden="true">workspace_premium</span>
 		<span
 			>{QUE_VIENE[funcion]} con {nombrePlan(plan)}. {detalle ?? 'Podés ver lo que ya está; para crear o cambiar, pasá de\u00a0plan.'}</span

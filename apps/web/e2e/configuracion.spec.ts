@@ -306,6 +306,19 @@ test('plantillas: el borrador se prueba en la vista previa y se publica', async 
 	await expect(page.getByText('Cambios sin publicar')).toHaveCount(0);
 	await page.getByRole('button', { name: /Vidriera/ }).click();
 	await page.getByRole('button', { name: 'Publicar' }).click();
+	// En la prueba rige Equipo y las plantillas vienen con Centro: el servidor lo frena en el momento y ofrece pasar.
+	await expect(page.getByRole('alert')).toContainText('plan Centro');
+	await expect(page.getByRole('alert').getByRole('link', { name: 'Pasar a Centro' })).toHaveAttribute('href', '/panel/suscripcion?plan=centro#planes');
+	// Con Centro cobrado, se publica.
+	sql(`UPDATE negocios SET plan = 'centro' WHERE slug = :'p1'`, slug);
+	sql(
+		`INSERT INTO suscripciones (negocio_id, referencia, plan, monto, estado, ultimo_cobro)
+			SELECT id, id::text || '-e2e', 'centro', 29900, 'autorizada', now() FROM negocios WHERE slug = :'p1'`,
+		slug
+	);
+	await page.reload();
+	await page.getByRole('button', { name: /Vidriera/ }).click();
+	await page.getByRole('button', { name: 'Publicar' }).click();
 	await expect(page.getByRole('status')).toContainText('Publicada. Tus clientes ya la');
 	await page.reload();
 	await expect(page.getByRole('button', { name: /Vidriera/ })).toHaveAttribute('aria-pressed', 'true');
