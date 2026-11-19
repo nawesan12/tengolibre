@@ -335,8 +335,14 @@ struct Asistente: View {
 
     /// Abre el turno de una fila: se cierra la hoja y Principal lo abre (como un push).
     private func abrirTurno(_ id: String) {
-        estado.rutaPendiente = .turno(id)
         cerrar()
+        // El detalle es otra hoja: se pide cuando esta terminó de bajar (con la API rápida, presentarla
+        // mientras se cerraba ésta no la mostraba).
+        let estado = estado
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
+            estado.rutaPendiente = .turno(id)
+        }
     }
 
     /// VoiceOver lee lo que contestó el asistente (la web lo hace con aria-live).
