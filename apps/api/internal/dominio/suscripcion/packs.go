@@ -51,8 +51,10 @@ func (s *Servicio) comprarPack(w http.ResponseWriter, r *http.Request) error {
 		if _, err := tx.Exec(ctx, `UPDATE whatsapp_packs SET estado = 'cancelado' WHERE estado = 'pendiente' AND creado_en < $1`, desde); err != nil {
 			return err
 		}
-		err := tx.QueryRow(ctx, `SELECT id::text, link FROM whatsapp_packs WHERE estado = 'pendiente' AND creado_en >= $1
-			ORDER BY creado_en DESC LIMIT 1`, desde).Scan(&id, &link)
+		// Sin link todavía (el otro pedido sigue esperando a Mercado Pago, o falló): se arma la orden con su
+		// misma referencia y clave de idempotencia; con una nueva, el pago no encontraba el pack.
+		err := tx.QueryRow(ctx, `SELECT id::text, link, referencia FROM whatsapp_packs WHERE estado = 'pendiente' AND creado_en >= $1
+			ORDER BY creado_en DESC LIMIT 1`, desde).Scan(&id, &link, &ref)
 		if err == nil || !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}

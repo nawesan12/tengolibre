@@ -505,6 +505,13 @@ func TestPackDeWhatsApp(t *testing.T) {
 	if c2.URL != c.URL {
 		t.Fatalf("otra orden: %q %q", c2.URL, c.URL)
 	}
+	// Si la pendiente quedó sin link (Mercado Pago no respondió), la orden nueva lleva su misma
+	// referencia: si no, el pago no encontraba el pack.
+	e.SQL("UPDATE whatsapp_packs SET link = NULL WHERE referencia = $1", ref)
+	e.Panel(201, "POST", "/v1/panel/suscripcion/whatsapp", nil, &c2)
+	if c2.URL != c.URL {
+		t.Fatalf("sin link, otra referencia: %q %q", c2.URL, c.URL)
+	}
 	// Pagada sin que llegue el aviso: la vuelta de Mercado Pago la concilia igual.
 	e.MP.PagarOrden(ref, "processed", "accredited", 5900, 2)
 	e.Panel(204, "POST", "/v1/panel/suscripcion/conciliar", nil, nil)
