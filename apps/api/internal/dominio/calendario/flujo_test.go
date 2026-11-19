@@ -123,6 +123,34 @@ func TestCalendarioParaSuscribirse(t *testing.T) {
 	a.Esperar(201, P{Metodo: "POST", Ruta: "/v1/negocios", Quien: otra, Cuerpo: map[string]string{"slug": "otro", "nombre": "Otro"}}, &o)
 	a.Esperar(404, P{Metodo: "DELETE", Ruta: "/v1/panel/calendarios/" + *todo.ID, Quien: otra, Negocio: o.ID}, nil)
 	a.Esperar(200, P{Metodo: "GET", Ruta: ruta(todo)}, nil)
+
+	// Al dar de baja a Ana se cortan los de su agenda (no el del negocio), y la campanita lo dice.
+	var deAna2 calendario.Calendario
+	panel(201, duenia, "POST", "/v1/panel/calendarios", map[string]string{"profesionalId": pa.ID}, &deAna2)
+	var idAna string
+	a.Fila("SELECT id::text FROM miembros WHERE clerk_id = $1", []any{ana}, &idAna)
+	panel(200, duenia, "PATCH", "/v1/panel/equipo/"+idAna, map[string]any{"activo": false}, nil)
+	a.Esperar(404, P{Metodo: "GET", Ruta: ruta(deAna2)}, nil)
+	a.Esperar(200, P{Metodo: "GET", Ruta: ruta(todo)}, nil)
+	var aviso string
+	a.Fila("SELECT texto FROM notificaciones WHERE negocio_id = $1 AND titulo = 'Cortamos los calendarios suscriptos' ORDER BY creado_en DESC LIMIT 1",
+		[]any{n.ID}, &aviso)
+	if !strings.Contains(aviso, "Ana, los links de su agenda") {
+		t.Fatalf("aviso de la baja: %q", aviso)
+	}
+
+	// Una encargada que pasa a recepción veía todos los links: se cortan todos.
+	const eli = "user_eli00000001"
+	var idEli string
+	a.Fila(`INSERT INTO miembros (negocio_id, clerk_id, email, nombre, rol) VALUES ($1, $2, 'eli@mail.com', 'Eli', 'encargado') RETURNING id::text`,
+		[]any{n.ID, eli}, &idEli)
+	panel(200, duenia, "PATCH", "/v1/panel/equipo/"+idEli, map[string]any{"rol": "recepcion"}, nil)
+	a.Esperar(404, P{Metodo: "GET", Ruta: ruta(todo)}, nil)
+	a.Fila("SELECT texto FROM notificaciones WHERE negocio_id = $1 AND titulo = 'Cortamos los calendarios suscriptos' ORDER BY creado_en DESC LIMIT 1",
+		[]any{n.ID}, &aviso)
+	if !strings.Contains(aviso, "Eli, los links de los calendarios") {
+		t.Fatalf("aviso del cambio de rol: %q", aviso)
+	}
 }
 
 func sql(t *testing.T, a *prueba.API, q string, args ...any) {

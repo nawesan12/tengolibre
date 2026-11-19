@@ -265,11 +265,14 @@ BEGIN
 			AND profesional_id IN (SELECT p.id FROM profesionales p WHERE p.miembro_id = NEW.id);
 		GET DIAGNOSTICS n = ROW_COUNT;
 	END IF;
+	-- Quien gestionaba veía todos los links: se cortan todos. Si no, sólo los de su agenda.
 	IF n > 0 THEN
 		INSERT INTO notificaciones (negocio_id, tipo, titulo, texto)
 			VALUES (NEW.negocio_id, 'equipo', 'Cortamos los calendarios suscriptos',
 				left('Por seguridad, al cambiar el acceso de ' || coalesce(nullif(NEW.nombre, ''), NEW.email) ||
-					' sus links dejaron de andar. Volvé a conectarlos desde Integraciones.', 500));
+					CASE WHEN gestionaba AND NOT gestiona THEN ', los links de los calendarios dejaron de andar.'
+						ELSE ', los links de su agenda dejaron de andar.' END ||
+					' Volvé a conectarlos desde Integraciones.', 500));
 	END IF;
 	RETURN NEW;
 END
