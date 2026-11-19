@@ -1,5 +1,25 @@
 # Estado
 
+## 19/11/2026: todo en producción (API y web con migraciones hasta la 00037; apps subidas el 18-19/11)
+
+Las entradas del 18/11 de abajo que dicen «sin desplegar» ya están desplegadas:
+- comité,
+- asistente con Claude,
+- link protagonista,
+- app sólo para negocios.
+
+Producción tiene la migración 00037, iOS está en TestFlight (todos los grupos) y Android en la prueba cerrada de Play.
+
+- **Lucas (socio):** su reserva no aparecía porque nunca creó su negocio. Se resolvió así:
+  - la app es sólo para quien da turnos;
+  - los clientes reservan desde la web;
+  - «Tus turnos» en /mi-cuenta muestra los turnos reservados con el mail de la sesión;
+  - los avisos al negocio también salen cuando reserva alguien con sesión iniciada.
+- **Meta:**
+  - El píxel de Tengo Libre (1693501452118578) está creado y el dominio verificado.
+  - Falta poner el código del píxel en la web (hoy sólo TLW lo tiene, en `/l/` y `meta.ts`) y generar el token CAPI.
+- **AAIP:** Meta y Anthropic agregados al expediente EX-2026-110277456 (IF-2026-111936374).
+
 ## 18/11/2026: cierre de la revisión del comité (rama comite-revision, sin desplegar; migraciones 00034–00037)
 
 Todos los hallazgos del comité aplicados en API, web, iPhone y Android (detalle en los commits de la rama).
