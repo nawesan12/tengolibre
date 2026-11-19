@@ -57,6 +57,9 @@ type Servicio struct {
 	Escritura func(http.HandlerFunc) http.HandlerFunc
 	// OtrosAvisos: receptores del webhook que no son pagos (las suscripciones). El webhook es uno solo.
 	OtrosAvisos map[string]mercadopago.Receptor
+	// OrdenesPlataforma: las órdenes de la cuenta de la plataforma (los packs de WhatsApp, en
+	// suscripcion). Una orden cuyo vendedor no es un negocio conectado va acá.
+	OrdenesPlataforma mercadopago.Receptor
 	// Avisar como en turnos (el pago confirma el turno). nil: no se avisa.
 	Avisar func(ctx context.Context, negocioID, turnoID, evento string)
 	// CancelarTurno: lo que corre al cancelar un turno, como en turnos (turnos.Servicio.AlCancelar: la

@@ -16,6 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/appstore"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
@@ -23,29 +24,36 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
 )
 
-// DiasDePrueba de un negocio nuevo (el default de negocios.prueba_hasta en 00004).
-const DiasDePrueba = 7
+// DiasDePrueba de un negocio nuevo (el default de negocios.prueba_hasta en 00038), con Equipo.
+const DiasDePrueba = planes.DiasDePrueba
 
 // DiasDeGracia: una suscripción pausada (una tarjeta que venció el fin de semana) sigue valiendo.
 const DiasDeGracia = 7
 
-// Plan que se vende. El precio es el que se manda en el preapproval: sale de acá, nunca del navegador.
-type Plan struct {
-	Clave  string `json:"clave"`
-	Nombre string `json:"nombre"`
-	Precio int64  `json:"precio"`
+// Plan que se vende (planes.Plan). El precio es el que se manda en el preapproval: sale de
+// planes, nunca del navegador.
+type Plan = planes.Plan
+
+// Planes que se venden.
+var Planes = planes.Planes
+
+// planDe: sólo los que se venden hoy («completo» ya no).
+func planDe(clave string) (Plan, bool) {
+	if clave == "completo" {
+		return Plan{}, false
+	}
+	return planes.De(clave)
 }
 
-// Planes (PLAN_PRICES y PLAN_NAMES de Jiku). "sin_plan" no se vende.
-var Planes = []Plan{{"inicial", "Inicial", 7000}, {"completo", "Completo", 15000}}
-
-func planDe(clave string) (Plan, bool) {
-	for _, p := range Planes {
-		if p.Clave == clave {
-			return p, true
-		}
+// periodoDe: mensual (por defecto) o anual.
+func periodoDe(p string) (string, bool) {
+	switch p {
+	case "", "mensual":
+		return "mensual", true
+	case "anual":
+		return "anual", true
 	}
-	return Plan{}, false
+	return "", false
 }
 
 // Servicio de suscripciones.
@@ -58,8 +66,6 @@ type Servicio struct {
 	TokenPlataforma string
 	// Sitio del panel, para la vuelta de Mercado Pago.
 	Sitio string
-	// CupoIA: respuestas con IA por mes que trae cada plan (el asistente del panel). Se muestra con el plan.
-	CupoIA int
 	// Apple verifica lo que firma la App Store (nil: con la raíz de Apple).
 	Apple *appstore.Verificador
 	// Google consulta las compras de Google Play (nil: la suscripción por Play queda apagada) y
@@ -99,7 +105,7 @@ type Acceso struct {
 	PruebaHasta    *time.Time `json:"pruebaHasta"`
 	DiasDePrueba   int        `json:"diasDePrueba"`
 	ConSuscripcion bool       `json:"conSuscripcion"`
-	// Plan efectivo: durante la prueba, el completo (para mostrar el producto entero).
+	// Plan que rige (app.plan_vigente): durante la prueba, Equipo (o Centro si ya lo pagó).
 	Plan string `json:"plan"`
 	// ProximoCobro de la suscripción autorizada (null: no hay, o Mercado Pago no lo dijo todavía).
 	// Lo completa LeerCobros (no el chequeo de escritura).
@@ -150,7 +156,9 @@ const vigenteSQL = `((s.estado = 'autorizada' AND (s.origen NOT IN ('apple', 'go
 // plan por la que se fue.
 func recalcularPlan(ctx context.Context, tx pgx.Tx, ahora time.Time) error {
 	_, err := tx.Exec(ctx, `UPDATE negocios SET plan = coalesce((SELECT s.plan FROM suscripciones s WHERE `+vigenteSQL+`
-			ORDER BY s.plan = 'completo' DESC, s.creado_en DESC LIMIT 1), 'sin_plan')
+			ORDER BY CASE s.plan WHEN 'centro' THEN 3 WHEN 'equipo' THEN 2 ELSE 1 END DESC, s.creado_en DESC LIMIT 1), 'sin_plan'),
+		profesionales_extra = coalesce((SELECT s.profesionales_extra FROM suscripciones s WHERE `+vigenteSQL+` AND s.plan = 'centro'
+			ORDER BY s.creado_en DESC LIMIT 1), 0)
 		WHERE id = app.negocio_actual()`, ahora)
 	return err
 }
@@ -162,7 +170,7 @@ func LeerAcceso(ctx context.Context, tx pgx.Tx, ahora time.Time) (Acceso, error)
 	var plan string
 	// Una de Apple o Google Play autorizada vale hasta que vence (más un día, por si la renovación llega tarde): si
 	// la App Store no avisó que renovó, no sigue abierta para siempre.
-	err := tx.QueryRow(ctx, `SELECT n.prueba_hasta, n.plan, EXISTS (SELECT 1 FROM suscripciones s WHERE `+vigenteSQL+`)
+	err := tx.QueryRow(ctx, `SELECT n.prueba_hasta, app.plan_vigente($1), EXISTS (SELECT 1 FROM suscripciones s WHERE `+vigenteSQL+`)
 		FROM negocios n WHERE n.id = app.negocio_actual()`, ahora).Scan(&hasta, &plan, &a.ConSuscripcion)
 	if err != nil {
 		return a, err
@@ -173,14 +181,7 @@ func LeerAcceso(ctx context.Context, tx pgx.Tx, ahora time.Time) (Acceso, error)
 		a.DiasDePrueba = int(math.Ceil(hasta.Sub(ahora).Hours() / 24))
 	}
 	a.Bloqueado = !enPrueba && !a.ConSuscripcion
-	switch {
-	case enPrueba:
-		a.Plan = "completo"
-	case a.ConSuscripcion:
-		a.Plan = plan
-	default:
-		a.Plan = "sin_plan"
-	}
+	a.Plan = plan
 	return a, nil
 }
 
@@ -220,6 +221,13 @@ func (s *Servicio) Escritura(next http.HandlerFunc) http.HandlerFunc {
 			problema.Escribir(w, ProblemaSinSuscripcion())
 			return
 		}
+		// Lo que el plan no incluye queda en sólo lectura (tope_plan, con el plan que lo trae).
+		if f, ok := planes.DeRuta(r.Pattern); ok {
+			if p, ok := planes.De(a.Plan); !ok || !p.Tiene(f) {
+				problema.Escribir(w, planes.ProblemaFuncion(f))
+				return
+			}
+		}
 		next(w, r)
 	}
 }
@@ -239,12 +247,15 @@ type Suscripcion struct {
 	// Origen: mercadopago (la web) o apple (la App Store, desde el iPhone). Cada una se maneja donde se
 	// contrató.
 	Origen string `json:"origen"`
+	// Periodo: mensual o anual (10 meses que valen 12). ProfesionalesExtra: los que suma Centro.
+	Periodo            string `json:"periodo"`
+	ProfesionalesExtra int    `json:"profesionalesExtra"`
 }
 
-const columnas = `id::text, plan, estado, monto, link, proximo_cobro, ultimo_cobro, gracia_hasta, cancelada_en, creado_en, origen`
+const columnas = `id::text, plan, estado, monto, link, proximo_cobro, ultimo_cobro, gracia_hasta, cancelada_en, creado_en, origen, periodo, profesionales_extra`
 
 func escanear(f pgx.Row, x *Suscripcion) error {
-	return f.Scan(&x.ID, &x.Plan, &x.Estado, &x.Monto, &x.Link, &x.ProximoCobro, &x.UltimoCobro, &x.GraciaHasta, &x.CanceladaEn, &x.CreadoEn, &x.Origen)
+	return f.Scan(&x.ID, &x.Plan, &x.Estado, &x.Monto, &x.Link, &x.ProximoCobro, &x.UltimoCobro, &x.GraciaHasta, &x.CanceladaEn, &x.CreadoEn, &x.Origen, &x.Periodo, &x.ProfesionalesExtra)
 }
 
 // vigente: la última autorizada, pausada o pendiente, en ese orden (un alta que reemplaza a otra

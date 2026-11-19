@@ -33,6 +33,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/membresias"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/miweb"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/promos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/push"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/recordatorios"
@@ -110,7 +111,8 @@ func correr() error {
 	}
 	cob := &cobros.Servicio{Pool: app, Sesion: ses, Cifra: cifra, Sitio: cfg.Sitio,
 		Aplicacion:     mercadopago.Aplicacion{ID: cfg.MPAppID, Secreto: cfg.MPSecreto},
-		SecretoWebhook: cfg.MPSecretoWebhook, Escritura: sus.Escritura, OtrosAvisos: sus.Receptores(), Avisar: av.Avisar}
+		SecretoWebhook: cfg.MPSecretoWebhook, Escritura: sus.Escritura, OtrosAvisos: sus.Receptores(), Avisar: av.Avisar,
+		OrdenesPlataforma: sus.RecibirOrdenPlataforma}
 	pro := &promos.Servicio{Pool: app, Sesion: ses, Escritura: sus.Escritura}
 	mem := &membresias.Servicio{Pool: app, Sesion: ses, Escritura: sus.Escritura}
 	// El orden de Extras importa: membresía, después cupón, y el cobro último (sobre el precio final).
@@ -140,12 +142,11 @@ func correr() error {
 	esp := &espera.Servicio{Pool: app, Sesion: ses, Turnos: tur}
 	asis := &asistente.Servicio{Pool: app, Sesion: ses, MCP: mcpS, Espera: esp, IA: ia.NuevoCliente(cfg.AnthropicClave),
 		Medidor: &ia.Medidor{Pool: app, Topes: ia.Topes{CupoMensual: cfg.IACupoMensual, TopeDiario: cfg.IATopeDiario,
-			PresupuestoMicro: int64(cfg.IAPresupuestoUSD * 1e6)}},
+			PresupuestoMicro: int64(cfg.IAPresupuestoUSD * 1e6)}, CupoDe: planes.CupoIA},
 		Cache: cacheIA}
 	if asis.IA == nil {
 		slog.Warn("asistente: sin ANTHROPIC_API_KEY, contesta sólo con el intérprete")
 	}
-	sus.CupoIA = cfg.IACupoMensual
 	srv := &http.Server{
 		Addr: cfg.Direccion,
 		Handler: servidor.Nuevo(servidor.Dependencias{App: app, Version: version, Origenes: cfg.Origenes,

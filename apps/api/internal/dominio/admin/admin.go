@@ -87,7 +87,7 @@ func (s *Servicio) ahora() time.Time {
 }
 
 // Estados de la cuenta de un negocio, como los muestra el admin.
-var Estados = []string{"prueba", "inicial", "completo", "cobro_fallido", "solo_lectura"}
+var Estados = []string{"prueba", "inicial", "equipo", "centro", "cobro_fallido", "solo_lectura"}
 
 // Rutas del dominio.
 func (s *Servicio) Rutas(mux *http.ServeMux) {

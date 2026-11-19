@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"net/http"
 	"strconv"
 	"strings"
@@ -55,6 +56,11 @@ func Monto(precio int64, c Config) int64 {
 func (s *Servicio) puedeCobrar(ctx context.Context, tx pgx.Tx) (bool, error) {
 	if !s.Activo() {
 		return false, nil
+	}
+	// La seña con Mercado Pago viene con Equipo: con un plan más chico (o después de bajar), la
+	// reserva se toma sin cobrar y la configuración queda guardada para cuando vuelva a subir.
+	if ok, err := planes.Tiene(ctx, tx, s.ahora(), planes.Sena); err != nil || !ok {
+		return false, err
 	}
 	c, err := leerConexion(ctx, tx)
 	return c.Conectada && !c.Reautorizar, err
@@ -260,8 +266,15 @@ func (s *Servicio) recibirPago(ctx context.Context, a mercadopago.Aviso) error {
 // recibirOrden: aviso del tópico order (evento «Order (Mercado Pago)»).
 func (s *Servicio) recibirOrden(ctx context.Context, a mercadopago.Aviso) error {
 	negocio, err := s.negocioDe(ctx, a)
-	if err != nil || negocio == nil {
+	if err != nil {
 		return err
+	}
+	if negocio == nil {
+		// No es de un negocio conectado: puede ser de la cuenta de la plataforma (un pack de WhatsApp).
+		if s.OrdenesPlataforma != nil {
+			return s.OrdenesPlataforma(ctx, a)
+		}
+		return nil
 	}
 	return s.ConciliarOrden(ctx, *negocio, a.ID())
 }

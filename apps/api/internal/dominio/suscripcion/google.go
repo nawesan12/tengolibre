@@ -201,7 +201,7 @@ func itoa(n int) string {
 // mientras está activa (o cancelada pero sin vencer, sin renovación), pausada en el período de
 // gracia, cancelada si venció, quedó suspendida o en pausa. evento: "rtdn/<tipo>" ("" desde la app).
 func conciliarGoogle(ctx context.Context, tx pgx.Tx, negocio, token string, sus googleplay.Suscripcion, evento string, ahora time.Time) error {
-	plan, ok := planDe(ProductosApple[sus.Producto()])
+	plan, periodo, ok := ProductoTienda(sus.Producto())
 	if !ok {
 		return problema.Invalido("Ese producto de Google Play no es un plan de Tengo Libre.")
 	}
@@ -241,7 +241,7 @@ func conciliarGoogle(ctx context.Context, tx pgx.Tx, negocio, token string, sus 
 		err = tx.QueryRow(ctx, `INSERT INTO suscripciones (negocio_id, referencia, plan, estado, monto, proximo_cobro, ultimo_cobro,
 				gracia_hasta, cancelada_en, origen, google_token, google_producto, motivo)
 			VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8, 'google', $9, $10, 'Google Play') RETURNING id::text`,
-			negocio+"-google-"+hex.EncodeToString(h[:8]), plan.Clave, estado, plan.Precio, vence, inicio, gracia, cancelada, token, sus.Producto()).Scan(&id)
+			negocio+"-google-"+hex.EncodeToString(h[:8]), plan.Clave, estado, plan.PrecioDe(periodo, 0), vence, inicio, gracia, cancelada, token, sus.Producto()).Scan(&id)
 		if err != nil {
 			return err
 		}
@@ -251,17 +251,20 @@ func conciliarGoogle(ctx context.Context, tx pgx.Tx, negocio, token string, sus 
 		_, err = tx.Exec(ctx, `UPDATE suscripciones SET plan = $2, monto = $3, estado = $4, proximo_cobro = $5, ultimo_cobro = $6,
 				gracia_hasta = $7, cancelada_en = CASE WHEN $8::timestamptz IS NULL THEN NULL ELSE coalesce(cancelada_en, $8) END,
 				google_token = $9, google_producto = $10, actualizado_en = now() WHERE id = $1`,
-			id, plan.Clave, plan.Precio, estado, vence, inicio, gracia, cancelada, token, sus.Producto())
+			id, plan.Clave, plan.PrecioDe(periodo, 0), estado, vence, inicio, gracia, cancelada, token, sus.Producto())
 		if err != nil {
 			return err
 		}
+	}
+	if _, err := tx.Exec(ctx, "UPDATE suscripciones SET periodo = $2, profesionales_extra = 0 WHERE id = $1", id, periodo); err != nil {
+		return err
 	}
 	// Dada de baja, el plan sale de las que sigan valiendo (puede haber otra, de otro origen).
 	if estado == "cancelada" {
 		if err := recalcularPlan(ctx, tx, ahora); err != nil {
 			return err
 		}
-	} else if _, err := tx.Exec(ctx, "UPDATE negocios SET plan = $1 WHERE id = app.negocio_actual()", plan.Clave); err != nil {
+	} else if err := ponerPlan(ctx, tx, id); err != nil {
 		return err
 	}
 	if evento == "" {

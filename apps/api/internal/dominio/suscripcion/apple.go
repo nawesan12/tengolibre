@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/appstore"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
@@ -27,10 +28,31 @@ import (
 // BundleApple de la app de iPhone.
 const BundleApple = "ar.com.tengolibre.app"
 
-// ProductosApple: el producto de la App Store de cada plan (mensuales, en el grupo «Tengo Libre»).
+// ProductosApple: el producto de cada plan y período, el mismo en la App Store y en Google Play
+// (grupo de suscripciones «Tengo Libre»). completo.mensual es el plan de antes: se lee como Equipo
+// mensual para las suscripciones que ya existían, pero no se vende más.
 var ProductosApple = map[string]string{
 	"ar.com.tengolibre.inicial.mensual":  "inicial",
-	"ar.com.tengolibre.completo.mensual": "completo",
+	"ar.com.tengolibre.inicial.anual":    "inicial",
+	"ar.com.tengolibre.equipo.mensual":   "equipo",
+	"ar.com.tengolibre.equipo.anual":     "equipo",
+	"ar.com.tengolibre.centro.mensual":   "centro",
+	"ar.com.tengolibre.centro.anual":     "centro",
+	"ar.com.tengolibre.completo.mensual": "equipo",
+}
+
+// ProductoTienda: el plan y el período de un producto de la App Store o de Google Play.
+func ProductoTienda(id string) (Plan, string, bool) {
+	clave, ok := ProductosApple[id]
+	if !ok {
+		return Plan{}, "", false
+	}
+	p, ok := planes.De(clave)
+	periodo := "mensual"
+	if strings.HasSuffix(id, ".anual") {
+		periodo = "anual"
+	}
+	return p, periodo, ok
 }
 
 // ProblemaDeApple: lo que responde Mercado Pago (suscribir, cancelar, cambiar) si la suscripción
@@ -142,7 +164,7 @@ func (s *Servicio) notificacionApple(w http.ResponseWriter, r *http.Request) err
 // renovación, si vino): autorizada hasta que vence, pausada en el período de gracia, cancelada si
 // venció, se revocó o se reembolsó. evento: "TIPO/SUBTIPO" de la notificación ("" desde la app).
 func conciliarApple(ctx context.Context, tx pgx.Tx, negocio string, t appstore.Transaccion, ren *appstore.Renovacion, evento string, ahora time.Time) error {
-	plan, ok := planDe(ProductosApple[t.ProductID])
+	plan, periodo, ok := ProductoTienda(t.ProductID)
 	if !ok {
 		return problema.Invalido("Ese producto de la App Store no es un plan de Tengo Libre.")
 	}
@@ -187,7 +209,7 @@ func conciliarApple(ctx context.Context, tx pgx.Tx, negocio string, t appstore.T
 		err = tx.QueryRow(ctx, `INSERT INTO suscripciones (negocio_id, referencia, plan, estado, monto, proximo_cobro, ultimo_cobro,
 				gracia_hasta, cancelada_en, origen, apple_original, apple_producto, apple_entorno, motivo)
 			VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8, 'apple', $9, $10, $11, 'App Store') RETURNING id::text`,
-			negocio+"-apple-"+t.OriginalTransactionID, plan.Clave, estado, plan.Precio, vence, time.UnixMilli(t.PurchaseDate),
+			negocio+"-apple-"+t.OriginalTransactionID, plan.Clave, estado, plan.PrecioDe(periodo, 0), vence, time.UnixMilli(t.PurchaseDate),
 			gracia, cancelada, t.OriginalTransactionID, t.ProductID, entornoApple(t.Environment)).Scan(&id)
 		if err != nil {
 			return err
@@ -198,17 +220,20 @@ func conciliarApple(ctx context.Context, tx pgx.Tx, negocio string, t appstore.T
 		_, err = tx.Exec(ctx, `UPDATE suscripciones SET plan = $2, monto = $3, estado = $4, proximo_cobro = $5, ultimo_cobro = $6,
 				gracia_hasta = $7, cancelada_en = CASE WHEN $8::timestamptz IS NULL THEN NULL ELSE coalesce(cancelada_en, $8) END,
 				apple_producto = $9, apple_entorno = $10, actualizado_en = now() WHERE id = $1`,
-			id, plan.Clave, plan.Precio, estado, vence, time.UnixMilli(t.PurchaseDate), gracia, cancelada, t.ProductID, entornoApple(t.Environment))
+			id, plan.Clave, plan.PrecioDe(periodo, 0), estado, vence, time.UnixMilli(t.PurchaseDate), gracia, cancelada, t.ProductID, entornoApple(t.Environment))
 		if err != nil {
 			return err
 		}
+	}
+	if _, err := tx.Exec(ctx, "UPDATE suscripciones SET periodo = $2, profesionales_extra = 0 WHERE id = $1", id, periodo); err != nil {
+		return err
 	}
 	// Dada de baja, el plan sale de las que sigan valiendo (puede haber otra, de otro origen).
 	if estado == "cancelada" {
 		if err := recalcularPlan(ctx, tx, ahora); err != nil {
 			return err
 		}
-	} else if _, err := tx.Exec(ctx, "UPDATE negocios SET plan = $1 WHERE id = app.negocio_actual()", plan.Clave); err != nil {
+	} else if err := ponerPlan(ctx, tx, id); err != nil {
 		return err
 	}
 	accion := "suscripcion.apple"

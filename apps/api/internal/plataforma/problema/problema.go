@@ -15,6 +15,9 @@ type Problema struct {
 	Detalle string  `json:"detail,omitempty"`
 	Codigo  string  `json:"code,omitempty"`
 	Campos  []Campo `json:"issues,omitempty"`
+	// Plan que habilita lo pedido y el tope que se alcanzó (código tope_plan).
+	Plan   string `json:"plan,omitempty"`
+	Limite int    `json:"limit,omitempty"`
 }
 
 // Campo es un error de validación de un campo puntual.

@@ -15,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/auditoria"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
@@ -51,11 +52,15 @@ func diasHasta(t *time.Time, ahora time.Time) int {
 	return int(math.Ceil(t.Sub(ahora).Hours() / 24))
 }
 
-// alta crea una suscripción pendiente de plan con su preapproval y devuelve el init_point. reemplaza:
-// la que se cancela cuando esta quede autorizada.
-func (s *Servicio) alta(ctx context.Context, plan Plan, diasGratis int, reemplaza *string) (string, error) {
+// alta crea una suscripción pendiente de plan (y período, con los profesionales extra de Centro) con
+// su preapproval y devuelve el init_point. reemplaza: la que se cancela cuando esta quede autorizada.
+func (s *Servicio) alta(ctx context.Context, plan Plan, periodo string, extras, diasGratis int, reemplaza *string) (string, error) {
 	ses := sesion.De(ctx)
 	ref := ses.NegocioID + "-" + mercadopago.Azar()
+	if plan.Clave != "centro" {
+		extras = 0
+	}
+	monto := plan.PrecioDe(periodo, extras)
 	var id, email string
 	err := s.Pool.EnNegocio(ctx, ses.NegocioID, func(tx pgx.Tx) error {
 		// Un checkout que se abandonó no puede trabar el próximo: queda en el historial como cancelado.
@@ -64,16 +69,13 @@ func (s *Servicio) alta(ctx context.Context, plan Plan, diasGratis int, reemplaz
 			return err
 		}
 		_ = tx.QueryRow(ctx, "SELECT email FROM miembros WHERE clerk_id = $1", ses.ClerkID).Scan(&email)
-		return tx.QueryRow(ctx, `INSERT INTO suscripciones (negocio_id, referencia, plan, monto, email, reemplaza)
-			VALUES (app.negocio_actual(), $1, $2, $3, $4, $5) RETURNING id::text`, ref, plan.Clave, plan.Precio, email, reemplaza).Scan(&id)
+		return tx.QueryRow(ctx, `INSERT INTO suscripciones (negocio_id, referencia, plan, monto, email, reemplaza, periodo, profesionales_extra)
+			VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7) RETURNING id::text`, ref, plan.Clave, monto, email, reemplaza, periodo, extras).Scan(&id)
 	})
 	if err != nil {
 		return "", err
 	}
-	p, err := s.cliente().CrearPreaprobacion(ctx, s.TokenPlataforma, mercadopago.NuevaPreaprobacion{
-		Motivo: "Tengo Libre " + plan.Nombre + " — suscripción mensual", Referencia: ref, Email: email, Monto: plan.Precio,
-		DiasGratis: diasGratis, Vuelta: s.Sitio + "/panel/suscripcion?resultado=vuelta",
-	})
+	p, err := s.cliente().CrearPreaprobacion(ctx, s.TokenPlataforma, preaprobacion(plan, periodo, ref, email, monto, diasGratis, s.Sitio))
 	if err != nil {
 		return "", errorMP(err)
 	}
@@ -84,19 +86,38 @@ func (s *Servicio) alta(ctx context.Context, plan Plan, diasGratis int, reemplaz
 	return p.InitPoint, err
 }
 
-// cambiar de plan una suscripción autorizada: el precio nuevo va al preapproval (rige desde el
-// próximo cobro) y el plan cambia ya.
+// preaprobacion: el preapproval de un plan. El anual cobra 10 meses cada 12.
+func preaprobacion(plan Plan, periodo, ref, email string, monto int64, diasGratis int, sitio string) mercadopago.NuevaPreaprobacion {
+	motivo, meses := "Tengo Libre "+plan.Nombre+" — suscripción mensual", 1
+	if periodo == "anual" {
+		motivo, meses = "Tengo Libre "+plan.Nombre+" — suscripción anual (12 meses al precio de 10)", 12
+	}
+	return mercadopago.NuevaPreaprobacion{Motivo: motivo, Referencia: ref, Email: email, Monto: monto, Meses: meses,
+		DiasGratis: diasGratis, Vuelta: sitio + "/panel/suscripcion?resultado=vuelta"}
+}
+
+// cambiar de plan (o de período) una suscripción autorizada de Mercado Pago. Mismo período: el precio
+// nuevo va al preapproval (rige desde el próximo cobro) y el plan cambia ya. Otro período: Mercado
+// Pago no deja cambiar la frecuencia, así que es un alta nueva que empieza a cobrar cuando vence lo
+// pagado y reemplaza a la vieja (responde {"url"}). Bajar de plan no borra nada: lo que sobra queda
+// en sólo lectura (planes).
 func (s *Servicio) cambiar(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	var in struct {
-		Plan string `json:"plan"`
+		Plan    string `json:"plan"`
+		Periodo string `json:"periodo"`
 	}
 	if err := web.Leer(w, r, &in); err != nil {
 		return err
 	}
 	plan, ok := planDe(in.Plan)
 	if !ok {
-		return problema.Invalido("Elegí el plan inicial o el completo.", problema.Campo{Ruta: "plan", Mensaje: "inválido"})
+		return problema.Invalido("Elegí Inicial, Equipo o Centro.", problema.Campo{Ruta: "plan", Mensaje: "inválido"})
+	}
+	if in.Periodo != "" {
+		if _, ok := periodoDe(in.Periodo); !ok {
+			return problema.Invalido("El período es mensual o anual.", problema.Campo{Ruta: "periodo", Mensaje: "inválido"})
+		}
 	}
 	if err := s.sinSuscripciones(); err != nil {
 		return err
@@ -117,25 +138,114 @@ func (s *Servicio) cambiar(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	switch {
-	case x == nil || x.Estado != "autorizada" || x.CanceladaEn != nil || mpID == nil:
+	if x == nil || x.Estado != "autorizada" || x.CanceladaEn != nil || mpID == nil {
 		return problema.Conflicto("sin_suscripcion", "Para cambiar de plan necesitás una suscripción activa.")
-	case x.Plan == plan.Clave:
+	}
+	periodo := x.Periodo
+	if in.Periodo != "" {
+		periodo, _ = periodoDe(in.Periodo)
+	}
+	if x.Plan == plan.Clave && periodo == x.Periodo {
 		return problema.Conflicto("mismo_plan", "Ya estás en el plan "+plan.Nombre+".")
 	}
-	if err := s.cliente().CambiarMontoPreaprobacion(ctx, s.TokenPlataforma, *mpID, plan.Precio); err != nil {
+	extras := 0
+	if plan.Clave == "centro" {
+		extras = x.ProfesionalesExtra
+	}
+	if periodo != x.Periodo {
+		u, err := s.alta(ctx, plan, periodo, extras, diasHasta(x.ProximoCobro, s.ahora()), &x.ID)
+		if err != nil {
+			return err
+		}
+		web.JSON(w, http.StatusOK, map[string]string{"url": u})
+		return nil
+	}
+	monto := plan.PrecioDe(periodo, extras)
+	if err := s.cliente().CambiarMontoPreaprobacion(ctx, s.TokenPlataforma, *mpID, monto); err != nil {
 		return errorMP(err)
 	}
 	err = s.Pool.EnNegocio(context.WithoutCancel(ctx), negocio, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, "UPDATE suscripciones SET plan = $2, monto = $3, actualizado_en = now() WHERE id = $1",
-			x.ID, plan.Clave, plan.Precio); err != nil {
+		if _, err := tx.Exec(ctx, "UPDATE suscripciones SET plan = $2, monto = $3, profesionales_extra = $4, actualizado_en = now() WHERE id = $1",
+			x.ID, plan.Clave, monto, extras); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, "UPDATE negocios SET plan = $1 WHERE id = app.negocio_actual()", plan.Clave); err != nil {
+		if _, err := tx.Exec(ctx, "UPDATE negocios SET plan = $1, profesionales_extra = $2 WHERE id = app.negocio_actual()", plan.Clave, extras); err != nil {
 			return err
 		}
 		if err := auditoria.Anotar(ctx, tx, auditoria.Registro{Accion: "suscripcion.plan_cambiado", Entidad: "suscripcion", EntidadID: x.ID,
-			Detalle: map[string]any{"antes": x.Plan, "ahora": plan.Clave, "monto": plan.Precio}}); err != nil {
+			Detalle: map[string]any{"antes": x.Plan, "ahora": plan.Clave, "monto": monto, "periodo": periodo}}); err != nil {
+			return err
+		}
+		x, err = vigente(ctx, tx, false)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	web.JSON(w, http.StatusOK, x)
+	return nil
+}
+
+// extras: los profesionales que Centro suma arriba de 25 ({"cantidad": n}, de 0 a 100), a $1.900
+// por mes cada uno. Van al monto del preapproval (rige desde el próximo cobro) y el tope sube ya.
+// Sólo con Centro pagado por Mercado Pago (los productos de las tiendas tienen precio fijo).
+func (s *Servicio) extras(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	var in struct {
+		Cantidad int `json:"cantidad"`
+	}
+	if err := web.Leer(w, r, &in); err != nil {
+		return err
+	}
+	if in.Cantidad < 0 || in.Cantidad > planes.MaxProfesionalesExtra {
+		return problema.Invalido("Podés sumar de 0 a 100 profesionales extra.", problema.Campo{Ruta: "cantidad", Mensaje: "fuera de rango"})
+	}
+	if err := s.sinSuscripciones(); err != nil {
+		return err
+	}
+	negocio := sesion.De(ctx).NegocioID
+	var x *Suscripcion
+	var mpID *string
+	var activos int
+	err := s.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
+		var err error
+		if x, err = vigente(ctx, tx, false); err != nil || x == nil {
+			return err
+		}
+		if x.Origen != "mercadopago" {
+			return problema.Conflicto("extras_tienda", "Los profesionales extra se suman con la suscripción por Mercado Pago (desde la web). "+
+				"Tu suscripción se paga en la tienda de tu teléfono.")
+		}
+		if err := tx.QueryRow(ctx, "SELECT count(*) FROM profesionales WHERE activo").Scan(&activos); err != nil {
+			return err
+		}
+		return tx.QueryRow(ctx, "SELECT mp_id FROM suscripciones WHERE id = $1", x.ID).Scan(&mpID)
+	})
+	if err != nil {
+		return err
+	}
+	if x == nil || x.Estado != "autorizada" || x.CanceladaEn != nil || mpID == nil || x.Plan != "centro" {
+		return problema.Conflicto("extras_sin_centro", "Los profesionales extra se suman al plan Centro. Pasá a Centro primero.")
+	}
+	if x.ProfesionalesExtra == in.Cantidad {
+		web.JSON(w, http.StatusOK, x)
+		return nil
+	}
+	plan, _ := planes.De("centro")
+	monto := plan.PrecioDe(x.Periodo, in.Cantidad)
+	if err := s.cliente().CambiarMontoPreaprobacion(ctx, s.TokenPlataforma, *mpID, monto); err != nil {
+		return errorMP(err)
+	}
+	err = s.Pool.EnNegocio(context.WithoutCancel(ctx), negocio, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, "UPDATE suscripciones SET monto = $2, profesionales_extra = $3, actualizado_en = now() WHERE id = $1",
+			x.ID, monto, in.Cantidad); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, "UPDATE negocios SET profesionales_extra = $1 WHERE id = app.negocio_actual()", in.Cantidad); err != nil {
+			return err
+		}
+		if err := auditoria.Anotar(ctx, tx, auditoria.Registro{Accion: "suscripcion.extras", Entidad: "suscripcion", EntidadID: x.ID,
+			Detalle: map[string]any{"antes": x.ProfesionalesExtra, "ahora": in.Cantidad, "monto": monto, "activos": activos}}); err != nil {
 			return err
 		}
 		x, err = vigente(ctx, tx, false)
@@ -180,12 +290,13 @@ func (s *Servicio) reemplazo(elegir func(x *Suscripcion, ahora time.Time) (dias 
 		if err != nil {
 			return err
 		}
-		plan, _ := planDe(x.Plan)
+		// Una vieja de «completo» se reactiva como Equipo.
+		plan, _ := planes.De(x.Plan)
 		var de *string
 		if reemplaza {
 			de = &x.ID
 		}
-		u, err := s.alta(ctx, plan, dias, de)
+		u, err := s.alta(ctx, plan, x.Periodo, x.ProfesionalesExtra, dias, de)
 		if err != nil {
 			return err
 		}

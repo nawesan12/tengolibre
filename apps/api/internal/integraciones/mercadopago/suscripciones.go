@@ -26,6 +26,8 @@ type NuevaPreaprobacion struct {
 	Referencia string
 	Email      string
 	Monto      int64
+	// Meses entre cobros: 1 (mensual, por defecto) o 12 (anual).
+	Meses int
 	// DiasGratis: lo que queda de la prueba no se cobra.
 	DiasGratis int
 	Vuelta     string
@@ -33,7 +35,8 @@ type NuevaPreaprobacion struct {
 
 // CrearPreaprobacion con el token de la plataforma.
 func (c *Cliente) CrearPreaprobacion(ctx context.Context, token string, n NuevaPreaprobacion) (Preaprobacion, error) {
-	recurrencia := map[string]any{"frequency": 1, "frequency_type": "months", "transaction_amount": n.Monto, "currency_id": "ARS"}
+	meses := max(n.Meses, 1)
+	recurrencia := map[string]any{"frequency": meses, "frequency_type": "months", "transaction_amount": n.Monto, "currency_id": "ARS"}
 	if n.DiasGratis > 0 {
 		recurrencia["free_trial"] = map[string]any{"frequency": n.DiasGratis, "frequency_type": "days"}
 	}

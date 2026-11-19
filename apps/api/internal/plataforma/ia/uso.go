@@ -35,6 +35,23 @@ type Medidor struct {
 	Pool  *db.Pool
 	Topes Topes
 	Ahora func() time.Time
+	// CupoDe: el cupo mensual del plan del negocio fijado en tx (nil: Topes.CupoMensual para todos).
+	CupoDe func(ctx context.Context, tx pgx.Tx, ahora time.Time) (int, error)
+}
+
+func (m *Medidor) ahora() time.Time {
+	if m.Ahora != nil {
+		return m.Ahora()
+	}
+	return time.Now()
+}
+
+// cupo del negocio fijado en tx.
+func (m *Medidor) cupo(ctx context.Context, tx pgx.Tx) (int, error) {
+	if m.CupoDe == nil {
+		return m.Topes.CupoMensual, nil
+	}
+	return m.CupoDe(ctx, tx, m.ahora())
 }
 
 var zonaAR = func() *time.Location {
@@ -65,9 +82,12 @@ type Estado struct {
 
 // Leer cuánto lleva usado el negocio este mes y hoy.
 func (m *Medidor) Leer(ctx context.Context, negocio string) (Estado, error) {
-	e := Estado{CupoMensual: m.Topes.CupoMensual, TopeDiario: m.Topes.TopeDiario}
+	e := Estado{TopeDiario: m.Topes.TopeDiario}
 	dia, mes := m.hoy()
-	err := m.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) error {
+	err := m.Pool.EnNegocio(ctx, negocio, func(tx pgx.Tx) (err error) {
+		if e.CupoMensual, err = m.cupo(ctx, tx); err != nil {
+			return err
+		}
 		return tx.QueryRow(ctx, `SELECT coalesce(sum(respuestas), 0)::int, coalesce(sum(respuestas) FILTER (WHERE dia = $2), 0)::int
 			FROM ia_uso WHERE dia >= $1`, mes, dia).Scan(&e.UsadasMes, &e.UsadasHoy)
 	})
@@ -87,9 +107,9 @@ type Reserva struct {
 }
 
 func (m *Medidor) agotado(e Estado, gasto int64) error {
-	if m.Topes.CupoMensual > 0 && e.UsadasMes >= m.Topes.CupoMensual {
+	if e.CupoMensual > 0 && e.UsadasMes >= e.CupoMensual {
 		return &Agotado{Motivo: "mes", Mensaje: fmt.Sprintf("Ya usaste las %d respuestas con IA de este mes. Sigo contestando lo "+
-			"básico (agenda, horarios libres, mover y cancelar turnos); el mes que viene vuelve todo.", m.Topes.CupoMensual)}
+			"básico (agenda, horarios libres, mover y cancelar turnos); el mes que viene vuelve todo, o antes si pasás a un plan más grande.", e.CupoMensual)}
 	}
 	if m.Topes.TopeDiario > 0 && e.UsadasHoy >= m.Topes.TopeDiario {
 		return &Agotado{Motivo: "dia", Mensaje: "Por hoy llegaste al tope de respuestas con IA. Sigo contestando lo básico " +
@@ -113,7 +133,11 @@ func (m *Medidor) Reservar(ctx context.Context, negocio, ruta string) (*Reserva,
 		if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext('ia:' || $1))", negocio); err != nil {
 			return err
 		}
-		e := Estado{CupoMensual: m.Topes.CupoMensual, TopeDiario: m.Topes.TopeDiario}
+		cupo, err := m.cupo(ctx, tx)
+		if err != nil {
+			return err
+		}
+		e := Estado{CupoMensual: cupo, TopeDiario: m.Topes.TopeDiario}
 		if err := tx.QueryRow(ctx, `SELECT coalesce(sum(respuestas), 0)::int, coalesce(sum(respuestas) FILTER (WHERE dia = $2), 0)::int
 			FROM ia_uso WHERE dia >= $1`, mes, dia).Scan(&e.UsadasMes, &e.UsadasHoy); err != nil {
 			return err
@@ -131,7 +155,7 @@ func (m *Medidor) Reservar(ctx context.Context, negocio, ruta string) (*Reserva,
 		if err := m.agotado(e, gasto); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO ia_uso AS u (negocio_id, dia, ruta, respuestas, costo_micro)
+		_, err = tx.Exec(ctx, `INSERT INTO ia_uso AS u (negocio_id, dia, ruta, respuestas, costo_micro)
 			VALUES (app.negocio_actual(), $1, $2, 1, $3)
 			ON CONFLICT (negocio_id, dia, ruta) DO UPDATE SET respuestas = u.respuestas + 1, costo_micro = u.costo_micro + EXCLUDED.costo_micro`,
 			dia, ruta, r.estimado)
