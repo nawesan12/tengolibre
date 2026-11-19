@@ -131,14 +131,18 @@
 
 	const fotos = $derived([w.portada, ...pagina.galeria.map((f) => f.url)].filter((x): x is string => !!x));
 	const galeria = $derived(pagina.galeria.slice(0, 3));
-	const lugar = $derived([n.ciudad, w.provincia].filter(Boolean).join(', '));
+	// Sin repetir: en CABA la ciudad y la provincia suelen ser lo mismo.
+	const lugar = $derived([...new Set([n.ciudad, w.provincia].filter(Boolean))].join(', '));
 	const conPunto = $derived(/[.!?]$/.test(n.nombre) ? n.nombre : `${n.nombre}.`);
-	// Cada parte con espacios duros adentro («Ciudad de Buenos Aires» no se parte): el corte cae en un «·».
+	// Las partes cortas (el rubro, «Palermo») con espacios duros: el corte cae en un «·»; una larga se puede
+	// partir, pero nunca deja una palabra sola en el último renglón.
 	const meta = $derived(
-		[w.rubro ? rubro(w.rubro) : '', lugar]
-			.filter(Boolean)
-			.map((x) => x.replaceAll(' ', '\u00a0'))
-			.join(' · ')
+		sinViuda(
+			[w.rubro ? rubro(w.rubro) : '', lugar]
+				.filter(Boolean)
+				.map((x) => (x.length <= 18 ? x.replaceAll(' ', '\u00a0') : x))
+				.join(' · ')
+		)
 	);
 	const promedio = $derived(pagina.resenas.promedio.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 	const hayResenas = $derived(pagina.resenas.cantidad > 0);

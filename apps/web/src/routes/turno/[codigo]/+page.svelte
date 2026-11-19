@@ -134,7 +134,7 @@
 				<!-- Sin email no le llega nada: que se lleve el link ahora. -->
 				<div class="dos">
 					<a class="boton-w" href={compartirWhatsapp(`Mi turno en ${n.nombre}: ${linkTurno}`)} target="_blank" rel="noopener"
-						><Icono nombre="chat" tam={20} lleno />Mandármelo por WhatsApp</a
+						><Icono nombre="chat" tam={20} lleno />Por WhatsApp</a
 					>
 					<button type="button" class="boton-w" onclick={copiarTurno}><Icono nombre="content_copy" tam={20} />{linkCopiado ? 'Copiado' : 'Copiar link'}</button>
 				</div>
