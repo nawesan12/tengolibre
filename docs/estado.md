@@ -1,5 +1,23 @@
 # Estado
 
+## 18/11/2026: cierre de la revisión del comité (rama comite-revision, sin desplegar; migraciones 00034–00037)
+
+Todos los hallazgos del comité aplicados en API, web, iPhone y Android (detalle en los commits de la rama).
+| Migración | Qué |
+|---|---|
+| 00034 | «Tus turnos» seguro: `turnos.email_reserva` (el mail de ESA reserva web) y `app.turnos_de_persona` sólo por ese mail o el de confianza de la ficha; primero los negocios con algo, sin pendiente_pago vencidos. La web ya no completa el mail de una ficha existente. |
+| 00035 | `ajustes.ia_activa` (la IA la prende la dueña: hasta entonces sólo el intérprete), propuestas que vacían los argumentos, `notificaciones.profesional_id` (campanita y push por rol), links anteriores retenidos mientras el negocio esté activo (los últimos 5), acento por paleta (adiós al cian), purga de propuestas (30 d), MCP (180 d) y sesiones vencidas, `suprimir_cliente` limpia lo de la IA, calendarios que se cortan al bajar a alguien (trigger). |
+| 00036 | Índice `turnos_abiertos_fin` (CONCURRENTLY, sin transacción). |
+| 00037 | `turnos.profesional_elegida` (reprogramar con «Cualquiera» reasigna), la profesional del alta con la dueña, push sólo por los negocios con algo pendiente. |
+Antes de desplegar:
+- Migrar con el worker parado (`docker compose stop worker`), ahora con `lock_timeout` de 5 s y tres reintentos.
+- `GOMEMLIMIT` ya está en `infra/vps/compose.yml` (api 100 MiB, worker 48 MiB): hace falta `docker compose up -d api worker`.
+- No poner `ANTHROPIC_API_KEY` hasta modificar la inscripción en la AAIP. Con la clave puesta, cada dueña decide (asistente › «Prender la IA»).
+- Decidido y documentado: la API sigue mandando los push `tipo=cliente` (las builds publicadas todavía los usan);
+  sacarlos cuando las nuevas reemplacen a las viejas. «Pedir seña» para un turno cargado a mano quedó afuera
+  (ver el informe de la revisión).
+- Compilar las apps en GitHub (íconos de Android regenerados con `herramientas/simbolos.sh`).
+
 ## 18/11/2026: asistente con IA (rama asistente-claude, sin desplegar; migración 00031)
 
 Asistente en Inicio (web) y en Hoy (iPhone y Android). Primero un intérprete propio (agenda de un día, quién viene,
@@ -247,5 +265,5 @@ for c in api worker tengolibrectl; do CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go b
 ssh root@187.41.102.190 'docker exec tengolibre-postgres-1 pg_dumpall -U postgres | gzip > /var/backups/tengolibre/antes-$(date +%Y%m%d%H%M).sql.gz'
 for c in api worker tengolibrectl; do scp bin/$c root@187.41.102.190:/opt/tengolibre/bin/$c.nuevo; done
 ssh root@187.41.102.190 'cd /opt/tengolibre && for c in api worker tengolibrectl; do mv bin/$c.nuevo bin/$c; done &&
-  docker compose run --rm --no-deps -T api /app/tengolibrectl migrar && docker compose restart api worker'
+  docker compose stop worker && docker compose run --rm --no-deps -T api /app/tengolibrectl migrar && docker compose up -d api worker'
 ```
