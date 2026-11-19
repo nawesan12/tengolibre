@@ -112,16 +112,18 @@
 			<div class="asistente-cabeza tl-petroleo">
 				<span class="fila-titulo">
 					<span class="icono lleno robot" aria-hidden="true">smart_toy</span>
-					<h2 id="t-asistente">Tu asistente de&nbsp;IA</h2>
+					<h2 id="t-asistente">Conectá tu ChatGPT, Claude o&nbsp;Gemini</h2>
 					{#if elegida?.cliente}
 						<span class="estado-oscuro"><span class="icono lleno" aria-hidden="true">check_circle</span>Conectado</span>
 					{:else if elegida}
 						<span class="estado-oscuro espera"><span class="icono" aria-hidden="true">pending</span>Esperando conexión</span>
 					{:else}
-						<span class="estado-oscuro apagado"><span class="icono" aria-hidden="true">radio_button_unchecked</span>Sin activar</span>
+						<span class="estado-oscuro apagado"><span class="icono" aria-hidden="true">radio_button_unchecked</span>Sin conectar</span>
 					{/if}
 				</span>
-				<p>Preguntale «¿qué huecos tengo mañana?» o pedile «pasá a Sofía al jueves» desde el asistente que&nbsp;uses.</p>
+				<p>
+					Para usar tu agenda desde el asistente que ya usás. El de Inicio («Preguntale al asistente») ya anda sin hacer&nbsp;nada.
+				</p>
 				{#if mcp}
 					<nav class="asistentes" aria-label="Tus asistentes">
 						{#each chips as c (c.nombre)}

@@ -20,6 +20,8 @@
 	const fr = $derived(Math.min(1, Math.max(0, (ahora - a) / (b - a))));
 	const libres = $derived(dias.reduce((s, d) => s + d.libres, 0));
 	const conHorario = $derived(dias.filter((d) => d.franjas.length > 0 || d.ocupado.length > 0));
+	// Pasado el último horario: «Terminó el día» en gris, no «Sin huecos» (que se lee como lleno).
+	const terminado = $derived(ahora >= Math.max(0, ...conHorario.flatMap((d) => d.franjas.map((f) => f.hasta))));
 	/** Lo que no es horario de trabajo (antes, entre y después de las franjas). */
 	function cerrado(d: DiaProfesional) {
 		const out: [number, number][] = [];
@@ -59,7 +61,9 @@
 			{#if conHorario.length}<span class="linea" style:left={`calc(58px + (100% - 70px) * ${fr.toFixed(4)})`}></span>{/if}
 			<span class="horas tl-num"><span>{a / 60}</span><span>{medio / 60}</span><span>{b / 60}</span></span>
 		</span>
-		{#if conHorario.length}<span class="libres tl-num">{libres ? `${libresTexto(libres)} libres` : 'Sin huecos'}</span>{/if}
+		{#if conHorario.length}<span class="libres tl-num" class:apagado={!libres && terminado}
+				>{libres ? `${libresTexto(libres)} libres` : terminado ? 'Terminó el día' : 'Sin huecos'}</span
+			>{/if}
 	</span>
 	<span class="leyenda">
 		{esProfesional ? 'Tu día. Lo rayado está libre.' : 'Una fila por profesional. Lo rayado está libre: tocá para ver los huecos.'}
@@ -207,6 +211,9 @@
 		font-weight: 900;
 		color: var(--tl-menta);
 		text-align: center;
+	}
+	.libres.apagado {
+		color: rgba(255, 255, 255, 0.62);
 	}
 	.leyenda {
 		font-size: 11px;

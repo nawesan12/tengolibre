@@ -1,22 +1,35 @@
 <!--
 	El asistente de Inicio: se le pregunta en castellano («¿qué tengo mañana?», «pasá a Juana al jueves
-	a las 5»). Contesta primero el intérprete de la API y, si no entiende, la IA. Lo que cambia la
-	agenda vuelve como propuesta con «Confirmar» / «Cancelar»: nada se hace sin tocar el botón.
+	a las 5»). Contesta primero el intérprete de la API y, si no entiende, la IA (si la dueña la
+	prendió). Lo que cambia la agenda vuelve como propuesta con un botón que nombra la acción («Sí,
+	cancelarlo») y «No, dejalo así»: nada se hace sin tocarlo. Un «Cancelar» al lado de «Cancelar el
+	turno de Rosa» se leía como cancelar el turno.
 -->
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { invalidate } from '$app/navigation';
 	import Icono from '#lib/ui/Icono.svelte';
-	import { historial, lineaCupo, type EstadoAsistente, type Propuesta, type RespuestaAsistente } from './asistente.ts';
+	import {
+		botonDe,
+		historial,
+		lineaCupo,
+		type EstadoAsistente,
+		type ItemTurno,
+		type Propuesta,
+		type RespuestaAsistente
+	} from './asistente.ts';
 
 	let { estado }: { estado: EstadoAsistente | null } = $props();
 
-	type EstadoPropuesta = 'esperando' | 'confirmando' | 'hecha' | 'cancelada';
+	type EstadoPropuesta = 'esperando' | 'confirmando' | 'descartando' | 'hecha' | 'descartada';
 	type Mensaje = {
 		id: number;
 		rol: 'usuario' | 'asistente';
 		texto: string;
 		error?: boolean;
 		propuestas?: (Propuesta & { estado: EstadoPropuesta })[];
+		encabezado?: string;
+		items?: ItemTurno[];
 	};
 
 	let mensajes = $state<Mensaje[]>([]);
@@ -26,7 +39,37 @@
 	let usadas = $state<number | null>(null);
 	let campo: HTMLInputElement | undefined = $state();
 	let lista: HTMLElement | undefined = $state();
+	let formulario: HTMLFormElement | undefined = $state();
 	let n = 0;
+	// La IA del negocio la prende la dueña (sin IA, contesta el intérprete).
+	let iaNegocio = $state<boolean | null>(null);
+	let prendiendo = $state(false);
+	const iaActiva = $derived(iaNegocio ?? estado?.iaNegocio ?? estado?.ia ?? false);
+	const ofrecerIA = $derived(!!estado?.iaPlataforma && !!estado?.puedePrender && !iaActiva);
+
+	// Con el campo a la vista, el «Nuevo turno» flotante del teléfono se esconde: lo tapaba.
+	onMount(() => {
+		if (!formulario || typeof IntersectionObserver === 'undefined') return;
+		const o = new IntersectionObserver(([e]) => document.body.classList.toggle('asistente-a-la-vista', e.isIntersecting));
+		o.observe(formulario);
+		return () => {
+			o.disconnect();
+			document.body.classList.remove('asistente-a-la-vista');
+		};
+	});
+
+	async function prenderIA() {
+		if (prendiendo) return;
+		prendiendo = true;
+		try {
+			const r = (await pedir({ accion: 'ia', activa: true })) as { iaNegocio: boolean };
+			iaNegocio = r.iaNegocio;
+		} catch (e) {
+			sumar({ rol: 'asistente', texto: (e as Error).message, error: true });
+		} finally {
+			prendiendo = false;
+		}
+	}
 
 	const sugerencias = $derived(estado?.sugerencias ?? []);
 	const cupo = $derived.by(() => {
@@ -64,7 +107,13 @@
 			tope = r.tope?.mensaje ?? '';
 			if (r.origen === 'ia' && usadas !== null) usadas += 1;
 			else if (r.origen === 'ia' && estado?.cupo) usadas = estado.cupo.usadasMes + 1;
-			sumar({ rol: 'asistente', texto: r.respuesta, propuestas: r.propuestas.map((x) => ({ ...x, estado: 'esperando' as const })) });
+			sumar({
+				rol: 'asistente',
+				texto: r.respuesta,
+				encabezado: r.items?.length ? r.encabezado : undefined,
+				items: r.items?.length ? r.items : undefined,
+				propuestas: r.propuestas.map((x) => ({ ...x, estado: 'esperando' as const }))
+			});
 		} catch (e) {
 			sumar({ rol: 'asistente', texto: (e as Error).message, error: true });
 		} finally {
@@ -76,11 +125,11 @@
 	async function resolver(m: Mensaje, i: number, confirmar: boolean) {
 		const prop = m.propuestas?.[i];
 		if (!prop || prop.estado !== 'esperando') return;
-		prop.estado = 'confirmando';
+		prop.estado = confirmar ? 'confirmando' : 'descartando';
 		try {
-			const r = (await pedir({ accion: confirmar ? 'confirmar' : 'descartar', propuestaId: prop.id })) as { respuesta: string };
-			prop.estado = confirmar ? 'hecha' : 'cancelada';
-			sumar({ rol: 'asistente', texto: r.respuesta });
+			await pedir({ accion: confirmar ? 'confirmar' : 'descartar', propuestaId: prop.id });
+			// La tarjeta con «Hecho» o «Sin cambios» alcanza: antes, abajo se repetía la misma oración.
+			prop.estado = confirmar ? 'hecha' : 'descartada';
 			if (confirmar) await invalidate('panel:turnos');
 		} catch (e) {
 			prop.estado = 'esperando';
@@ -104,21 +153,39 @@
 	{#if mensajes.length}
 		<ol class="chat" bind:this={lista} aria-live="polite">
 			{#each mensajes as m (m.id)}
-				<li class="msj" class:yo={m.rol === 'usuario'} class:error={m.error}>
-					<p>{m.texto}</p>
+				<li class="msj" class:yo={m.rol === 'usuario'} class:error={m.error} class:con-filas={!!m.items}>
+					{#if m.items}
+						<p>{m.encabezado}</p>
+						<ul class="filas">
+							{#each m.items as t (t.id)}
+								<li>
+									<a href={`/panel/turnos/${t.id}`}>
+										<b class="tl-num">{t.hora}</b>
+										<span class="quien">
+											<span class="nombre">{t.cliente}</span>
+											<span class="detalle">{t.servicio}{t.profesional ? ` · ${t.profesional}` : ''}{t.estado ? ` · ${t.estado}` : ''}</span>
+										</span>
+										<Icono nombre="chevron_right" tam={20} />
+									</a>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p>{m.texto}</p>
+					{/if}
 					{#each m.propuestas ?? [] as p, i (p.id)}
 						<div class="propuesta">
 							<p class="resumen">{p.resumen}</p>
 							{#if p.estado === 'hecha'}
-								<span class="listo"><Icono nombre="check_circle" lleno tam={18} />Hecho</span>
-							{:else if p.estado === 'cancelada'}
-								<span class="listo apagado">Cancelada</span>
+								<span class="listo" role="status"><Icono nombre="check_circle" lleno tam={18} />Hecho</span>
+							{:else if p.estado === 'descartada'}
+								<span class="listo apagado" role="status">Sin cambios</span>
 							{:else}
 								<div class="botones">
-									<button class="confirmar" onclick={() => resolver(m, i, true)} disabled={p.estado === 'confirmando'}>
-										{p.estado === 'confirmando' ? 'Confirmando…' : 'Confirmar'}
+									<button class="confirmar" onclick={() => resolver(m, i, true)} disabled={p.estado !== 'esperando'}>
+										{p.estado === 'confirmando' ? 'Un momento…' : botonDe(p)}
 									</button>
-									<button class="cancelar" onclick={() => resolver(m, i, false)} disabled={p.estado === 'confirmando'}>Cancelar</button>
+									<button class="descartar" onclick={() => resolver(m, i, false)} disabled={p.estado !== 'esperando'}>No, dejalo así</button>
 								</div>
 							{/if}
 						</div>
@@ -137,7 +204,17 @@
 
 	{#if tope}<p class="aviso tope" role="status"><Icono nombre="info" tam={18} />{tope}</p>{/if}
 
-	<form onsubmit={enviar}>
+	{#if ofrecerIA}
+		<div class="prender">
+			<p>
+				Con IA (Claude) entiende preguntas más libres. Le mandamos la pregunta y lo justo para contestarla, nunca notas ni datos de
+				salud. <a href="/privacidad">Más&nbsp;info</a>
+			</p>
+			<button type="button" onclick={prenderIA} disabled={prendiendo}>{prendiendo ? 'Prendiendo…' : 'Prender la IA'}</button>
+		</div>
+	{/if}
+
+	<form onsubmit={enviar} bind:this={formulario}>
 		<input
 			bind:this={campo}
 			bind:value={texto}
@@ -258,7 +335,7 @@
 		margin-top: 10px;
 	}
 	.confirmar,
-	.cancelar {
+	.descartar {
 		min-height: 44px;
 		padding: 0 18px;
 		border: 0;
@@ -270,14 +347,96 @@
 		background: var(--tl-petroleo);
 		color: #fff;
 	}
-	.cancelar {
+	.descartar {
 		background: transparent;
-		color: #a3241a;
+		color: var(--tl-sub);
 	}
 	.confirmar:disabled,
-	.cancelar:disabled {
+	.descartar:disabled {
 		opacity: 0.6;
 		cursor: default;
+	}
+	.msj.con-filas {
+		width: 100%;
+	}
+	.filas {
+		margin: 8px -6px 0;
+		padding: 0;
+		list-style: none;
+	}
+	.filas a {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		min-height: 52px;
+		padding: 6px;
+		border-radius: 12px;
+		color: inherit;
+		text-decoration: none;
+	}
+	.filas a:hover {
+		background: var(--tl-papel);
+	}
+	.filas li + li {
+		border-top: 1px solid var(--tl-linea);
+	}
+	.filas b {
+		flex: none;
+		width: 48px;
+		font-size: 15px;
+	}
+	.quien {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-width: 0;
+	}
+	.nombre {
+		font-weight: 700;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.detalle {
+		font-size: 13px;
+		color: var(--tl-sub);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.filas :global(.icono) {
+		flex: none;
+		color: var(--tl-sub);
+	}
+	.prender {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 10px 14px;
+		padding: 12px 14px;
+		border-radius: 14px;
+		background: var(--tl-crema);
+	}
+	.prender p {
+		flex: 1 1 240px;
+		margin: 0;
+		font-size: 14px;
+		line-height: 1.45;
+		color: var(--tl-tinta);
+	}
+	.prender a {
+		color: var(--tl-menta-texto);
+		font-weight: 700;
+	}
+	.prender button {
+		min-height: 44px;
+		padding: 0 18px;
+		border: 1px solid var(--tl-petroleo);
+		border-radius: 999px;
+		background: transparent;
+		color: var(--tl-petroleo);
+		font: 700 14px var(--tl-font);
+		cursor: pointer;
 	}
 	.listo {
 		display: inline-flex;

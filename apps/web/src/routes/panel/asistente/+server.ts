@@ -5,7 +5,8 @@ import type { RequestHandler } from './$types';
 
 type Pedido =
 	| { accion: 'preguntar'; pregunta: string; historial?: TurnoChat[] }
-	| { accion: 'confirmar' | 'descartar'; propuestaId: string };
+	| { accion: 'confirmar' | 'descartar'; propuestaId: string }
+	| { accion: 'ia'; activa: boolean };
 
 /**
  * El asistente de Inicio habla con la API por acá (el navegador nunca habla directo con la API):
@@ -24,6 +25,8 @@ export const POST: RequestHandler = async (event) => {
 				.map((t) => ({ rol: t.rol === 'asistente' ? 'asistente' : 'usuario', texto: String(t.texto ?? '').slice(0, 600) }));
 			return json(await api.post<RespuestaAsistente>('/v1/panel/asistente', { pregunta, historial }));
 		}
+		if (p?.accion === 'ia')
+			return json(await api.patch<{ iaNegocio: boolean }>('/v1/panel/asistente/ia', { activa: p.activa === true }));
 		if ((p?.accion === 'confirmar' || p?.accion === 'descartar') && p.propuestaId)
 			return json(await api.post<{ respuesta: string }>(`/v1/panel/asistente/${p.accion}`, { propuestaId: String(p.propuestaId) }));
 		return json({ error: 'Pedido inválido.' }, { status: 400 });

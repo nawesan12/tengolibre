@@ -163,10 +163,16 @@
 		return `conic-gradient(${tramos.join(',')})`;
 	}
 	const aguja = $derived(`${((Math.min(Math.max(ahora, rango[0]), rango[1]) - rango[0]) / (rango[1] - rango[0])) * 360}deg`);
+	// «libres de Carolina» con una sola; «entre Ana, Beto y Caro» con varias.
 	const nombresHoy = $derived.by(() => {
 		const n = conHorario.map((d) => primerNombre(d.nombre));
-		return n.length <= 1 ? n.join('') : `${n.slice(0, -1).join(', ')} y ${n.at(-1)}`;
+		return n.length <= 1 ? `de ${n.join('')}` : `entre ${n.slice(0, -1).join(', ')} y\u00a0${n.at(-1)}`;
 	});
+	// Pasado el último horario, el día terminó: no es «no quedan huecos» (que suena a agenda llena).
+	const finDelDia = $derived(Math.max(0, ...conHorario.flatMap((d) => d.franjas.map((f) => f.hasta))));
+	const diaTerminado = $derived(conHorario.length > 0 && ahora >= finDelDia);
+	// El anillo sólo con huecos por delante: en 0 habla el titular.
+	const verAnillo = $derived(conHorario.length > 0 && !diaTerminado && libres > 0);
 
 	// Primeros pasos.
 	const pasos = $derived(data.arranque.pasos);
@@ -220,7 +226,7 @@
 	</section>
 {/if}
 
-{#if conHorario.length}
+{#if verAnillo}
 	<div class="anillo-tel tl-petroleo">
 		<span class="anillos" aria-hidden="true">
 			{#each conHorario.slice(0, 4) as d, i (d.id)}
@@ -231,7 +237,7 @@
 		<span class="anillo-txt">
 			<span class="tl-rotulo chico-r">Hoy quedan</span>
 			<b class="tl-num">{libresTexto(libres)}</b>
-			<span class="entre">libres entre {nombresHoy}</span>
+			<span class="entre">libres {nombresHoy}</span>
 			<a class="ver-huecos" href="/panel/turnos?huecos=1">Ver huecos</a>
 		</span>
 	</div>
@@ -241,6 +247,8 @@
 	{saludo}
 	{#if conHorario.length === 0}
 		Hoy no atiende&nbsp;nadie.
+	{:else if diaTerminado}
+		Por hoy,&nbsp;listo.
 	{:else if libres === 0}
 		Hoy no quedan&nbsp;huecos.
 	{:else}

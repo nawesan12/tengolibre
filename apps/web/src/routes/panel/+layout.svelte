@@ -167,7 +167,8 @@
 
 		<header class="barra-tel tl-petroleo">
 			<SelectorNegocio negocio={data.negocio} negocios={data.negocios} persona={data.persona} compacto sub={`${fechaCorta} · ${ahoraTexto}`} />
-			<button class="tu-link tel" onclick={() => abrirLink()}><Icono nombre="link" tam={20} />Tu link</button>
+			<!-- En el teléfono, sólo el ícono: con el texto, el nombre del negocio quedaba cortado. -->
+			<button class="tu-link tel" onclick={() => abrirLink()} aria-label="Tu link" title="Tu link"><Icono nombre="link" tam={22} /></button>
 			<button class="icono-tel" aria-label="Buscar" onclick={() => (buscando = true)}><Icono nombre="search" tam={24} /></button>
 			<Campanita avisos={data.avisos} sinLeer={data.sinLeer} {verEnvios} compacto />
 		</header>
@@ -471,8 +472,10 @@
 		cursor: pointer;
 	}
 	.tu-link.tel {
-		height: 40px;
-		padding: 0 12px;
+		justify-content: center;
+		width: 44px;
+		height: 44px;
+		padding: 0;
 		margin-right: 4px;
 	}
 	.ver-pagina:hover {
@@ -597,6 +600,16 @@
 			text-decoration: none;
 			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 12px 24px -10px rgba(60, 204, 144, 0.8);
 			animation: tl-gin 320ms var(--tl-ease) both;
+			transition:
+				opacity 160ms var(--tl-ease),
+				transform 160ms var(--tl-ease);
+		}
+		/* Con el campo del asistente a la vista (o con el foco), el botón flotante no lo tapa. */
+		:global(body.asistente-a-la-vista) .fab,
+		:global(body:has(.asistente:focus-within)) .fab {
+			opacity: 0;
+			transform: translateY(12px);
+			pointer-events: none;
 		}
 		.tabs {
 			position: fixed;
