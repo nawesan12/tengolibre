@@ -279,7 +279,8 @@ type turno struct {
 func leerTurno(ctx context.Context, tx pgx.Tx, id string) (turno, error) {
 	var t turno
 	err := tx.QueryRow(ctx, `SELECT t.id::text, t.codigo, t.servicio_id::text, t.profesional_id::text, t.servicio, t.profesional,
-		t.estado, t.origen, t.inicio, t.fin, t.precio, c.id::text, c.nombre, c.email
+		t.estado, t.origen, t.inicio, t.fin, t.precio, c.id::text, c.nombre,
+		CASE WHEN c.email <> '' THEN c.email ELSE t.email_reserva END
 		FROM turnos t JOIN clientes c ON c.id = t.cliente_id WHERE t.id = $1`, id).Scan(
 		&t.ID, &t.Codigo, &t.ServicioID, &t.ProfesionalID, &t.Servicio, &t.Profesional, &t.Estado, &t.Origen,
 		&t.Inicio, &t.Fin, &t.Precio, &t.ClienteID, &t.ClienteNombre, &t.ClienteEmail)

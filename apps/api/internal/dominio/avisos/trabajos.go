@@ -35,7 +35,7 @@ func (s *Trabajos) Recordatorios(ctx context.Context, ahora time.Time) (any, err
 			SELECT t.negocio_id, 'recordatorio', t.id, jsonb_build_object('inicio', to_char(t.inicio AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')),
 				'recordatorio:' || t.id || ':' || extract(epoch FROM t.inicio)::bigint, $1
 			FROM turnos t JOIN clientes c ON c.id = t.cliente_id
-			WHERE t.estado IN ('pendiente', 'confirmado') AND t.inicio >= $2 AND t.inicio <= $3 AND c.email <> ''
+			WHERE t.estado IN ('pendiente', 'confirmado') AND t.inicio >= $2 AND t.inicio <= $3 AND (c.email <> '' OR t.email_reserva <> '')
 			ORDER BY t.inicio LIMIT 500
 			ON CONFLICT (negocio_id, clave) DO NOTHING`, ahora, ahora.Add(recordatorioDesde), ahora.Add(recordatorioHasta))
 		encolados += int(tag.RowsAffected())

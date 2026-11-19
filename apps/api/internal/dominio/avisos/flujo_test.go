@@ -602,3 +602,52 @@ func TestMisTurnos(t *testing.T) {
 		t.Fatalf("otra persona ve turnos ajenos: %+v", r)
 	}
 }
+
+// «Tus turnos» no muestra los turnos de otra persona: con el teléfono de una clienta que el negocio
+// cargó sin mail y un mail propio, la reserva web no le pega ese mail a la ficha, y quien reservó ve
+// sólo el turno que sacó él. Lo que el negocio cargó con un mail (de confianza) sí lo ve su dueña.
+func TestMisTurnosNoMuestraTurnosAjenos(t *testing.T) {
+	e := armar(t)
+	atacante := "user_atacante0001"
+	mail := "atacante0001@prueba.tengolibre.com.ar"
+	// La clienta, cargada por el panel sólo con teléfono, con un turno.
+	e.panel(201, "POST", "/v1/panel/turnos", map[string]any{"servicioId": e.servicio, "profesionalId": e.ana,
+		"inicio": en("2026-11-23 09:00").Format(time.RFC3339), "cliente": map[string]string{"nombre": "Marta Gil", "telefono": "5555"}}, nil)
+	// Alguien reserva en la página con ese teléfono y su mail.
+	e.Esperar(201, P{Metodo: "POST", Ruta: "/v1/p/el-corte/turnos", Cuerpo: map[string]any{
+		"servicioId": e.servicio, "profesionalId": e.ana, "inicio": en("2026-11-23 10:00").Format(time.RFC3339),
+		"cliente": map[string]string{"nombre": "Marta Gil", "telefono": "5555", "email": mail}}}, nil)
+	var r struct {
+		Turnos []struct{ Inicio time.Time } `json:"turnos"`
+	}
+	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/yo/turnos", Quien: atacante}, &r)
+	if len(r.Turnos) != 1 || !r.Turnos[0].Inicio.Equal(en("2026-11-23 10:00")) {
+		t.Fatalf("con el teléfono de otra se ven sus turnos: %+v", r)
+	}
+	// Otro turno de la clienta cargado después por el panel tampoco aparece.
+	e.panel(201, "POST", "/v1/panel/turnos", map[string]any{"servicioId": e.servicio, "profesionalId": e.ana,
+		"inicio": en("2026-11-30 09:00").Format(time.RFC3339), "cliente": map[string]string{"nombre": "Marta Gil", "telefono": "5555"}}, nil)
+	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/yo/turnos", Quien: atacante}, &r)
+	if len(r.Turnos) != 1 {
+		t.Fatalf("aparece un turno del panel: %+v", r)
+	}
+	// El mail de la ficha sigue vacío (no le llegan los recordatorios de la clienta).
+	var email string
+	if err := e.Bases.App.EnNegocio(context.Background(), e.negocio, func(tx pgx.Tx) error {
+		return tx.QueryRow(context.Background(), "SELECT email FROM clientes WHERE telefono = '5555'").Scan(&email)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if email != "" {
+		t.Fatalf("la reserva web completó el mail de la ficha: %q", email)
+	}
+	// Un turno que el negocio cargó con el mail de la clienta (de confianza) sí lo ve ella.
+	duena := "user_lauraok00001"
+	e.panel(201, "POST", "/v1/panel/turnos", map[string]any{"servicioId": e.servicio, "profesionalId": e.ana,
+		"inicio": en("2026-11-30 10:00").Format(time.RFC3339), "cliente": map[string]string{"nombre": "Laura",
+			"telefono": "6666", "email": "lauraok00001@prueba.tengolibre.com.ar"}}, nil)
+	e.Esperar(200, P{Metodo: "GET", Ruta: "/v1/yo/turnos", Quien: duena}, &r)
+	if len(r.Turnos) != 1 {
+		t.Fatalf("el turno con mail de confianza no aparece: %+v", r)
+	}
+}

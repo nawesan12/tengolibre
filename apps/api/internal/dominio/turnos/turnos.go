@@ -95,6 +95,9 @@ type Turno struct {
 	// Ajeno (turnos.cliente_ajeno): la reserva pública dio el teléfono de un cliente que ya tenía otro
 	// email de confianza. Quien tiene el link no probó ser ese cliente. No sale en el JSON.
 	Ajeno bool `json:"-"`
+	// EmailReserva (turnos.email_reserva): el mail con que se reservó este turno desde la web. Sólo
+	// para «Tus turnos» y los avisos: no sale en el JSON.
+	EmailReserva string `json:"-"`
 	// Sólo en la respuesta de la reserva: lo que descontó el cupón y el pago que queda pendiente.
 	Descuento int64 `json:"descuento,omitempty"`
 	Pago      *Pago `json:"pago,omitempty"`
@@ -102,7 +105,7 @@ type Turno struct {
 
 const columnasTurno = `t.id::text, t.codigo, t.servicio_id::text, t.servicio, t.profesional_id::text, t.profesional,
 	c.id::text, c.nombre, c.telefono, c.email, t.inicio, t.fin, t.precio, t.estado, t.origen, t.nota, t.vence_en, t.creado_en,
-	t.serie_id::text, t.confirmado_por, t.confirmado_en, t.cambio_pedido_en, t.llamar_desde, t.llamar_motivo, t.cliente_ajeno`
+	t.serie_id::text, t.confirmado_por, t.confirmado_en, t.cambio_pedido_en, t.llamar_desde, t.llamar_motivo, t.cliente_ajeno, t.email_reserva`
 
 const desdeTurnos = " FROM turnos t JOIN clientes c ON c.id = t.cliente_id"
 
@@ -110,7 +113,7 @@ func escanearTurno(f pgx.Row, t *Turno) error {
 	return f.Scan(&t.ID, &t.Codigo, &t.ServicioID, &t.Servicio, &t.ProfesionalID, &t.Profesional,
 		&t.Cliente.ID, &t.Cliente.Nombre, &t.Cliente.Telefono, &t.Cliente.Email,
 		&t.Inicio, &t.Fin, &t.Precio, &t.Estado, &t.Origen, &t.Nota, &t.VenceEn, &t.CreadoEn,
-		&t.SerieID, &t.ConfirmadoPor, &t.ConfirmadoEn, &t.CambioPedidoEn, &t.LlamarDesde, &t.LlamarMotivo, &t.Ajeno)
+		&t.SerieID, &t.ConfirmadoPor, &t.ConfirmadoEn, &t.CambioPedidoEn, &t.LlamarDesde, &t.LlamarMotivo, &t.Ajeno, &t.EmailReserva)
 }
 
 func leerTurno(ctx context.Context, tx pgx.Tx, donde string, arg any, bloquear bool) (Turno, error) {
@@ -339,9 +342,11 @@ func limpiarTelefono(t string) string {
 // clienteDe busca al cliente por teléfono (o crea uno) en el negocio fijado.
 // La fecha de nacimiento sólo se completa si faltaba (nunca pisa la que cargó el negocio).
 // ajeno: el teléfono es de un cliente que ya existía con otro email que el que vino: quien reserva
-// puede no ser él. Desde la web (app.origen = 'web') el email de un cliente que ya existía nunca se
-// pisa, sólo se completa si faltaba: si no, con el teléfono de alguien se le cambiaba el mail y sus
-// recordatorios (con el link para cancelar o mover cada turno) le llegaban a otro.
+// puede no ser él. Desde la web (app.origen = 'web') el email de un cliente que ya existía no se toca,
+// ni siquiera si faltaba: con el teléfono de una clienta cargada sin mail y un mail propio, quien
+// reservaba se quedaba con sus recordatorios (con el link para cancelar o mover cada turno) y con su
+// lista en «Tus turnos». El mail tipeado queda en el turno (turnos.email_reserva) y los avisos de ESE
+// turno van ahí.
 func clienteDe(ctx context.Context, tx pgx.Tx, c Cliente) (id string, ajeno bool, err error) {
 	nacimiento := &c.Nacimiento
 	if c.Nacimiento == "" {
@@ -352,7 +357,7 @@ func clienteDe(ctx context.Context, tx pgx.Tx, c Cliente) (id string, ajeno bool
 		var email string
 		err = tx.QueryRow(ctx, `INSERT INTO clientes (negocio_id, nombre, telefono, email, nacimiento) VALUES (app.negocio_actual(), $1, $2, $3, $4::date)
 			ON CONFLICT (negocio_id, telefono) WHERE telefono <> '' DO UPDATE SET email = CASE WHEN excluded.email <> ''
-					AND (clientes.email = '' OR coalesce(current_setting('app.origen', true), '') <> 'web') THEN excluded.email ELSE clientes.email END,
+					AND coalesce(current_setting('app.origen', true), '') <> 'web' THEN excluded.email ELSE clientes.email END,
 				nacimiento = coalesce(clientes.nacimiento, excluded.nacimiento)
 			RETURNING id::text, xmax <> 0, email_confiable, email`, c.Nombre, c.Telefono, c.Email, nacimiento).Scan(&id, &existia, &confiable, &email)
 		return id, existia && email != "" && c.Email != "" && !strings.EqualFold(email, c.Email), err
@@ -383,6 +388,8 @@ type Pedido struct {
 	// visita de su membresía. Lo resuelve reservarPublico, que deja ClienteID.
 	UsarMembresia bool   `json:"usarMembresia,omitempty"`
 	ClienteID     string `json:"-"`
+	// emailReserva: con ClienteID, el mail de la reserva que se repite (volver a reservar desde el link).
+	emailReserva string
 	// clienteAjeno: con ClienteID, el turno hereda que el cliente no se verificó (volver a reservar
 	// desde un link ajeno).
 	clienteAjeno bool
@@ -569,12 +576,19 @@ func reservar(ctx context.Context, tx pgx.Tx, in Pedido, origen string, ahora ti
 	if origen == "panel" {
 		estado = "confirmado"
 	}
+	// El mail de la reserva queda sólo si los datos vienen de la web (app.origen = 'web'): a ese mail le
+	// llega el comprobante, así que quien lo controla ya conoce el código.
+	emailReserva := strings.ToLower(strings.TrimSpace(in.Cliente.Email))
+	if in.ClienteID != "" {
+		emailReserva = in.emailReserva
+	}
 	var id string
 	err = tx.QueryRow(ctx, `INSERT INTO turnos (negocio_id, codigo, servicio_id, servicio, profesional_id, profesional, cliente_id,
-		inicio, fin, precio, estado, origen, nota, serie_id, cliente_ajeno) VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-		nullif($13, '')::uuid, $14) RETURNING id::text`, codigo(), srv.ID, srv.Nombre, p.ID, p.Nombre, clienteID,
+		inicio, fin, precio, estado, origen, nota, serie_id, cliente_ajeno, email_reserva) VALUES (app.negocio_actual(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+		nullif($13, '')::uuid, $14, CASE WHEN coalesce(current_setting('app.origen', true), '') = 'web' THEN $15 ELSE '' END) RETURNING id::text`,
+		codigo(), srv.ID, srv.Nombre, p.ID, p.Nombre, clienteID,
 		in.Inicio, in.Inicio.Add(time.Duration(srv.Duracion)*time.Minute), srv.Precio, estado, origen, strings.TrimSpace(in.Nota),
-		in.SerieID, ajeno).Scan(&id)
+		in.SerieID, ajeno, emailReserva).Scan(&id)
 	if err != nil {
 		return Turno{}, err
 	}

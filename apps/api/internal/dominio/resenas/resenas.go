@@ -67,7 +67,7 @@ func (s *Servicio) Pedir(ctx context.Context, ahora time.Time) (any, error) {
 			return err
 		}
 		filas, err := tx.Query(ctx, `SELECT t.id::text FROM turnos t JOIN clientes c ON c.id = t.cliente_id
-			WHERE t.estado = 'atendido' AND t.fin <= $1 AND t.fin >= $2 AND c.email <> ''
+			WHERE t.estado = 'atendido' AND t.fin <= $1 AND t.fin >= $2 AND (c.email <> '' OR t.email_reserva <> '')
 				AND NOT EXISTS (SELECT 1 FROM resena_tokens r WHERE r.turno_id = t.id)
 				AND NOT EXISTS (SELECT 1 FROM resenas r WHERE r.turno_id = t.id)
 			ORDER BY t.fin LIMIT 100`, ahora.Add(-time.Duration(demora)*time.Hour), ahora.Add(-maxAntigu))

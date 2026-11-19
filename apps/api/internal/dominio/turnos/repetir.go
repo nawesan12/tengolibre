@@ -202,7 +202,8 @@ func (s *Servicio) reservarRepetir(w http.ResponseWriter, r *http.Request) error
 		if err != nil {
 			return err
 		}
-		pedido := Pedido{ServicioID: srv.ID, ProfesionalID: p.ID, Inicio: in.Inicio, ClienteID: viejo.Cliente.ID, clienteAjeno: viejo.Ajeno}
+		pedido := Pedido{ServicioID: srv.ID, ProfesionalID: p.ID, Inicio: in.Inicio, ClienteID: viejo.Cliente.ID, clienteAjeno: viejo.Ajeno,
+			emailReserva: viejo.EmailReserva}
 		if t, err = reservar(ctx, tx, pedido, "web", s.ahora()); err != nil {
 			return err
 		}
