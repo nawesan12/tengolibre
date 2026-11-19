@@ -244,8 +244,6 @@ func leerSubidaPendiente(ctx context.Context, tx pgx.Tx, ahora time.Time) (*Subi
 	return &x, err
 }
 
-
-
 // TrabajoOrdenes: cada 10 minutos, las órdenes de la plataforma pendientes de las últimas 48 horas
 // (packs y subidas) se vuelven a leer de Mercado Pago. Sin token de la plataforma, no hace nada.
 func (s *Servicio) TrabajoOrdenes() trabajos.Trabajo {

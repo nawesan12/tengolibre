@@ -83,7 +83,7 @@ type CobroAutorizado struct {
 	Status        string `json:"status"`
 	// TransactionAmount: lo que se cobró (se coteja con el plan).
 	TransactionAmount float64 `json:"transaction_amount"`
-	Payment       struct {
+	Payment           struct {
 		Status string `json:"status"`
 	} `json:"payment"`
 	DebitDate *time.Time `json:"debit_date"`
