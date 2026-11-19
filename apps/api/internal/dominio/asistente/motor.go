@@ -463,9 +463,12 @@ func contiene(xs []string, x string) bool {
 // pregunta cuál. Vuelve como propuesta, como las demás acciones.
 func (s *Servicio) anotar(ctx context.Context, op *mcp.Operador, c Catalogo, in Intencion) (Respuesta, error) {
 	if in.ServicioID == "" {
-		if len(c.Servicios) == 1 {
+		switch len(c.Servicios) {
+		case 0:
+			return Respuesta{Respuesta: "Todavía no cargaste servicios. Sumá uno en Servicios y después lo\u00a0anotamos."}, nil
+		case 1:
 			in.ServicioID = c.Servicios[0].ID
-		} else {
+		default:
 			var ns []string
 			for i, x := range c.Servicios {
 				if i == 6 {

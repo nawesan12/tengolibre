@@ -195,6 +195,47 @@ func TestMotorSinIA(t *testing.T) {
 	}
 }
 
+// «Anotá a…»: con una clienta que ya existe, propuesta de turno que se carga al confirmar; con una que no,
+// a «Nuevo turno». Con un solo servicio no pregunta cuál.
+func TestAnotar(t *testing.T) {
+	e := nuevo(t, false, ia.Topes{})
+	r := e.preguntar(duenia, "anotá a Juana el viernes a las 11")
+	if len(r.Propuestas) != 1 || r.Propuestas[0].Accion != "crear_turno" || r.Propuestas[0].Boton != "Sí, cargarlo" ||
+		!strings.Contains(r.Propuestas[0].Resumen, "Juana Pérez") {
+		t.Fatalf("anotar: %+v", r)
+	}
+	var antes int
+	e.Fila("SELECT count(*) FROM turnos WHERE inicio = $1", []any{en("2026-11-20 11:00")}, &antes)
+	if antes != 0 {
+		t.Fatal("se cargó sin confirmar")
+	}
+	e.como(duenia, 200, "POST", "/v1/panel/asistente/confirmar", map[string]string{"propuestaId": r.Propuestas[0].ID}, nil)
+	var cliente string
+	e.Fila("SELECT c.nombre FROM turnos t JOIN clientes c ON c.id = t.cliente_id WHERE t.inicio = $1 AND t.estado <> 'cancelado'",
+		[]any{en("2026-11-20 11:00")}, &cliente)
+	if cliente != "Juana Pérez" {
+		t.Fatalf("turno cargado para %q", cliente)
+	}
+	// Resuelta, la propuesta ya no guarda los datos de la clienta.
+	var args string
+	e.Fila("SELECT argumentos::text FROM asistente_propuestas WHERE id = $1::uuid", []any{r.Propuestas[0].ID}, &args)
+	if args != "{}" {
+		t.Fatalf("argumentos después de resolver: %s", args)
+	}
+
+	r = e.preguntar(duenia, "anotá a Rocío el viernes a las 12")
+	if len(r.Propuestas) != 0 || !strings.Contains(r.Respuesta, "Nuevo turno") {
+		t.Fatalf("clienta nueva: %+v", r)
+	}
+
+	// Sin servicios no se rompe: lo dice.
+	e.Fila("UPDATE servicios SET activo = false WHERE negocio_id = $1", []any{e.negocio})
+	r = e.preguntar(duenia, "anotá a Juana el sábado a las 11")
+	if len(r.Propuestas) != 0 || !strings.Contains(r.Respuesta, "Todavía no cargaste servicios") {
+		t.Fatalf("sin servicios: %+v", r)
+	}
+}
+
 // Un profesional ve y toca sólo su agenda, también por el asistente.
 func TestRolProfesional(t *testing.T) {
 	e := nuevo(t, false, ia.Topes{})
