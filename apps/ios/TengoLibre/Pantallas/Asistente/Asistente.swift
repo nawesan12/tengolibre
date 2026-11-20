@@ -115,6 +115,7 @@ struct EntradaAsistente: View {
 /// la dueña, prender la IA. La charla vive mientras la hoja está abierta.
 struct Asistente: View {
     @Environment(Estado.self) private var estado
+    @Environment(Navegacion.self) private var nav
     @Environment(\.dismiss) private var cerrar
 
     struct Mensaje: Identifiable, Equatable {
@@ -335,14 +336,10 @@ struct Asistente: View {
 
     /// Abre el turno de una fila: se cierra la hoja y Principal lo abre (como un push).
     private func abrirTurno(_ id: String) {
-        cerrar()
-        // El detalle es otra hoja: se pide cuando esta terminó de bajar (con la API rápida, presentarla
-        // mientras se cerraba ésta no la mostraba).
+        // El detalle es otra hoja: se pide cuando ésta terminó de bajar (presentarla mientras se cerraba no la mostraba).
         let estado = estado
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(450))
-            estado.rutaPendiente = .turno(id)
-        }
+        nav.despuesDeCerrar = { estado.rutaPendiente = .turno(id) }
+        cerrar()
     }
 
     /// VoiceOver lee lo que contestó el asistente (la web lo hace con aria-live).

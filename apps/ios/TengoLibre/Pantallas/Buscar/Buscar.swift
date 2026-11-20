@@ -163,11 +163,10 @@ struct Buscar: View {
 
     /// Cierra el buscador y después navega (dos hojas no se abren a la vez).
     private func ir(_ hacer: @escaping @MainActor () -> Void) {
+        // Si ya se cerró (un turno que tardó en llegar), se abre directo: si no, quedaría pendiente para otra hoja.
+        guard nav.buscar else { hacer(); return }
+        nav.despuesDeCerrar = hacer
         cerrar()
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(350))
-            hacer()
-        }
     }
 }
 

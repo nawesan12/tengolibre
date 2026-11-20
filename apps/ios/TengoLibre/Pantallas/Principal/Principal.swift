@@ -59,6 +59,15 @@ final class Navegacion {
     var pilaClientes = NavigationPath()
     var pilaResenas = NavigationPath()
     var pilaMas = NavigationPath()
+    /// Lo que se abre cuando termine de bajar la hoja de arriba (buscador, avisos, asistente): dos hojas a la
+    /// vez no se muestran, y una espera fija falla en un teléfono lento.
+    @ObservationIgnored var despuesDeCerrar: (@MainActor () -> Void)?
+
+    func cerroHoja() {
+        let hacer = despuesDeCerrar
+        despuesDeCerrar = nil
+        hacer?()
+    }
 }
 
 /// Con qué arranca «Nuevo turno»: un hueco tocado, una clienta, una oferta que se carga a mano.
@@ -115,15 +124,15 @@ struct Principal: View {
             NavigationStack { Compartir() }
                 .presentationCornerRadius(Radio.hoja)
         }
-        .sheet(isPresented: $nav.buscar) {
+        .sheet(isPresented: $nav.buscar, onDismiss: { nav.cerroHoja() }) {
             Buscar().environment(nav)
         }
-        .sheet(isPresented: $nav.avisos) {
+        .sheet(isPresented: $nav.avisos, onDismiss: { nav.cerroHoja() }) {
             NavigationStack { Avisos() }
                 .presentationCornerRadius(Radio.hoja)
                 .environment(nav)
         }
-        .sheet(isPresented: $nav.asistente) {
+        .sheet(isPresented: $nav.asistente, onDismiss: { nav.cerroHoja() }) {
             Asistente()
                 .presentationDetents([.large])
                 .presentationCornerRadius(Radio.hoja)

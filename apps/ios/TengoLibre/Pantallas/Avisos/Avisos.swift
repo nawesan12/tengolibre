@@ -86,9 +86,12 @@ struct Avisos: View {
         if let id = n.turnoId {
             Task {
                 if let t: Turno = try? await estado.api.get("/v1/panel/turnos/\(id)") {
+                    // El detalle se abre cuando la hoja de avisos terminó de bajar (dos hojas a la vez no se muestran).
+                    // Si ya la cerraron mientras llegaba, se abre directo.
+                    let nav = nav
+                    guard nav.avisos else { nav.turno = t; return }
+                    nav.despuesDeCerrar = { nav.turno = t }
                     cerrar()
-                    try? await Task.sleep(for: .milliseconds(350))
-                    nav.turno = t
                 }
             }
             return

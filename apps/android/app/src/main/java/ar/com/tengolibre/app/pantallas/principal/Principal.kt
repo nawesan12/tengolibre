@@ -133,6 +133,15 @@ class Navegacion {
     val pilaMas get() = pilas.getValue(Pestana.mas)
     /** La pila de la pestaña que se ve. */
     val pila get() = pilas.getValue(pestana)
+    /** Lo que se abre cuando termine de bajar la hoja de arriba (buscador, avisos, asistente): así no se pisa con la
+     *  animación de cierre, y una espera fija falla en un teléfono lento. */
+    var despuesDeCerrar: (() -> Unit)? = null
+
+    fun cerroHoja() {
+        val hacer = despuesDeCerrar
+        despuesDeCerrar = null
+        hacer?.invoke()
+    }
 }
 
 val LocalNavegacion = staticCompositionLocalOf<Navegacion> { error("Falta la Navegacion") }
@@ -198,9 +207,9 @@ fun Principal() {
             Hoja(nav.turno != null, { nav.turno = null }, listOf(Altura.media, Altura.grande)) { nav.turno?.let { Destinos.detalleTurno(it) } }
             Hoja(nav.nuevo != null, { nav.nuevo = null }) { nav.nuevo?.let { Destinos.nuevoTurno(it) } }
             Hoja(nav.compartir, { nav.compartir = false }) { Destinos.compartir() }
-            Hoja(nav.buscar, { nav.buscar = false }) { Destinos.buscar() }
-            Hoja(nav.avisos, { nav.avisos = false }) { Destinos.avisos() }
-            Hoja(nav.asistente, { nav.asistente = false }, listOf(Altura.grande)) {
+            Hoja(nav.buscar, { nav.buscar = false }, alTerminarDeCerrar = { nav.cerroHoja() }) { Destinos.buscar() }
+            Hoja(nav.avisos, { nav.avisos = false }, alTerminarDeCerrar = { nav.cerroHoja() }) { Destinos.avisos() }
+            Hoja(nav.asistente, { nav.asistente = false }, listOf(Altura.grande), alTerminarDeCerrar = { nav.cerroHoja() }) {
                 Asistente(cerrar = { nav.asistente = false })
             }
             // La primera vez: el recorrido por todo lo que trae la app.

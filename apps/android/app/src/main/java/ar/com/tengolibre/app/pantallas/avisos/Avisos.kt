@@ -65,7 +65,6 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import java.io.File
@@ -102,7 +101,18 @@ fun ColumnScope.Avisos(cerrar: () -> Unit) {
     fun abrir(n: Notificacion) {
         val id = n.turnoId
         if (id != null) {
-            alcance.launch { estado.api.opcional<Turno>("/v1/panel/turnos/$id")?.let { cerrar(); delay(350); nav.turno = it } }
+            alcance.launch {
+                // El detalle se abre cuando la hoja de avisos terminó de bajar (como en iOS).
+                estado.api.opcional<Turno>("/v1/panel/turnos/$id")?.let { t ->
+                    // Si ya la cerraron mientras llegaba, se abre directo.
+                    if (!nav.avisos) {
+                        nav.turno = t
+                        return@let
+                    }
+                    nav.despuesDeCerrar = { nav.turno = t }
+                    cerrar()
+                }
+            }
             return
         }
         cerrar()

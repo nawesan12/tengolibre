@@ -41,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,11 +72,18 @@ fun Hoja(
     alCerrar: () -> Unit,
     alturas: List<Altura> = listOf(Altura.grande),
     indicador: Boolean = alturas.size > 1,
+    alTerminarDeCerrar: () -> Unit = {},
     contenido: @Composable ColumnScope.() -> Unit,
 ) {
     val estadoVisible = remember { MutableTransitionState(false) }
     estadoVisible.targetState = visible
-    if (!estadoVisible.currentState && !estadoVisible.targetState && estadoVisible.isIdle) return
+    // Avisa cuando terminó de bajar (onDismiss en iOS), no al empezar: lo que se abre después no se pisa con la animación.
+    val alTerminar by rememberUpdatedState(alTerminarDeCerrar)
+    var abierta by remember { mutableStateOf(false) }
+    LaunchedEffect(visible) { if (visible) abierta = true }
+    val cerrada = !estadoVisible.currentState && !estadoVisible.targetState && estadoVisible.isIdle
+    LaunchedEffect(cerrada) { if (cerrada && abierta) { abierta = false; alTerminar() } }
+    if (cerrada) return
     val tema = LocalPaleta.current
     val capaToast = LocalCapaToast.current
     // Un pedido de cerrar las hojas que llega con esta abierta la cierra (el valor de cuando se abrió no cuenta).

@@ -146,6 +146,7 @@ data class Mensaje(
  *  prender la IA. La charla vive mientras la hoja está abierta. */
 @Composable
 fun ColumnScope.Asistente(cerrar: () -> Unit) {
+    val nav = ar.com.tengolibre.app.pantallas.principal.LocalNavegacion.current
     val estado = LocalEstado.current
     val alcance = rememberCoroutineScope()
     var info by remember { mutableStateOf<EstadoAsistente?>(null) }
@@ -188,7 +189,8 @@ fun ColumnScope.Asistente(cerrar: () -> Unit) {
 
     /** Abre el turno de una fila: se cierra la hoja y Principal lo abre (como un push). */
     fun abrirTurno(id: String) {
-        estado.rutaPendiente = ar.com.tengolibre.app.app.Ruta.turno(id)
+        // El detalle se pide cuando esta hoja terminó de bajar (como en iOS).
+        nav.despuesDeCerrar = { estado.rutaPendiente = ar.com.tengolibre.app.app.Ruta.turno(id) }
         cerrar()
     }
 

@@ -135,7 +135,12 @@ fun ColumnScope.Buscar(cerrar: () -> Unit) {
     }
 
     /** Cierra el buscador y después navega (dos hojas no se abren a la vez). */
-    fun ir(hacer: () -> Unit) { cerrar(); alcance.launch { delay(350); hacer() } }
+    fun ir(hacer: () -> Unit) {
+        // Si ya se cerró (un turno que tardó en llegar), se abre directo: si no, quedaría pendiente para otra hoja.
+        if (!nav.buscar) { hacer(); return }
+        nav.despuesDeCerrar = hacer
+        cerrar()
+    }
     fun abrir(c: Cosa) = when (val d = c.ir) {
         is Cosa.Ir.seccion -> ir { nav.pestana = Pestana.hoy; nav.pilaHoy.add(d.d) }
         is Cosa.Ir.pestana -> ir { nav.pestana = d.p }
