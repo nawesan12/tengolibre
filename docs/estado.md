@@ -1,5 +1,27 @@
 # Estado
 
+## 19/11/2026: suscripciones nuevas cargadas en App Store Connect y Google Play
+
+Scripts (idempotentes): `~/Trabajo/vimo/credenciales-apple/tengolibre-scripts/asc_suscripciones.py tengolibre` y
+`~/Trabajo/vimo/tiendas/play/suscripciones.py tengolibre`. Sin prueba gratis en la tienda.
+
+| productId | Play (sólo AR) | App Store (base USD, 175 territorios) |
+|---|---|---|
+| `ar.com.tengolibre.inicial.mensual` | $ 6.900, activo (antes 7.000) | US$ 4,49 (antes 4,99), READY_TO_SUBMIT, nivel 3 |
+| `ar.com.tengolibre.inicial.anual` | $ 69.000, activo | US$ 43,99, READY_TO_SUBMIT, nivel 3 |
+| `ar.com.tengolibre.equipo.mensual` | $ 14.900, activo | US$ 9,49, READY_TO_SUBMIT, nivel 2 |
+| `ar.com.tengolibre.equipo.anual` | $ 149.000, activo | US$ 94,99, READY_TO_SUBMIT, nivel 2 |
+| `ar.com.tengolibre.centro.mensual` | $ 29.900, activo | US$ 18,99, READY_TO_SUBMIT, nivel 1 |
+| `ar.com.tengolibre.centro.anual` | $ 299.000, activo | US$ 189,99, READY_TO_SUBMIT, nivel 1 |
+| `ar.com.tengolibre.completo.mensual` | plan base desactivado (no se vende) | sin territorios (no se vende) |
+
+- Play: plan base `mensual`/`anual`, regiones 2026/01 (con 2022/02 Argentina cobra en USD y la API rechaza ARS).
+- Apple: la captura de revisión vieja fallaba por tamaño (1178 px); se reescaló a 1179×2556. Sigue siendo la pantalla
+  «Potenciá tu negocio»: conviene cambiarla por una de Más › Suscripción.
+- **Falta (Apple):** las suscripciones nuevas se mandan a revisión junto con la próxima versión de la app (la primera
+  vez van con un binario); el acuerdo de apps pagas sigue sin banco ni W-8BEN (lo carga Nahuel). La URL de
+  notificaciones de producción está puesta; la de sandbox sigue dando 409 hasta que el acuerdo quede activo.
+
 ## 19/11/2026: planes y precios nuevos DESPLEGADOS (API y web 58fd6d7, migración 00038; iOS build 2611191839; Android 139)
 
 - **Planes:** Inicial $ 6.900, Equipo $ 14.900 (destacado), Centro $ 29.900 (+ $ 1.900 por profesional arriba de 25); prueba de 14 días; «completo» pasó a «equipo».
@@ -9,7 +31,7 @@
 - **IA:** `TENGOLIBRE_IA_TOPE_DIARIO` no está fijado en `/opt/tengolibre/api.conf`: rige el 100 por defecto del código.
 - **iOS:** `testflight-local.sh … tengolibre` (build 2611191839) y `ultima.py`. El espejo grupovimo/tengolibre-ios no se actualizó (iOS se compila desde el monorepo).
 - **Android:** espejo grupovimo/tengolibre-android desde la copia limpia (`[skip ci]`), workflow «Android» corrida 39 y `subir_aab.py`: 139 en la prueba cerrada, mandado a revisión.
-- **Pendiente (lo decide Nahuel):** productos de suscripción en App Store y Play (el acuerdo de apps pagas todavía no está activo).
+- **Suscripciones en las tiendas:** cargadas el mismo 19/11 (sección de arriba).
 
 ## 19/11/2026: todo en producción (API y web con migraciones hasta la 00037; apps subidas el 18-19/11)
 
