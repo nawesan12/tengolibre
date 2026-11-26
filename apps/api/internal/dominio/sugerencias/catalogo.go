@@ -41,14 +41,16 @@ type Sugerencia struct {
 }
 
 // Catalogo: la única fuente de los textos. Sólo se nombra lo que la app sugerida ya hace, sin plazos
-// de prueba (no se pueden garantizar desde acá).
+// de prueba (no se pueden garantizar desde acá). El CTA dice lo que pasa al tocar: el destino es el
+// alta de la otra app (/empezar guarda el origen y lleva al registro). Los nombres de marca van con
+// espacios duros (U+00A0) para que ninguna plataforma los corte al partir el renglón.
 var Catalogo = []Sugerencia{
 	{
 		ID:     "tl-tlw",
 		Marca:  "tulocalweb",
 		Sello:  Sello,
 		Titulo: "Vendé tus productos online",
-		CTA:    "Conocé Tu Local Web",
+		CTA:    "Creá tu tienda en Tu\u00a0Local\u00a0Web",
 		URL:    "https://tulocalweb.com.ar/empezar?utm_source=tengolibre&utm_medium=sugerencia&utm_content=tl-tlw",
 		Imagen: "/sugerencias/tulocalweb-mini.jpg",
 		Banner: "/sugerencias/tulocalweb-banner.jpg",

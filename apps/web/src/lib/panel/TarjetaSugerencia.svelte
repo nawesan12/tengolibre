@@ -21,6 +21,13 @@
 	// Sin palabra sola en el último renglón (con texto grande puede partirse).
 	const pegar = (s: string) => s.replace(/ (\S+)$/, ' $1');
 
+	// El CTA: si se parte, la flecha baja pegada a la última palabra (y la marca, que viene con
+	// espacios duros de la API, no se corta).
+	const cta = $derived.by(() => {
+		const i = sugerencia.cta.lastIndexOf(' ');
+		return i < 0 ? { inicio: '', fin: sugerencia.cta } : { inicio: sugerencia.cta.slice(0, i + 1), fin: sugerencia.cta.slice(i + 1) };
+	});
+
 	onMount(() => {
 		// Si la imagen falló antes de que la página se hidratara, onerror no llega.
 		if (img?.complete && img.naturalWidth === 0) fallo = true;
@@ -48,7 +55,7 @@
 			<span class="textos">
 				<span class="sello">{sugerencia.sello}</span>
 				<b class="titulo">{pegar(sugerencia.titulo)}</b>
-				<span class="cta">{pegar(sugerencia.cta)}<Icono nombre="arrow_outward" tam={16} /></span>
+				<span class="cta">{cta.inicio}<span class="fin">{cta.fin}<Icono nombre="arrow_outward" tam={16} /></span></span>
 			</span>
 		</a>
 		<button
@@ -127,12 +134,19 @@
 		text-wrap: balance;
 	}
 	.cta {
-		display: inline-flex;
-		align-items: center;
-		gap: 2px;
 		font-size: 14px;
+		line-height: 1.35;
 		font-weight: 700;
 		color: var(--tl-menta-texto);
+	}
+	.fin {
+		white-space: nowrap;
+	}
+	/* inline-block: el subrayado del hover no pasa por la flecha. */
+	.fin :global(.icono) {
+		display: inline-block;
+		margin-left: 2px;
+		vertical-align: -3px;
 	}
 	.cuerpo:hover .cta {
 		text-decoration: underline;

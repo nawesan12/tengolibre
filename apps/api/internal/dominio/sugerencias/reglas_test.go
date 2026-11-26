@@ -3,6 +3,7 @@ package sugerencias
 import (
 	"net/url"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -127,6 +128,26 @@ func TestListaBlancaRechaza(t *testing.T) {
 		s.URL = u
 		if destinoValido(s) {
 			t.Errorf("%s: aceptó %s", nombre, u)
+		}
+	}
+}
+
+// El CTA dice lo que pasa al tocar (el destino es el alta de la otra app), sin prometer «gratis», y
+// las marcas van con espacios duros para que ningún renglón las corte.
+func TestTextosDelCatalogo(t *testing.T) {
+	for _, s := range Catalogo {
+		for _, x := range []string{s.Titulo, s.CTA} {
+			if strings.Contains(strings.ToLower(x), "gratis") {
+				t.Errorf("%s promete «gratis»: %q", s.ID, x)
+			}
+			for _, marca := range []string{"Tu Local Web", "Tengo Libre"} {
+				if strings.Contains(x, marca) {
+					t.Errorf("%s: %q tiene que ir con espacios duros", s.ID, marca)
+				}
+			}
+		}
+		if strings.HasSuffix(strings.Split(s.URL, "?")[0], "/empezar") && !strings.HasPrefix(s.CTA, "Creá") {
+			t.Errorf("%s lleva al alta pero el CTA no lo dice: %q", s.ID, s.CTA)
 		}
 	}
 }
