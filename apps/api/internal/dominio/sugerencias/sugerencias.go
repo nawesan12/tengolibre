@@ -152,7 +152,7 @@ func (s *Servicio) cerrar(w http.ResponseWriter, r *http.Request) error {
 	case "siempre":
 		hasta = ParaSiempre
 	default:
-		return problema.Invalido("Revisá hasta.", problema.Campo{Ruta: "hasta", Mensaje: "tiene que ser 30d o siempre"})
+		return problema.Invalido("Elegí por cuánto tiempo ocultarla.", problema.Campo{Ruta: "hasta", Mensaje: "30 días o para siempre"})
 	}
 	ctx := r.Context()
 	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error {

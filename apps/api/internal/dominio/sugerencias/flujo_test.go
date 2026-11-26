@@ -115,7 +115,13 @@ func TestSugerenciaDePuntaAPunta(t *testing.T) {
 	a.Esperar(404, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/otramas/clic", Quien: duena, Negocio: n}, nil)
 
 	// Ocultar por 30 días: no vuelve hasta pasados los 30.
-	a.Esperar(400, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/cerrar", Cuerpo: map[string]string{"hasta": "1d"}, Quien: duena, Negocio: n}, nil)
+	var inv struct {
+		Detalle string `json:"detail"`
+	}
+	a.Esperar(400, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/cerrar", Cuerpo: map[string]string{"hasta": "1d"}, Quien: duena, Negocio: n}, &inv)
+	if inv.Detalle != "Elegí por cuánto tiempo ocultarla." {
+		t.Errorf("error del cierre: %q", inv.Detalle)
+	}
 	a.Esperar(204, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/cerrar", Cuerpo: map[string]string{"hasta": "30d"}, Quien: duena, Negocio: n}, nil)
 	if ver(t, a, duena, n) != nil {
 		t.Fatal("cerrada, se sigue viendo")
