@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sugerencia de la casa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400..700,0..1,0&display=swap" rel="stylesheet" />
+<!--
+	Lámina de la sugerencia de la casa en Tengo Libre (planes/promos-cruzadas-produccion-corregido.md).
+	Piezas existentes: la superficie y la línea de las tarjetas de Hoy/Inicio, el rótulo, el link en
+	menta texto (como «Seguir»), el menú de la cruz (Menu de iOS / MenuBoton de Android / el de la web).
+	Tokens: apps/ios/TengoLibre/Recursos/Assets.xcassets (claro y oscuro) y apps/web/src/app.css.
+-->
+<style>
+	:root { --fuente: Lato, system-ui, sans-serif; }
+	* { box-sizing: border-box; }
+	body { margin: 0; padding: 32px; background: #e9e4d8; font-family: var(--fuente); color: #0f2328; }
+	h1 { margin: 0 0 4px; font-size: 28px; font-weight: 900; letter-spacing: -0.02em; }
+	.bajada { margin: 0 0 28px; color: #4a5d61; font-size: 15px; max-width: 70ch; }
+	.fila { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+	.marco { width: 375px; }
+	.marco > p { margin: 0 0 8px; font-size: 12px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: #4a5d61; }
+	/* Teléfono: el final de Hoy / Inicio */
+	.tel { --fondo: #f4eee2; --tarjeta: #fffdf9; --tinta: #0f2328; --sub: #4a5d61; --linea: #e2d6bf; --menta-texto: #17805a; --chip: #efe7d6;
+		width: 375px; padding: 16px; border-radius: 28px; background: var(--fondo); display: flex; flex-direction: column; gap: 12px; position: relative; }
+	.tel.oscuro { --fondo: #0b181b; --tarjeta: #14272c; --tinta: #f4eee2; --sub: #a7b6b5; --linea: #2a434a; --menta-texto: #5fdcaa; --chip: #1d353b; }
+	.contexto { border-radius: 20px; background: var(--tarjeta); box-shadow: 0 10px 20px -14px rgba(15,35,40,.4); padding: 14px; color: var(--tinta); }
+	.contexto .rot { font-size: 12px; font-weight: 900; letter-spacing: .08em; color: var(--sub); }
+	.atajos { display: flex; gap: 8px; overflow: hidden; }
+	.atajo { flex: none; width: 104px; height: 96px; padding: 12px; border-radius: 18px; background: var(--tarjeta); box-shadow: 0 10px 20px -14px rgba(15,35,40,.4); color: var(--tinta); font-size: 14px; font-weight: 700; display: flex; flex-direction: column; gap: 8px; }
+	.atajo i { width: 36px; height: 36px; border-radius: 10px; background: rgba(60,204,144,.18); display: grid; place-items: center; color: var(--menta-texto); font-style: normal; }
+	.ico { font-family: 'Material Symbols Rounded'; font-weight: 500; font-size: 20px; line-height: 1; font-variation-settings: 'FILL' 0, 'wght' 500; }
+	.descubri { border-radius: 22px; background: #183c44; color: #fff; padding: 16px; }
+	.tel.oscuro .descubri { background: #1f4a53; }
+	.descubri b { display: block; font-size: 17px; margin: 4px 0; }
+	.descubri small { color: #3ccc90; font-size: 11px; font-weight: 900; letter-spacing: .08em; }
+	.descubri span { font-size: 14px; color: rgba(255,255,255,.8); }
+	/* LA PIEZA */
+	.sug { position: relative; border: 1px solid var(--linea); border-radius: 18px; background: var(--tarjeta); }
+	.sug .cuerpo { display: flex; align-items: center; gap: 12px; padding: 12px; }
+	.sug .foto { flex: none; width: 72px; height: 72px; border-radius: 14px; overflow: hidden; background: #d2582f; }
+	.sug .foto img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 100%; display: block; }
+	.sug .tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+	.sug .sello { padding-right: 36px; font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; color: var(--sub); }
+	.sug .titulo { font-size: 15px; font-weight: 700; line-height: 1.25; color: var(--tinta); }
+	.sug .cta { display: inline-flex; align-items: center; gap: 2px; font-size: 14px; font-weight: 700; color: var(--menta-texto); }
+	.sug .cta .ico { font-size: 15px; }
+	.sug .cruz { position: absolute; top: 0; right: 0; width: 44px; height: 44px; display: grid; place-items: center; color: var(--sub); }
+	.sug .cruz .ico { font-size: 18px; }
+	.medida { position: absolute; top: 0; right: 0; width: 44px; height: 44px; border: 1px dashed #e0533d; border-radius: 0 18px 0 14px; }
+	.menu { position: absolute; z-index: 2; right: 24px; width: 260px; border-radius: 14px; background: var(--tarjeta); border: 1px solid var(--linea); box-shadow: 0 18px 30px -14px rgba(15,35,40,.5); }
+	.menu div { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px; font-size: 16px; color: var(--tinta); }
+	.menu div + div { border-top: 1px solid var(--linea); }
+	.menu .ico { color: var(--sub); font-size: 19px; }
+	/* Ajustes */
+	.bloque-rot { font-size: 12px; font-weight: 900; letter-spacing: .08em; color: var(--sub); padding: 0 4px; }
+	.renglon { display: flex; align-items: center; gap: 12px; padding: 10px 16px; min-height: 56px; border-radius: 20px; background: var(--tarjeta); box-shadow: 0 10px 20px -14px rgba(15,35,40,.4); color: var(--tinta); }
+	.renglon .t { flex: 1; } .renglon .t b { display: block; font-weight: 400; font-size: 16px; } .renglon .t span { font-size: 13px; color: var(--sub); }
+	.switch { flex: none; width: 51px; height: 31px; border-radius: 99px; background: #3ccc90; position: relative; }
+	.switch::after { content: ''; position: absolute; right: 2px; top: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
+	.pie { font-size: 13px; color: var(--sub); padding: 0 4px; margin: 0; }
+	/* Escritorio */
+	.esc { --tarjeta: #fffdf9; --tinta: #0f2328; --sub: #4a5d61; --linea: #ece3d1; --menta-texto: #17805a; width: 820px; padding: 24px; border-radius: 18px; background: #faf6ee; }
+	.esc .sug .foto { width: 144px; }
+	.notas { margin-top: 32px; max-width: 900px; font-size: 14px; line-height: 1.5; color: #33474b; }
+	.notas b { color: #0f2328; }
+	.notas ul { padding-left: 18px; }
+</style>
+</head>
+<body>
+	<h1>Sugerencia de la casa · Tengo Libre → Tu Local Web</h1>
+	<p class="bajada">Al final de Hoy (apps) y del Inicio (web), debajo de las acciones y de «para hacer». Sólo dueña o encargada. Misma pieza en web, iPhone y Android; los textos salen del catálogo de la API.</p>
+
+	<div class="fila">
+		<div class="marco">
+			<p>iPhone y Android · claro</p>
+			<div class="tel">
+				<div class="atajos"><div class="atajo"><i class="ico">payments</i>Caja de hoy</div><div class="atajo"><i class="ico">credit_card</i>Señas</div><div class="atajo"><i class="ico">confirmation_number</i>Membresías</div></div>
+				<div class="descubri"><small>DESCUBRÍ · 2 DE 5</small><b>Recordatorios de cumpleaños</b><span>Un mail con cupón el día de cada clienta.</span></div>
+				<div class="sug">
+					<div class="cuerpo">
+						<div class="foto"><img src="../../apps/web/src/lib/sugerencias/tulocalweb-mini.jpg" alt="" /></div>
+						<div class="tx"><span class="sello">De Grupo Vimo</span><span class="titulo">Vendé tus productos online</span><span class="cta">Conocé Tu Local Web<span class="ico">arrow_outward</span></span></div>
+					</div>
+					<div class="cruz"><span class="ico">close</span></div>
+				</div>
+			</div>
+		</div>
+
+		<div class="marco">
+			<p>iPhone y Android · oscuro</p>
+			<div class="tel oscuro">
+				<div class="atajos"><div class="atajo"><i class="ico">payments</i>Caja de hoy</div><div class="atajo"><i class="ico">credit_card</i>Señas</div><div class="atajo"><i class="ico">confirmation_number</i>Membresías</div></div>
+				<div class="descubri"><small>DESCUBRÍ · 2 DE 5</small><b>Recordatorios de cumpleaños</b><span>Un mail con cupón el día de cada clienta.</span></div>
+				<div class="sug">
+					<div class="cuerpo">
+						<div class="foto"><img src="../../apps/web/src/lib/sugerencias/tulocalweb-mini.jpg" alt="" /></div>
+						<div class="tx"><span class="sello">De Grupo Vimo</span><span class="titulo">Vendé tus productos online</span><span class="cta">Conocé Tu Local Web<span class="ico">arrow_outward</span></span></div>
+					</div>
+					<div class="cruz"><span class="ico">close</span></div>
+				</div>
+			</div>
+		</div>
+
+		<div class="marco">
+			<p>La cruz (44 pt / 48 dp) abre el menú</p>
+			<div class="tel">
+				<div class="sug">
+					<div class="cuerpo">
+						<div class="foto"><img src="../../apps/web/src/lib/sugerencias/tulocalweb-mini.jpg" alt="" /></div>
+						<div class="tx"><span class="sello">De Grupo Vimo</span><span class="titulo">Vendé tus productos online</span><span class="cta">Conocé Tu Local Web<span class="ico">arrow_outward</span></span></div>
+					</div>
+					<div class="cruz"><span class="ico">close</span></div>
+					<div class="medida"></div>
+				</div>
+				<div style="height:120px"></div>
+				<div class="menu" style="top:72px">
+					<div><span class="ico">schedule</span>Ocultar por 30 días</div>
+					<div><span class="ico">do_not_disturb_on</span>Ya la uso / No me interesa</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="marco">
+			<p>Ajustes › Configuración · claro y oscuro</p>
+			<div class="tel" style="gap:8px">
+				<span class="bloque-rot">SUGERENCIAS</span>
+				<div class="renglon"><span class="t"><b>Sugerencias de Grupo Vimo</b></span><span class="switch"></span></div>
+				<p class="pie">Otras apps de Grupo Vimo según tu rubro, al final de Hoy. No sale ningún dato tuyo.</p>
+			</div>
+			<div class="tel oscuro" style="gap:8px; margin-top:16px">
+				<span class="bloque-rot">SUGERENCIAS</span>
+				<div class="renglon"><span class="t"><b>Sugerencias de Grupo Vimo</b></span><span class="switch"></span></div>
+				<p class="pie">Otras apps de Grupo Vimo según tu rubro, al final de Hoy. No sale ningún dato tuyo.</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="fila" style="margin-top:28px">
+		<div>
+			<div class="marco" style="width:auto"><p>Web desde 768 px · el banner 2:1</p></div>
+			<div class="esc">
+				<div class="sug">
+					<div class="cuerpo">
+						<div class="foto"><img src="../../apps/web/src/lib/sugerencias/tulocalweb-banner.jpg" alt="" style="object-position:50% 50%" /></div>
+						<div class="tx"><span class="sello">De Grupo Vimo</span><span class="titulo">Vendé tus productos online</span><span class="cta">Conocé Tu Local Web<span class="ico">arrow_outward</span></span></div>
+					</div>
+					<div class="cruz"><span class="ico">close</span></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="notas">
+		<ul>
+			<li><b>Contenedor:</b> la tarjeta del sistema (papel / #14272C) con borde de 1 px en la línea, sin sombra: más callada que las tarjetas de trabajo.</li>
+			<li><b>Sello:</b> «De Grupo Vimo» en el gris secundario (6,6:1 en claro, 7,9:1 en oscuro). El link en menta texto, como «Seguir».</li>
+			<li><b>Cuándo no aparece:</b> primeros 14 días, alta sin terminar, cuenta sin turnos, durante el recorrido, prueba vencida, interruptor apagado, cerrada (30 días o para siempre), empleados. Mientras carga o con error: nada.</li>
+			<li><b>Accesibilidad:</b> foto decorativa; sello + título + link son un solo elemento; la cruz se llama «Ocultar sugerencia».</li>
+		</ul>
+	</div>
+</body>
+</html>
