@@ -649,13 +649,17 @@ fun Configuracion() {
     /** Lo que acepta el PUT del reporte mensual: `activo` y los encargados que cambian, sólo {id, recibe}. */
     @Serializable data class CambioEncargado(val id: String, val recibe: Boolean)
     @Serializable data class CambioMensual(val activo: Boolean, val encargados: List<CambioEncargado>)
+    /** El interruptor de las sugerencias de la casa (otras apps de Grupo Vimo al final de Hoy). */
+    @Serializable data class Sugerencias(val activas: Boolean)
     val estado = LocalEstado.current
+    val alcance = rememberCoroutineScope()
     var a by remember { mutableStateOf<Ajustes?>(null) }
     var av by remember { mutableStateOf(Avisos()) }
     var es by remember { mutableStateOf(Espera()) }
     var me by remember { mutableStateOf<Mensual?>(null) }
     /** El reporte mensual como vino (para mandar sólo los encargados que cambiaron). */
     var meAntes by remember { mutableStateOf<Mensual?>(null) }
+    var sug by remember { mutableStateOf<Sugerencias?>(null) }
     var error by remember { mutableStateOf("") }
     suspend fun cargar() {
         try {
@@ -664,8 +668,14 @@ fun Configuracion() {
             estado.api.opcional<Espera>("/v1/panel/ajustes/espera")?.let { es = it }
             me = estado.api.opcional("/v1/panel/reportes/mensual/ajustes")
             meAntes = me
+            sug = estado.api.opcional("/v1/panel/ajustes/sugerencias")
             error = ""
         } catch (e: ErrorApi) { error = e.detalle } catch (e: Exception) { error = "Probá de nuevo." }
+    }
+    /** Se guarda al tocar el interruptor; si falla, vuelve a como estaba. */
+    suspend fun guardarSugerencias(v: Boolean) {
+        val ok = estado.intentar(if (v) "Prendimos las sugerencias" else "Apagamos las sugerencias") { estado.api.hacer("PUT", "/v1/panel/ajustes/sugerencias", Sugerencias(v)) }
+        if (!ok) sug = Sugerencias(!v)
     }
     /** La API rechaza campos de más (nombre, email) y un encargado sólo puede cambiarse a sí mismo: van `activo` y los
      *  encargados que cambiaron. */
@@ -700,6 +710,10 @@ fun Configuracion() {
             Bloque("Reporte mensual por mail", "", *(listOf<@Composable () -> Unit>({ RenglonInterruptor("Mandarlo el 1° de cada mes", m.activo, { me = m.copy(activo = it) }) }) +
                 m.encargados.mapIndexed { i, e -> @Composable { RenglonInterruptor(e.nombre, e.recibe, { v -> me = m.copy(encargados = m.encargados.toMutableList().also { it[i] = e.copy(recibe = v) }) }, e.email) } } +
                 listOf(@Composable { GuardarEnBloque { guardarMensual() } })).toTypedArray())
+        }
+        sug?.let { x ->
+            Bloque("Sugerencias", "Otras apps de Grupo Vimo según tu rubro, al final de Hoy. No sale ningún dato tuyo.",
+                { RenglonInterruptor("Sugerencias de Grupo Vimo", x.activas, { v -> sug = Sugerencias(v); alcance.launch { guardarSugerencias(v) } }) })
         }
         IrA("message", "WhatsApp", DestinoMas.whatsapp)
         IrA("exclamationmark.shield", "Ausencias y penalidades", DestinoMas.penalidades)

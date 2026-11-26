@@ -77,7 +77,7 @@ struct TarjetaSugerencia: View {
 
             Menu {
                 Button { cerrar(s, hasta: "30d") } label: { Label("Ocultar por 30 días", systemImage: "clock") }
-                Button { cerrar(s, hasta: "siempre") } label: { Label("Ya la uso / No me interesa", systemImage: "nosign") }
+                Button { cerrar(s, hasta: "siempre") } label: { Label("Ya la uso / No me interesa", systemImage: "minus.circle") }
             } label: {
                 Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(C.sub)
                     .frame(width: 44, height: 44).contentShape(Rectangle())

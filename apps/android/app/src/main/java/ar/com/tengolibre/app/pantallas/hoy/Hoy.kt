@@ -176,6 +176,8 @@ fun Hoy() {
                         PlataHoy()
                         AtajosHoy()
                         DescubrirHoy()
+                        // Al final, debajo de todo lo del negocio: otra app de la casa (dueña o encargada).
+                        TarjetaSugerencia()
                     } else {
                         ParaAtender(atender(estado, nav, datos, delDia, dias, ahora, contexto, alcance) { cargar() })
                         PlataHoy()
@@ -186,6 +188,7 @@ fun Hoy() {
                         ProximosDias(proximos, estado, ahora) { nav.turno = it }
                         BarraAvance()
                         DescubrirHoy()
+                        TarjetaSugerencia()
                         VistaConsejo(Consejos.widget)
                     }
                 }

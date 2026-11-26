@@ -10,6 +10,7 @@ Hoy/Hoy.swift
 Hoy/Momentos.swift
 Hoy/PlataHoy.swift
 Hoy/Talon.swift
+Hoy/TarjetaSugerencia.swift
 Hoy/TuLink.swift
 Ingreso/Enlaces.swift
 Ingreso/Ingreso.swift
