@@ -1,5 +1,25 @@
 # Estado
 
+## 26/11/2026: sugerencias prendidas; el interruptor, sólo con plan pago
+
+Pedido de Nahuel (26/11): «tienen que estar prendidas por defecto y que sólo se puedan sacar si tenés un plan pago».
+- **Planes de Tengo Libre:** no hay plan gratis. Al crear el negocio corre una prueba de 14 días (`negocios.prueba_hasta`,
+  rige Equipo); después, sin suscripción, el panel queda en sólo lectura (`Bloqueado`). Planes pagos: Inicial, Equipo y
+  Centro (Mercado Pago, App Store o Google Play; `suscripcion.Acceso.ConSuscripcion`, que incluye la gracia de un cobro
+  fallido). «Plan pago» = `ConSuscripcion`. La prueba no cuenta.
+- **Interruptor «Sugerencias» (Configuración):** `GET /v1/panel/ajustes/sugerencias` responde 404 sin plan pago (web, iOS y
+  Android ya esconden el renglón con 404) y `PUT` responde 403 `sugerencias_plan_pago`. En `Elegir`, `Apagadas` cuenta sólo
+  con `Pago`: si dejó de pagar con el interruptor apagado, las vuelve a ver (el valor queda guardado y vuelve a regir si
+  paga de nuevo).
+- **Para todos los planes:** «Ya la uso / No me interesa» (para siempre) y «Ocultar por 30 días» en la tarjeta. Es el
+  retiro gratuito del art. 27 de la Ley 25.326; no se saca. La política lo dice así.
+- **14 días de gracia:** queda. En TL coincide con la prueba, así que en la práctica la ve quien ya paga (o una prueba
+  extendida): primero que aprenda a usar la app y que no se sienta como un aviso en el arranque.
+- **Tests:** `TestInterruptorSoloConPlanPago` (gratis no apaga, pago sí, «No me interesa» anda sin plan) y filas nuevas en
+  `TestReglas`. Sin migración.
+- **Encendido:** `SUGERENCIAS_ACTIVAS=true` en `/opt/tengolibre/api.conf` desde el 26/11/2026.
+- **AAIP:** pendiente de Nahuel: sumar la finalidad «recomendación de otros servicios de Grupo Vimo» a la base (texto exacto en `~/Trabajo/vimo/legales/aaip/pendientes.md`).
+
 ## 25/11/2026: sugerencias de la casa, fase 1 (rama `sugerencias`, migración 00039; sin desplegar)
 
 Plan: `~/Trabajo/vimo/planes/promos-cruzadas-produccion-corregido.md`. Lámina: `docs/laminas/sugerencia.html` (+ `.png` y `capturas/`).

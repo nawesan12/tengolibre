@@ -24,8 +24,8 @@ const (
 	rutaGuardarAjuste = "PUT /v1/panel/ajustes/sugerencias"
 )
 
-// SinChequeo: cerrar una sugerencia y apagarlas andan aunque el panel esté en sólo lectura (es el
-// derecho a retiro: nunca se traba). Son rutas exactas (sesion.Servicio.SinChequeoDeEscrituraRutas):
+// SinChequeo: cerrar una sugerencia («Ya la uso / No me interesa», el retiro gratuito del art. 27) y
+// el interruptor andan aunque el panel esté en sólo lectura (el interruptor igual pide plan pago). Son rutas exactas (sesion.Servicio.SinChequeoDeEscrituraRutas):
 // el clic es una métrica y pasa por el chequeo normal, igual que cualquier ruta nueva.
 var SinChequeo = []string{rutaCerrar, rutaGuardarAjuste}
 
@@ -103,7 +103,7 @@ func Leer(ctx context.Context, tx pgx.Tx, rol string, ahora time.Time) (Datos, e
 		return d, err
 	}
 	a, err := suscripcion.LeerAcceso(ctx, tx, ahora)
-	d.Bloqueado = a.Bloqueado
+	d.Bloqueado, d.Pago = a.Bloqueado, a.ConSuscripcion
 	return d, err
 }
 
@@ -245,24 +245,45 @@ type Ajuste struct {
 	Activas bool `json:"activas"`
 }
 
-// leerAjuste: con SUGERENCIAS_ACTIVAS apagado, 404 (los clientes no dibujan el interruptor: no se
-// promete una tarjeta que no va a aparecer). Guardarlo se sigue aceptando: el retiro nunca se traba.
+// ProblemaSinPlanPago: el PUT del interruptor sin una suscripción que pague (403). Las sugerencias
+// vienen prendidas y sólo se apagan todas con un plan pago; cada una se saca gratis desde la tarjeta.
+func ProblemaSinPlanPago() *problema.Problema {
+	return &problema.Problema{Estado: http.StatusForbidden, Codigo: "sugerencias_plan_pago", Titulo: "Hace falta un plan pago",
+		Detalle: "Apagar todas las sugerencias viene con los planes pagos. Cada una la podés sacar desde la tarjeta, con «Ya la uso / No me interesa»."}
+}
+
+// ajusteDe: el interruptor guardado y si hay una suscripción que pague (en la transacción del negocio).
+func ajusteDe(ctx context.Context, tx pgx.Tx, ahora time.Time) (apagadas, pago bool, err error) {
+	if err = tx.QueryRow(ctx, "SELECT sugerencias_apagadas FROM negocios WHERE id = app.negocio_actual()").Scan(&apagadas); err != nil {
+		return
+	}
+	a, err := suscripcion.LeerAcceso(ctx, tx, ahora)
+	return apagadas, a.ConSuscripcion, err
+}
+
+// leerAjuste: 404 con SUGERENCIAS_ACTIVAS apagado o sin plan pago (los clientes no dibujan el
+// interruptor: no se promete una tarjeta que no va a aparecer, ni un ajuste que el plan no trae).
 func (s *Servicio) leerAjuste(w http.ResponseWriter, r *http.Request) error {
 	if !s.Activas {
 		return problema.NoEncontrado("Las sugerencias no están disponibles.")
 	}
 	ctx := r.Context()
-	var apagadas bool
-	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, "SELECT sugerencias_apagadas FROM negocios WHERE id = app.negocio_actual()").Scan(&apagadas)
+	var apagadas, pago bool
+	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) (err error) {
+		apagadas, pago, err = ajusteDe(ctx, tx, s.ahora())
+		return err
 	})
 	if err != nil {
 		return err
+	}
+	if !pago {
+		return problema.NoEncontrado("Apagar las sugerencias viene con los planes pagos.")
 	}
 	web.JSON(w, http.StatusOK, Ajuste{Activas: !apagadas})
 	return nil
 }
 
+// guardarAjuste: sólo con plan pago (403 si no). Con SUGERENCIAS_ACTIVAS apagado se sigue guardando.
 func (s *Servicio) guardarAjuste(w http.ResponseWriter, r *http.Request) error {
 	var in Ajuste
 	if err := web.Leer(w, r, &in); err != nil {
@@ -270,7 +291,14 @@ func (s *Servicio) guardarAjuste(w http.ResponseWriter, r *http.Request) error {
 	}
 	ctx := r.Context()
 	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, "UPDATE negocios SET sugerencias_apagadas = $1 WHERE id = app.negocio_actual()", !in.Activas)
+		_, pago, err := ajusteDe(ctx, tx, s.ahora())
+		if err != nil {
+			return err
+		}
+		if !pago {
+			return ProblemaSinPlanPago()
+		}
+		_, err = tx.Exec(ctx, "UPDATE negocios SET sugerencias_apagadas = $1 WHERE id = app.negocio_actual()", !in.Activas)
 		return err
 	})
 	if err != nil {

@@ -59,7 +59,8 @@
 	<p>
 		Además, dentro del panel y de la app te podemos recomendar otras apps de Grupo Vimo según el rubro y el uso de tu cuenta (cuánto hace
 		que la usás, si ya recibís turnos y el estado de tu suscripción). Esas apps no reciben datos tuyos: si tocás la recomendación, sólo saben que llegaste
-		desde ella. Las apagás en Configuración › Sugerencias, o desde la misma&nbsp;tarjeta.
+		desde ella. Cada una la sacás gratis y para siempre desde la misma tarjeta, con «Ya la uso / No me interesa» (o la ocultás por 30 días),
+		en cualquier plan. Con un plan pago, además, las podés apagar todas en Configuración ›&nbsp;Sugerencias.
 	</p>
 
 	<h2>Dónde están</h2>

@@ -38,7 +38,10 @@ func TestReglas(t *testing.T) {
 		{"alta sin terminar (falta un paso obligatorio)", func(d *Datos) { d.AltaCompleta = false }, false},
 		{"cuenta vacía (sin turnos)", func(d *Datos) { d.Turnos = 0 }, false},
 		{"prueba vencida sin plan", func(d *Datos) { d.Bloqueado = true }, false},
-		{"interruptor apagado", func(d *Datos) { d.Apagadas = true }, false},
+		{"interruptor apagado con plan pago", func(d *Datos) { d.Apagadas, d.Pago = true, true }, false},
+		// Sin plan pago el interruptor no existe: si lo había apagado (y dejó de pagar), las vuelve a ver.
+		{"interruptor apagado sin plan pago", func(d *Datos) { d.Apagadas = true }, true},
+		{"ya la usa, sin plan pago", func(d *Datos) { d.Cerradas["tulocalweb"] = ParaSiempre; d.Pago = false }, false},
 		{"cerrada por 30 días, día 29", func(d *Datos) { d.Cerradas["tulocalweb"] = ahora.AddDate(0, 0, 1) }, false},
 		{"cerrada por 30 días, ya pasó", func(d *Datos) { d.Cerradas["tulocalweb"] = ahora.AddDate(0, 0, -1) }, true},
 		{"ya la usa", func(d *Datos) { d.Cerradas["tulocalweb"] = ParaSiempre }, false},

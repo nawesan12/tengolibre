@@ -197,9 +197,10 @@ func TestSugerenciaDePuntaAPunta(t *testing.T) {
 		t.Error("con el panel bloqueado se ve")
 	}
 
-	// Cerrar y apagar no se traban (derecho a retiro); el clic es una métrica y sí pasa por el chequeo.
+	// «Ya la uso / No me interesa» no se traba (el retiro gratuito del art. 27); el interruptor pide
+	// plan pago (403) y el clic es una métrica que pasa por el chequeo.
 	a.Esperar(204, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/cerrar", Cuerpo: map[string]string{"hasta": "siempre"}, Quien: duena, Negocio: n}, nil)
-	a.Esperar(200, P{Metodo: "PUT", Ruta: "/v1/panel/ajustes/sugerencias", Cuerpo: map[string]bool{"activas": false}, Quien: duena, Negocio: n}, &aj)
+	a.Esperar(403, P{Metodo: "PUT", Ruta: "/v1/panel/ajustes/sugerencias", Cuerpo: map[string]bool{"activas": false}, Quien: duena, Negocio: n}, nil)
 	a.Esperar(402, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/clic", Quien: duena, Negocio: n}, nil)
 
 	// Borrar la cuenta (única dueña): el negocio se cierra y sus sugerencias cerradas se van.
@@ -207,6 +208,44 @@ func TestSugerenciaDePuntaAPunta(t *testing.T) {
 	a.Esperar(204, P{Metodo: "DELETE", Ruta: "/v1/auth/cuenta", Quien: duena}, nil)
 	if c := entero(t, a, "SELECT count(*) FROM sugerencias_cerradas WHERE negocio_id = $1", n); c != 0 {
 		t.Errorf("quedaron %d sugerencias cerradas", c)
+	}
+}
+
+// El interruptor es de los planes pagos; «Ya la uso / No me interesa» y «Ocultar por 30 días», de todos.
+func TestInterruptorSoloConPlanPago(t *testing.T) {
+	a := armar(t, true)
+	n := negocioListo(t, a, "unias-prueba")
+	// Con plan pago la apaga.
+	var aj sugerencias.Ajuste
+	a.Esperar(200, P{Metodo: "PUT", Ruta: "/v1/panel/ajustes/sugerencias", Cuerpo: map[string]bool{"activas": false}, Quien: duena, Negocio: n}, &aj)
+	if ver(t, a, duena, n) != nil {
+		t.Fatal("con plan pago y el interruptor apagado se ve")
+	}
+	// Deja de pagar y sigue en prueba (extendida): el interruptor no está y las vuelve a ver.
+	a.Fila("UPDATE suscripciones SET estado = 'cancelada', cancelada_en = now() WHERE negocio_id = $1", []any{n})
+	a.Fila("UPDATE negocios SET prueba_hasta = now() + interval '5 days' WHERE id = $1", []any{n})
+	if ver(t, a, duena, n) == nil {
+		t.Fatal("sin plan pago, con el interruptor apagado de antes, no la ve")
+	}
+	a.Esperar(404, P{Metodo: "GET", Ruta: "/v1/panel/ajustes/sugerencias", Quien: duena, Negocio: n}, nil)
+	var pr struct {
+		Codigo string `json:"code"`
+	}
+	a.Esperar(403, P{Metodo: "PUT", Ruta: "/v1/panel/ajustes/sugerencias", Cuerpo: map[string]bool{"activas": false}, Quien: duena, Negocio: n}, &pr)
+	if pr.Codigo != "sugerencias_plan_pago" {
+		t.Errorf("código del 403: %q", pr.Codigo)
+	}
+	// «Ocultar por 30 días» y «Ya la uso / No me interesa» andan sin plan pago.
+	a.Esperar(204, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/cerrar", Cuerpo: map[string]string{"hasta": "30d"}, Quien: duena, Negocio: n}, nil)
+	if ver(t, a, duena, n) != nil {
+		t.Fatal("oculta por 30 días, se ve")
+	}
+	a.Fila("DELETE FROM sugerencias_cerradas WHERE negocio_id = $1", []any{n})
+	a.Esperar(204, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/cerrar", Cuerpo: map[string]string{"hasta": "siempre"}, Quien: duena, Negocio: n}, nil)
+	a.Ahora = a.Ahora.AddDate(2, 0, 0)
+	a.Fila("UPDATE negocios SET prueba_hasta = $2 WHERE id = $1", []any{n, a.Ahora.AddDate(0, 0, 5)})
+	if ver(t, a, duena, n) != nil {
+		t.Error("«No me interesa» sin plan pago volvió")
 	}
 }
 

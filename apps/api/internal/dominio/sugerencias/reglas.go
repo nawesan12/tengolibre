@@ -44,15 +44,19 @@ type Datos struct {
 	Turnos int
 	// Bloqueado: la prueba terminó sin suscripción (el Inicio le pide elegir un plan).
 	Bloqueado bool
-	// Apagadas: el interruptor «Sugerencias» de Ajustes.
+	// Apagadas: el interruptor «Sugerencias» de Configuración. Sólo vale con Pago: sin una suscripción
+	// que pague, el interruptor no existe y las sugerencias se ven aunque lo haya apagado antes (pedido de
+	// Nahuel, 26/11/2026). El retiro gratuito del art. 27 es «Ya la uso / No me interesa» en la tarjeta.
 	Apagadas bool
+	// Pago: hay una suscripción vigente (Inicial, Equipo o Centro). La prueba de 14 días no cuenta.
+	Pago bool
 	// Cerradas: hasta cuándo está cerrada cada marca.
 	Cerradas map[string]time.Time
 }
 
 // Elegir devuelve la sugerencia que le toca ver, o nil.
 func Elegir(d Datos, ahora time.Time) *Sugerencia {
-	if !slices.Contains(sesion.Gestion, d.Rol) || d.Apagadas || d.Bloqueado || d.Rubro == "" {
+	if !slices.Contains(sesion.Gestion, d.Rol) || (d.Apagadas && d.Pago) || d.Bloqueado || d.Rubro == "" {
 		return nil
 	}
 	if ahora.Sub(d.CreadoEn) < DiasDeGracia*24*time.Hour || !d.AltaCompleta || d.Turnos == 0 {
