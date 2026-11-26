@@ -30,7 +30,9 @@ struct TarjetaSugerencia: View {
     private struct Cierre: Encodable { var hasta: String }
 
     var body: some View {
-        Group {
+        // Un VStack y no un Group: los modificadores de un Group van a cada hijo, y sin sugerencia no hay
+        // ninguno, así que el .task no corría nunca y la tarjeta no llegaba a pedirse.
+        VStack(spacing: 0) {
             if let s = sugerencia, !cerrada, !fallo, recorridoVisto, !estado.soloLectura,
                let destino = URL(string: s.url), let foto = URL(string: s.imagen) {
                 tarjeta(s, destino: destino, foto: foto)
