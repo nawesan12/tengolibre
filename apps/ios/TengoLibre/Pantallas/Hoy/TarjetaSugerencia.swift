@@ -16,7 +16,7 @@ struct Sugerencia: Decodable, Equatable {
 
 /// Al final de Hoy, sólo para la dueña o la encargada: la foto de la otra app, el sello «De Grupo Vimo»,
 /// el título y el link (se abre en el navegador de la app). La cruz abre «Ocultar por 30 días» o «Ya la
-/// uso / No me interesa». Mientras carga, con error o si la imagen no baja, no se dibuja nada. La misma
+/// uso / No me interesa», con un aviso que permite deshacerlo. Mientras carga, con error o si la imagen no baja, no se dibuja nada. La misma
 /// pieza que TarjetaSugerencia.svelte (web) y TarjetaSugerencia.kt; lámina en docs/laminas/sugerencia.html.
 struct TarjetaSugerencia: View {
     @Environment(Estado.self) private var estado
@@ -128,9 +128,22 @@ struct TarjetaSugerencia: View {
         Task { try? await estado.api.hacer("POST", "/v1/panel/sugerencia/\(s.id)/clic") }
     }
 
+    /// Se va en el acto y sale el aviso con «Deshacer» (que la trae de vuelta), anunciado a VoiceOver.
     private func cerrar(_ s: Sugerencia, hasta: String) {
         Haptico.suave()
         withAnimation(Movimiento.entrar) { cerrada = true }
-        Task { try? await estado.api.hacer("POST", "/v1/panel/sugerencia/\(s.id)/cerrar", Cierre(hasta: hasta)) }
+        let titulo = hasta == "30d" ? "La ocultamos por 30 días" : "Listo, no la vas a ver más"
+        Task {
+            try? await estado.api.hacer("POST", "/v1/panel/sugerencia/\(s.id)/cerrar", Cierre(hasta: hasta))
+            estado.avisar(Toast(simbolo: "checkmark", titulo: titulo, accion: "Deshacer")) {
+                do {
+                    try await estado.api.hacer("DELETE", "/v1/panel/sugerencia/\(s.id)/cerrar")
+                    withAnimation(Movimiento.entrar) { cerrada = false }
+                } catch {
+                    estado.avisar(error)
+                }
+            }
+            AccessibilityNotification.Announcement(titulo).post()
+        }
     }
 }

@@ -165,6 +165,13 @@ func TestSugerenciaDePuntaAPunta(t *testing.T) {
 	if ver(t, a, duena, n) != nil {
 		t.Error("«Ya la uso» volvió")
 	}
+	// «Deshacer»: vuelve en el acto (la profesional no puede).
+	a.Esperar(403, P{Metodo: "DELETE", Ruta: "/v1/panel/sugerencia/tl-tlw/cerrar", Quien: empleada, Negocio: n}, nil)
+	a.Esperar(404, P{Metodo: "DELETE", Ruta: "/v1/panel/sugerencia/otramas/cerrar", Quien: duena, Negocio: n}, nil)
+	a.Esperar(204, P{Metodo: "DELETE", Ruta: "/v1/panel/sugerencia/tl-tlw/cerrar", Quien: duena, Negocio: n}, nil)
+	if ver(t, a, duena, n) == nil {
+		t.Error("deshecho el cierre, no vuelve")
+	}
 	a.Ahora = inicio
 	a.Fila("DELETE FROM sugerencias_cerradas WHERE negocio_id = $1", []any{n})
 

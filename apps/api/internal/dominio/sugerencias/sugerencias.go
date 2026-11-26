@@ -64,6 +64,7 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	g := func(h web.Manejador) http.HandlerFunc { return s.Sesion.Panel(sesion.Gestion, web.Envolver(h)) }
 	mux.HandleFunc("GET /v1/panel/sugerencia", s.Sesion.Panel(sesion.Agenda, web.Envolver(s.leer)))
 	mux.HandleFunc(rutaCerrar, g(s.cerrar))
+	mux.HandleFunc("DELETE /v1/panel/sugerencia/{id}/cerrar", g(s.deshacerCierre))
 	mux.HandleFunc("POST /v1/panel/sugerencia/{id}/clic", g(s.clic))
 	mux.HandleFunc("POST /v1/panel/sugerencia/{id}/vista", g(s.vista))
 	mux.HandleFunc("GET /v1/panel/ajustes/sugerencias", g(s.leerAjuste))
@@ -185,6 +186,25 @@ func (s *Servicio) cerrar(w http.ResponseWriter, r *http.Request) error {
 			VALUES (app.negocio_actual(), $1, $2, $3)
 			ON CONFLICT (negocio_id, marca) DO UPDATE SET hasta = greatest(sugerencias_cerradas.hasta, excluded.hasta), creada_en = excluded.creada_en`,
 			sug.Marca, hasta, s.ahora())
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+// deshacerCierre: el «Deshacer» del aviso que sale al ocultarla. Borra el cierre de esa marca (si
+// no había, no pasa nada). Prender el interruptor no lo hace: pisaría una elección explícita.
+func (s *Servicio) deshacerCierre(w http.ResponseWriter, r *http.Request) error {
+	sug, ok := DelCatalogo(r.PathValue("id"))
+	if !ok {
+		return problema.NoEncontrado("Esa sugerencia no existe.")
+	}
+	ctx := r.Context()
+	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, "DELETE FROM sugerencias_cerradas WHERE negocio_id = app.negocio_actual() AND marca = $1", sug.Marca)
 		return err
 	})
 	if err != nil {

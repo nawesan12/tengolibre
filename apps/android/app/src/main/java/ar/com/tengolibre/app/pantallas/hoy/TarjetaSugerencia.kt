@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
@@ -57,13 +58,14 @@ data class Sugerencia(
 @Serializable private data class CierreSugerencia(val hasta: String)
 
 /** Al final de Hoy, sólo para la dueña o la encargada: la foto de la otra app, el sello «De Grupo Vimo», el título y
- *  el link (se abre en una Custom Tab). La cruz abre «Ocultar por 30 días» o «Ya la uso / No me interesa». Mientras
+ *  el link (se abre en una Custom Tab). La cruz abre «Ocultar por 30 días» o «Ya la uso / No me interesa» (con «Deshacer»). Mientras
  *  carga, con error o si la imagen no baja, no se dibuja nada. La misma pieza que TarjetaSugerencia.svelte (web) y
  *  TarjetaSugerencia.swift; lámina en docs/laminas/sugerencia.html. */
 @Composable
 fun TarjetaSugerencia() {
     val estado = LocalEstado.current
     val alcance = rememberCoroutineScope()
+    val vista = LocalView.current
     var sugerencia by remember { mutableStateOf<Sugerencia?>(null) }
     var cerrada by remember { mutableStateOf(false) }
     var fallo by remember { mutableStateOf(false) }
@@ -130,8 +132,8 @@ fun TarjetaSugerencia() {
             Box(Modifier.align(Alignment.TopEnd)) {
                 MenuBoton(
                     listOf(
-                        OpcionDeMenu("Ocultar por 30 días", "clock") { cerrar(estado, alcance, x, "30d") { cerrada = true } },
-                        OpcionDeMenu("Ya la uso / No me interesa", "minus.circle") { cerrar(estado, alcance, x, "siempre") { cerrada = true } },
+                        OpcionDeMenu("Ocultar por 30 días", "clock") { cerrar(estado, alcance, vista, x, "30d") { cerrada = !it } },
+                        OpcionDeMenu("Ya la uso / No me interesa", "minus.circle") { cerrar(estado, alcance, vista, x, "siempre") { cerrada = !it } },
                     ),
                     "Ocultar sugerencia",
                 ) {
@@ -142,9 +144,22 @@ fun TarjetaSugerencia() {
     }
 }
 
-/** Se va en el acto y el cierre viaja después (si falla, no se avisa: la tarjeta ya se fue). */
-private fun cerrar(estado: ar.com.tengolibre.app.app.Estado, alcance: kotlinx.coroutines.CoroutineScope, s: Sugerencia, hasta: String, ocultar: () -> Unit) {
+/** Se va en el acto y sale el aviso con «Deshacer» (que la trae de vuelta), anunciado a TalkBack. */
+private fun cerrar(
+    estado: ar.com.tengolibre.app.app.Estado, alcance: kotlinx.coroutines.CoroutineScope, vista: android.view.View, s: Sugerencia, hasta: String,
+    mostrar: (Boolean) -> Unit,
+) {
     Haptico.suave()
-    ocultar()
-    alcance.launch { try { estado.api.hacer("POST", "/v1/panel/sugerencia/${s.id}/cerrar", CierreSugerencia(hasta)) } catch (e: Exception) {} }
+    mostrar(false)
+    val titulo = if (hasta == "30d") "La ocultamos por 30 días" else "Listo, no la vas a ver más"
+    alcance.launch {
+        try { estado.api.hacer("POST", "/v1/panel/sugerencia/${s.id}/cerrar", CierreSugerencia(hasta)) } catch (e: CancellationException) { throw e } catch (e: Exception) {}
+        estado.avisar(Toast("checkmark", titulo, accion = "Deshacer")) {
+            try {
+                estado.api.hacer("DELETE", "/v1/panel/sugerencia/${s.id}/cerrar")
+                mostrar(true)
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { estado.avisar(e) }
+        }
+        @Suppress("DEPRECATION") vista.announceForAccessibility(titulo)
+    }
 }

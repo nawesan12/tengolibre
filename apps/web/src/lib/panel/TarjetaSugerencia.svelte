@@ -20,7 +20,9 @@
 	let cruz = $state<HTMLButtonElement>();
 	let lista = $state<HTMLElement>();
 	let aviso = $state<HTMLElement>();
+	let cuerpo = $state<HTMLAnchorElement>();
 	let hecho = $state('');
+	let hechoFallo = $state(false);
 
 	// Sin palabra sola en el último renglón (con texto grande puede partirse).
 	const pegar = (s: string) => s.replace(/ (\S+)$/, ' $1');
@@ -56,8 +58,23 @@
 		cerrada = true;
 		avisar({ id: sugerencia.id, negocio, que: 'cerrar', hasta });
 		// El nodo con el foco se va: el foco pasa al aviso (fuera del {#if}), que además se anuncia.
-		hecho = hasta === '30d' ? 'Ocultamos la sugerencia por 30 días.' : 'No te la vamos a mostrar más.';
+		hecho = hasta === '30d' ? 'La ocultamos por 30 días.' : 'Listo, no la vas a ver más.';
 		tick().then(() => aviso?.focus());
+	}
+
+	// «Deshacer» (como el aviso de las apps): borra el cierre y la tarjeta vuelve, con el foco en su link.
+	async function deshacer() {
+		const r = await avisar({ id: sugerencia.id, negocio, que: 'deshacer' });
+		if (!r?.ok) {
+			hecho = 'No pudimos deshacerlo. Probá de nuevo.';
+			hechoFallo = true;
+			return;
+		}
+		hecho = '';
+		hechoFallo = false;
+		cerrada = false;
+		await tick();
+		cuerpo?.focus();
 	}
 
 	function items() {
@@ -111,7 +128,7 @@
 
 {#if !cerrada && !fallo}
 	<section class="sug" aria-label="Sugerencia de Grupo Vimo" bind:this={raiz} onfocusout={focoAfuera}>
-		<a class="cuerpo" href={sugerencia.url} target="_blank" rel="noopener" onclick={() => avisar({ id: sugerencia.id, negocio, que: 'clic' })}>
+		<a class="cuerpo" bind:this={cuerpo} href={sugerencia.url} target="_blank" rel="noopener" onclick={() => avisar({ id: sugerencia.id, negocio, que: 'clic' })}>
 			<picture class="foto" style:background-color={sugerencia.color}>
 				<source media="(min-width: 768px)" srcset={sugerencia.banner} />
 				<img bind:this={img} src={sugerencia.imagen} alt="" width="72" height="72" loading="lazy" decoding="async" onload={contarVista} onerror={() => (fallo = true)} />
@@ -144,8 +161,11 @@
 		{/if}
 	</section>
 {/if}
-<!-- Siempre montado: anuncia el cierre y recibe el foco cuando la tarjeta se va. -->
-<p class="visualmente-oculto" role="status" tabindex="-1" bind:this={aviso}>{hecho}</p>
+<!-- Siempre montado: anuncia el cierre y recibe el foco cuando la tarjeta se va; con «Deshacer». -->
+<div class="hecho" class:visualmente-oculto={!hecho}>
+	<p role="status" tabindex="-1" class:fallo={hechoFallo} bind:this={aviso}>{#if hecho}<Icono nombre={hechoFallo ? 'error' : 'check_circle'} lleno tam={18} />{/if}{hecho}</p>
+	{#if hecho}<button type="button" onclick={deshacer}>Deshacer</button>{/if}
+</div>
 
 <style>
 	.sug {
@@ -281,6 +301,50 @@
 	}
 	.menu :global(.icono) {
 		color: var(--tl-sub);
+	}
+	.hecho {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		min-height: 48px;
+		padding: 0 4px 0 12px;
+		border: 1px solid var(--tl-linea);
+		border-radius: 18px;
+		color: var(--tl-sub);
+		font-size: 14px;
+	}
+	.hecho p {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin: 0;
+	}
+	.hecho p:focus {
+		outline: none;
+	}
+	.hecho p :global(.icono) {
+		color: var(--tl-menta-texto);
+	}
+	.hecho p.fallo :global(.icono) {
+		color: #a3241a;
+	}
+	.hecho button {
+		min-height: 44px;
+		padding: 0 12px;
+		border: 0;
+		border-radius: 14px;
+		background: transparent;
+		color: var(--tl-menta-texto);
+		font: 700 14px var(--tl-font);
+		cursor: pointer;
+	}
+	.hecho button:hover {
+		text-decoration: underline;
+	}
+	.hecho button:focus-visible {
+		outline: 2px solid var(--tl-menta-texto);
+		outline-offset: -2px;
 	}
 	@media (min-width: 768px) {
 		.foto {
