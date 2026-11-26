@@ -34,6 +34,7 @@ import ar.com.tengolibre.app.pantallas.principal.LocalRecorridoVisto
 import ar.com.tengolibre.app.tema.*
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
@@ -153,7 +154,20 @@ private fun cerrar(
     mostrar(false)
     val titulo = if (hasta == "30d") "La ocultamos por 30 días" else "Listo, no la vas a ver más"
     alcance.launch {
-        try { estado.api.hacer("POST", "/v1/panel/sugerencia/${s.id}/cerrar", CierreSugerencia(hasta)) } catch (e: CancellationException) { throw e } catch (e: Exception) {}
+        // Un reintento al segundo; si tampoco se guardó, vuelve y se avisa: el retiro no se pierde en silencio.
+        val ruta = "/v1/panel/sugerencia/${s.id}/cerrar"
+        val guardado = try {
+            try { estado.api.hacer("POST", ruta, CierreSugerencia(hasta)) } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                delay(1000)
+                estado.api.hacer("POST", ruta, CierreSugerencia(hasta))
+            }
+            true
+        } catch (e: CancellationException) { throw e } catch (e: Exception) { false }
+        if (!guardado) {
+            mostrar(true)
+            estado.avisar(Toast("exclamationmark", "No pudimos ocultarla", "Probá de nuevo en un rato.", error = true))
+            return@launch
+        }
         estado.avisar(Toast("checkmark", titulo, accion = "Deshacer")) {
             try {
                 estado.api.hacer("DELETE", "/v1/panel/sugerencia/${s.id}/cerrar")

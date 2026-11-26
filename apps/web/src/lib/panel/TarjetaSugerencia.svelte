@@ -8,7 +8,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import Icono from '#lib/ui/Icono.svelte';
-	import { avisar, type Sugerencia } from './sugerencia.ts';
+	import { avisar, cerrarConReintento, type Sugerencia } from './sugerencia.ts';
 
 	let { sugerencia, negocio }: { sugerencia: Sugerencia; negocio: string } = $props();
 
@@ -56,10 +56,20 @@
 	function cerrar(hasta: '30d' | 'siempre') {
 		menu = false;
 		cerrada = true;
-		avisar({ id: sugerencia.id, negocio, que: 'cerrar', hasta });
+		hechoFallo = false;
 		// El nodo con el foco se va: el foco pasa al aviso (fuera del {#if}), que además se anuncia.
 		hecho = hasta === '30d' ? 'La ocultamos por 30 días.' : 'Listo, no la vas a ver más.';
 		tick().then(() => aviso?.focus());
+		// Si no se guardó (ni al reintentar), vuelve y se avisa: el retiro no se pierde en silencio.
+		cerrarConReintento({ id: sugerencia.id, negocio, hasta }).then(async (ok) => {
+			if (ok) return;
+			hecho = '';
+			cerrada = false;
+			await tick();
+			hecho = 'No pudimos ocultarla. Probá de nuevo.';
+			hechoFallo = true;
+			cruz?.focus();
+		});
 	}
 
 	// «Deshacer» (como el aviso de las apps): borra el cierre y la tarjeta vuelve, con el foco en su link.
@@ -164,7 +174,7 @@
 <!-- Siempre montado: anuncia el cierre y recibe el foco cuando la tarjeta se va; con «Deshacer». -->
 <div class="hecho" class:visualmente-oculto={!hecho}>
 	<p role="status" tabindex="-1" class:fallo={hechoFallo} bind:this={aviso}>{#if hecho}<Icono nombre={hechoFallo ? 'error' : 'check_circle'} lleno tam={18} />{/if}{hecho}</p>
-	{#if hecho}<button type="button" onclick={deshacer}>Deshacer</button>{/if}
+	{#if hecho && cerrada}<button type="button" onclick={deshacer}>Deshacer</button>{/if}
 </div>
 
 <style>

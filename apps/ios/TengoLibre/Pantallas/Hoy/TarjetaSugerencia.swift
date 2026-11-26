@@ -116,6 +116,17 @@ struct TarjetaSugerencia: View {
         }
     }
 
+    /// Un reintento al segundo si el primero falla (corte de red, la API reiniciándose).
+    private func guardarCierre(_ s: Sugerencia, _ hasta: String) async throws {
+        let ruta = "/v1/panel/sugerencia/\(s.id)/cerrar"
+        do {
+            try await estado.api.hacer("POST", ruta, Cierre(hasta: hasta))
+        } catch {
+            try await Task.sleep(for: .seconds(1))
+            try await estado.api.hacer("POST", ruta, Cierre(hasta: hasta))
+        }
+    }
+
     private func contarVista(_ s: Sugerencia) {
         guard vistaDe != s.id else { return }
         vistaDe = s.id
@@ -134,7 +145,14 @@ struct TarjetaSugerencia: View {
         withAnimation(Movimiento.entrar) { cerrada = true }
         let titulo = hasta == "30d" ? "La ocultamos por 30 días" : "Listo, no la vas a ver más"
         Task {
-            try? await estado.api.hacer("POST", "/v1/panel/sugerencia/\(s.id)/cerrar", Cierre(hasta: hasta))
+            // Si no se guardó (ni al reintentar), vuelve y se avisa: el retiro no se pierde en silencio.
+            do {
+                try await guardarCierre(s, hasta)
+            } catch {
+                withAnimation(Movimiento.entrar) { cerrada = false }
+                estado.avisar(Toast(simbolo: "exclamationmark", titulo: "No pudimos ocultarla", texto: "Probá de nuevo en un rato.", error: true))
+                return
+            }
             estado.avisar(Toast(simbolo: "checkmark", titulo: titulo, accion: "Deshacer")) {
                 do {
                     try await estado.api.hacer("DELETE", "/v1/panel/sugerencia/\(s.id)/cerrar")
