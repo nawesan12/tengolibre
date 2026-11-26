@@ -62,10 +62,10 @@ struct TarjetaSugerencia: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(s.sello).font(Tipo.lato(11, .black, .caption)).tracking(11 * 0.08).textCase(.uppercase)
                             .foregroundStyle(C.sub).padding(.trailing, 36)
-                        Text(s.titulo).font(Tipo.lato(15, .bold)).foregroundStyle(C.tinta)
+                        Text(Formato.sinViudas(s.titulo)).font(Tipo.lato(15, .bold)).foregroundStyle(C.tinta)
                             .fixedSize(horizontal: false, vertical: true)
                         HStack(spacing: 2) {
-                            Text(s.cta)
+                            Text(Formato.sinViudas(s.cta))
                             Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .bold))
                         }
                         .font(Tipo.lato(14, .bold)).foregroundStyle(C.mentaTexto)
