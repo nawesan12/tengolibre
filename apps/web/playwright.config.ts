@@ -34,7 +34,9 @@ export default defineConfig({
 				TENGOLIBRE_DIRECCION: `:${PA}`,
 				TENGOLIBRE_ENTORNO: 'desarrollo',
 				TENGOLIBRE_SITIO: WEB,
-				TENGOLIBRE_ADMINS: 'user_e2eadmin00000001'
+				TENGOLIBRE_ADMINS: 'user_e2eadmin00000001',
+				// La sugerencia de la casa sólo aparece en cuentas de más de 14 días: las demás pruebas no la ven.
+				SUGERENCIAS_ACTIVAS: 'true'
 			},
 			reuseExistingServer: !process.env.CI,
 			timeout: 180_000
