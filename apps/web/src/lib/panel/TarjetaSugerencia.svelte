@@ -72,7 +72,7 @@
 		{#if menu}
 			<div class="menu" role="menu" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && (menu = false)}>
 				<button type="button" role="menuitem" onclick={() => cerrar('30d')}><Icono nombre="schedule" tam={18} />Ocultar por 30&nbsp;días</button>
-				<button type="button" role="menuitem" onclick={() => cerrar('siempre')}><Icono nombre="block" tam={18} />Ya la uso / No me&nbsp;interesa</button>
+				<button type="button" role="menuitem" onclick={() => cerrar('siempre')}><Icono nombre="do_not_disturb_on" tam={18} />Ya la uso / No me&nbsp;interesa</button>
 			</div>
 		{/if}
 	</section>
@@ -181,7 +181,7 @@
 		right: 8px;
 		display: flex;
 		flex-direction: column;
-		min-width: 240px;
+		min-width: 260px;
 		padding: 4px 0;
 		border-radius: 14px;
 		background: var(--tl-papel);
@@ -192,12 +192,12 @@
 		display: flex;
 		align-items: center;
 		gap: 10px;
-		min-height: 44px;
+		min-height: 48px;
 		padding: 0 16px;
 		border: 0;
 		background: transparent;
 		color: var(--tl-tinta);
-		font: 400 15px var(--tl-font);
+		font: 400 16px var(--tl-font);
 		text-align: left;
 		cursor: pointer;
 	}
