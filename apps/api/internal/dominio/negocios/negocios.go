@@ -180,10 +180,13 @@ func (s *Servicio) crear(w http.ResponseWriter, r *http.Request) error {
 	var in struct {
 		Slug   string `json:"slug"`
 		Nombre string `json:"nombre"`
+		// Origen: los utm del link con el que llegó a /empezar (lo guarda la web en una cookie).
+		Origen *Origen `json:"origen"`
 	}
 	if err := web.Leer(w, r, &in); err != nil {
 		return err
 	}
+	origen := in.Origen.Limpio()
 	in.Slug, in.Nombre = strings.ToLower(strings.TrimSpace(in.Slug)), strings.TrimSpace(in.Nombre)
 	if err := ValidarSlug(in.Slug); err != nil {
 		return err
@@ -225,6 +228,11 @@ func (s *Servicio) crear(w http.ResponseWriter, r *http.Request) error {
 		if err := tx.QueryRow(ctx, "SELECT app.crear_negocio($1, $2, $3, $4, $5)", in.Slug, in.Nombre, clerkID, u.Email, persona).Scan(&n.ID); err != nil {
 			return err
 		}
+		if origen != nil {
+			if _, err := tx.Exec(ctx, "UPDATE negocios SET origen = $1 WHERE id = app.negocio_actual()", origen); err != nil {
+				return err
+			}
+		}
 		return leerNegocio(ctx, tx, &n)
 	})
 	if err != nil {
@@ -232,6 +240,39 @@ func (s *Servicio) crear(w http.ResponseWriter, r *http.Request) error {
 	}
 	web.JSON(w, http.StatusCreated, n)
 	return nil
+}
+
+// Origen de un alta: los utm del link (fuente, medio, campaña, contenido) y cuándo llegó.
+type Origen struct {
+	Fuente    string `json:"fuente,omitempty"`
+	Medio     string `json:"medio,omitempty"`
+	Campana   string `json:"campana,omitempty"`
+	Contenido string `json:"contenido,omitempty"`
+	Llego     string `json:"llego,omitempty"`
+}
+
+var reOrigen = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,40}$`)
+
+// Limpio deja sólo los valores válidos (lo que no sirve se descarta sin error: el alta no se traba por
+// un utm raro). Sin fuente, medio, campaña ni contenido: nil.
+func (o *Origen) Limpio() *Origen {
+	if o == nil {
+		return nil
+	}
+	v := func(s string) string {
+		if reOrigen.MatchString(s) {
+			return s
+		}
+		return ""
+	}
+	out := Origen{Fuente: v(o.Fuente), Medio: v(o.Medio), Campana: v(o.Campana), Contenido: v(o.Contenido)}
+	if out == (Origen{}) {
+		return nil
+	}
+	if t, err := time.Parse(time.RFC3339Nano, o.Llego); err == nil {
+		out.Llego = t.UTC().Format(time.RFC3339)
+	}
+	return &out
 }
 
 const columnasNegocio = "id::text, slug, nombre, descripcion, direccion, ciudad, telefono, whatsapp, instagram, logo, zona_horaria"

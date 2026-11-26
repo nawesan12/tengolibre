@@ -73,6 +73,16 @@ func (s *Servicio) borrar(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	// Lo que los negocios cerrados guardaban de las sugerencias de la casa se va ya (el resto, con la
+	// purga del negocio).
+	for _, n := range cerrados {
+		if err := s.Pool.EnNegocio(ctx, n, func(tx pgx.Tx) error {
+			_, err := tx.Exec(ctx, "DELETE FROM sugerencias_cerradas")
+			return err
+		}); err != nil {
+			s.log().Error("cuenta: no se borraron las sugerencias cerradas", "negocio", n, "error", err)
+		}
+	}
 	s.log().Info("cuenta borrada", "clerk", ses.ClerkID, "negocios_cerrados", len(cerrados))
 	w.WriteHeader(http.StatusNoContent)
 	return nil

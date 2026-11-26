@@ -66,6 +66,9 @@ type Config struct {
 	// cobran. Prendidas por defecto sólo en desarrollo (=0 las apaga); en producción, apagadas. La
 	// revisión de Apple compra en sandbox: para eso se prende un rato y se apaga cuando aprueban.
 	AppleSandbox, GooglePruebas bool
+	// SugerenciasActivas (SUGERENCIAS_ACTIVAS=true): las sugerencias de la casa en el Inicio del panel.
+	// Apagadas por defecto: se prenden el día del lanzamiento, sin compilar nada.
+	SugerenciasActivas bool
 	// Asistente con IA (Claude Haiku): la clave de Anthropic (ANTHROPIC_API_KEY; sin clave, el asistente
 	// contesta sólo con su intérprete), las respuestas con IA por negocio y mes (los planes no dicen
 	// nada: un cupo conservador) y por día, y la parte de Tengo Libre del presupuesto mensual de IA
@@ -140,6 +143,7 @@ func Leer() (Config, error) {
 	if c.IAPresupuestoUSD, err = strconv.ParseFloat(valor("TENGOLIBRE_IA_PRESUPUESTO_USD", "20"), 64); err != nil || c.IAPresupuestoUSD < 0 {
 		return c, fmt.Errorf("TENGOLIBRE_IA_PRESUPUESTO_USD: tiene que ser un número de dólares")
 	}
+	c.SugerenciasActivas, _ = strconv.ParseBool(os.Getenv("SUGERENCIAS_ACTIVAS"))
 	c.AppleSandbox = prendida("TENGOLIBRE_APPLE_SANDBOX", c.Entorno == "desarrollo")
 	c.GooglePruebas = prendida("TENGOLIBRE_GOOGLE_PRUEBAS", c.Entorno == "desarrollo")
 	switch c.Entorno {

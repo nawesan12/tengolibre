@@ -39,6 +39,7 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/recordatorios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/reportes"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/resenas"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/sugerencias"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/suscripcion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/turnos"
 	"github.com/nawesan12/tengolibre/apps/api/internal/integraciones/mercadopago"
@@ -103,6 +104,7 @@ func correr() error {
 	// Preguntarle al asistente no cambia nada: anda con el panel en sólo lectura (confirmar una
 	// propuesta sí pasa por el chequeo).
 	ses.SinChequeoDeEscritura = append(slices.Clone(suscripcion.SinChequeo), asistente.SinChequeo)
+	ses.SinChequeoDeEscritura = append(ses.SinChequeoDeEscritura, sugerencias.SinChequeo...)
 	// Sin clave de cifrado, los negocios no pueden conectar Mercado Pago (el resto anda).
 	cifra, err := cifrado.Nuevo(cfg.ClaveCifrado)
 	if err != nil {
@@ -182,6 +184,8 @@ func correr() error {
 				// El asistente de IA del negocio (MCP): opera la agenda con los mismos turnos.
 				mcpS,
 				asis,
+				// Sugerencias de la casa (otra app de Grupo Vimo), apagadas hasta SUGERENCIAS_ACTIVAS=true.
+				&sugerencias.Servicio{Pool: app, Sesion: ses, Activas: cfg.SugerenciasActivas, Sitio: cfg.Sitio},
 				&admin.Servicio{Pool: app, Sesion: ses, Admins: cfg.Admins, AdminsEmails: cfg.AdminsEmails},
 			}}),
 		ReadHeaderTimeout: 5 * time.Second,
