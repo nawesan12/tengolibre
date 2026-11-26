@@ -32,9 +32,18 @@
 		return i < 0 ? { inicio: '', fin: sugerencia.cta } : { inicio: sugerencia.cta.slice(0, i + 1), fin: sugerencia.cta.slice(i + 1) };
 	});
 
+	// La vista se cuenta una vez, cuando la foto bajó (la imagen es lazy: recién cerca de la pantalla).
+	let vista = '';
+	function contarVista() {
+		if (vista === sugerencia.id) return;
+		vista = sugerencia.id;
+		avisar({ id: sugerencia.id, negocio, que: 'vista' });
+	}
+
 	onMount(() => {
-		// Si la imagen falló antes de que la página se hidratara, onerror no llega.
+		// Si la imagen falló (o bajó) antes de que la página se hidratara, onerror/onload no llegan.
 		if (img?.complete && img.naturalWidth === 0) fallo = true;
+		else if (img?.complete) contarVista();
 		const fuera = (e: PointerEvent) => {
 			if (menu && raiz && !raiz.contains(e.target as Node)) menu = false;
 		};
@@ -105,7 +114,7 @@
 		<a class="cuerpo" href={sugerencia.url} target="_blank" rel="noopener" onclick={() => avisar({ id: sugerencia.id, negocio, que: 'clic' })}>
 			<picture class="foto" style:background-color={sugerencia.color}>
 				<source media="(min-width: 768px)" srcset={sugerencia.banner} />
-				<img bind:this={img} src={sugerencia.imagen} alt="" width="72" height="72" loading="lazy" decoding="async" onerror={() => (fallo = true)} />
+				<img bind:this={img} src={sugerencia.imagen} alt="" width="72" height="72" loading="lazy" decoding="async" onload={contarVista} onerror={() => (fallo = true)} />
 			</picture>
 			<span class="textos">
 				<span class="sello">{sugerencia.sello}</span>

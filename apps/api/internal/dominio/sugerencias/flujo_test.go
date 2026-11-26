@@ -88,9 +88,18 @@ func TestSugerenciaDePuntaAPunta(t *testing.T) {
 	if s.URL != "https://tulocalweb.com.ar/empezar?utm_source=tengolibre&utm_medium=sugerencia&utm_content=tl-tlw" {
 		t.Errorf("url: %s", s.URL)
 	}
-	if m := entero(t, a, "SELECT mostradas FROM sugerencias_metricas WHERE sugerencia_id = 'tl-tlw'"); m != 1 {
-		t.Errorf("mostradas = %d", m)
+	// Pedirla no cuenta (se repite con cada recarga): cuenta la vista, una por negocio y por día.
+	ver(t, a, duena, n)
+	if c := entero(t, a, "SELECT count(*) FROM sugerencias_metricas"); c != 0 {
+		t.Errorf("el GET contó %d", c)
 	}
+	for range 3 {
+		a.Esperar(204, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/vista", Quien: duena, Negocio: n}, nil)
+	}
+	if m := entero(t, a, "SELECT mostradas FROM sugerencias_metricas WHERE sugerencia_id = 'tl-tlw'"); m != 1 {
+		t.Errorf("mostradas = %d, tres vistas del mismo negocio el mismo día cuentan una", m)
+	}
+	a.Esperar(404, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/otramas/vista", Quien: duena, Negocio: n}, nil)
 
 	// La encargada también; la profesional (empleada) recibe null y no puede cerrarla.
 	a.Fila("INSERT INTO miembros (negocio_id, clerk_id, rol) VALUES ($1, $2, 'encargado'), ($1, $3, 'profesional')", []any{n, encargada, empleada})
@@ -109,9 +118,22 @@ func TestSugerenciaDePuntaAPunta(t *testing.T) {
 
 	// El clic suma en el contador agregado.
 	a.Esperar(204, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/clic", Quien: duena, Negocio: n}, nil)
+	a.Esperar(204, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/clic", Quien: duena, Negocio: n}, nil)
 	if c := entero(t, a, "SELECT clics FROM sugerencias_metricas WHERE sugerencia_id = 'tl-tlw'"); c != 1 {
-		t.Errorf("clics = %d", c)
+		t.Errorf("clics = %d, dos clics del mismo negocio el mismo día cuentan uno", c)
 	}
+	// La encargada es el mismo negocio: no suma otra vista. Otro día, sí.
+	a.Esperar(204, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/vista", Quien: encargada, Negocio: n}, nil)
+	if m := entero(t, a, "SELECT sum(mostradas) FROM sugerencias_metricas WHERE sugerencia_id = 'tl-tlw'"); m != 1 {
+		t.Errorf("mostradas = %d con la encargada", m)
+	}
+	hoy := a.Ahora
+	a.Ahora = hoy.AddDate(0, 0, 1)
+	a.Esperar(204, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/vista", Quien: duena, Negocio: n}, nil)
+	if m := entero(t, a, "SELECT sum(mostradas) FROM sugerencias_metricas WHERE sugerencia_id = 'tl-tlw'"); m != 2 {
+		t.Errorf("mostradas = %d al día siguiente", m)
+	}
+	a.Ahora = hoy
 	a.Esperar(404, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/otramas/clic", Quien: duena, Negocio: n}, nil)
 
 	// Ocultar por 30 días: no vuelve hasta pasados los 30.
@@ -221,6 +243,7 @@ func TestApagadasPorDefecto(t *testing.T) {
 	if ver(t, a, duena, n) != nil {
 		t.Error("con SUGERENCIAS_ACTIVAS=false se ve")
 	}
+	a.Esperar(204, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/vista", Quien: duena, Negocio: n}, nil)
 	if c := entero(t, a, "SELECT count(*) FROM sugerencias_metricas"); c != 0 {
 		t.Errorf("contó %d", c)
 	}

@@ -11,8 +11,8 @@ export type Sugerencia = {
 	color: string;
 };
 
-/** Cerrar o contar el clic (por /panel/sugerencia). Si falla no se avisa nada: la tarjeta ya se fue. */
-export function avisar(cuerpo: { id: string; negocio: string; que: 'clic' } | { id: string; negocio: string; que: 'cerrar'; hasta: '30d' | 'siempre' }) {
+/** Cerrar, contar la vista (la tarjeta quedó dibujada con su foto) o el clic (por /panel/sugerencia). Si falla no se avisa nada: la tarjeta ya se fue. */
+export function avisar(cuerpo: { id: string; negocio: string; que: 'clic' | 'vista' } | { id: string; negocio: string; que: 'cerrar'; hasta: '30d' | 'siempre' }) {
 	return fetch('/panel/sugerencia', {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },

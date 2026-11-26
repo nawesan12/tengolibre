@@ -25,6 +25,9 @@ struct TarjetaSugerencia: View {
     @State private var cerrada = false
     @State private var fallo = false
     @State private var negocioCargado: String?
+    /// La vista se cuenta una vez por tarjeta, cuando la foto quedó dibujada (la API además cuenta una
+    /// por negocio y por día: pedirla con cada cambio de estado.version no infla nada).
+    @State private var vistaDe: String?
 
     private struct Respuesta: Decodable { var sugerencia: Sugerencia? }
     private struct Cierre: Encodable { var hasta: String }
@@ -47,7 +50,7 @@ struct TarjetaSugerencia: View {
                 HStack(spacing: 12) {
                     AsyncImage(url: foto) { fase in
                         switch fase {
-                        case .success(let i): i.resizable().scaledToFill()
+                        case .success(let i): i.resizable().scaledToFill().onAppear { contarVista(s) }
                         case .failure: Color.clear.onAppear { fallo = true }
                         default: Color(hexTexto: s.color ?? "") ?? C.chip
                         }
@@ -104,6 +107,12 @@ struct TarjetaSugerencia: View {
         } catch {
             sugerencia = nil
         }
+    }
+
+    private func contarVista(_ s: Sugerencia) {
+        guard vistaDe != s.id else { return }
+        vistaDe = s.id
+        Task { try? await estado.api.hacer("POST", "/v1/panel/sugerencia/\(s.id)/vista") }
     }
 
     private func abrir(_ s: Sugerencia, _ destino: URL) {

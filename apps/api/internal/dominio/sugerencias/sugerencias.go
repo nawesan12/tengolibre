@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -41,6 +42,13 @@ type Servicio struct {
 	Activas bool
 	Sitio   string
 	Ahora   func() time.Time
+
+	// contados: qué negocio ya sumó hoy una vista o un clic de cada sugerencia. Vive sólo en memoria
+	// (la métrica sigue sin negocio ni persona) y se vacía al cambiar el día: cada negocio cuenta a lo
+	// sumo una vista y un clic por sugerencia y por día, por más que recargue o repita el pedido.
+	mu        sync.Mutex
+	diaConteo string
+	contados  map[string]struct{}
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -57,6 +65,7 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/panel/sugerencia", s.Sesion.Panel(sesion.Agenda, web.Envolver(s.leer)))
 	mux.HandleFunc(rutaCerrar, g(s.cerrar))
 	mux.HandleFunc("POST /v1/panel/sugerencia/{id}/clic", g(s.clic))
+	mux.HandleFunc("POST /v1/panel/sugerencia/{id}/vista", g(s.vista))
 	mux.HandleFunc("GET /v1/panel/ajustes/sugerencias", g(s.leerAjuste))
 	mux.HandleFunc(rutaGuardarAjuste, g(s.guardarAjuste))
 }
@@ -114,24 +123,40 @@ func (s *Servicio) leer(w http.ResponseWriter, r *http.Request) error {
 		if out = Elegir(d, ahora); out != nil {
 			base := strings.TrimSuffix(s.Sitio, "/")
 			out.Imagen, out.Banner = base+out.Imagen, base+out.Banner
-			s.contar(ctx, out.ID, ahora, "mostradas")
 		}
 	}
 	web.JSON(w, http.StatusOK, map[string]any{"sugerencia": out})
 	return nil
 }
 
-// contar suma uno al contador del día (agregado, sin negocio ni persona). Si falla, no importa.
-func (s *Servicio) contar(ctx context.Context, id string, ahora time.Time, columna string) {
+// contar suma uno al contador del día (agregado, sin negocio ni persona), una sola vez por negocio,
+// sugerencia y día. Si falla, no importa.
+func (s *Servicio) contar(ctx context.Context, negocio, id string, ahora time.Time, columna string) {
 	if columna != "mostradas" && columna != "clics" {
 		return
 	}
 	dia := ahora.In(zona).Format(time.DateOnly)
+	if !s.primeraVez(dia, negocio+"|"+id+"|"+columna) {
+		return
+	}
 	_ = s.Pool.EnTx(ctx, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `INSERT INTO sugerencias_metricas (dia, sugerencia_id, `+columna+`) VALUES ($1, $2, 1)
 			ON CONFLICT (dia, sugerencia_id) DO UPDATE SET `+columna+` = sugerencias_metricas.`+columna+` + 1`, dia, id)
 		return err
 	})
+}
+
+func (s *Servicio) primeraVez(dia, clave string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.diaConteo != dia || s.contados == nil {
+		s.diaConteo, s.contados = dia, map[string]struct{}{}
+	}
+	if _, ya := s.contados[clave]; ya {
+		return false
+	}
+	s.contados[clave] = struct{}{}
+	return true
 }
 
 func (s *Servicio) cerrar(w http.ResponseWriter, r *http.Request) error {
@@ -174,7 +199,23 @@ func (s *Servicio) clic(w http.ResponseWriter, r *http.Request) error {
 	if !ok {
 		return problema.NoEncontrado("Esa sugerencia no existe.")
 	}
-	s.contar(r.Context(), sug.ID, s.ahora(), "clics")
+	ctx := r.Context()
+	s.contar(ctx, sesion.De(ctx).NegocioID, sug.ID, s.ahora(), "clics")
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+// vista: la tarjeta quedó dibujada con su foto (no alcanza con pedirla: el GET no cuenta nada, porque
+// se repite con cada recarga y puede no dibujarse). Con el servicio apagado no cuenta.
+func (s *Servicio) vista(w http.ResponseWriter, r *http.Request) error {
+	sug, ok := DelCatalogo(r.PathValue("id"))
+	if !ok {
+		return problema.NoEncontrado("Esa sugerencia no existe.")
+	}
+	if s.Activas {
+		ctx := r.Context()
+		s.contar(ctx, sesion.De(ctx).NegocioID, sug.ID, s.ahora(), "mostradas")
+	}
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }

@@ -70,6 +70,9 @@ fun TarjetaSugerencia() {
     var cerrada by remember { mutableStateOf(false) }
     var fallo by remember { mutableStateOf(false) }
     var negocioCargado by remember { mutableStateOf<String?>(null) }
+    // La vista se cuenta una vez por tarjeta, cuando la foto quedó dibujada (la API además cuenta una por negocio y por
+    // día: pedirla con cada cambio de estado.version no infla nada).
+    var vistaDe by remember { mutableStateOf<String?>(null) }
 
     suspend fun cargar() {
         val negocio = estado.negocio?.id
@@ -106,7 +109,13 @@ fun TarjetaSugerencia() {
             ) {
                 Box(Modifier.size(72.dp).clip(RoundedCornerShape(14.dp)).background(x.color?.let { hexTexto(it) } ?: C.chip)) {
                     AsyncImage(x.imagen, null, Modifier.size(72.dp), contentScale = ContentScale.Crop, alignment = Alignment.BottomCenter,
-                        onError = { fallo = true })
+                        onError = { fallo = true },
+                        onSuccess = {
+                            if (vistaDe != x.id) {
+                                vistaDe = x.id
+                                alcance.launch { try { estado.api.hacer("POST", "/v1/panel/sugerencia/${x.id}/vista") } catch (e: Exception) {} }
+                            }
+                        })
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Texto(x.sello.uppercase(), Tipo.lato(11f, Peso.Black), C.sub, Modifier.padding(end = 36.dp), lineas = 1, tracking = (11 * 0.08).sp)
