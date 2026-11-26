@@ -63,6 +63,9 @@
 	/* Escritorio */
 	.esc { --tarjeta: #fffdf9; --tinta: #0f2328; --sub: #4a5d61; --linea: #ece3d1; --menta-texto: #17805a; width: 820px; padding: 24px; border-radius: 18px; background: #faf6ee; }
 	.esc .sug .foto { width: 144px; }
+	h2.sub { margin: 40px 0 4px; font-size: 20px; font-weight: 900; letter-spacing: -0.01em; }
+	.cap { display: block; width: 375px; height: auto; border-radius: 28px; box-shadow: 0 0 0 1px #d9cfbb; }
+	.cap.cap-recorte { border-radius: 20px; }
 	.notas { margin-top: 32px; max-width: 900px; font-size: 14px; line-height: 1.5; color: #33474b; }
 	.notas b { color: #0f2328; }
 	.notas ul { padding-left: 18px; }
@@ -123,7 +126,7 @@
 		</div>
 
 		<div class="marco">
-			<p>Más › Configuración · claro y oscuro</p>
+			<p>iPhone y Android · Más › Configuración</p>
 			<div class="tel" style="gap:8px">
 				<span class="bloque-rot">SUGERENCIAS</span>
 				<div class="renglon"><span class="t"><b>Sugerencias de Grupo Vimo</b></span><span class="switch"></span></div>
@@ -149,6 +152,24 @@
 					<div class="cruz"><span class="ico">close</span></div>
 				</div>
 			</div>
+		</div>
+	</div>
+
+	<h2 class="sub">Web a 375 px · tal como quedó construida</h2>
+	<p class="bajada">Capturas reales del panel web (la web es sólo clara: su paleta oscura va en una tanda aparte, para todo el panel). Misma tarjeta, mismo menú y el mismo texto de ayuda que en las apps; en la web el interruptor es el chip «SÍ / NO» de todos los ajustes del panel, no el switch de iOS.</p>
+	<div class="fila">
+		<div class="marco">
+			<p>Web · el final del Inicio</p>
+			<img class="cap" src="capturas/web-375-final-inicio.png" alt="El final del Inicio web a 375 px, con la sugerencia debajo de «Huecos de hoy» y encima de la barra" />
+		</div>
+		<div class="marco">
+			<p>Web · la cruz abre el menú hacia arriba</p>
+			<img class="cap" src="capturas/web-375-menu.png" alt="El menú de la cruz en la web: «Ocultar por 30 días» y «Ya la uso / No me interesa»" />
+		</div>
+		<div class="marco">
+			<p>Web · Configuración › Sugerencias</p>
+			<img class="cap cap-recorte" src="capturas/web-375-ajustes.png" alt="El bloque Sugerencias de la Configuración web con el chip «SÍ»" />
+			<p class="pie" style="margin-top:12px; text-transform:none; letter-spacing:0; font-weight:400">El chip dice «SÍ» o «NO» y se guarda con «Guardar sugerencias», como los demás bloques de la Configuración web.</p>
 		</div>
 	</div>
 
