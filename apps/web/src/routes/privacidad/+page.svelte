@@ -42,7 +42,7 @@
 		<li><b>Avisos</b>: si los activás, el identificador para mandar notificaciones a tu teléfono o navegador.</li>
 		<li>
 			<b>De dónde llegaste</b>: si creás el negocio desde un link con datos de campaña (un anuncio o la sugerencia de otra app de Grupo
-			Vimo), guardamos en el negocio la fuente, la campaña y el día, para saber qué campañas funcionan. Hasta que lo creás, eso queda en una
+			Vimo), guardamos en el negocio la fuente, la campaña y el día, para saber qué campañas funcionan. Hasta que lo creés, eso queda en una
 			cookie de tu navegador («tl-origen») por 90 días como máximo, y se borra apenas el negocio&nbsp;existe.
 		</li>
 		<li>
