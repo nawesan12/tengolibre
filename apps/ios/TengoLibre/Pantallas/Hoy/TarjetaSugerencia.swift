@@ -28,6 +28,9 @@ struct TarjetaSugerencia: View {
     /// La vista se cuenta una vez por tarjeta, cuando la foto quedó dibujada (la API además cuenta una
     /// por negocio y por día: pedirla con cada cambio de estado.version no infla nada).
     @State private var vistaDe: String?
+    // Los íconos crecen con el texto (Dynamic Type), como en Android con sp.
+    @ScaledMetric(relativeTo: .body) private var tamCruz: CGFloat = 14
+    @ScaledMetric(relativeTo: .body) private var tamFlecha: CGFloat = 12
 
     private struct Respuesta: Decodable { var sugerencia: Sugerencia? }
     private struct Cierre: Encodable { var hasta: String }
@@ -66,7 +69,7 @@ struct TarjetaSugerencia: View {
                             .fixedSize(horizontal: false, vertical: true)
                         HStack(spacing: 2) {
                             Text(Formato.sinViudas(s.cta))
-                            Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .bold))
+                            Image(systemName: "arrow.up.right").font(.system(size: tamFlecha, weight: .bold))
                         }
                         .font(Tipo.lato(14, .bold)).foregroundStyle(C.mentaTexto)
                     }
@@ -88,8 +91,8 @@ struct TarjetaSugerencia: View {
                 Button { cerrar(s, hasta: "30d") } label: { Label("Ocultar por 30 días", systemImage: "clock") }
                 Button { cerrar(s, hasta: "siempre") } label: { Label("Ya la uso / No me interesa", systemImage: "minus.circle") }
             } label: {
-                Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(C.sub)
-                    .frame(width: 44, height: 44).contentShape(Rectangle())
+                Image(systemName: "xmark").font(.system(size: tamCruz, weight: .bold)).foregroundStyle(C.sub)
+                    .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
             }
             .accessibilityLabel("Ocultar sugerencia")
         }
