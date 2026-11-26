@@ -8,6 +8,7 @@ export const RESERVADOS = new Set([
 	'admin', 'api', 'explorar', 'iniciar-sesion', 'invitacion', 'mi-cuenta', 'mis-turnos', 'panel', 'presentacion',
 	'recuperar-contrasena', 'registrarse', 'review', 'resena', 'sin-conexion', 'turno', 'ingresar', 'precios', 'ayuda',
 	'legal', 'terminos', 'privacidad', 'www', 'cal', 'espera', 'conectar', 'empezar', 'salir', 'fotos', 'logos', 'marca', 'og',
+	'arrepentimiento', 'sugerencias',
 	// Marca y pagos (como negocios.Reservados en la API).
 	'soporte', 'tengolibre', 'tengo-libre', 'oficial', 'grupovimo', 'grupo-vimo', 'mercadopago', 'mercado-pago', 'pagos', 'pago',
 	'seguridad', 'contacto'

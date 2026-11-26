@@ -139,13 +139,15 @@ func (s *Servicio) misTurnos(w http.ResponseWriter, r *http.Request) error {
 var reSlug = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,46}[a-z0-9])?$`)
 
 // Reservados: la página de un negocio vive en la raíz (/{slug}) y comparte espacio con las rutas
-// del sitio (reserved-slugs.ts de Jiku).
+// del sitio (reserved-slugs.ts de Jiku). Toda carpeta nueva de apps/web/src/routes va acá y en
+// RESERVADOS de la web (lo prueba alta.spec.ts).
 var Reservados = map[string]bool{
 	"admin": true, "api": true, "explorar": true, "iniciar-sesion": true, "invitacion": true, "mi-cuenta": true,
 	"mis-turnos": true, "panel": true, "presentacion": true, "recuperar-contrasena": true, "registrarse": true,
 	"review": true, "resena": true, "sin-conexion": true, "turno": true, "ingresar": true, "precios": true,
 	"ayuda": true, "legal": true, "terminos": true, "privacidad": true, "www": true, "cal": true,
 	"espera": true, "conectar": true, "empezar": true, "salir": true, "fotos": true, "logos": true, "marca": true, "og": true,
+	"arrepentimiento": true, "sugerencias": true,
 	// Marca y pagos: nadie se hace pasar por el soporte o por la plataforma.
 	"soporte": true, "tengolibre": true, "tengo-libre": true, "oficial": true, "grupovimo": true, "grupo-vimo": true,
 	"mercadopago": true, "mercado-pago": true, "pagos": true, "pago": true, "seguridad": true, "contacto": true,

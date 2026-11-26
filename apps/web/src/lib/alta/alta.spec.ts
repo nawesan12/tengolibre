@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { aSlug, alternativas, estadoCampo, formatoValido, RESERVADOS } from './slug.ts';
 import { franjas, horasSemana, leerHorario, proximosFeriados, segmentosDia } from './agenda.ts';
@@ -79,5 +79,16 @@ describe('RESERVADOS', () => {
 		const api = [...bloque.matchAll(/"([a-z0-9-]+)":\s*true/g)].map((m) => m[1]).sort();
 		expect(api.length).toBeGreaterThan(10);
 		expect([...RESERVADOS].sort()).toEqual(api);
+	});
+
+	// Cada ruta del sitio en la raíz (/explorar, /sugerencias…) está reservada: si no, un negocio con esa
+	// dirección pierde su página y sus clientes no pueden reservar.
+	it('incluye todas las rutas de la raíz del sitio', () => {
+		const raiz = new URL('../../routes/', import.meta.url);
+		const rutas = readdirSync(raiz, { withFileTypes: true })
+			.filter((d) => d.isDirectory() && formatoValido(d.name))
+			.map((d) => d.name);
+		expect(rutas.length).toBeGreaterThan(10);
+		expect(rutas.filter((r) => !RESERVADOS.has(r))).toEqual([]);
 	});
 });
