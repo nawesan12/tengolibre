@@ -4,7 +4,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/miweb"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/sesion"
 )
 
@@ -22,10 +21,15 @@ type Regla struct {
 	Rubros     []string
 }
 
-// Reglas, en orden de prioridad (se muestra la primera que aplica). Tengo Libre → Tu Local Web: con
-// cualquier rubro cargado (todos venden algo además del servicio: productos de pelo, cremas, etc.).
+// RubrosTLW: los rubros que venden algo además del servicio (productos de pelo, cremas, suplementos,
+// etc.). Lista explícita de miweb.Rubros sin «salud»: a un consultorio no se le ofrece «Vendé tus
+// productos online» (decisión del 26/11/2026). Un rubro nuevo en miweb no entra solo.
+var RubrosTLW = []string{"barberia", "peluqueria", "estetica", "unias", "cejas-pestanias", "maquillaje",
+	"depilacion", "masajes", "spa", "tatuajes", "entrenamiento", "otro"}
+
+// Reglas, en orden de prioridad (se muestra la primera que aplica).
 var Reglas = []Regla{
-	{Sugerencia: "tl-tlw", Rubros: miweb.Rubros},
+	{Sugerencia: "tl-tlw", Rubros: RubrosTLW},
 }
 
 // Datos del negocio y de quien mira que deciden si se muestra algo.

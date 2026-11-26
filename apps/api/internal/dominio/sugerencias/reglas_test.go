@@ -27,6 +27,8 @@ func TestReglas(t *testing.T) {
 		{"dueña con rubro", func(d *Datos) {}, true},
 		{"encargada", func(d *Datos) { d.Rol = "encargado" }, true},
 		{"rubro otro", func(d *Datos) { d.Rubro = "otro" }, true},
+		{"rubro entrenamiento (gimnasio)", func(d *Datos) { d.Rubro = "entrenamiento" }, true},
+		{"rubro salud (consultorio)", func(d *Datos) { d.Rubro = "salud" }, false},
 		{"sin rubro", func(d *Datos) { d.Rubro = "" }, false},
 		{"rubro desconocido", func(d *Datos) { d.Rubro = "gastronomia" }, false},
 		{"profesional (empleada)", func(d *Datos) { d.Rol = "profesional" }, false},
@@ -57,13 +59,21 @@ func TestReglas(t *testing.T) {
 	}
 }
 
-// Todos los rubros del directorio la activan.
+// Todos los rubros del directorio la activan, menos «salud». Y la lista de la regla sólo tiene rubros
+// que existen.
 func TestTodosLosRubros(t *testing.T) {
+	sinTLW := []string{"salud"}
 	for _, r := range miweb.Rubros {
 		d := base()
 		d.Rubro = r
-		if Elegir(d, ahora) == nil {
-			t.Errorf("el rubro %q no ve la sugerencia", r)
+		ve := Elegir(d, ahora) != nil
+		if quiere := !slices.Contains(sinTLW, r); ve != quiere {
+			t.Errorf("el rubro %q: ve=%v, quería %v", r, ve, quiere)
+		}
+	}
+	for _, r := range RubrosTLW {
+		if !slices.Contains(miweb.Rubros, r) {
+			t.Errorf("RubrosTLW tiene %q, que no es un rubro de miweb", r)
 		}
 	}
 }

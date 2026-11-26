@@ -2,7 +2,7 @@
 	import Legal from '#lib/legal/Legal.svelte';
 </script>
 
-<Legal titulo="Política de privacidad" actualizado="25 de noviembre de 2026">
+<Legal titulo="Política de privacidad" actualizado="26 de noviembre de 2026">
 	<p>
 		Tengo Libre es un sistema de turnos online para negocios de servicios. Acá contamos qué datos guardamos, para qué, dónde están y qué
 		podés hacer con&nbsp;ellos.
