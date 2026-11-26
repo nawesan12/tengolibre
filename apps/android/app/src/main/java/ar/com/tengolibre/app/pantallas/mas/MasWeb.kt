@@ -712,7 +712,7 @@ fun Configuracion() {
                 listOf(@Composable { GuardarEnBloque { guardarMensual() } })).toTypedArray())
         }
         sug?.let { x ->
-            Bloque("Sugerencias", "Otras apps de Grupo Vimo según tu rubro, al final de Hoy. No sale ningún dato tuyo.",
+            Bloque("Sugerencias", "Otras apps de Grupo Vimo según tu rubro, al final de Hoy. No les pasamos tus datos.",
                 { RenglonInterruptor("Sugerencias de Grupo Vimo", x.activas, { v -> sug = Sugerencias(v); alcance.launch { guardarSugerencias(v) } }) })
         }
         IrA("message", "WhatsApp", DestinoMas.whatsapp)

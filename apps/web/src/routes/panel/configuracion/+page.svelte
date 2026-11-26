@@ -267,7 +267,7 @@
 					<form method="POST" action="?/sugerencias" use:enhance={sinReset} onchange={guardar}>
 						<Ajuste
 							etiqueta="Sugerencias de Grupo Vimo"
-							ayuda="Otras apps de Grupo Vimo según tu rubro, al final del Inicio. No sale ningún dato&nbsp;tuyo"
+							ayuda="Otras apps de Grupo Vimo según tu rubro, al final del Inicio. No les pasamos tus&nbsp;datos."
 							nombre="activas"
 							valor={data.sugerencias.activas}
 							sino

@@ -666,7 +666,7 @@ struct Configuracion: View {
                     }
                 }
                 if sug != nil {
-                    Bloque(titulo: "Sugerencias", pie: "Otras apps de Grupo Vimo según tu rubro, al final de Hoy. No sale ningún dato tuyo.") {
+                    Bloque(titulo: "Sugerencias", pie: "Otras apps de Grupo Vimo según tu rubro, al final de Hoy. No les pasamos tus datos.") {
                         RenglonInterruptor(titulo: "Sugerencias de Grupo Vimo", activo: Binding(get: { sug?.activas ?? true }, set: { v in
                             sug = Sugerencias(activas: v)
                             Task { await guardarSugerencias(v) }
