@@ -17,9 +17,16 @@ import (
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/web"
 )
 
+// Rutas de las sugerencias (las mismas en Rutas y en SinChequeo).
+const (
+	rutaCerrar        = "POST /v1/panel/sugerencia/{id}/cerrar"
+	rutaGuardarAjuste = "PUT /v1/panel/ajustes/sugerencias"
+)
+
 // SinChequeo: cerrar una sugerencia y apagarlas andan aunque el panel esté en sólo lectura (es el
-// derecho a retiro: nunca se traba).
-var SinChequeo = []string{"/v1/panel/sugerencia", "/v1/panel/ajustes/sugerencias"}
+// derecho a retiro: nunca se traba). Son rutas exactas (sesion.Servicio.SinChequeoDeEscrituraRutas):
+// el clic es una métrica y pasa por el chequeo normal, igual que cualquier ruta nueva.
+var SinChequeo = []string{rutaCerrar, rutaGuardarAjuste}
 
 // ParaSiempre: el «hasta» de «Ya la uso / No me interesa».
 var ParaSiempre = time.Date(9999, 12, 31, 0, 0, 0, 0, time.UTC)
@@ -48,10 +55,10 @@ func (s *Servicio) ahora() time.Time {
 func (s *Servicio) Rutas(mux *http.ServeMux) {
 	g := func(h web.Manejador) http.HandlerFunc { return s.Sesion.Panel(sesion.Gestion, web.Envolver(h)) }
 	mux.HandleFunc("GET /v1/panel/sugerencia", s.Sesion.Panel(sesion.Agenda, web.Envolver(s.leer)))
-	mux.HandleFunc("POST /v1/panel/sugerencia/{id}/cerrar", g(s.cerrar))
+	mux.HandleFunc(rutaCerrar, g(s.cerrar))
 	mux.HandleFunc("POST /v1/panel/sugerencia/{id}/clic", g(s.clic))
 	mux.HandleFunc("GET /v1/panel/ajustes/sugerencias", g(s.leerAjuste))
-	mux.HandleFunc("PUT /v1/panel/ajustes/sugerencias", g(s.guardarAjuste))
+	mux.HandleFunc(rutaGuardarAjuste, g(s.guardarAjuste))
 }
 
 // Leer arma los datos del negocio fijado en tx para las reglas.

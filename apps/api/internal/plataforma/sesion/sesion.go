@@ -78,10 +78,16 @@ type Servicio struct {
 	// SinChequeoDeEscritura: prefijos de ruta que escriben igual con el panel bloqueado (suscribirse,
 	// desconectar Mercado Pago, devolver plata a un cliente).
 	SinChequeoDeEscritura []string
+	// SinChequeoDeEscrituraRutas: rutas exactas (el patrón del mux, «POST /v1/panel/x/{id}/y») que
+	// escriben igual con el panel bloqueado. Para excepciones puntuales, sin abrir un prefijo entero.
+	SinChequeoDeEscrituraRutas []string
 }
 
 func (s *Servicio) chequeaEscritura(r *http.Request) bool {
 	if s.Escritura == nil || r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return false
+	}
+	if r.Pattern != "" && slices.Contains(s.SinChequeoDeEscrituraRutas, r.Pattern) {
 		return false
 	}
 	for _, p := range s.SinChequeoDeEscritura {

@@ -104,7 +104,7 @@ func correr() error {
 	// Preguntarle al asistente no cambia nada: anda con el panel en sólo lectura (confirmar una
 	// propuesta sí pasa por el chequeo).
 	ses.SinChequeoDeEscritura = append(slices.Clone(suscripcion.SinChequeo), asistente.SinChequeo)
-	ses.SinChequeoDeEscritura = append(ses.SinChequeoDeEscritura, sugerencias.SinChequeo...)
+	ses.SinChequeoDeEscrituraRutas = sugerencias.SinChequeo
 	// Sin clave de cifrado, los negocios no pueden conectar Mercado Pago (el resto anda).
 	cifra, err := cifrado.Nuevo(cfg.ClaveCifrado)
 	if err != nil {

@@ -1,12 +1,14 @@
 package sugerencias_test
 
 import (
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/cuenta"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/negocios"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/sugerencias"
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/suscripcion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db/pruebadb"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/prueba"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/servidor"
@@ -26,6 +28,11 @@ type respuesta struct {
 
 func armar(t *testing.T, activas bool) *prueba.API {
 	return prueba.Nueva(t, time.Now(), func(a *prueba.API) []servidor.Dominio {
+		// El chequeo de sólo lectura de verdad (como main.go), con las excepciones de las sugerencias.
+		sus := &suscripcion.Servicio{Pool: a.Bases.App, Sesion: a.Sesion, Ahora: a.Reloj()}
+		a.Sesion.Escritura = sus.Escritura
+		a.Sesion.SinChequeoDeEscritura = slices.Clone(suscripcion.SinChequeo)
+		a.Sesion.SinChequeoDeEscrituraRutas = sugerencias.SinChequeo
 		return []servidor.Dominio{a.Sesion, &negocios.Servicio{Pool: a.Bases.App, Sesion: a.Sesion},
 			&cuenta.Servicio{Pool: a.Bases.App, Sesion: a.Sesion},
 			&sugerencias.Servicio{Pool: a.Bases.App, Sesion: a.Sesion, Activas: activas, Sitio: "https://tengolibre.com.ar/", Ahora: a.Reloj()}}
@@ -155,8 +162,12 @@ func TestSugerenciaDePuntaAPunta(t *testing.T) {
 		t.Error("con el panel bloqueado se ve")
 	}
 
-	// Borrar la cuenta (única dueña): el negocio se cierra y sus sugerencias cerradas se van.
+	// Cerrar y apagar no se traban (derecho a retiro); el clic es una métrica y sí pasa por el chequeo.
 	a.Esperar(204, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/cerrar", Cuerpo: map[string]string{"hasta": "siempre"}, Quien: duena, Negocio: n}, nil)
+	a.Esperar(200, P{Metodo: "PUT", Ruta: "/v1/panel/ajustes/sugerencias", Cuerpo: map[string]bool{"activas": false}, Quien: duena, Negocio: n}, &aj)
+	a.Esperar(402, P{Metodo: "POST", Ruta: "/v1/panel/sugerencia/tl-tlw/clic", Quien: duena, Negocio: n}, nil)
+
+	// Borrar la cuenta (única dueña): el negocio se cierra y sus sugerencias cerradas se van.
 	a.Fila("DELETE FROM miembros WHERE negocio_id = $1 AND rol = 'encargado'", []any{n})
 	a.Esperar(204, P{Metodo: "DELETE", Ruta: "/v1/auth/cuenta", Quien: duena}, nil)
 	if c := entero(t, a, "SELECT count(*) FROM sugerencias_cerradas WHERE negocio_id = $1", n); c != 0 {
