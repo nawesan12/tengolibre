@@ -176,8 +176,9 @@
 	.menu {
 		position: absolute;
 		z-index: 5;
-		/* Debajo de la tarjeta (pisa sólo su borde): nunca corta el título ni el CTA. */
-		top: calc(100% - 8px);
+		/* Sobre la tarjeta, hacia arriba (pisa sólo su borde): no corta el título ni el CTA, y como la
+		   tarjeta es lo último del Inicio, abajo quedarían la barra y el botón «Nuevo turno». */
+		bottom: calc(100% - 8px);
 		right: 8px;
 		display: flex;
 		flex-direction: column;
