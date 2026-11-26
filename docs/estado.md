@@ -7,6 +7,7 @@ Plan: `~/Trabajo/vimo/planes/promos-cruzadas-produccion-corregido.md`. Lámina: 
 - **API:** `internal/dominio/sugerencias`. Expone `GET /v1/panel/sugerencia`, `POST …/{id}/cerrar` (30d|siempre), `POST …/{id}/clic` y `GET/PUT /v1/panel/ajustes/sugerencias`. Hay un contador `sugerencias_metricas` agregado. El alta guarda `negocios.origen` (utm).
 - **Encender:** `SUGERENCIAS_ACTIVAS=true` en `/opt/tengolibre/api.conf` y `up -d api`. Por defecto está apagado y GET responde siempre `null`.
 - **Imágenes:** `apps/web/src/lib/sugerencias/`, servidas por `/sugerencias/<archivo>` con caché de 30 días. No van en las apps.
+- **Modo oscuro:** la web (panel, Configuración, Privacidad, /empezar) es sólo clara (`color-scheme: light` en `app.css`); la tarjeta en oscuro de la lámina la cumplen sólo iOS y Android. La paleta oscura de la web (los valores de `PaletaOscura`: #0B181B, #14272C, #F4EEE2, #A7B6B5, #2A434A, #5FDCAA) va en una tanda aparte, para todo el panel y no sólo la tarjeta.
 - **Pendiente:** aprobar la lámina, el comité de revisión, compilar Android en GitHub y publicar la política (va en la web de esta rama) con el encendido.
 
 ## 19/11/2026: suscripciones nuevas cargadas en App Store Connect y Google Play
