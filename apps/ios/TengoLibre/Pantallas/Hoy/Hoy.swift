@@ -147,8 +147,6 @@ struct Hoy: View {
                 PlataHoy()
                 AtajosHoy()
                 DescubrirHoy()
-                // Al final, debajo de todo lo del negocio: otra app de la casa (dueña o encargada).
-                TarjetaSugerencia()
             } else {
                 paraAtender
                 PlataHoy()
@@ -158,9 +156,11 @@ struct Hoy: View {
                 proximosDias
                 BarraAvance()
                 DescubrirHoy()
-                TarjetaSugerencia()
                 TipView(ConsejoWidget()).tipBackground(C.tarjeta).tint(C.mentaTexto)
             }
+            // Siempre lo último, debajo de todo lo del negocio (también del consejo): otra app de la casa
+            // (dueña o encargada). Fuera del if: pasar de un día vacío a uno con turnos no la vuelve a montar.
+            TarjetaSugerencia()
         }
     }
 
