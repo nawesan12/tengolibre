@@ -2,7 +2,7 @@
 	import Legal from '#lib/legal/Legal.svelte';
 </script>
 
-<Legal titulo="Política de privacidad" actualizado="18 de noviembre de 2026">
+<Legal titulo="Política de privacidad" actualizado="25 de noviembre de 2026">
 	<p>
 		Tengo Libre es un sistema de turnos online para negocios de servicios. Acá contamos qué datos guardamos, para qué, dónde están y qué
 		podés hacer con&nbsp;ellos.
@@ -49,7 +49,11 @@
 	<h2>Para qué los usamos</h2>
 	<p>
 		Sólo para que el sistema funcione: tomar y gestionar reservas, mandar confirmaciones y recordatorios, cobrar señas y suscripciones,
-		mostrar reportes al negocio y mantener la seguridad. No vendemos datos ni los usamos para&nbsp;publicidad.
+		mostrar reportes al negocio y mantener la seguridad. No vendemos datos ni los usamos para publicidad de&nbsp;terceros.
+	</p>
+	<p>
+		Dentro del panel y de la app te podemos sugerir otras apps de Grupo Vimo según el rubro que cargaste. Para eso no sale ningún dato
+		tuyo de esta app. Las apagás en&nbsp;Ajustes.
 	</p>
 
 	<h2>Dónde están</h2>

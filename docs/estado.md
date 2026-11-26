@@ -1,5 +1,14 @@
 # Estado
 
+## 25/11/2026: sugerencias de la casa, fase 1 (rama `sugerencias`, migración 00039; sin desplegar)
+
+Plan: `~/Trabajo/vimo/planes/promos-cruzadas-produccion-corregido.md`. Lámina: `docs/laminas/sugerencia.html` (+ `.png` y `capturas/`).
+- **Qué hace:** Tengo Libre → Tu Local Web («Vendé tus productos online», sello «De Grupo Vimo»), al final de Hoy o del Inicio, sólo para la dueña o la encargada con rubro cargado. No se muestra con menos de 14 días, con el alta sin terminar, sin turnos, durante el recorrido, con la prueba vencida, con el interruptor apagado o cerrada. Destino: `tulocalweb.com.ar/empezar?utm_source=tengolibre&utm_medium=sugerencia&utm_content=tl-tlw`.
+- **API:** `internal/dominio/sugerencias`. Expone `GET /v1/panel/sugerencia`, `POST …/{id}/cerrar` (30d|siempre), `POST …/{id}/clic` y `GET/PUT /v1/panel/ajustes/sugerencias`. Hay un contador `sugerencias_metricas` agregado. El alta guarda `negocios.origen` (utm).
+- **Encender:** `SUGERENCIAS_ACTIVAS=true` en `/opt/tengolibre/api.conf` y `up -d api`. Por defecto está apagado y GET responde siempre `null`.
+- **Imágenes:** `apps/web/src/lib/sugerencias/`, servidas por `/sugerencias/<archivo>` con caché de 30 días. No van en las apps.
+- **Pendiente:** aprobar la lámina, el comité de revisión, compilar Android en GitHub y publicar la política (va en la web de esta rama) con el encendido.
+
 ## 19/11/2026: suscripciones nuevas cargadas en App Store Connect y Google Play
 
 Scripts (idempotentes): `~/Trabajo/vimo/credenciales-apple/tengolibre-scripts/asc_suscripciones.py tengolibre` y
