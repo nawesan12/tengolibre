@@ -224,6 +224,13 @@ func TestApagadasPorDefecto(t *testing.T) {
 	if c := entero(t, a, "SELECT count(*) FROM sugerencias_metricas"); c != 0 {
 		t.Errorf("contó %d", c)
 	}
+	// Configuración no muestra el interruptor (404), pero apagarlas igual se guarda.
+	a.Esperar(404, P{Metodo: "GET", Ruta: "/v1/panel/ajustes/sugerencias", Quien: duena, Negocio: n}, nil)
+	var aj sugerencias.Ajuste
+	a.Esperar(200, P{Metodo: "PUT", Ruta: "/v1/panel/ajustes/sugerencias", Cuerpo: map[string]bool{"activas": false}, Quien: duena, Negocio: n}, &aj)
+	if entero(t, a, "SELECT count(*) FROM negocios WHERE id = $1 AND sugerencias_apagadas", n) != 1 {
+		t.Error("apagadas no se guardó")
+	}
 }
 
 // El alta guarda el origen (utm) válido y descarta lo que no sirve.

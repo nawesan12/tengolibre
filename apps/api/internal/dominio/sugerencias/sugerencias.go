@@ -184,7 +184,12 @@ type Ajuste struct {
 	Activas bool `json:"activas"`
 }
 
+// leerAjuste: con SUGERENCIAS_ACTIVAS apagado, 404 (los clientes no dibujan el interruptor: no se
+// promete una tarjeta que no va a aparecer). Guardarlo se sigue aceptando: el retiro nunca se traba.
 func (s *Servicio) leerAjuste(w http.ResponseWriter, r *http.Request) error {
+	if !s.Activas {
+		return problema.NoEncontrado("Las sugerencias no están disponibles.")
+	}
 	ctx := r.Context()
 	var apagadas bool
 	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error {
