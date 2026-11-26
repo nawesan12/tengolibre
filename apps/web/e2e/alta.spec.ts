@@ -109,3 +109,22 @@ test('onboarding: los ocho pasos crean un negocio que se puede reservar', async 
 	await expect(page.getByRole('button', { name: /Color/ })).toHaveCount(0);
 	await expect(page.getByRole('link', { name: 'Lo completo después' })).toBeVisible();
 });
+
+test('el origen del link (utm) vive en una cookie hasta crear el negocio, y ahí se borra', async ({ page }) => {
+	const u = unico();
+	await entrar(page, `user_e2e${u}`, '/empezar?utm_source=tulocalweb&utm_medium=sugerencia&utm_content=tlw-tl');
+	const origen = async () => (await page.context().cookies()).find((c) => c.name === 'tl-origen');
+	expect((await origen())?.httpOnly).toBe(true);
+
+	await page.getByRole('button', { name: 'Barbería' }).click();
+	await page.getByLabel('Nombre del negocio').fill(`Barbería ${u}`);
+	await expect(page.getByText('Está libre. Es tuya.')).toBeVisible();
+	await page.getByRole('button', { name: 'Seguir' }).click();
+	await expect(page.getByRole('heading', { name: 'Te dejamos estos servicios' })).toBeVisible();
+	// Otro negocio del mismo navegador (la PC del local) no hereda la atribución.
+	expect(await origen()).toBeUndefined();
+
+	// Con el negocio ya creado, otro link con utm no la vuelve a poner.
+	await page.goto('/empezar?utm_source=anuncio&paso=rubro');
+	expect(await origen()).toBeUndefined();
+});

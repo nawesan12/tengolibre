@@ -3,7 +3,7 @@ import type { Cookies } from '@sveltejs/kit';
 /**
  * De dónde viene quien crea su negocio: los utm del link con el que llegó a /empezar (una sugerencia
  * de otra app de Grupo Vimo, un anuncio, un QR). Va en una cookie de 90 días y se manda con el alta
- * (POST /v1/negocios), que lo guarda en el negocio. Lo mismo que lib/server/origen.ts de Tu Local Web,
+ * (POST /v1/negocios), que lo guarda en el negocio; ahí se borra. Lo mismo que lib/server/origen.ts de Tu Local Web,
  * sin ref ni cupón (Tengo Libre no tiene partners).
  */
 export const COOKIE_ORIGEN = 'tl-origen';
@@ -28,6 +28,11 @@ export function origenDe(url: URL, ahora = new Date()): Origen | null {
 
 export function guardarOrigen(cookies: Cookies, o: Origen) {
 	cookies.set(COOKIE_ORIGEN, JSON.stringify(o), { path: '/', httpOnly: true, sameSite: 'lax', maxAge: 90 * 86_400 });
+}
+
+/** Ya se guardó en el negocio: que no se lo herede otro alta del mismo navegador (la PC del local). */
+export function borrarOrigen(cookies: Cookies) {
+	cookies.delete(COOKIE_ORIGEN, { path: '/' });
 }
 
 /** El origen guardado (sólo los campos conocidos y válidos), o null. */
