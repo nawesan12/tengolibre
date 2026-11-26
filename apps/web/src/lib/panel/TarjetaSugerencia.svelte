@@ -111,6 +111,7 @@
 				<span class="sello">{sugerencia.sello}</span>
 				<b class="titulo">{pegar(sugerencia.titulo)}</b>
 				<span class="cta">{cta.inicio}<span class="fin">{cta.fin}<Icono nombre="arrow_outward" tam={16} /></span></span>
+				<span class="visualmente-oculto">(se abre en otra pestaña)</span>
 			</span>
 		</a>
 		<button
