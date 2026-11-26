@@ -8,7 +8,8 @@ Plan: `~/Trabajo/vimo/planes/promos-cruzadas-produccion-corregido.md`. Lámina: 
 - **Encender:** `SUGERENCIAS_ACTIVAS=true` en `/opt/tengolibre/api.conf` y `up -d api`. Por defecto está apagado y GET responde siempre `null`.
 - **Imágenes:** `apps/web/src/lib/sugerencias/`, servidas por `/sugerencias/<archivo>` con caché de 30 días. No van en las apps.
 - **Modo oscuro:** la web (panel, Configuración, Privacidad, /empezar) es sólo clara (`color-scheme: light` en `app.css`); la tarjeta en oscuro de la lámina la cumplen sólo iOS y Android. La paleta oscura de la web (los valores de `PaletaOscura`: #0B181B, #14272C, #F4EEE2, #A7B6B5, #2A434A, #5FDCAA) va en una tanda aparte, para todo el panel y no sólo la tarjeta.
-- **Pendiente:** aprobar la lámina, el comité de revisión, compilar Android en GitHub y publicar la política (va en la web de esta rama) con el encendido.
+- **Pendiente antes del merge:** que Nahuel apruebe `docs/laminas/sugerencia.png` (apps en claro y oscuro, banner de escritorio y, desde el comité, la web a 375 px con el chip «SÍ/NO» de Configuración). Las tres plataformas ya la copian: si cambia algo, se ajustan web, iOS y Android en la misma tanda. Al aprobarla, sacar este renglón y anotar la fecha.
+- **Pendiente antes de encender (`SUGERENCIAS_ACTIVAS=true`):** declarar ante la AAIP, en el expediente de la base de Tengo Libre, la finalidad de publicidad propia (recomendar otras apps de Grupo Vimo según rubro y uso, con derecho de retiro, art. 27 de la Ley 25.326) y corregir `legales/aaip/pendientes.md`, que hoy la encaja en la finalidad 1; lo mismo para Tu Local Web → Caigo. Es declaración jurada: la confirma Nahuel. Después, compilar Android en GitHub y publicar la política (va en la web de esta rama) con el encendido.
 
 ## 19/11/2026: suscripciones nuevas cargadas en App Store Connect y Google Play
 
