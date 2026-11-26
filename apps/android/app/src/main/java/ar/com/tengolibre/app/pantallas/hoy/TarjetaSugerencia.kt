@@ -24,10 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ar.com.tengolibre.app.app.LocalEstado
@@ -98,12 +96,14 @@ fun TarjetaSugerencia() {
         Box(Modifier.fillMaxWidth().clip(forma).background(C.tarjeta).border(1.dp, C.linea, forma)) {
             Row(
                 Modifier.fillMaxWidth()
-                    .clickable {
+                    .clickable(onClickLabel = "abrir en el navegador") {
                         Haptico.suave()
                         estado.abrirPestana(x.url)
                         alcance.launch { try { estado.api.hacer("POST", "/v1/panel/sugerencia/${x.id}/clic") } catch (e: Exception) {} }
                     }
-                    .clearAndSetSemantics { contentDescription = "${x.sello}. ${x.titulo}. ${x.cta}"; role = Role.Button }
+                    // Sin rol: TalkBack no tiene «enlace»; lee el texto y «doble toque para abrir en el navegador», como
+                    // VoiceOver con «enlace» y la pista «Se abre en el navegador».
+                    .clearAndSetSemantics { contentDescription = "${x.sello}. ${x.titulo}. ${x.cta}" }
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -118,8 +118,9 @@ fun TarjetaSugerencia() {
                         })
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Texto(x.sello.uppercase(), Tipo.lato(11f, Peso.Black), C.sub, Modifier.padding(end = 36.dp), lineas = 1, tracking = (11 * 0.08).sp)
-                    Texto(x.titulo, Tipo.lato(15f, Peso.Bold), C.tinta, lineas = 3)
+                    Texto(x.sello.uppercase(), Tipo.lato(11f, Peso.Black), C.sub, Modifier.padding(end = 36.dp), tracking = (11 * 0.08).sp)
+                    // Sin tope de renglones (como iOS): con letra grande crecen en vez de cortarse.
+                    Texto(x.titulo, Tipo.lato(15f, Peso.Bold), C.tinta)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                         Texto(x.cta, Tipo.lato(14f, Peso.Bold), C.mentaTexto)
                         Icono("arrow.up.right", 12f, C.mentaTexto)

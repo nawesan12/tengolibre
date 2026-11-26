@@ -36,8 +36,9 @@ struct TarjetaSugerencia: View {
         // Un VStack y no un Group: los modificadores de un Group van a cada hijo, y sin sugerencia no hay
         // ninguno, así que el .task no corría nunca y la tarjeta no llegaba a pedirse.
         VStack(spacing: 0) {
-            if let s = sugerencia, !cerrada, !fallo, recorridoVisto, !estado.soloLectura,
-               let destino = URL(string: s.url), let foto = URL(string: s.imagen) {
+            // El mismo filtro que Android: link https y foto.
+            if let s = sugerencia, !cerrada, !fallo, recorridoVisto, !estado.soloLectura, s.url.hasPrefix("https://"),
+               !s.imagen.isEmpty, let destino = URL(string: s.url), let foto = URL(string: s.imagen) {
                 tarjeta(s, destino: destino, foto: foto)
             }
         }
@@ -78,7 +79,10 @@ struct TarjetaSugerencia: View {
             .buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(s.sello). \(s.titulo). \(s.cta)")
+            // Abre el navegador: es un enlace, no un botón (Android lo lee con «abrir en el navegador»).
+            .accessibilityRemoveTraits(.isButton)
             .accessibilityAddTraits(.isLink)
+            .accessibilityHint("Se abre en el navegador.")
 
             Menu {
                 Button { cerrar(s, hasta: "30d") } label: { Label("Ocultar por 30 días", systemImage: "clock") }
