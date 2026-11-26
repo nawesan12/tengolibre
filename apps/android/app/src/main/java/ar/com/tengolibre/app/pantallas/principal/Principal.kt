@@ -146,6 +146,10 @@ class Navegacion {
 
 val LocalNavegacion = staticCompositionLocalOf<Navegacion> { error("Falta la Navegacion") }
 
+/** Si ya se vio el recorrido de la primera vez (@AppStorage("recorridoVisto") de iOS): observable, así lo que espera
+ *  a que termine (la sugerencia de Hoy) aparece en cuanto se cierra. Fuera de Principal, lo guardado. */
+val LocalRecorridoVisto = androidx.compose.runtime.compositionLocalOf { Preferencias.bool("recorridoVisto") }
+
 /** Las pantallas de cada pestaña y los destinos de las pilas. Las registra el resto de las pantallas a medida que
  *  se portan (en iOS: .destinos() en Mas.swift). */
 object Destinos {
@@ -175,7 +179,7 @@ fun Principal() {
     val pestanas = if (estado.esProfesional) listOf(Pestana.hoy, Pestana.agenda, Pestana.resenas, Pestana.mas)
         else listOf(Pestana.hoy, Pestana.agenda, Pestana.espera, Pestana.clientes, Pestana.mas)
 
-    androidx.compose.runtime.CompositionLocalProvider(LocalNavegacion provides nav) {
+    androidx.compose.runtime.CompositionLocalProvider(LocalNavegacion provides nav, LocalRecorridoVisto provides recorridoVisto) {
         Box(Modifier.fillMaxSize().background(C.fondo)) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f)) {

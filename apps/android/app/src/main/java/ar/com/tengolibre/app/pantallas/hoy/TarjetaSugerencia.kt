@@ -29,7 +29,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ar.com.tengolibre.app.app.LocalEstado
-import ar.com.tengolibre.app.nucleo.Preferencias
+import ar.com.tengolibre.app.pantallas.principal.LocalRecorridoVisto
 import ar.com.tengolibre.app.tema.*
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.CancellationException
@@ -88,7 +88,7 @@ fun TarjetaSugerencia() {
     LaunchedEffect(estado.version, estado.negocio?.id) { cargar() }
 
     val s = sugerencia
-    val visible = s != null && !cerrada && !fallo && Preferencias.bool("recorridoVisto") && !estado.soloLectura &&
+    val visible = s != null && !cerrada && !fallo && LocalRecorridoVisto.current && !estado.soloLectura &&
         s.url.startsWith("https://") && s.imagen.isNotEmpty()
     AnimatedVisibility(visible, enter = androidx.compose.animation.fadeIn(), exit = fadeOut()) {
         val x = s ?: return@AnimatedVisibility
