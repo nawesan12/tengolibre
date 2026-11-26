@@ -41,6 +41,11 @@
 		<li><b>Pagos</b>: las señas y suscripciones se cobran con Mercado Pago, la App Store o Google Play. No vemos ni guardamos los datos de tarjetas.</li>
 		<li><b>Avisos</b>: si los activás, el identificador para mandar notificaciones a tu teléfono o navegador.</li>
 		<li>
+			<b>De dónde llegaste</b>: si creás el negocio desde un link con datos de campaña (un anuncio o la sugerencia de otra app de Grupo
+			Vimo), guardamos en el negocio la fuente, la campaña y el día, para saber qué campañas funcionan. Hasta que lo creás, eso queda en una
+			cookie de tu navegador («tl-origen») por 90 días como máximo, y se borra apenas el negocio&nbsp;existe.
+		</li>
+		<li>
 			<b>El asistente del panel</b>: lo que el equipo le pregunta y las acciones que confirma (por ejemplo, mover un turno), con un
 			registro de cuánto se usó la IA en cada negocio.
 		</li>
