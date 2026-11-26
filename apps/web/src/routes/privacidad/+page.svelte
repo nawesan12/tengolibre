@@ -48,12 +48,13 @@
 
 	<h2>Para qué los usamos</h2>
 	<p>
-		Sólo para que el sistema funcione: tomar y gestionar reservas, mandar confirmaciones y recordatorios, cobrar señas y suscripciones,
+		Para que el sistema funcione: tomar y gestionar reservas, mandar confirmaciones y recordatorios, cobrar señas y suscripciones,
 		mostrar reportes al negocio y mantener la seguridad. No vendemos datos ni los usamos para publicidad de&nbsp;terceros.
 	</p>
 	<p>
-		Dentro del panel y de la app te podemos sugerir otras apps de Grupo Vimo según el rubro que cargaste. Para eso no sale ningún dato
-		tuyo de esta app. Las apagás en&nbsp;Ajustes.
+		Además, dentro del panel y de la app te podemos recomendar otras apps de Grupo Vimo según el rubro y el uso de tu cuenta (cuánto hace
+		que la usás, si ya recibís turnos y el estado de tu suscripción). Esas apps no reciben datos tuyos: si tocás la recomendación, sólo saben que llegaste
+		desde ella. Las apagás en Configuración › Sugerencias, o desde la misma&nbsp;tarjeta.
 	</p>
 
 	<h2>Dónde están</h2>
