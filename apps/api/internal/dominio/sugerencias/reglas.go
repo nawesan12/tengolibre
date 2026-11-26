@@ -33,8 +33,9 @@ type Datos struct {
 	Rol      string
 	Rubro    string
 	CreadoEn time.Time
-	// Reservable: el alta está terminada (hay algo que un cliente puede reservar).
-	Reservable bool
+	// AltaCompleta: la guía «Para recibir turnos» está terminada (arranque.Estado.Completo: todos los
+	// pasos obligatorios, no sólo que haya algo reservable).
+	AltaCompleta bool
 	// Turnos: cuántos turnos tuvo el negocio (0: la cuenta está vacía).
 	Turnos int
 	// Bloqueado: la prueba terminó sin suscripción (el Inicio le pide elegir un plan).
@@ -50,7 +51,7 @@ func Elegir(d Datos, ahora time.Time) *Sugerencia {
 	if !slices.Contains(sesion.Gestion, d.Rol) || d.Apagadas || d.Bloqueado || d.Rubro == "" {
 		return nil
 	}
-	if ahora.Sub(d.CreadoEn) < DiasDeGracia*24*time.Hour || !d.Reservable || d.Turnos == 0 {
+	if ahora.Sub(d.CreadoEn) < DiasDeGracia*24*time.Hour || !d.AltaCompleta || d.Turnos == 0 {
 		return nil
 	}
 	for _, r := range Reglas {

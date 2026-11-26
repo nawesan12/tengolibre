@@ -3,6 +3,7 @@
 package arranque
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
@@ -43,9 +44,23 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 
 func (s *Servicio) estado(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
+	var e Estado
+	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) (err error) {
+		e, err = Leer(ctx, tx)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	web.JSON(w, http.StatusOK, e)
+	return nil
+}
+
+// Leer calcula el onboarding del negocio fijado en tx. Lo usan el panel (GET /v1/panel/arranque) y
+// las sugerencias de la casa (que no aparecen mientras falte un paso obligatorio).
+func Leer(ctx context.Context, tx pgx.Tx) (Estado, error) {
 	var perfil, contacto, ubicacion, logo, servicios, profesionales, horarios, asignados, fotos bool
-	err := s.Pool.EnNegocio(ctx, sesion.De(ctx).NegocioID, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `SELECT
+	err := tx.QueryRow(ctx, `SELECT
 			n.descripcion <> '',
 			n.telefono <> '' OR n.whatsapp <> '',
 			n.direccion <> '' AND n.ciudad <> '',
@@ -58,10 +73,9 @@ func (s *Servicio) estado(w http.ResponseWriter, r *http.Request) error {
 				AND EXISTS (SELECT 1 FROM horarios h WHERE h.profesional_id = p.id)),
 			EXISTS (SELECT 1 FROM fotos)
 			FROM negocios n WHERE n.id = app.negocio_actual()`).Scan(
-			&perfil, &contacto, &ubicacion, &logo, &servicios, &profesionales, &horarios, &asignados, &fotos)
-	})
+		&perfil, &contacto, &ubicacion, &logo, &servicios, &profesionales, &horarios, &asignados, &fotos)
 	if err != nil {
-		return err
+		return Estado{}, err
 	}
 	e := Estado{Reservable: asignados, Pasos: []Paso{
 		{"servicios", "Cargá tus servicios con duración y precio", servicios, true},
@@ -81,6 +95,5 @@ func (s *Servicio) estado(w http.ResponseWriter, r *http.Request) error {
 			e.Completo = false
 		}
 	}
-	web.JSON(w, http.StatusOK, e)
-	return nil
+	return e, nil
 }

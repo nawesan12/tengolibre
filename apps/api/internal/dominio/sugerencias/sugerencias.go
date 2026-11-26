@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/arranque"
 	"github.com/nawesan12/tengolibre/apps/api/internal/dominio/suscripcion"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/tengolibre/apps/api/internal/plataforma/problema"
@@ -56,17 +57,18 @@ func (s *Servicio) Rutas(mux *http.ServeMux) {
 // Leer arma los datos del negocio fijado en tx para las reglas.
 func Leer(ctx context.Context, tx pgx.Tx, rol string, ahora time.Time) (Datos, error) {
 	d := Datos{Rol: rol, Cerradas: map[string]time.Time{}}
-	// Reservable: lo mismo que «asignados» en arranque (servicio activo, hecho por alguien activo que
-	// tiene horario).
 	err := tx.QueryRow(ctx, `SELECT n.rubro, n.creado_en, n.sugerencias_apagadas,
-		EXISTS (SELECT 1 FROM profesional_servicios ps JOIN profesionales p ON p.id = ps.profesional_id
-			JOIN servicios s ON s.id = ps.servicio_id WHERE p.activo AND s.activo
-			AND EXISTS (SELECT 1 FROM horarios h WHERE h.profesional_id = p.id)),
 		(SELECT count(*) FROM (SELECT 1 FROM turnos LIMIT 1) t)
-		FROM negocios n WHERE n.id = app.negocio_actual()`).Scan(&d.Rubro, &d.CreadoEn, &d.Apagadas, &d.Reservable, &d.Turnos)
+		FROM negocios n WHERE n.id = app.negocio_actual()`).Scan(&d.Rubro, &d.CreadoEn, &d.Apagadas, &d.Turnos)
 	if err != nil {
 		return d, err
 	}
+	// El alta terminada es la misma guía «Para recibir turnos» del Inicio (todos los pasos obligatorios).
+	e, err := arranque.Leer(ctx, tx)
+	if err != nil {
+		return d, err
+	}
+	d.AltaCompleta = e.Completo
 	filas, err := tx.Query(ctx, "SELECT marca, hasta FROM sugerencias_cerradas")
 	if err != nil {
 		return d, err

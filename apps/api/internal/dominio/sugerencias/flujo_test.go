@@ -32,13 +32,14 @@ func armar(t *testing.T, activas bool) *prueba.API {
 	})
 }
 
-// negocioListo: una barbería de 20 días con plan, el alta terminada (servicio, profesional con
-// horario y asignado) y un turno. Le toca la sugerencia.
+// negocioListo: una barbería de 20 días con plan, la guía «Para recibir turnos» terminada (perfil,
+// contacto, dirección, servicio, profesional con horario y asignado) y un turno. Le toca la sugerencia.
 func negocioListo(t *testing.T, a *prueba.API, slug string) string {
 	t.Helper()
 	n := pruebadb.CrearNegocio(t, a.Bases.App, slug, duena)
 	a.PonerPlan(n, "equipo")
-	a.Fila("UPDATE negocios SET rubro = 'barberia', creado_en = now() - interval '20 days' WHERE id = $1", []any{n})
+	a.Fila(`UPDATE negocios SET rubro = 'barberia', creado_en = now() - interval '20 days', descripcion = 'Cortes y barba',
+		whatsapp = '2235550000', direccion = 'Güemes 2800', ciudad = 'Mar del Plata' WHERE id = $1`, []any{n})
 	var s, p string
 	a.Fila("INSERT INTO servicios (negocio_id, nombre, duracion, precio) VALUES ($1, 'Corte', 30, 8000) RETURNING id::text", []any{n}, &s)
 	a.Fila("INSERT INTO profesionales (negocio_id, nombre) VALUES ($1, 'Ana') RETURNING id::text", []any{n}, &p)
@@ -174,6 +175,9 @@ func TestCuandoNoAparece(t *testing.T) {
 		{"sin rubro", "UPDATE negocios SET rubro = '' WHERE id = $1", "UPDATE negocios SET rubro = 'barberia' WHERE id = $1"},
 		{"cuenta de 13 días", "UPDATE negocios SET creado_en = now() - interval '13 days' WHERE id = $1",
 			"UPDATE negocios SET creado_en = now() - interval '20 days' WHERE id = $1"},
+		// Reservable pero con la guía sin terminar (falta un paso obligatorio): todavía no.
+		{"falta la descripción", "UPDATE negocios SET descripcion = '' WHERE id = $1", "UPDATE negocios SET descripcion = 'Cortes y barba' WHERE id = $1"},
+		{"falta la dirección", "UPDATE negocios SET ciudad = '' WHERE id = $1", "UPDATE negocios SET ciudad = 'Mar del Plata' WHERE id = $1"},
 		{"alta sin terminar", "DELETE FROM profesional_servicios WHERE negocio_id = $1", ""},
 	}
 	for _, c := range casos {

@@ -13,7 +13,7 @@ var ahora = time.Date(2026, 12, 1, 12, 0, 0, 0, time.UTC)
 
 // base: una dueña de una barbería con 20 días, el alta terminada y turnos. Le toca la sugerencia.
 func base() Datos {
-	return Datos{Rol: "duenio", Rubro: "barberia", CreadoEn: ahora.AddDate(0, 0, -20), Reservable: true, Turnos: 1, Cerradas: map[string]time.Time{}}
+	return Datos{Rol: "duenio", Rubro: "barberia", CreadoEn: ahora.AddDate(0, 0, -20), AltaCompleta: true, Turnos: 1, Cerradas: map[string]time.Time{}}
 }
 
 // Una fila por regla: qué cambia del caso base y si se muestra.
@@ -32,7 +32,7 @@ func TestReglas(t *testing.T) {
 		{"recepción", func(d *Datos) { d.Rol = "recepcion" }, false},
 		{"cuenta de 13 días", func(d *Datos) { d.CreadoEn = ahora.AddDate(0, 0, -13) }, false},
 		{"cuenta de 14 días justos", func(d *Datos) { d.CreadoEn = ahora.AddDate(0, 0, -14) }, true},
-		{"alta sin terminar", func(d *Datos) { d.Reservable = false }, false},
+		{"alta sin terminar (falta un paso obligatorio)", func(d *Datos) { d.AltaCompleta = false }, false},
 		{"cuenta vacía (sin turnos)", func(d *Datos) { d.Turnos = 0 }, false},
 		{"prueba vencida sin plan", func(d *Datos) { d.Bloqueado = true }, false},
 		{"interruptor apagado", func(d *Datos) { d.Apagadas = true }, false},
