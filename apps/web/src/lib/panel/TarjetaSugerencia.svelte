@@ -6,7 +6,7 @@
 	TarjetaSugerencia.swift y TarjetaSugerencia.kt.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { avisar, type Sugerencia } from './sugerencia.ts';
 
@@ -17,6 +17,10 @@
 	let menu = $state(false);
 	let img = $state<HTMLImageElement>();
 	let raiz = $state<HTMLElement>();
+	let cruz = $state<HTMLButtonElement>();
+	let lista = $state<HTMLElement>();
+	let aviso = $state<HTMLElement>();
+	let hecho = $state('');
 
 	// Sin palabra sola en el último renglón (con texto grande puede partirse).
 	const pegar = (s: string) => s.replace(/ (\S+)$/, ' $1');
@@ -42,11 +46,62 @@
 		menu = false;
 		cerrada = true;
 		avisar({ id: sugerencia.id, negocio, que: 'cerrar', hasta });
+		// El nodo con el foco se va: el foco pasa al aviso (fuera del {#if}), que además se anuncia.
+		hecho = hasta === '30d' ? 'Ocultamos la sugerencia por 30 días.' : 'No te la vamos a mostrar más.';
+		tick().then(() => aviso?.focus());
+	}
+
+	function items() {
+		return [...(lista?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])];
+	}
+
+	async function abrir() {
+		menu = true;
+		await tick();
+		items()[0]?.focus();
+	}
+
+	function salirDelMenu() {
+		menu = false;
+		cruz?.focus();
+	}
+
+	// Teclado de un menú (WAI-ARIA): flechas, Inicio/Fin, Escape vuelve a la cruz, Tab lo cierra.
+	function teclaMenu(e: KeyboardEvent) {
+		const todos = items();
+		const i = todos.indexOf(document.activeElement as HTMLButtonElement);
+		const ir = (n: number) => {
+			e.preventDefault();
+			todos[(n + todos.length) % todos.length]?.focus();
+		};
+		if (e.key === 'ArrowDown') ir(i + 1);
+		else if (e.key === 'ArrowUp') ir(i - 1);
+		else if (e.key === 'Home') ir(0);
+		else if (e.key === 'End') ir(todos.length - 1);
+		else if (e.key === 'Escape') {
+			e.preventDefault();
+			salirDelMenu();
+		} else if (e.key === 'Tab') menu = false;
+	}
+
+	function teclaCruz(e: KeyboardEvent) {
+		if (e.key === 'Escape' && menu) {
+			e.preventDefault();
+			menu = false;
+		} else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !menu) {
+			e.preventDefault();
+			abrir();
+		}
+	}
+
+	// Si el foco sale de la tarjeta (Tab, clic en otro lado), el menú se cierra.
+	function focoAfuera(e: FocusEvent) {
+		if (menu && !raiz?.contains(e.relatedTarget as Node | null)) menu = false;
 	}
 </script>
 
 {#if !cerrada && !fallo}
-	<section class="sug" aria-label="Sugerencia de Grupo Vimo" bind:this={raiz}>
+	<section class="sug" aria-label="Sugerencia de Grupo Vimo" bind:this={raiz} onfocusout={focoAfuera}>
 		<a class="cuerpo" href={sugerencia.url} target="_blank" rel="noopener" onclick={() => avisar({ id: sugerencia.id, negocio, que: 'clic' })}>
 			<picture class="foto" style:background-color={sugerencia.color}>
 				<source media="(min-width: 768px)" srcset={sugerencia.banner} />
@@ -64,19 +119,23 @@
 			aria-label="Ocultar sugerencia"
 			aria-haspopup="menu"
 			aria-expanded={menu}
-			onclick={() => (menu = !menu)}
-			onkeydown={(e) => e.key === 'Escape' && (menu = false)}
+			aria-controls={menu ? 'sug-menu' : undefined}
+			bind:this={cruz}
+			onclick={() => (menu ? (menu = false) : abrir())}
+			onkeydown={teclaCruz}
 		>
 			<Icono nombre="close" tam={18} />
 		</button>
 		{#if menu}
-			<div class="menu" role="menu" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && (menu = false)}>
-				<button type="button" role="menuitem" onclick={() => cerrar('30d')}><Icono nombre="schedule" tam={18} />Ocultar por 30&nbsp;días</button>
-				<button type="button" role="menuitem" onclick={() => cerrar('siempre')}><Icono nombre="do_not_disturb_on" tam={18} />Ya la uso / No me&nbsp;interesa</button>
+			<div class="menu" id="sug-menu" role="menu" aria-label="Ocultar sugerencia" tabindex="-1" bind:this={lista} onkeydown={teclaMenu}>
+				<button type="button" role="menuitem" tabindex="-1" onclick={() => cerrar('30d')}><Icono nombre="schedule" tam={18} />Ocultar por 30&nbsp;días</button>
+				<button type="button" role="menuitem" tabindex="-1" onclick={() => cerrar('siempre')}><Icono nombre="do_not_disturb_on" tam={18} />Ya la uso / No me&nbsp;interesa</button>
 			</div>
 		{/if}
 	</section>
 {/if}
+<!-- Siempre montado: anuncia el cierre y recibe el foco cuando la tarjeta se va. -->
+<p class="visualmente-oculto" role="status" tabindex="-1" bind:this={aviso}>{hecho}</p>
 
 <style>
 	.sug {
