@@ -5,6 +5,7 @@ import { enc, siExiste, siSePuede } from '#lib/operacion/servidor.ts';
 import type { ParaLlamar, PedidoDias } from '#lib/operacion/contrato.ts';
 import type { Anotado, Resena, Turno } from '#lib/operacion/tipos.ts';
 import type { EstadoAsistente } from '#lib/panel/asistente.ts';
+import type { Sugerencia } from '#lib/panel/sugerencia.ts';
 import { dia } from '#lib/formato.ts';
 import { sumarDias } from '#lib/operacion/fechas.ts';
 import { POCOS_TURNOS, ventanaMovimiento } from '#lib/panel/link.ts';
@@ -30,7 +31,7 @@ export const load: PageServerLoad = async (event) => {
 	const nada = <T>(p: Promise<T>) => siExiste(p).catch(() => null);
 	const manana = sumarDias(dia(), 1);
 	const mov = ventanaMovimiento(dia());
-	const [arranque, resenas, espera, mp, llamar, pedidos, push, proximos, movimiento, asistente] = await Promise.all([
+	const [arranque, resenas, espera, mp, llamar, pedidos, push, proximos, movimiento, asistente, sugerencia] = await Promise.all([
 		api.get<{ completo: boolean; reservable: boolean; pasos: Paso[] }>('/v1/panel/arranque'),
 		negocio.rol === 'recepcion' ? null : siSePuede(api.get<{ resenas: Resena[] }>('/v1/panel/resenas')).catch(() => null),
 		negocio.rol === 'profesional' ? null : siSePuede(api.get<{ espera: Anotado[] }>('/v1/panel/espera')).catch(() => null),
@@ -50,7 +51,9 @@ export const load: PageServerLoad = async (event) => {
 			)
 		),
 		// El asistente: las sugerencias y el cupo de IA del mes (si falla, igual se puede preguntar).
-		nada(api.get<EstadoAsistente>('/v1/panel/asistente'))
+		nada(api.get<EstadoAsistente>('/v1/panel/asistente')),
+		// La sugerencia de la casa (otra app de Grupo Vimo): sólo dueña o encargada. Si falla, nada.
+		gestiona ? nada(api.get<{ sugerencia: Sugerencia | null }>('/v1/panel/sugerencia')) : null
 	]);
 	const sinResponder = (resenas?.resenas ?? []).filter((r) => !r.respondidaEn && !r.respuesta);
 	return {
@@ -66,6 +69,7 @@ export const load: PageServerLoad = async (event) => {
 		proximos: proximos?.turnos ?? [],
 		linkPrimero: (movimiento?.turnos.length ?? 0) < POCOS_TURNOS,
 		asistente,
+		sugerencia: sugerencia?.sugerencia ?? null,
 		gestiona
 	};
 };

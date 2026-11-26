@@ -19,6 +19,7 @@
 	import TuLink from '#lib/panel/TuLink.svelte';
 	import { abrirLink } from '#lib/panel/panelLink.svelte.ts';
 	import Asistente from '#lib/panel/Asistente.svelte';
+	import TarjetaSugerencia from '#lib/panel/TarjetaSugerencia.svelte';
 
 	let { data, form } = $props();
 
@@ -424,6 +425,11 @@
 		{/if}
 	</div>
 </div>
+
+<!-- Al final del Inicio, debajo de todo lo del negocio: una sugerencia de otra app de la casa. -->
+{#if data.sugerencia && !data.acceso?.bloqueado}
+	<TarjetaSugerencia sugerencia={data.sugerencia} negocio={data.negocio.id} />
+{/if}
 
 <style>
 	.tu-link {

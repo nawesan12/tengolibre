@@ -29,7 +29,7 @@ export const load: PageServerLoad = async (event) => {
 	// Lo nuevo (WhatsApp, lista de espera, recordatorios, avisos por persona, reporte mensual) se
 	// tolera si falla: la página sigue con lo de siempre.
 	const opcional = <T>(p: Promise<T>) => siPuede(p).catch(() => null);
-	const [ajustes, avisos, ausencias, actividad, whatsapp, mensajes, espera, recordatorios, cupones, preferencias, navegador, mensual] =
+	const [ajustes, avisos, ausencias, actividad, whatsapp, mensajes, espera, recordatorios, cupones, preferencias, navegador, mensual, sugerencias] =
 		await Promise.all([
 			api.get<Ajustes>('/v1/panel/ajustes'),
 			api.get<AjustesAvisos>('/v1/panel/ajustes/avisos'),
@@ -43,7 +43,9 @@ export const load: PageServerLoad = async (event) => {
 			opcional(api.get<{ cupones: { id: string; codigo: string; activo: boolean }[] }>('/v1/panel/cupones')),
 			opcional(api.get<Preferencias>('/v1/panel/push/preferencias')),
 			opcional(api.get<SuscripcionWeb>('/v1/yo/suscripciones-web')),
-			opcional(api.get<AjustesMensual>('/v1/panel/reportes/mensual/ajustes'))
+			opcional(api.get<AjustesMensual>('/v1/panel/reportes/mensual/ajustes')),
+			// El interruptor de las sugerencias de la casa (dueña o encargada).
+			opcional(api.get<{ activas: boolean }>('/v1/panel/ajustes/sugerencias'))
 		]);
 	return {
 		ajustes,
@@ -57,7 +59,8 @@ export const load: PageServerLoad = async (event) => {
 		cupones: (cupones?.cupones ?? []).filter((c) => c.activo).map((c) => ({ id: c.id, codigo: c.codigo })),
 		preferencias,
 		navegador,
-		mensual
+		mensual,
+		sugerencias
 	};
 };
 
@@ -116,6 +119,13 @@ export const actions: Actions = {
 				...(f.has('hayActivo') ? { activo: f.get('activo') === 'on' } : {}),
 				encargados
 			})
+		);
+	},
+	sugerencias: async (event) => {
+		const f = await event.request.formData();
+		const activas = f.get('activas') === 'on';
+		return accion('sugerencias', activas ? 'Prendimos las sugerencias.' : 'Apagamos las sugerencias.', () =>
+			apiDe(event).put('/v1/panel/ajustes/sugerencias', { activas })
 		);
 	},
 	espera: async (event) => {

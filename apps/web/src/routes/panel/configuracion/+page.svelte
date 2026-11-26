@@ -259,6 +259,23 @@
 					<button class="guardar visualmente-oculto">Guardar ausencias</button>
 				</form>
 			</section>
+
+			{#if data.sugerencias}
+				<section class="g-bloque sin-pad" aria-labelledby="t-sugerencias">
+					<h2 class="g-bloque-titulo titulo" id="t-sugerencias">Sugerencias</h2>
+					<Mensaje {form} que="sugerencias" />
+					<form method="POST" action="?/sugerencias" use:enhance={sinReset} onchange={guardar}>
+						<Ajuste
+							etiqueta="Sugerencias de Grupo Vimo"
+							ayuda="Otras apps nuestras según tu rubro, al final del Inicio. No sale ningún dato tuyo"
+							nombre="activas"
+							valor={data.sugerencias.activas}
+							sino
+						/>
+						<button class="guardar visualmente-oculto">Guardar sugerencias</button>
+					</form>
+				</section>
+			{/if}
 		</div>
 
 		<aside class="g-col lado">

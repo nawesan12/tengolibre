@@ -10,6 +10,7 @@ import { TENGOLIBRE_INGRESO_PRUEBA } from '$app/env/private';
 import { PUBLIC_CLERK_PUBLICABLE } from '$app/env/public';
 import { Api, apiDe, type Persona } from '#lib/server/api.ts';
 import { intentar } from '#lib/server/acciones.ts';
+import { guardarOrigen, leerOrigen, origenDe } from '#lib/server/origen.ts';
 import { COOKIE_VOLVER, elegirNegocio, volverValido } from '#lib/server/sesion.ts';
 import { conSesion } from '#lib/cuenta/ingreso.server.ts';
 import { fapiDe } from '#lib/clerk.ts';
@@ -57,6 +58,9 @@ async function cargar(api: Api, paso: Paso): Promise<Cargado> {
 export const load: PageServerLoad = async (event) => {
 	const { locals, url } = event;
 	const borrador = borradorDe(url);
+	// Los utm del link con el que llegó (se guardan en el negocio al crearlo).
+	const origen = origenDe(url);
+	if (origen) guardarOrigen(event.cookies, origen);
 	if (!locals.token)
 		return {
 			modo: 'alta' as const,
@@ -131,7 +135,7 @@ export const actions: Actions = {
 		}
 		const slug = texto(f, 'slug').toLowerCase();
 		const rubro = rubroDe(texto(f, 'rubro'));
-		const r = await intentar(() => apiDe(event).post<{ id: string }>('/v1/negocios', { nombre, slug }));
+		const r = await intentar(() => apiDe(event).post<{ id: string }>('/v1/negocios', { nombre, slug, origen: leerOrigen(event.cookies) ?? undefined }));
 		if (!('ok' in r)) return r;
 		elegirNegocio(event.cookies, r.datos.id);
 		// La cookie recién puesta no llega a este pedido: el negocio va a mano.
