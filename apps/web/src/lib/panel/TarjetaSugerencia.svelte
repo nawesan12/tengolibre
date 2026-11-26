@@ -176,7 +176,8 @@
 	.menu {
 		position: absolute;
 		z-index: 5;
-		top: 44px;
+		/* Debajo de la tarjeta (pisa sólo su borde): nunca corta el título ni el CTA. */
+		top: calc(100% - 8px);
 		right: 8px;
 		display: flex;
 		flex-direction: column;
