@@ -18,6 +18,7 @@ Pedido de Nahuel (26/11): «tienen que estar prendidas por defecto y que sólo s
 - **Tests:** `TestInterruptorSoloConPlanPago` (gratis no apaga, pago sí, «No me interesa» anda sin plan) y filas nuevas en
   `TestReglas`. Sin migración.
 - **Encendido:** `SUGERENCIAS_ACTIVAS=true` en `/opt/tengolibre/api.conf` desde el 26/11/2026.
+- **Desplegado el 26/11/2026 (e18b3da):** API (con `SUGERENCIAS_ACTIVAS=true` verificado en el proceso, `up -d --force-recreate api`) y web. Sin migración. iOS: sin cambios desde 2611260119, que sigue en todos los grupos (`testflight-ultima`). Android: corrida 45759102960 en verde, 143 en la prueba cerrada de Play.
 - **AAIP:** pendiente de Nahuel: sumar la finalidad «recomendación de otros servicios de Grupo Vimo» a la base (texto exacto en `~/Trabajo/vimo/legales/aaip/pendientes.md`).
 
 ## 25/11/2026: sugerencias de la casa, fase 1 (rama `sugerencias`, migración 00039; sin desplegar)
