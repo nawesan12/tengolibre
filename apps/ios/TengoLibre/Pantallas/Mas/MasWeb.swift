@@ -616,6 +616,8 @@ struct Configuracion: View {
     struct Espera: Codable { var minutos: Int; var automatica: Bool }
     struct Encargado: Codable, Hashable { var id: String; var nombre: String; var email: String; var recibe: Bool }
     struct Mensual: Codable { var activo: Bool; var encargados: [Encargado] }
+    /// El interruptor de las sugerencias de la casa (otras apps de Grupo Vimo al final de Hoy).
+    struct Sugerencias: Codable { var activas: Bool }
     /// Lo que acepta el PUT del reporte mensual: `activo` y los encargados que cambian, sólo {id, recibe}.
     private struct CambioMensual: Encodable { var activo: Bool; var encargados: [CambioEncargado] }
     private struct CambioEncargado: Encodable { var id: String; var recibe: Bool }
@@ -627,6 +629,7 @@ struct Configuracion: View {
     @State private var me: Mensual?
     /// El reporte mensual como vino (para mandar sólo los encargados que cambiaron).
     @State private var meAntes: Mensual?
+    @State private var sug: Sugerencias?
     @State private var error = ""
 
     var body: some View {
@@ -662,6 +665,14 @@ struct Configuracion: View {
                         BotonGuardar { await guardarMensual() }.padding(12)
                     }
                 }
+                if sug != nil {
+                    Bloque(titulo: "Sugerencias", pie: "Otras apps de Grupo Vimo según tu rubro, al final de Hoy. No sale ningún dato tuyo.") {
+                        RenglonInterruptor(titulo: "Sugerencias de Grupo Vimo", activo: Binding(get: { sug?.activas ?? true }, set: { v in
+                            sug = Sugerencias(activas: v)
+                            Task { await guardarSugerencias(v) }
+                        }))
+                    }
+                }
                 NavigationLink(value: DestinoMas.whatsapp) { FilaLista(simbolo: "message", titulo: "WhatsApp") }.buttonStyle(.plain).tarjeta()
                 NavigationLink(value: DestinoMas.penalidades) { FilaLista(simbolo: "exclamationmark.shield", titulo: "Ausencias y penalidades") }.buttonStyle(.plain).tarjeta()
                 NavigationLink(value: DestinoMas.auditoria) { FilaLista(simbolo: "list.bullet.rectangle", titulo: "Actividad") }.buttonStyle(.plain).tarjeta()
@@ -677,8 +688,17 @@ struct Configuracion: View {
             if let x: Espera = try? await estado.api.get("/v1/panel/ajustes/espera") { es = x }
             me = try? await estado.api.get("/v1/panel/reportes/mensual/ajustes")
             meAntes = me
+            sug = try? await estado.api.get("/v1/panel/ajustes/sugerencias")
             error = ""
         } catch let e as ErrorApi { error = e.detalle } catch { self.error = "Probá de nuevo." }
+    }
+
+    /// Se guarda al tocar el interruptor; si falla, vuelve a como estaba.
+    private func guardarSugerencias(_ v: Bool) async {
+        let ok = await estado.intentar(v ? "Prendimos las sugerencias" : "Apagamos las sugerencias") {
+            try await estado.api.hacer("PUT", "/v1/panel/ajustes/sugerencias", Sugerencias(activas: v))
+        }
+        if !ok { sug = Sugerencias(activas: !v) }
     }
 
     /// La API rechaza campos de más (nombre, email) y un encargado sólo puede cambiarse a sí mismo: van
